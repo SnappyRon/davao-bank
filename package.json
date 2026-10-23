@@ -18,10 +18,10 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\"",
-    "seed": "tsx scripts/seed.ts",
-    "test:rls": "tsx scripts/test-rls-and-auth.ts",
-    "test:money": "tsx scripts/test-phase3-money.ts",
-    "test:admin": "tsx scripts/test-phase4-admin.ts"
+    "seed": "node --env-file=.env --import tsx scripts/seed.ts",
+    "test:rls": "node --env-file=.env --import tsx scripts/test-rls-and-auth.ts",
+    "test:money": "node --env-file=.env --import tsx scripts/test-phase3-money.ts",
+    "test:admin": "node --env-file=.env --import tsx scripts/test-phase4-admin.ts"
   },
   "engines": {
     "node": ">=20.0.0"
