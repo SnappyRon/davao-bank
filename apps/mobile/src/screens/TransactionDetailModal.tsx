@@ -1,18 +1,18 @@
 import React from 'react';
+import { View, StyleSheet, ScrollView } from 'react-native';
 import {
-  View,
-  Text,
-  Modal,
-  TouchableOpacity,
-  StyleSheet,
-  ScrollView,
-  Platform,
-} from 'react-native';
-import {
-  colors,
-  formatCentavosToPHP,
-  type TransactionHistoryItem,
-} from '@davao-bank/shared';
+  ArrowDownLeft,
+  ArrowUpRight,
+  PlusCircle,
+  MinusCircle,
+  RotateCcw,
+  Sliders,
+  Receipt,
+  Clock,
+  Hash,
+} from 'lucide-react-native';
+import { colors, spacing, radius, type TransactionHistoryItem } from '@davao-bank/shared';
+import { BottomSheet, Text, AmountText, Badge, Button, Card } from '../components';
 
 interface TransactionDetailModalProps {
   visible: boolean;
@@ -27,285 +27,156 @@ export function TransactionDetailModal({
 }: TransactionDetailModalProps) {
   if (!transaction) return null;
 
-  const isCredit = transaction.signed_amount > 0;
-  const isTransfer = transaction.type === 'transfer';
+  const isCredit = transaction.direction === 'credit';
+  const isReversed = transaction.status === 'reversed';
 
-  // Format date readable
-  const formattedDate = new Date(transaction.created_at).toLocaleString('en-PH', {
+  const formattedDate = new Date(transaction.created_at).toLocaleString('en-US', {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
-    second: '2-digit',
   });
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
+  const getBadgeVariant = () => {
+    if (isReversed) return 'danger';
+    switch (transaction.status) {
       case 'completed':
-        return colors.success;
+        return 'success';
       case 'failed':
-      case 'cancelled':
-        return colors.error;
+        return 'danger';
       default:
-        return colors.warning;
+        return 'warning';
     }
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalCard}>
-          {/* Header */}
-          <View style={styles.headerRow}>
-            <View>
-              <Text style={styles.title}>Transaction Details</Text>
-              <Text style={styles.subtitle}>Official Digital Bank Receipt</Text>
-            </View>
-            <TouchableOpacity
-              onPress={onClose}
-              style={styles.closeBtn}
-              accessibilityLabel="Close transaction details"
-            >
-              <Text style={styles.closeBtnText}>✕</Text>
-            </TouchableOpacity>
+    <BottomSheet visible={visible} onClose={onClose} title="Receipt">
+      <ScrollView contentContainerStyle={styles.container}>
+        {/* Amount Hero */}
+        <View style={styles.heroBox}>
+          <Text variant="caption" color={colors.textMuted} style={styles.typeLabel}>
+            {transaction.type.toUpperCase()}
+          </Text>
+          <AmountText
+            amountCentavos={transaction.amount}
+            direction={isCredit ? 'incoming' : 'outgoing'}
+            variant="display"
+            style={styles.heroAmount}
+          />
+          <Badge
+            label={transaction.status.toUpperCase()}
+            variant={getBadgeVariant()}
+            style={styles.statusBadge}
+          />
+        </View>
+
+        {/* Ledger Details Card */}
+        <Card variant="subtle" style={styles.detailsCard}>
+          <View style={styles.row}>
+            <Text variant="body" color={colors.textSecondary}>
+              Account
+            </Text>
+            <Text variant="bodyStrong" tabularNums color={colors.ink}>
+              {transaction.account_number}
+            </Text>
           </View>
 
-          <ScrollView contentContainerStyle={styles.contentBody}>
-            {/* Hero Amount & Direction */}
-            <View style={styles.heroBox}>
-              <Text style={styles.typeTag}>{transaction.type.toUpperCase()}</Text>
-              <Text
-                style={[
-                  styles.heroAmount,
-                  { color: isCredit ? colors.success : colors.textPrimary },
-                ]}
-              >
-                {isCredit ? '+' : ''}
-                {formatCentavosToPHP(transaction.signed_amount)}
+          {transaction.counterparty_account_number ? (
+            <View style={styles.row}>
+              <Text variant="body" color={colors.textSecondary}>
+                Counterparty Account
               </Text>
-              <View
-                style={[
-                  styles.statusBadge,
-                  { backgroundColor: getStatusColor(transaction.status) + '20' },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.statusText,
-                    { color: getStatusColor(transaction.status) },
-                  ]}
-                >
-                  ● {transaction.status.toUpperCase()}
-                </Text>
-              </View>
-            </View>
-
-            {/* Receipt Table */}
-            <View style={styles.receiptContainer}>
-              <View style={styles.receiptRow}>
-                <Text style={styles.label}>Account Number</Text>
-                <Text style={styles.value}>{transaction.account_number}</Text>
-              </View>
-
-              {isTransfer && (
-                <View style={styles.receiptRow}>
-                  <Text style={styles.label}>
-                    {isCredit ? 'Sender Account' : 'Recipient Account'}
-                  </Text>
-                  <Text style={styles.valueHighlight}>
-                    {transaction.counterparty_account_number || 'Internal'}
-                  </Text>
-                </View>
-              )}
-
-              <View style={styles.receiptRow}>
-                <Text style={styles.label}>Direction</Text>
-                <Text style={styles.value}>
-                  {transaction.direction === 'credit'
-                    ? 'Cash In / Inflow'
-                    : 'Cash Out / Outflow'}
-                </Text>
-              </View>
-
-              <View style={styles.receiptRow}>
-                <Text style={styles.label}>Reference / Note</Text>
-                <Text style={styles.value}>
-                  {transaction.reference || 'None provided'}
-                </Text>
-              </View>
-
-              <View style={styles.receiptRow}>
-                <Text style={styles.label}>Date & Time</Text>
-                <Text style={styles.value}>{formattedDate}</Text>
-              </View>
-
-              <View style={styles.receiptRow}>
-                <Text style={styles.label}>Transaction ID</Text>
-                <Text style={styles.monoValue} numberOfLines={1} ellipsizeMode="middle">
-                  {transaction.transaction_id}
-                </Text>
-              </View>
-
-              <View style={styles.receiptRow}>
-                <Text style={styles.label}>Ledger Entry ID</Text>
-                <Text style={styles.monoValue} numberOfLines={1} ellipsizeMode="middle">
-                  {transaction.ledger_entry_id}
-                </Text>
-              </View>
-            </View>
-
-            {/* Verification note */}
-            <View style={styles.securityBox}>
-              <Text style={styles.securityText}>
-                🔒 Verified by Davao Bank Double-Entry Core Ledger. Balances are
-                server-authoritative and immutable.
+              <Text variant="bodyStrong" tabularNums color={colors.ink}>
+                {transaction.counterparty_account_number}
               </Text>
             </View>
+          ) : null}
 
-            <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-              <Text style={styles.closeButtonText}>Done</Text>
-            </TouchableOpacity>
-          </ScrollView>
-        </View>
-      </View>
-    </Modal>
+          {transaction.reference ? (
+            <View style={styles.row}>
+              <Text variant="body" color={colors.textSecondary}>
+                Reference / Note
+              </Text>
+              <Text variant="bodyStrong" color={colors.ink} style={styles.refText}>
+                {transaction.reference}
+              </Text>
+            </View>
+          ) : null}
+
+          <View style={styles.row}>
+            <Text variant="body" color={colors.textSecondary}>
+              Timestamp
+            </Text>
+            <Text variant="caption" color={colors.ink}>
+              {formattedDate}
+            </Text>
+          </View>
+
+          <View style={styles.row}>
+            <Text variant="body" color={colors.textSecondary}>
+              Transaction ID
+            </Text>
+            <Text variant="caption" color={colors.textMuted} style={styles.idText}>
+              {transaction.transaction_id}
+            </Text>
+          </View>
+        </Card>
+
+        <Button
+          title="Done"
+          variant="secondary"
+          onPress={onClose}
+          style={styles.doneButton}
+        />
+      </ScrollView>
+    </BottomSheet>
   );
 }
 
 const styles = StyleSheet.create({
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.65)',
-    justifyContent: 'flex-end',
-  },
-  modalCard: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
-    maxHeight: '90%',
-  },
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: colors.textPrimary,
-  },
-  subtitle: {
-    fontSize: 12,
-    color: colors.textMuted,
-    marginTop: 2,
-  },
-  closeBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.surfaceHover,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  closeBtnText: {
-    fontSize: 16,
-    color: colors.textSecondary,
-    fontWeight: '700',
-  },
-  contentBody: {
-    gap: 16,
-    paddingBottom: 24,
+  container: {
+    paddingBottom: spacing.xl,
+    gap: spacing.base,
   },
   heroBox: {
-    backgroundColor: colors.surfaceHover,
-    borderRadius: 16,
-    padding: 20,
     alignItems: 'center',
-    gap: 6,
+    paddingVertical: spacing.md,
   },
-  typeTag: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: colors.primary,
+  typeLabel: {
     letterSpacing: 1,
+    marginBottom: spacing.xs,
   },
   heroAmount: {
-    fontSize: 32,
-    fontWeight: '800',
+    marginVertical: spacing.xs,
   },
   statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 20,
-    marginTop: 4,
+    marginTop: spacing.xs,
   },
-  statusText: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.5,
+  detailsCard: {
+    padding: spacing.base,
+    borderRadius: radius.md,
+    gap: spacing.md,
   },
-  receiptContainer: {
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 16,
-    padding: 16,
-    gap: 12,
-  },
-  receiptRow: {
+  row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 4,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+    paddingBottom: spacing.sm,
   },
-  label: {
-    fontSize: 13,
-    color: colors.textMuted,
-    fontWeight: '500',
-  },
-  value: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    maxWidth: '55%',
+  refText: {
+    flex: 1,
     textAlign: 'right',
+    marginLeft: spacing.md,
   },
-  valueHighlight: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: colors.primary,
-  },
-  monoValue: {
+  idText: {
+    fontFamily: 'monospace',
     fontSize: 11,
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-    color: colors.textSecondary,
-    maxWidth: '50%',
-    textAlign: 'right',
   },
-  securityBox: {
-    backgroundColor: colors.surfaceHover,
-    borderRadius: 12,
-    padding: 12,
-  },
-  securityText: {
-    fontSize: 11,
-    color: colors.textMuted,
-    lineHeight: 16,
-    textAlign: 'center',
-  },
-  closeButton: {
-    backgroundColor: colors.primary,
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  closeButtonText: {
-    color: colors.textInverse,
-    fontSize: 15,
-    fontWeight: '700',
+  doneButton: {
+    marginTop: spacing.md,
+    width: '100%',
   },
 });

@@ -1,18 +1,16 @@
 import React, { useState } from 'react';
 import {
   View,
-  Text,
-  TextInput,
-  TouchableOpacity,
   StyleSheet,
-  ActivityIndicator,
-  SafeAreaView,
+  ScrollView,
   KeyboardAvoidingView,
   Platform,
-  ScrollView,
+  TouchableOpacity,
 } from 'react-native';
-import { colors } from '@davao-bank/shared';
+import { KeyRound, ArrowLeft, CheckCircle2, AlertCircle } from 'lucide-react-native';
+import { colors, spacing, radius } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
+import { Screen, Text, TextField, Button, Card, Logo } from '../components';
 
 interface ForgotPasswordScreenProps {
   onNavigateToLogin: () => void;
@@ -39,9 +37,7 @@ export function ForgotPasswordScreen({ onNavigateToLogin }: ForgotPasswordScreen
       if (error) {
         setErrorMessage(error.message);
       } else {
-        setMessage(
-          'Password reset instructions have been dispatched to your email address.'
-        );
+        setMessage('Password reset instructions have been sent to your email address.');
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -52,193 +48,146 @@ export function ForgotPasswordScreen({ onNavigateToLogin }: ForgotPasswordScreen
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <Screen style={styles.screen}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.keyboardView}
       >
-        <ScrollView contentContainerStyle={styles.container}>
-          <View style={styles.card}>
-            <View style={styles.iconCircle}>
-              <Text style={styles.iconText}>🔑</Text>
-            </View>
-
-            <Text style={styles.title}>Reset Password</Text>
-            <Text style={styles.subtitle}>
-              Enter your registered email address and we will send you a recovery link.
-            </Text>
-
-            {message && (
-              <View style={styles.successBanner}>
-                <Text style={styles.successText}>{message}</Text>
-              </View>
-            )}
-
-            {errorMessage && (
-              <View style={styles.errorBanner}>
-                <Text style={styles.errorText}>{errorMessage}</Text>
-              </View>
-            )}
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Email Address</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="you@example.com"
-                placeholderTextColor={colors.textMuted}
-                value={email}
-                onChangeText={setEmail}
-                autoCapitalize="none"
-                keyboardType="email-address"
-              />
-            </View>
-
-            <TouchableOpacity
-              style={[styles.primaryButton, loading && styles.buttonDisabled]}
-              onPress={handleReset}
-              disabled={loading}
-            >
-              {loading ? (
-                <ActivityIndicator color={colors.textInverse} size="small" />
-              ) : (
-                <Text style={styles.primaryButtonText}>Send Recovery Link</Text>
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.backButton} onPress={onNavigateToLogin}>
-              <Text style={styles.backButtonText}>Return to Sign In</Text>
-            </TouchableOpacity>
+        <ScrollView
+          contentContainerStyle={styles.container}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.brandRow}>
+            <Logo variant="horizontal" size={44} />
           </View>
+
+          <View style={styles.headingBox}>
+            <Text variant="h1" style={styles.title}>
+              Reset password
+            </Text>
+            <Text variant="body" color={colors.textSecondary}>
+              Enter your registered email and we'll send you instructions to reset your
+              password.
+            </Text>
+          </View>
+
+          {errorMessage ? (
+            <Card variant="subtle" style={styles.errorCard}>
+              <AlertCircle size={18} color={colors.redText} />
+              <Text variant="caption" color={colors.redText} style={styles.feedbackText}>
+                {errorMessage}
+              </Text>
+            </Card>
+          ) : null}
+
+          {message ? (
+            <Card variant="subtle" style={styles.successCard}>
+              <CheckCircle2 size={18} color={colors.primary} />
+              <Text variant="caption" color={colors.primary} style={styles.feedbackText}>
+                {message}
+              </Text>
+            </Card>
+          ) : null}
+
+          <View style={styles.form}>
+            <TextField
+              label="Email Address"
+              value={email}
+              onChangeText={setEmail}
+              placeholder="name@example.com"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+
+            <Button
+              title="Send Reset Instructions"
+              onPress={handleReset}
+              loading={loading}
+              icon={<KeyRound size={18} color={colors.textInverse} />}
+              style={styles.submitBtn}
+            />
+
+            <Button
+              title="Back to Sign In"
+              variant="ghost"
+              icon={<ArrowLeft size={18} color={colors.primary} />}
+              onPress={onNavigateToLogin}
+              style={styles.backBtn}
+            />
+          </View>
+
+          <Text
+            variant="caption"
+            color={colors.textMuted}
+            align="center"
+            style={styles.disclaimerText}
+          >
+            Simulated Prototype · Academic Use Only
+          </Text>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.background,
+  screen: {
+    backgroundColor: colors.canvas,
   },
   keyboardView: {
     flex: 1,
   },
   container: {
-    padding: 24,
-    justifyContent: 'center',
-    minHeight: '100%',
+    padding: spacing.screenSide,
+    paddingTop: spacing['3xl'],
+    paddingBottom: spacing['4xl'],
   },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: 20,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: colors.border,
+  brandRow: {
     alignItems: 'center',
-    shadowColor: colors.neutral,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 3,
+    marginBottom: spacing.xl,
   },
-  iconCircle: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: colors.accentLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-  },
-  iconText: {
-    fontSize: 26,
+  headingBox: {
+    marginBottom: spacing.xl,
   },
   title: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: colors.textPrimary,
-    marginBottom: 8,
+    marginBottom: spacing.xs,
   },
-  subtitle: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 18,
-    marginBottom: 20,
-  },
-  successBanner: {
-    backgroundColor: colors.successLight,
-    borderWidth: 1,
-    borderColor: colors.success,
-    borderRadius: 10,
-    padding: 12,
-    width: '100%',
-    marginBottom: 16,
-  },
-  successText: {
-    color: colors.successDark,
-    fontSize: 13,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  errorBanner: {
-    backgroundColor: colors.errorLight,
-    borderWidth: 1,
-    borderColor: colors.error,
-    borderRadius: 10,
-    padding: 12,
-    width: '100%',
-    marginBottom: 16,
-  },
-  errorText: {
-    color: colors.error,
-    fontSize: 13,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  inputGroup: {
-    width: '100%',
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    marginBottom: 6,
-  },
-  input: {
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 15,
-    color: colors.textPrimary,
-  },
-  primaryButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 12,
-    paddingVertical: 14,
-    width: '100%',
+  errorCard: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 4,
+    gap: spacing.sm,
+    backgroundColor: colors.tintRed,
+    borderColor: colors.redText,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    marginBottom: spacing.base,
   },
-  buttonDisabled: {
-    opacity: 0.7,
+  successCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.primaryTint,
+    borderColor: colors.primary,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    marginBottom: spacing.base,
   },
-  primaryButtonText: {
-    color: colors.textInverse,
-    fontSize: 15,
-    fontWeight: '700',
+  feedbackText: {
+    flex: 1,
   },
-  backButton: {
-    marginTop: 16,
-    padding: 8,
+  form: {
+    gap: spacing.base,
   },
-  backButtonText: {
-    color: colors.primary,
-    fontSize: 14,
-    fontWeight: '700',
+  submitBtn: {
+    marginTop: spacing.sm,
+    width: '100%',
+  },
+  backBtn: {
+    width: '100%',
+  },
+  disclaimerText: {
+    marginTop: spacing['2xl'],
   },
 });

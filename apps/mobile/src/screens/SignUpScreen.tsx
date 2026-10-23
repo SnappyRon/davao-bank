@@ -1,18 +1,16 @@
 import React, { useState } from 'react';
 import {
   View,
-  Text,
-  TextInput,
-  TouchableOpacity,
   StyleSheet,
-  ActivityIndicator,
-  SafeAreaView,
+  ScrollView,
   KeyboardAvoidingView,
   Platform,
-  ScrollView,
+  TouchableOpacity,
 } from 'react-native';
-import { colors } from '@davao-bank/shared';
+import { UserPlus, AlertCircle } from 'lucide-react-native';
+import { colors, spacing, radius } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
+import { Screen, Text, TextField, Button, Card, Logo } from '../components';
 
 interface SignUpScreenProps {
   onNavigateToLogin: () => void;
@@ -69,273 +67,175 @@ export function SignUpScreen({ onNavigateToLogin, onSignUpSuccess }: SignUpScree
       if (data.user) {
         onSignUpSuccess(email.trim());
       }
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setErrorMessage(msg);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'An unexpected error occurred during signup.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <Screen style={styles.screen}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.keyboardView}
       >
-        <ScrollView contentContainerStyle={styles.scrollContainer}>
-          <View style={styles.brandContainer}>
-            <View style={styles.logoBadge}>
-              <Text style={styles.logoBadgeText}>DB</Text>
-            </View>
-            <Text style={styles.brandTitle}>Open an Account</Text>
-            <Text style={styles.brandSubtitle}>
-              Join Davao Bank • Automatic Savings Provisioning
+        <ScrollView
+          contentContainerStyle={styles.container}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.brandRow}>
+            <Logo variant="horizontal" size={44} />
+          </View>
+
+          <View style={styles.headingBox}>
+            <Text variant="h1" style={styles.title}>
+              Create account
+            </Text>
+            <Text variant="body" color={colors.textSecondary}>
+              Join Davao Bank to receive a simulated PHP account.
             </Text>
           </View>
 
-          <View style={styles.card}>
-            <Text style={styles.formTitle}>Customer Registration</Text>
-            <Text style={styles.formDescription}>
-              A default savings account with a unique account number will be provisioned
-              instantly upon sign up.
-            </Text>
+          {errorMessage ? (
+            <Card variant="subtle" style={styles.errorCard}>
+              <AlertCircle size={18} color={colors.redText} />
+              <Text variant="caption" color={colors.redText} style={styles.errorText}>
+                {errorMessage}
+              </Text>
+            </Card>
+          ) : null}
 
-            {errorMessage && (
-              <View style={styles.errorContainer}>
-                <Text style={styles.errorText}>{errorMessage}</Text>
-              </View>
-            )}
+          <View style={styles.form}>
+            <TextField
+              label="Full Legal Name"
+              value={fullName}
+              onChangeText={setFullName}
+              placeholder="e.g. Maria Santos"
+              autoCapitalize="words"
+            />
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Full Legal Name *</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g. Juan dela Cruz"
-                placeholderTextColor={colors.textMuted}
-                value={fullName}
-                onChangeText={setFullName}
-                autoCapitalize="words"
-              />
-            </View>
+            <TextField
+              label="Mobile Number (Optional)"
+              value={phone}
+              onChangeText={setPhone}
+              placeholder="+63 917 123 4567"
+              keyboardType="phone-pad"
+            />
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Phone Number (Optional)</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="+63 9XX XXX XXXX"
-                placeholderTextColor={colors.textMuted}
-                value={phone}
-                onChangeText={setPhone}
-                keyboardType="phone-pad"
-              />
-            </View>
+            <TextField
+              label="Email Address"
+              value={email}
+              onChangeText={setEmail}
+              placeholder="name@example.com"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Email Address *</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="you@example.com"
-                placeholderTextColor={colors.textMuted}
-                value={email}
-                onChangeText={setEmail}
-                autoCapitalize="none"
-                keyboardType="email-address"
-              />
-            </View>
+            <TextField
+              label="Password (min 6 characters)"
+              value={password}
+              onChangeText={setPassword}
+              placeholder="••••••••"
+              secureTextEntry
+              autoCapitalize="none"
+            />
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Password *</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="At least 6 characters"
-                placeholderTextColor={colors.textMuted}
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-                autoCapitalize="none"
-              />
-            </View>
+            <TextField
+              label="Confirm Password"
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              placeholder="••••••••"
+              secureTextEntry
+              autoCapitalize="none"
+            />
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Confirm Password *</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Re-type password"
-                placeholderTextColor={colors.textMuted}
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                secureTextEntry
-                autoCapitalize="none"
-              />
-            </View>
-
-            <TouchableOpacity
-              style={[styles.primaryButton, loading && styles.buttonDisabled]}
+            <Button
+              title="Create Account"
               onPress={handleSignUp}
-              disabled={loading}
-              activeOpacity={0.85}
-            >
-              {loading ? (
-                <ActivityIndicator color={colors.textInverse} size="small" />
-              ) : (
-                <Text style={styles.primaryButtonText}>
-                  Register &amp; Provision Account
-                </Text>
-              )}
-            </TouchableOpacity>
-
-            <View style={styles.footerRow}>
-              <Text style={styles.footerPrompt}>Already have an account?</Text>
-              <TouchableOpacity onPress={onNavigateToLogin}>
-                <Text style={styles.loginLink}>Sign In</Text>
-              </TouchableOpacity>
-            </View>
+              loading={loading}
+              icon={<UserPlus size={18} color={colors.textInverse} />}
+              style={styles.submitBtn}
+            />
           </View>
+
+          <View style={styles.footerRow}>
+            <Text variant="body" color={colors.textSecondary}>
+              Already have an account?{' '}
+            </Text>
+            <TouchableOpacity onPress={onNavigateToLogin} activeOpacity={0.7}>
+              <Text variant="bodyStrong" color={colors.primary}>
+                Sign In
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <Text
+            variant="caption"
+            color={colors.textMuted}
+            align="center"
+            style={styles.disclaimerText}
+          >
+            Simulated Prototype · Academic Use Only
+          </Text>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.background,
+  screen: {
+    backgroundColor: colors.canvas,
   },
   keyboardView: {
     flex: 1,
   },
-  scrollContainer: {
-    padding: 24,
-    paddingTop: 16,
-    paddingBottom: 40,
+  container: {
+    padding: spacing.screenSide,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing['4xl'],
   },
-  brandContainer: {
+  brandRow: {
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: spacing.xl,
   },
-  logoBadge: {
-    width: 52,
-    height: 52,
-    borderRadius: 14,
-    backgroundColor: colors.primary,
+  headingBox: {
+    marginBottom: spacing.xl,
+  },
+  title: {
+    marginBottom: spacing.xs,
+  },
+  errorCard: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 10,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  logoBadgeText: {
-    color: colors.textInverse,
-    fontSize: 20,
-    fontWeight: '800',
-  },
-  brandTitle: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: colors.primary,
-    letterSpacing: -0.5,
-  },
-  brandSubtitle: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    fontWeight: '500',
-    marginTop: 2,
-  },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: 20,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: colors.neutral,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 3,
-  },
-  formTitle: {
-    fontSize: 19,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    marginBottom: 4,
-  },
-  formDescription: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginBottom: 18,
-    lineHeight: 17,
-  },
-  errorContainer: {
-    backgroundColor: colors.errorLight,
-    borderWidth: 1,
-    borderColor: colors.error,
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 16,
+    gap: spacing.sm,
+    backgroundColor: colors.tintRed,
+    borderColor: colors.redText,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    marginBottom: spacing.base,
   },
   errorText: {
-    color: colors.error,
-    fontSize: 13,
-    fontWeight: '600',
+    flex: 1,
   },
-  inputGroup: {
-    marginBottom: 14,
+  form: {
+    gap: spacing.base,
   },
-  label: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    marginBottom: 5,
-  },
-  input: {
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    fontSize: 14,
-    color: colors.textPrimary,
-  },
-  primaryButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginTop: 8,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  buttonDisabled: {
-    opacity: 0.7,
-  },
-  primaryButtonText: {
-    color: colors.textInverse,
-    fontSize: 15,
-    fontWeight: '700',
+  submitBtn: {
+    marginTop: spacing.sm,
+    width: '100%',
   },
   footerRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 6,
-    marginTop: 18,
+    marginTop: spacing['2xl'],
+    marginBottom: spacing.base,
   },
-  footerPrompt: {
-    fontSize: 13,
-    color: colors.textSecondary,
-  },
-  loginLink: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.primary,
+  disclaimerText: {
+    marginTop: spacing.sm,
   },
 });

@@ -2,8 +2,9 @@
 
 import React from 'react';
 import { useRouter } from 'next/navigation';
-import { colors } from '@davao-bank/shared';
+import { ShieldX, LogOut } from 'lucide-react';
 import { createAdminBrowserClient } from '@/lib/supabase-browser';
+import { Button } from '@/components/ui';
 
 export default function UnauthorizedPage() {
   const router = useRouter();
@@ -19,99 +20,72 @@ export default function UnauthorizedPage() {
     <div
       style={{
         minHeight: '100vh',
-        backgroundColor: colors.background,
+        backgroundColor: 'var(--color-canvas)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '1.5rem',
+        padding: 'var(--space-xl)',
       }}
     >
       <div
         style={{
           width: '100%',
           maxWidth: '460px',
-          backgroundColor: colors.surface,
-          borderRadius: '20px',
-          padding: '2.5rem',
-          border: `1px solid ${colors.border}`,
-          boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.05)',
+          backgroundColor: 'var(--color-surface)',
+          borderRadius: 'var(--radius-xl)',
+          padding: 'var(--space-2xl)',
+          border: '1px solid var(--color-border)',
+          boxShadow: 'var(--shadow-soft)',
           textAlign: 'center',
         }}
       >
         <div
           style={{
-            width: '60px',
-            height: '60px',
-            borderRadius: '16px',
-            backgroundColor: colors.errorLight,
+            width: '64px',
+            height: '64px',
+            borderRadius: 'var(--radius-pill)',
+            backgroundColor: 'var(--color-tint-red)',
+            color: 'var(--color-red-text)',
             display: 'inline-flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: '1.75rem',
-            marginBottom: '1.25rem',
+            marginBottom: 'var(--space-lg)',
           }}
         >
-          🚫
+          <ShieldX size={32} />
         </div>
 
         <h1
           style={{
             fontSize: '1.5rem',
             fontWeight: 800,
-            color: colors.textPrimary,
-            marginBottom: '0.5rem',
+            color: 'var(--color-ink)',
+            marginBottom: 'var(--space-sm)',
           }}
         >
-          Staff Authorization Required
+          Access Denied
         </h1>
 
         <p
           style={{
-            fontSize: '0.9rem',
-            color: colors.textSecondary,
-            lineHeight: 1.6,
-            marginBottom: '1.5rem',
+            fontSize: '0.9375rem',
+            color: 'var(--color-text-secondary)',
+            lineHeight: 1.5,
+            marginBottom: 'var(--space-xl)',
           }}
         >
-          You are currently signed in with an account that does not have the{' '}
-          <strong style={{ color: colors.primary }}>admin</strong> role. In compliance
-          with Davao Bank least-privilege architecture (§6.1), customer accounts cannot
-          access staff operations.
+          You do not have administrative privileges to access the Davao Bank Staff
+          Console. This system is strictly restricted to authorized staff and management.
         </p>
 
-        <div
-          style={{
-            backgroundColor: colors.neutralLight,
-            borderRadius: '10px',
-            padding: '1rem',
-            fontSize: '0.8rem',
-            color: colors.neutralDark,
-            textAlign: 'left',
-            marginBottom: '1.75rem',
-            lineHeight: 1.5,
-          }}
-        >
-          <strong>Enforcement:</strong> Verified server-side via Next.js Middleware and
-          Postgres Row-Level Security <code>public.is_admin()</code> helper.
-        </div>
-
-        <button
+        <Button
+          variant="destructive"
           onClick={handleSignOut}
-          style={{
-            width: '100%',
-            backgroundColor: colors.primary,
-            color: colors.textInverse,
-            padding: '0.85rem',
-            borderRadius: '10px',
-            border: 'none',
-            fontWeight: 700,
-            fontSize: '0.95rem',
-            cursor: 'pointer',
-            boxShadow: '0 4px 8px rgba(106, 27, 122, 0.2)',
-          }}
+          icon={<LogOut size={16} />}
+          fullWidth
         >
-          Sign Out &amp; Return to Login
-        </button>
+          Sign Out & Return to Login
+        </Button>
       </div>
     </div>
   );

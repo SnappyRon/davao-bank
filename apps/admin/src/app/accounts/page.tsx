@@ -1,7 +1,8 @@
 import React from 'react';
-import { colors, type AccountBalance, type AdminUserItem } from '@davao-bank/shared';
+import { type AccountBalance, type AdminUserItem } from '@davao-bank/shared';
 import { createAdminCookieServerClient } from '@/lib/supabase-cookies';
-import { AdminNav } from '@/components/AdminNav';
+import { AdminShell } from '@/components/AdminShell';
+import { PageHeader } from '@/components/ui';
 import { AccountsClient } from './AccountsClient';
 
 export const dynamic = 'force-dynamic';
@@ -32,63 +33,12 @@ export default async function AdminAccountsPage() {
   const users: AdminUserItem[] = usersData || [];
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        backgroundColor: colors.background,
-        display: 'flex',
-        flexDirection: 'column',
-      }}
-    >
-      <AdminNav adminEmail={user?.email} adminName={profile?.full_name} />
-
-      <main
-        style={{
-          maxWidth: '1280px',
-          width: '100%',
-          margin: '0 auto',
-          padding: '2rem 1.5rem',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '1.5rem',
-        }}
-      >
-        <div>
-          <div
-            style={{
-              fontSize: '0.8rem',
-              fontWeight: 800,
-              color: colors.primary,
-              letterSpacing: '1px',
-              textTransform: 'uppercase',
-            }}
-          >
-            Ledger &amp; Accounts
-          </div>
-          <h1
-            style={{
-              fontSize: '1.75rem',
-              fontWeight: 800,
-              color: colors.textPrimary,
-              marginTop: '0.25rem',
-            }}
-          >
-            Deposit Accounts &amp; Balance Adjustments
-          </h1>
-          <p
-            style={{
-              fontSize: '0.9rem',
-              color: colors.textSecondary,
-              marginTop: '0.25rem',
-            }}
-          >
-            Manage customer deposit accounts, open new checking/savings facilities, freeze
-            accounts under compliance review, and perform audited balance adjustments.
-          </p>
-        </div>
-
-        <AccountsClient initialAccounts={accounts} users={users} />
-      </main>
-    </div>
+    <AdminShell adminEmail={user?.email} adminName={profile?.full_name}>
+      <PageHeader
+        title="Deposit & Ledger Accounts"
+        subtitle="Manage deposit accounts, enforce freeze/close states, and perform audited balance adjustments."
+      />
+      <AccountsClient initialAccounts={accounts} allUsers={users} />
+    </AdminShell>
   );
 }

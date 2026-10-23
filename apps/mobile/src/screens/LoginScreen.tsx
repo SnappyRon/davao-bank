@@ -1,18 +1,16 @@
 import React, { useState } from 'react';
 import {
   View,
-  Text,
-  TextInput,
-  TouchableOpacity,
   StyleSheet,
-  ActivityIndicator,
-  SafeAreaView,
+  ScrollView,
   KeyboardAvoidingView,
   Platform,
-  ScrollView,
+  TouchableOpacity,
 } from 'react-native';
-import { colors } from '@davao-bank/shared';
+import { LogIn, AlertCircle } from 'lucide-react-native';
+import { colors, spacing, radius } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
+import { Screen, Text, TextField, Button, Card, Logo } from '../components';
 
 interface LoginScreenProps {
   onNavigateToSignUp: () => void;
@@ -54,258 +52,169 @@ export function LoginScreen({
         return;
       }
 
-      // Check email confirmation
       if (data.user && !data.user.email_confirmed_at) {
         await supabase.auth.signOut();
         onNavigateToVerifyEmail(email.trim());
         return;
       }
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setErrorMessage(msg);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'An unexpected error occurred during login.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <Screen style={styles.screen}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.keyboardView}
       >
-        <ScrollView contentContainerStyle={styles.scrollContainer}>
-          {/* Brand Header */}
-          <View style={styles.brandContainer}>
-            <View style={styles.logoBadge}>
-              <Text style={styles.logoBadgeText}>DB</Text>
-            </View>
-            <Text style={styles.brandTitle}>Davao Bank</Text>
-            <Text style={styles.brandSubtitle}>
-              Simulated Mobile Banking • Customer Sign In
+        <ScrollView
+          contentContainerStyle={styles.container}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.brandRow}>
+            <Logo variant="horizontal" size={44} />
+          </View>
+
+          <View style={styles.headingBox}>
+            <Text variant="h1" style={styles.title}>
+              Welcome back
+            </Text>
+            <Text variant="body" color={colors.textSecondary}>
+              Sign in to manage your simulated Davao Bank accounts.
             </Text>
           </View>
 
-          {/* Form Card */}
-          <View style={styles.card}>
-            <Text style={styles.formTitle}>Welcome Back</Text>
-            <Text style={styles.formDescription}>
-              Sign in with your verified Davao Bank account credentials.
-            </Text>
+          {errorMessage ? (
+            <Card variant="subtle" style={styles.errorCard}>
+              <AlertCircle size={18} color={colors.redText} />
+              <Text variant="caption" color={colors.redText} style={styles.errorText}>
+                {errorMessage}
+              </Text>
+            </Card>
+          ) : null}
 
-            {errorMessage && (
-              <View style={styles.errorContainer}>
-                <Text style={styles.errorText}>{errorMessage}</Text>
-              </View>
-            )}
+          <View style={styles.form}>
+            <TextField
+              label="Email Address"
+              value={email}
+              onChangeText={setEmail}
+              placeholder="name@example.com"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Email Address</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="you@example.com"
-                placeholderTextColor={colors.textMuted}
-                value={email}
-                onChangeText={setEmail}
-                autoCapitalize="none"
-                keyboardType="email-address"
-                autoComplete="email"
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <View style={styles.passwordLabelRow}>
-                <Text style={styles.label}>Password</Text>
-                <TouchableOpacity onPress={onNavigateToForgotPassword}>
-                  <Text style={styles.forgotPasswordText}>Forgot password?</Text>
-                </TouchableOpacity>
-              </View>
-              <TextInput
-                style={styles.input}
-                placeholder="••••••••••••"
-                placeholderTextColor={colors.textMuted}
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-                autoCapitalize="none"
-              />
-            </View>
+            <TextField
+              label="Password"
+              value={password}
+              onChangeText={setPassword}
+              placeholder="••••••••"
+              secureTextEntry
+              autoCapitalize="none"
+            />
 
             <TouchableOpacity
-              style={[styles.primaryButton, loading && styles.buttonDisabled]}
-              onPress={handleLogin}
-              disabled={loading}
-              activeOpacity={0.85}
+              onPress={onNavigateToForgotPassword}
+              style={styles.forgotBtn}
+              activeOpacity={0.7}
             >
-              {loading ? (
-                <ActivityIndicator color={colors.textInverse} size="small" />
-              ) : (
-                <Text style={styles.primaryButtonText}>Sign In</Text>
-              )}
+              <Text variant="caption" color={colors.primary}>
+                Forgot your password?
+              </Text>
             </TouchableOpacity>
 
-            <View style={styles.footerRow}>
-              <Text style={styles.footerPrompt}>Don't have an account?</Text>
-              <TouchableOpacity onPress={onNavigateToSignUp}>
-                <Text style={styles.signUpLink}>Create Account</Text>
-              </TouchableOpacity>
-            </View>
+            <Button
+              title="Sign In"
+              onPress={handleLogin}
+              loading={loading}
+              icon={<LogIn size={18} color={colors.textInverse} />}
+              style={styles.submitBtn}
+            />
           </View>
+
+          <View style={styles.footerRow}>
+            <Text variant="body" color={colors.textSecondary}>
+              Don't have an account?{' '}
+            </Text>
+            <TouchableOpacity onPress={onNavigateToSignUp} activeOpacity={0.7}>
+              <Text variant="bodyStrong" color={colors.primary}>
+                Sign Up
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <Text
+            variant="caption"
+            color={colors.textMuted}
+            align="center"
+            style={styles.disclaimerText}
+          >
+            Simulated Prototype · Academic Use Only
+          </Text>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.background,
+  screen: {
+    backgroundColor: colors.canvas,
   },
   keyboardView: {
     flex: 1,
   },
-  scrollContainer: {
-    padding: 24,
-    justifyContent: 'center',
-    minHeight: '100%',
+  container: {
+    padding: spacing.screenSide,
+    paddingTop: spacing['3xl'],
+    paddingBottom: spacing['4xl'],
   },
-  brandContainer: {
+  brandRow: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: spacing.xl,
   },
-  logoBadge: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
-    backgroundColor: colors.primary,
+  headingBox: {
+    marginBottom: spacing.xl,
+  },
+  title: {
+    marginBottom: spacing.xs,
+  },
+  errorCard: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  logoBadgeText: {
-    color: colors.textInverse,
-    fontSize: 22,
-    fontWeight: '800',
-  },
-  brandTitle: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: colors.primary,
-    letterSpacing: -0.5,
-  },
-  brandSubtitle: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    fontWeight: '500',
-    marginTop: 4,
-  },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: 20,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: colors.neutral,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 3,
-  },
-  formTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    marginBottom: 4,
-  },
-  formDescription: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginBottom: 20,
-    lineHeight: 18,
-  },
-  errorContainer: {
-    backgroundColor: colors.errorLight,
-    borderWidth: 1,
-    borderColor: colors.error,
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 16,
+    gap: spacing.sm,
+    backgroundColor: colors.tintRed,
+    borderColor: colors.redText,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    marginBottom: spacing.base,
   },
   errorText: {
-    color: colors.error,
-    fontSize: 13,
-    fontWeight: '600',
+    flex: 1,
   },
-  inputGroup: {
-    marginBottom: 16,
+  form: {
+    gap: spacing.base,
   },
-  label: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    marginBottom: 6,
+  forgotBtn: {
+    alignSelf: 'flex-end',
+    marginTop: -spacing.xs,
   },
-  passwordLabelRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  forgotPasswordText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.primary,
-  },
-  input: {
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 15,
-    color: colors.textPrimary,
-  },
-  primaryButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginTop: 8,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  buttonDisabled: {
-    opacity: 0.7,
-  },
-  primaryButtonText: {
-    color: colors.textInverse,
-    fontSize: 16,
-    fontWeight: '700',
+  submitBtn: {
+    marginTop: spacing.sm,
+    width: '100%',
   },
   footerRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 6,
-    marginTop: 20,
+    marginTop: spacing['2xl'],
+    marginBottom: spacing.base,
   },
-  footerPrompt: {
-    fontSize: 13,
-    color: colors.textSecondary,
-  },
-  signUpLink: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.primary,
+  disclaimerText: {
+    marginTop: spacing.sm,
   },
 });

@@ -1,18 +1,11 @@
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  Modal,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  ActivityIndicator,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-} from 'react-native';
+import { View, StyleSheet, ScrollView } from 'react-native';
+import { PlusCircle, CheckCircle2, AlertCircle, CreditCard } from 'lucide-react-native';
+import * as Haptics from 'expo-haptics';
 import {
   colors,
+  spacing,
+  radius,
   formatCentavosToPHP,
   phpToCentavos,
   generateIdempotencyKey,
@@ -21,6 +14,15 @@ import {
   type MoneyOperationResult,
 } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
+import {
+  BottomSheet,
+  Text,
+  AmountInput,
+  TextField,
+  Button,
+  Card,
+  AmountText,
+} from '../components';
 
 interface DepositModalProps {
   visible: boolean;
@@ -39,14 +41,27 @@ export function DepositModal({
     accounts[0]?.account_id || ''
   );
   const [amountStr, setAmountStr] = useState('');
-  const [reference, setReference] = useState('Online Top-up / Cash-in');
+  const [reference, setReference] = useState('Online Top-up');
+  const [step, setStep] = useState<'input' | 'review' | 'success'>('input');
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successResult, setSuccessResult] = useState<MoneyOperationResult | null>(null);
+  const [idempotencyKey, setIdempotencyKey] = useState<string>('');
 
   const selectedAccount =
     accounts.find((a) => a.account_id === selectedAccountId) || accounts[0];
 
-  const handleDeposit = async () => {
+  const resetState = () => {
+    setStep('input');
+    setAmountStr('');
+    setReference('Online Top-up');
+    setErrorMessage(null);
+    setSuccessResult(null);
+    setIdempotencyKey('');
+    onClose();
+  };
+
+  const handleProceedToReview = () => {
     setErrorMessage(null);
     const centavos = phpToCentavos(amountStr);
 
@@ -55,342 +70,279 @@ export function DepositModal({
       return;
     }
     if (centavos <= 0) {
-      setErrorMessage('Deposit amount must be greater than ₱0.00.');
+      setErrorMessage('Amount must be greater than ₱0.00');
       return;
     }
 
+    if (!idempotencyKey) {
+      setIdempotencyKey(generateIdempotencyKey('deposit'));
+    }
+    setStep('review');
+  };
+
+  const handleConfirmDeposit = async () => {
+    if (!selectedAccount) return;
     setLoading(true);
-    const idempotencyKey = generateIdempotencyKey('deposit');
+    setErrorMessage(null);
+
+    const centavos = phpToCentavos(amountStr);
 
     const { data, error } = await executeDeposit(supabase, {
       account: selectedAccount.account_id,
       amount: centavos,
       idempotency_key: idempotencyKey,
-      reference: reference.trim() || 'Simulated Deposit',
+      reference: reference.trim() || 'Online Cash-in',
     });
 
     setLoading(false);
 
     if (error) {
+      try {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      } catch {
+        // Haptics optional
+      }
       setErrorMessage(error);
     } else if (data) {
+      try {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } catch {
+        // Haptics optional
+      }
+      setSuccessResult(data);
+      setStep('success');
       onDepositSuccess(data);
-      resetAndClose();
     }
   };
 
-  const resetAndClose = () => {
-    setAmountStr('');
-    setErrorMessage(null);
-    onClose();
-  };
+  const centavosAmount = phpToCentavos(amountStr);
 
   return (
-    <Modal
+    <BottomSheet
       visible={visible}
-      animationType="slide"
-      transparent
-      onRequestClose={resetAndClose}
+      onClose={resetState}
+      title={
+        step === 'input'
+          ? 'Cash-in · Add Money'
+          : step === 'review'
+            ? 'Cash-in · Review'
+            : 'Cash-in Successful'
+      }
     >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.modalOverlay}
+      <ScrollView
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
       >
-        <View style={styles.modalCard}>
-          <View style={styles.headerRow}>
-            <View>
-              <Text style={styles.modalTitle}>Deposit Funds</Text>
-              <Text style={styles.modalSubtitle}>Simulated Top-Up &bull; Cash-In</Text>
-            </View>
-            <TouchableOpacity onPress={resetAndClose} style={styles.closeBtn}>
-              <Text style={styles.closeBtnText}>✕</Text>
-            </TouchableOpacity>
+        {errorMessage ? (
+          <Card variant="subtle" style={styles.errorCard}>
+            <AlertCircle size={18} color={colors.redText} />
+            <Text variant="caption" color={colors.redText} style={styles.errorText}>
+              {errorMessage}
+            </Text>
+          </Card>
+        ) : null}
+
+        {step === 'input' && (
+          <View style={styles.stepContainer}>
+            <AmountInput
+              label="Deposit Amount"
+              value={amountStr}
+              onChangeText={setAmountStr}
+              presetAmounts={[500, 1000, 2000, 5000]}
+              helperText={`Current Balance: ${formatCentavosToPHP(selectedAccount?.balance || 0)}`}
+            />
+
+            <TextField
+              label="Reference / Source"
+              value={reference}
+              onChangeText={setReference}
+              placeholder="e.g. Bank Over-the-counter"
+            />
+
+            <Button
+              title="Continue to Review"
+              onPress={handleProceedToReview}
+              style={styles.actionButton}
+            />
           </View>
+        )}
 
-          {errorMessage && (
-            <View style={styles.errorBanner}>
-              <Text style={styles.errorText}>{errorMessage}</Text>
-            </View>
-          )}
-
-          <ScrollView showsVerticalScrollIndicator={false}>
-            <View style={styles.contentBody}>
-              {/* Target Account */}
-              <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>Destination Account</Text>
-                {accounts.length > 1 && (
-                  <View style={styles.accountChoiceRow}>
-                    {accounts.map((acc) => (
-                      <TouchableOpacity
-                        key={acc.account_id}
-                        style={[
-                          styles.accountChip,
-                          (selectedAccountId || accounts[0]?.account_id) ===
-                            acc.account_id && styles.accountChipActive,
-                        ]}
-                        onPress={() => setSelectedAccountId(acc.account_id)}
-                      >
-                        <Text
-                          style={[
-                            styles.accountChipText,
-                            (selectedAccountId || accounts[0]?.account_id) ===
-                              acc.account_id && styles.accountChipTextActive,
-                          ]}
-                        >
-                          {acc.type.toUpperCase()} •••• {acc.account_number.slice(-4)}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                )}
-                <View style={styles.accountBox}>
-                  <Text style={styles.accountNumber}>
-                    {selectedAccount?.account_number || '---'}
-                  </Text>
-                  <Text style={styles.accountMeta}>
-                    {selectedAccount?.type.toUpperCase()} &bull; Current Balance:{' '}
-                    {formatCentavosToPHP(selectedAccount?.balance || 0)}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Amount */}
-              <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>Amount to Deposit (PHP) *</Text>
-                <View style={styles.amountInputRow}>
-                  <Text style={styles.currencyPrefix}>₱</Text>
-                  <TextInput
-                    style={styles.amountInput}
-                    placeholder="0.00"
-                    placeholderTextColor={colors.textMuted}
-                    value={amountStr}
-                    onChangeText={setAmountStr}
-                    keyboardType="decimal-pad"
-                  />
-                </View>
-              </View>
-
-              {/* Quick Amount Buttons */}
-              <View style={styles.quickAmountRow}>
-                {[1000, 5000, 10000, 20000].map((quickVal) => (
-                  <TouchableOpacity
-                    key={quickVal}
-                    style={styles.quickChip}
-                    onPress={() => setAmountStr(quickVal.toString())}
-                  >
-                    <Text style={styles.quickChipText}>
-                      +₱{quickVal.toLocaleString()}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              {/* Reference */}
-              <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>Deposit Source / Reference</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="e.g. Over-the-counter Davao City Branch"
-                  placeholderTextColor={colors.textMuted}
-                  value={reference}
-                  onChangeText={setReference}
+        {step === 'review' && (
+          <View style={styles.stepContainer}>
+            <Card variant="subtle" style={styles.reviewCard}>
+              <View style={styles.reviewHeader}>
+                <Text variant="caption" color={colors.textMuted}>
+                  TOTAL TO ADD
+                </Text>
+                <AmountText
+                  amountCentavos={centavosAmount}
+                  direction="incoming"
+                  variant="display"
                 />
               </View>
 
-              <TouchableOpacity
-                style={[styles.primaryBtn, loading && styles.disabledBtn]}
-                onPress={handleDeposit}
-                disabled={loading}
-              >
-                {loading ? (
-                  <ActivityIndicator color={colors.textInverse} size="small" />
-                ) : (
-                  <Text style={styles.primaryBtnText}>Confirm Deposit</Text>
-                )}
-              </TouchableOpacity>
+              <View style={styles.reviewRow}>
+                <Text variant="body" color={colors.textSecondary}>
+                  Destination Account
+                </Text>
+                <Text variant="bodyStrong" tabularNums color={colors.ink}>
+                  {selectedAccount?.account_number}
+                </Text>
+              </View>
+
+              <View style={styles.reviewRow}>
+                <Text variant="body" color={colors.textSecondary}>
+                  New Balance
+                </Text>
+                <Text variant="bodyStrong" tabularNums color={colors.primary}>
+                  {formatCentavosToPHP((selectedAccount?.balance || 0) + centavosAmount)}
+                </Text>
+              </View>
+            </Card>
+
+            <View style={styles.navRow}>
+              <Button
+                title="Back"
+                variant="ghost"
+                onPress={() => setStep('input')}
+                style={styles.backButton}
+              />
+              <Button
+                title="Confirm Cash-in"
+                onPress={handleConfirmDeposit}
+                loading={loading}
+                icon={<PlusCircle size={18} color={colors.textInverse} />}
+                style={styles.forwardButton}
+              />
             </View>
-          </ScrollView>
-        </View>
-      </KeyboardAvoidingView>
-    </Modal>
+          </View>
+        )}
+
+        {step === 'success' && successResult && (
+          <View style={styles.stepContainer}>
+            <View style={styles.successIconBox}>
+              <CheckCircle2 size={54} color={colors.primary} />
+              <Text variant="h2" align="center" style={styles.successTitle}>
+                Money Added
+              </Text>
+              <AmountText
+                amountCentavos={centavosAmount}
+                direction="incoming"
+                variant="display"
+              />
+            </View>
+
+            <Card variant="subtle" style={styles.receiptCard}>
+              <View style={styles.receiptRow}>
+                <Text variant="caption" color={colors.textMuted}>
+                  Account
+                </Text>
+                <Text variant="bodyStrong" tabularNums color={colors.ink}>
+                  {selectedAccount?.account_number}
+                </Text>
+              </View>
+              <View style={styles.receiptRow}>
+                <Text variant="caption" color={colors.textMuted}>
+                  Updated Balance
+                </Text>
+                <Text variant="bodyStrong" tabularNums color={colors.primary}>
+                  {formatCentavosToPHP((selectedAccount?.balance || 0) + centavosAmount)}
+                </Text>
+              </View>
+              <View style={styles.receiptRow}>
+                <Text variant="caption" color={colors.textMuted}>
+                  Transaction ID
+                </Text>
+                <Text variant="caption" color={colors.textMuted} style={styles.idText}>
+                  {successResult.id}
+                </Text>
+              </View>
+            </Card>
+
+            <Button
+              title="Done"
+              variant="secondary"
+              onPress={resetState}
+              style={styles.actionButton}
+            />
+          </View>
+        )}
+      </ScrollView>
+    </BottomSheet>
   );
 }
 
 const styles = StyleSheet.create({
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(58, 74, 82, 0.65)',
-    justifyContent: 'flex-end',
+  container: {
+    paddingBottom: spacing.xl,
+    gap: spacing.base,
   },
-  modalCard: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
-    maxHeight: '85%',
+  stepContainer: {
+    gap: spacing.base,
   },
-  headerRow: {
+  errorCard: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 16,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: colors.success,
-  },
-  modalSubtitle: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  closeBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.neutralLight,
     alignItems: 'center',
-    justifyContent: 'center',
-  },
-  closeBtnText: {
-    fontSize: 14,
-    color: colors.textPrimary,
-    fontWeight: '700',
-  },
-  errorBanner: {
-    backgroundColor: colors.errorLight,
-    borderWidth: 1,
-    borderColor: colors.error,
-    borderRadius: 10,
-    padding: 10,
-    marginBottom: 14,
+    gap: spacing.sm,
+    backgroundColor: colors.tintRed,
+    borderColor: colors.redText,
+    padding: spacing.md,
+    borderRadius: radius.md,
   },
   errorText: {
-    color: colors.error,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  contentBody: {
-    gap: 16,
-    paddingBottom: 20,
-  },
-  fieldGroup: {
-    gap: 6,
-  },
-  fieldLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  accountBox: {
-    backgroundColor: colors.successLight,
-    borderWidth: 1,
-    borderColor: colors.success,
-    borderRadius: 12,
-    padding: 14,
-  },
-  accountNumber: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: colors.successDark,
-  },
-  accountMeta: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.success,
-    marginTop: 2,
-  },
-  input: {
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 14,
-    color: colors.textPrimary,
-  },
-  amountInputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-  },
-  currencyPrefix: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: colors.success,
-    marginRight: 6,
-  },
-  amountInput: {
     flex: 1,
-    paddingVertical: 12,
-    fontSize: 22,
-    fontWeight: '800',
-    color: colors.textPrimary,
   },
-  quickAmountRow: {
+  actionButton: {
+    marginTop: spacing.md,
+    width: '100%',
+  },
+  navRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginTop: spacing.md,
+  },
+  backButton: {
+    flex: 1,
+  },
+  forwardButton: {
+    flex: 2,
+  },
+  reviewCard: {
+    padding: spacing.base,
+    borderRadius: radius.lg,
+    gap: spacing.md,
+  },
+  reviewHeader: {
+    alignItems: 'center',
+    paddingBottom: spacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  reviewRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: 8,
-  },
-  quickChip: {
-    flex: 1,
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 8,
-    paddingVertical: 8,
     alignItems: 'center',
   },
-  quickChipText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.successDark,
-  },
-  primaryBtn: {
-    backgroundColor: colors.success,
-    paddingVertical: 14,
-    borderRadius: 12,
+  successIconBox: {
     alignItems: 'center',
-    marginTop: 6,
+    paddingVertical: spacing.md,
+    gap: spacing.xs,
   },
-  disabledBtn: {
-    opacity: 0.65,
+  successTitle: {
+    marginTop: spacing.xs,
   },
-  primaryBtnText: {
-    color: colors.textInverse,
-    fontSize: 15,
-    fontWeight: '700',
+  receiptCard: {
+    padding: spacing.base,
+    borderRadius: radius.md,
+    gap: spacing.sm,
   },
-  accountChoiceRow: {
+  receiptRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 6,
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  accountChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.background,
-  },
-  accountChipActive: {
-    backgroundColor: colors.success,
-    borderColor: colors.success,
-  },
-  accountChipText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textSecondary,
-  },
-  accountChipTextActive: {
-    color: colors.textInverse,
+  idText: {
+    fontFamily: 'monospace',
+    fontSize: 11,
   },
 });

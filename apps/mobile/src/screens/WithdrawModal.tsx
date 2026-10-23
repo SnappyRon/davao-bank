@@ -1,18 +1,11 @@
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  Modal,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  ActivityIndicator,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-} from 'react-native';
+import { View, StyleSheet, ScrollView } from 'react-native';
+import { MinusCircle, CheckCircle2, AlertCircle } from 'lucide-react-native';
+import * as Haptics from 'expo-haptics';
 import {
   colors,
+  spacing,
+  radius,
   formatCentavosToPHP,
   phpToCentavos,
   generateIdempotencyKey,
@@ -21,6 +14,15 @@ import {
   type MoneyOperationResult,
 } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
+import {
+  BottomSheet,
+  Text,
+  AmountInput,
+  TextField,
+  Button,
+  Card,
+  AmountText,
+} from '../components';
 
 interface WithdrawModalProps {
   visible: boolean;
@@ -39,14 +41,27 @@ export function WithdrawModal({
     accounts[0]?.account_id || ''
   );
   const [amountStr, setAmountStr] = useState('');
-  const [reference, setReference] = useState('ATM / Cash Out Simulation');
+  const [reference, setReference] = useState('ATM Withdrawal');
+  const [step, setStep] = useState<'input' | 'review' | 'success'>('input');
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successResult, setSuccessResult] = useState<MoneyOperationResult | null>(null);
+  const [idempotencyKey, setIdempotencyKey] = useState<string>('');
 
   const selectedAccount =
     accounts.find((a) => a.account_id === selectedAccountId) || accounts[0];
 
-  const handleWithdraw = async () => {
+  const resetState = () => {
+    setStep('input');
+    setAmountStr('');
+    setReference('ATM Withdrawal');
+    setErrorMessage(null);
+    setSuccessResult(null);
+    setIdempotencyKey('');
+    onClose();
+  };
+
+  const handleProceedToReview = () => {
     setErrorMessage(null);
     const centavos = phpToCentavos(amountStr);
 
@@ -55,389 +70,285 @@ export function WithdrawModal({
       return;
     }
     if (centavos <= 0) {
-      setErrorMessage('Withdrawal amount must be greater than ₱0.00.');
+      setErrorMessage('Amount must be greater than ₱0.00');
       return;
     }
-
-    // Client-side quick check (server is authoritative and will re-verify under lock)
     if (centavos > selectedAccount.balance) {
       setErrorMessage(
-        `Insufficient funds. Available balance: ${formatCentavosToPHP(selectedAccount.balance)}`
+        `Insufficient funds. Available: ${formatCentavosToPHP(selectedAccount.balance)}`
       );
       return;
     }
 
+    if (!idempotencyKey) {
+      setIdempotencyKey(generateIdempotencyKey('withdraw'));
+    }
+    setStep('review');
+  };
+
+  const handleConfirmWithdraw = async () => {
+    if (!selectedAccount) return;
     setLoading(true);
-    const idempotencyKey = generateIdempotencyKey('withdraw');
+    setErrorMessage(null);
+
+    const centavos = phpToCentavos(amountStr);
 
     const { data, error } = await executeWithdraw(supabase, {
       account: selectedAccount.account_id,
       amount: centavos,
       idempotency_key: idempotencyKey,
-      reference: reference.trim() || 'Simulated Cash Out',
+      reference: reference.trim() || 'ATM Withdrawal',
     });
 
     setLoading(false);
 
     if (error) {
-      // Surface insufficient funds or account error from server
+      try {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      } catch {
+        // Haptics optional
+      }
       setErrorMessage(error);
     } else if (data) {
+      try {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } catch {
+        // Haptics optional
+      }
+      setSuccessResult(data);
+      setStep('success');
       onWithdrawSuccess(data);
-      resetAndClose();
     }
   };
 
-  const resetAndClose = () => {
-    setAmountStr('');
-    setErrorMessage(null);
-    onClose();
-  };
+  const centavosAmount = phpToCentavos(amountStr);
 
   return (
-    <Modal
+    <BottomSheet
       visible={visible}
-      animationType="slide"
-      transparent
-      onRequestClose={resetAndClose}
+      onClose={resetState}
+      title={
+        step === 'input'
+          ? 'Cash-out · Withdraw'
+          : step === 'review'
+            ? 'Cash-out · Review'
+            : 'Cash-out Successful'
+      }
     >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.modalOverlay}
+      <ScrollView
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
       >
-        <View style={styles.modalCard}>
-          <View style={styles.headerRow}>
-            <View>
-              <Text style={styles.title}>Simulated Withdrawal</Text>
-              <Text style={styles.subtitle}>ATM / Over-the-counter cash out</Text>
-            </View>
-            <TouchableOpacity
-              onPress={resetAndClose}
-              disabled={loading}
-              style={styles.closeBtn}
-              accessibilityLabel="Close withdraw modal"
-            >
-              <Text style={styles.closeBtnText}>✕</Text>
-            </TouchableOpacity>
+        {errorMessage ? (
+          <Card variant="subtle" style={styles.errorCard}>
+            <AlertCircle size={18} color={colors.redText} />
+            <Text variant="caption" color={colors.redText} style={styles.errorText}>
+              {errorMessage}
+            </Text>
+          </Card>
+        ) : null}
+
+        {step === 'input' && (
+          <View style={styles.stepContainer}>
+            <AmountInput
+              label="Withdrawal Amount"
+              value={amountStr}
+              onChangeText={setAmountStr}
+              presetAmounts={[500, 1000, 2000, 5000]}
+              helperText={`Available Balance: ${formatCentavosToPHP(selectedAccount?.balance || 0)}`}
+            />
+
+            <TextField
+              label="Reference / Terminal"
+              value={reference}
+              onChangeText={setReference}
+              placeholder="e.g. ATM Downtown Davao"
+            />
+
+            <Button
+              title="Continue to Review"
+              onPress={handleProceedToReview}
+              style={styles.actionButton}
+            />
           </View>
+        )}
 
-          {errorMessage && (
-            <View style={styles.errorBox}>
-              <Text style={styles.errorText}>⚠️ {errorMessage}</Text>
-            </View>
-          )}
-
-          <ScrollView
-            contentContainerStyle={styles.contentBody}
-            keyboardShouldPersistTaps="handled"
-          >
-            {/* Account Selector */}
-            <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>SOURCE ACCOUNT</Text>
-              {accounts.length > 1 ? (
-                <View style={styles.accountChoiceRow}>
-                  {accounts.map((acc) => (
-                    <TouchableOpacity
-                      key={acc.account_id}
-                      style={[
-                        styles.accountChip,
-                        (selectedAccountId || accounts[0]?.account_id) ===
-                          acc.account_id && styles.accountChipActive,
-                      ]}
-                      onPress={() => setSelectedAccountId(acc.account_id)}
-                    >
-                      <Text
-                        style={[
-                          styles.accountChipText,
-                          (selectedAccountId || accounts[0]?.account_id) ===
-                            acc.account_id && styles.accountChipTextActive,
-                        ]}
-                      >
-                        {acc.type.toUpperCase()} •••• {acc.account_number.slice(-4)}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              ) : null}
-
-              {selectedAccount && (
-                <View style={styles.accountBox}>
-                  <Text style={styles.accountNumber}>
-                    {selectedAccount.account_number}
-                  </Text>
-                  <Text style={styles.accountMeta}>
-                    {selectedAccount.type.toUpperCase()} • {selectedAccount.currency} •
-                    Available: {formatCentavosToPHP(selectedAccount.balance)}
-                  </Text>
-                </View>
-              )}
-            </View>
-
-            {/* Amount input */}
-            <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>WITHDRAW AMOUNT (PHP)</Text>
-              <View style={styles.amountInputRow}>
-                <Text style={styles.currencyPrefix}>₱</Text>
-                <TextInput
-                  style={styles.amountInput}
-                  placeholder="0.00"
-                  placeholderTextColor={colors.textMuted}
-                  keyboardType="numeric"
-                  value={amountStr}
-                  onChangeText={(val) => {
-                    setAmountStr(val);
-                    if (errorMessage) setErrorMessage(null);
-                  }}
-                  editable={!loading}
+        {step === 'review' && (
+          <View style={styles.stepContainer}>
+            <Card variant="subtle" style={styles.reviewCard}>
+              <View style={styles.reviewHeader}>
+                <Text variant="caption" color={colors.textMuted}>
+                  TOTAL TO WITHDRAW
+                </Text>
+                <AmountText
+                  amountCentavos={centavosAmount}
+                  direction="outgoing"
+                  variant="display"
                 />
               </View>
 
-              {/* Quick Amount Chips */}
-              <View style={styles.quickAmountRow}>
-                {[500, 1000, 5000, 10000].map((preset) => (
-                  <TouchableOpacity
-                    key={preset}
-                    style={styles.quickChip}
-                    onPress={() => setAmountStr(String(preset))}
-                    disabled={loading}
-                  >
-                    <Text style={styles.quickChipText}>+₱{preset.toLocaleString()}</Text>
-                  </TouchableOpacity>
-                ))}
+              <View style={styles.reviewRow}>
+                <Text variant="body" color={colors.textSecondary}>
+                  Source Account
+                </Text>
+                <Text variant="bodyStrong" tabularNums color={colors.ink}>
+                  {selectedAccount?.account_number}
+                </Text>
               </View>
-            </View>
 
-            {/* Reference */}
-            <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>REFERENCE / PURPOSE</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g. ATM Cash Out"
-                placeholderTextColor={colors.textMuted}
-                value={reference}
-                onChangeText={setReference}
-                editable={!loading}
+              <View style={styles.reviewRow}>
+                <Text variant="body" color={colors.textSecondary}>
+                  Remaining Balance
+                </Text>
+                <Text variant="bodyStrong" tabularNums color={colors.ink}>
+                  {formatCentavosToPHP((selectedAccount?.balance || 0) - centavosAmount)}
+                </Text>
+              </View>
+            </Card>
+
+            <View style={styles.navRow}>
+              <Button
+                title="Back"
+                variant="ghost"
+                onPress={() => setStep('input')}
+                style={styles.backButton}
+              />
+              <Button
+                title="Confirm Cash-out"
+                onPress={handleConfirmWithdraw}
+                loading={loading}
+                icon={<MinusCircle size={18} color={colors.textInverse} />}
+                style={styles.forwardButton}
+              />
+            </View>
+          </View>
+        )}
+
+        {step === 'success' && successResult && (
+          <View style={styles.stepContainer}>
+            <View style={styles.successIconBox}>
+              <CheckCircle2 size={54} color={colors.primary} />
+              <Text variant="h2" align="center" style={styles.successTitle}>
+                Cash-out Completed
+              </Text>
+              <AmountText
+                amountCentavos={centavosAmount}
+                direction="outgoing"
+                variant="display"
               />
             </View>
 
-            {/* Informational Callout */}
-            <View style={styles.infoBanner}>
-              <Text style={styles.infoBannerText}>
-                💡 Davao Bank is a simulated academic prototype. Withdrawals debit your
-                ledger balance atomically and trigger in-app audit notifications.
-              </Text>
-            </View>
+            <Card variant="subtle" style={styles.receiptCard}>
+              <View style={styles.receiptRow}>
+                <Text variant="caption" color={colors.textMuted}>
+                  Account
+                </Text>
+                <Text variant="bodyStrong" tabularNums color={colors.ink}>
+                  {selectedAccount?.account_number}
+                </Text>
+              </View>
+              <View style={styles.receiptRow}>
+                <Text variant="caption" color={colors.textMuted}>
+                  Updated Balance
+                </Text>
+                <Text variant="bodyStrong" tabularNums color={colors.ink}>
+                  {formatCentavosToPHP((selectedAccount?.balance || 0) - centavosAmount)}
+                </Text>
+              </View>
+              <View style={styles.receiptRow}>
+                <Text variant="caption" color={colors.textMuted}>
+                  Transaction ID
+                </Text>
+                <Text variant="caption" color={colors.textMuted} style={styles.idText}>
+                  {successResult.id}
+                </Text>
+              </View>
+            </Card>
 
-            {/* Submit Button */}
-            <TouchableOpacity
-              style={[
-                styles.primaryBtn,
-                (loading || !amountStr || parseFloat(amountStr) <= 0) &&
-                  styles.disabledBtn,
-              ]}
-              onPress={handleWithdraw}
-              disabled={loading || !amountStr || parseFloat(amountStr) <= 0}
-            >
-              {loading ? (
-                <ActivityIndicator color={colors.textInverse} />
-              ) : (
-                <Text style={styles.primaryBtnText}>Confirm Withdrawal</Text>
-              )}
-            </TouchableOpacity>
-          </ScrollView>
-        </View>
-      </KeyboardAvoidingView>
-    </Modal>
+            <Button
+              title="Done"
+              variant="secondary"
+              onPress={resetState}
+              style={styles.actionButton}
+            />
+          </View>
+        )}
+      </ScrollView>
+    </BottomSheet>
   );
 }
 
 const styles = StyleSheet.create({
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.65)',
-    justifyContent: 'flex-end',
+  container: {
+    paddingBottom: spacing.xl,
+    gap: spacing.base,
   },
-  modalCard: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
-    maxHeight: '90%',
+  stepContainer: {
+    gap: spacing.base,
   },
-  headerRow: {
+  errorCard: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: colors.textPrimary,
-  },
-  subtitle: {
-    fontSize: 12,
-    color: colors.textMuted,
-    marginTop: 2,
-  },
-  closeBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.surfaceHover,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  closeBtnText: {
-    fontSize: 16,
-    color: colors.textSecondary,
-    fontWeight: '700',
-  },
-  errorBox: {
-    backgroundColor: colors.errorLight,
-    borderWidth: 1,
-    borderColor: colors.error,
-    borderRadius: 10,
-    padding: 10,
-    marginBottom: 14,
+    gap: spacing.sm,
+    backgroundColor: colors.tintRed,
+    borderColor: colors.redText,
+    padding: spacing.md,
+    borderRadius: radius.md,
   },
   errorText: {
-    color: colors.error,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  contentBody: {
-    gap: 16,
-    paddingBottom: 20,
-  },
-  fieldGroup: {
-    gap: 6,
-  },
-  fieldLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  accountChoiceRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 6,
-  },
-  accountChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.background,
-  },
-  accountChipActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  accountChipText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textSecondary,
-  },
-  accountChipTextActive: {
-    color: colors.textInverse,
-  },
-  accountBox: {
-    backgroundColor: colors.surfaceHover,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    padding: 14,
-  },
-  accountNumber: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: colors.textPrimary,
-  },
-  accountMeta: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textMuted,
-    marginTop: 2,
-  },
-  input: {
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 14,
-    color: colors.textPrimary,
-  },
-  amountInputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-  },
-  currencyPrefix: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: colors.error,
-    marginRight: 6,
-  },
-  amountInput: {
     flex: 1,
-    paddingVertical: 12,
-    fontSize: 22,
-    fontWeight: '800',
-    color: colors.textPrimary,
   },
-  quickAmountRow: {
+  actionButton: {
+    marginTop: spacing.md,
+    width: '100%',
+  },
+  navRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginTop: spacing.md,
+  },
+  backButton: {
+    flex: 1,
+  },
+  forwardButton: {
+    flex: 2,
+  },
+  reviewCard: {
+    padding: spacing.base,
+    borderRadius: radius.lg,
+    gap: spacing.md,
+  },
+  reviewHeader: {
+    alignItems: 'center',
+    paddingBottom: spacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  reviewRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: 8,
-  },
-  quickChip: {
-    flex: 1,
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 8,
-    paddingVertical: 8,
     alignItems: 'center',
   },
-  quickChipText: {
+  successIconBox: {
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    gap: spacing.xs,
+  },
+  successTitle: {
+    marginTop: spacing.xs,
+  },
+  receiptCard: {
+    padding: spacing.base,
+    borderRadius: radius.md,
+    gap: spacing.sm,
+  },
+  receiptRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  idText: {
+    fontFamily: 'monospace',
     fontSize: 11,
-    fontWeight: '700',
-    color: colors.errorDark,
-  },
-  infoBanner: {
-    backgroundColor: colors.warningLight,
-    borderWidth: 1,
-    borderColor: colors.warning,
-    borderRadius: 10,
-    padding: 12,
-  },
-  infoBannerText: {
-    fontSize: 12,
-    color: colors.warningDark,
-    lineHeight: 16,
-  },
-  primaryBtn: {
-    backgroundColor: colors.primary,
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginTop: 6,
-  },
-  disabledBtn: {
-    opacity: 0.65,
-  },
-  primaryBtnText: {
-    color: colors.textInverse,
-    fontSize: 15,
-    fontWeight: '700',
   },
 });

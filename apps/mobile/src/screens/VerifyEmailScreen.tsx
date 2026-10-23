@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
+import { View, StyleSheet, ScrollView } from 'react-native';
 import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  ActivityIndicator,
-  SafeAreaView,
-  ScrollView,
-} from 'react-native';
-import { colors } from '@davao-bank/shared';
+  Mail,
+  RefreshCw,
+  ArrowLeft,
+  CheckCircle2,
+  AlertCircle,
+} from 'lucide-react-native';
+import { colors, spacing, radius } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
+import { Screen, Text, Button, Card, Logo } from '../components';
 
 interface VerifyEmailScreenProps {
   email: string;
@@ -47,175 +47,155 @@ export function VerifyEmailScreen({ email, onNavigateToLogin }: VerifyEmailScree
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.container}>
-        <View style={styles.card}>
+    <Screen style={styles.screen}>
+      <ScrollView
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.brandRow}>
+          <Logo variant="horizontal" size={44} />
+        </View>
+
+        <Card variant="default" style={styles.card}>
           <View style={styles.iconCircle}>
-            <Text style={styles.iconText}>✉</Text>
+            <Mail size={36} color={colors.primary} />
           </View>
 
-          <Text style={styles.title}>Verify Your Email</Text>
-          <Text style={styles.subtitle}>We sent a verification link to:</Text>
-          <Text style={styles.emailBadge}>{email || 'your email'}</Text>
-
-          <Text style={styles.instruction}>
-            Please tap the link in your email to confirm your account. In accordance with
-            Davao Bank security standards, email verification is required before signing
-            in.
+          <Text variant="h1" align="center" style={styles.title}>
+            Verify your email
           </Text>
 
-          {message && (
-            <View style={styles.successBanner}>
-              <Text style={styles.successText}>{message}</Text>
-            </View>
-          )}
+          <Text variant="body" color={colors.textSecondary} align="center">
+            We sent a verification link to your registered email:
+          </Text>
 
-          {error && (
-            <View style={styles.errorBanner}>
-              <Text style={styles.errorText}>{error}</Text>
-            </View>
-          )}
+          <View style={styles.emailBadge}>
+            <Text variant="bodyStrong" color={colors.ink}>
+              {email || 'your email'}
+            </Text>
+          </View>
 
-          <TouchableOpacity
-            style={styles.resendButton}
-            onPress={handleResend}
-            disabled={resending}
+          <Text
+            variant="caption"
+            color={colors.textMuted}
+            align="center"
+            style={styles.hintText}
           >
-            {resending ? (
-              <ActivityIndicator color={colors.primary} size="small" />
-            ) : (
-              <Text style={styles.resendButtonText}>Resend Verification Email</Text>
-            )}
-          </TouchableOpacity>
+            Click the link inside the email to activate your Davao Bank simulated account.
+          </Text>
 
-          <TouchableOpacity style={styles.primaryButton} onPress={onNavigateToLogin}>
-            <Text style={styles.primaryButtonText}>Back to Sign In</Text>
-          </TouchableOpacity>
-        </View>
+          {message ? (
+            <Card variant="subtle" style={styles.successCard}>
+              <CheckCircle2 size={16} color={colors.primary} />
+              <Text variant="caption" color={colors.primary} style={styles.feedbackText}>
+                {message}
+              </Text>
+            </Card>
+          ) : null}
+
+          {error ? (
+            <Card variant="subtle" style={styles.errorCard}>
+              <AlertCircle size={16} color={colors.redText} />
+              <Text variant="caption" color={colors.redText} style={styles.feedbackText}>
+                {error}
+              </Text>
+            </Card>
+          ) : null}
+
+          <View style={styles.buttonGroup}>
+            <Button
+              title="Resend Verification Email"
+              variant="secondary"
+              icon={<RefreshCw size={18} color={colors.ink} />}
+              onPress={handleResend}
+              loading={resending}
+              style={styles.button}
+            />
+
+            <Button
+              title="Back to Sign In"
+              variant="ghost"
+              icon={<ArrowLeft size={18} color={colors.primary} />}
+              onPress={onNavigateToLogin}
+              style={styles.button}
+            />
+          </View>
+        </Card>
       </ScrollView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.background,
+  screen: {
+    backgroundColor: colors.canvas,
   },
   container: {
-    padding: 24,
-    justifyContent: 'center',
-    minHeight: '100%',
+    padding: spacing.screenSide,
+    paddingTop: spacing['3xl'],
+    paddingBottom: spacing['4xl'],
+  },
+  brandRow: {
+    alignItems: 'center',
+    marginBottom: spacing.xl,
   },
   card: {
-    backgroundColor: colors.surface,
-    borderRadius: 20,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: colors.border,
     alignItems: 'center',
-    shadowColor: colors.neutral,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 3,
+    padding: spacing.xl,
+    borderRadius: radius.lg,
   },
   iconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: colors.primaryLight,
+    width: 68,
+    height: 68,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primaryTint,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
-  },
-  iconText: {
-    fontSize: 28,
-    color: colors.primary,
+    marginBottom: spacing.base,
   },
   title: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: colors.textPrimary,
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginBottom: 6,
+    marginBottom: spacing.xs,
   },
   emailBadge: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: colors.primary,
-    backgroundColor: colors.primaryLight,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 8,
-    marginBottom: 16,
+    backgroundColor: colors.surfaceSubtle,
+    paddingHorizontal: spacing.base,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.pill,
+    marginVertical: spacing.base,
   },
-  instruction: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    textAlign: 'center',
+  hintText: {
     lineHeight: 18,
-    marginBottom: 20,
+    marginBottom: spacing.base,
   },
-  successBanner: {
-    backgroundColor: colors.successLight,
-    borderWidth: 1,
-    borderColor: colors.success,
-    borderRadius: 10,
-    padding: 12,
-    width: '100%',
-    marginBottom: 16,
-  },
-  successText: {
-    color: colors.successDark,
-    fontSize: 13,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  errorBanner: {
-    backgroundColor: colors.errorLight,
-    borderWidth: 1,
-    borderColor: colors.error,
-    borderRadius: 10,
-    padding: 12,
-    width: '100%',
-    marginBottom: 16,
-  },
-  errorText: {
-    color: colors.error,
-    fontSize: 13,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  resendButton: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    width: '100%',
+  successCard: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
-  },
-  resendButtonText: {
-    color: colors.textPrimary,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  primaryButton: {
-    backgroundColor: colors.primary,
-    paddingVertical: 14,
-    borderRadius: 12,
+    gap: spacing.sm,
+    backgroundColor: colors.primaryTint,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    marginBottom: spacing.base,
     width: '100%',
-    alignItems: 'center',
   },
-  primaryButtonText: {
-    color: colors.textInverse,
-    fontSize: 15,
-    fontWeight: '700',
+  errorCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.tintRed,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    marginBottom: spacing.base,
+    width: '100%',
+  },
+  feedbackText: {
+    flex: 1,
+  },
+  buttonGroup: {
+    width: '100%',
+    gap: spacing.md,
+    marginTop: spacing.sm,
+  },
+  button: {
+    width: '100%',
   },
 });

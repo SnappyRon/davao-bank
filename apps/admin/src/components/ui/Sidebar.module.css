@@ -1,0 +1,249 @@
+.sidebar {
+  width: 260px;
+  background-color: var(--color-surface);
+  border-right: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  position: sticky;
+  top: 0;
+  flex-shrink: 0;
+  transition: width 0.2s ease;
+  z-index: 50;
+}
+
+.brandHeader {
+  padding: var(--space-xl) var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.brandLogoRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  text-decoration: none;
+}
+
+.logoPlaceholder {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  background-color: var(--color-primary-tint);
+  color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 0.875rem;
+  flex-shrink: 0;
+}
+
+.brandName {
+  font-size: 1.125rem;
+  font-weight: 800;
+  color: var(--color-primary);
+  line-height: 1.2;
+}
+
+.consoleBadge {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+}
+
+.nav {
+  padding: var(--space-md) var(--space-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.navItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: 0.625rem var(--space-md);
+  border-radius: var(--radius-pill);
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+
+.navItem:hover {
+  background-color: var(--color-surface-subtle);
+  color: var(--color-ink);
+}
+
+.navItem.active {
+  background-color: var(--color-primary-tint);
+  color: var(--color-primary);
+  font-weight: 700;
+}
+
+.navIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.footer {
+  padding: var(--space-base) var(--space-lg);
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  background-color: var(--color-surface-subtle);
+}
+
+.adminInfo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.adminAvatar {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-primary-tint);
+  color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.75rem;
+  flex-shrink: 0;
+}
+
+.adminDetails {
+  flex: 1;
+  min-width: 0;
+}
+
+.adminName {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--color-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.adminEmail {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.signOutButton {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-red-text);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: var(--space-xs) 0;
+  transition: opacity 0.15s ease;
+}
+
+.signOutButton:hover {
+  opacity: 0.8;
+}
+
+.creditText {
+  font-size: 0.6875rem;
+  color: var(--color-text-muted);
+  line-height: 1.3;
+}
+
+/* Responsive: at 1024px and below, become icon-only rail */
+@media (max-width: 1024px) {
+  .sidebar {
+    width: 72px;
+  }
+
+  .brandName,
+  .consoleBadge,
+  .navLabel,
+  .adminDetails,
+  .signOutText,
+  .creditText {
+    display: none;
+  }
+
+  .brandHeader {
+    padding: var(--space-base) var(--space-xs);
+    align-items: center;
+  }
+
+  .navItem {
+    justify-content: center;
+    padding: 0.625rem;
+    border-radius: var(--radius-md);
+  }
+
+  .footer {
+    padding: var(--space-sm) var(--space-xs);
+    align-items: center;
+  }
+}
+
+/* Responsive: at 768px and below, hide fixed sidebar (rendered via mobile drawer) */
+@media (max-width: 768px) {
+  .sidebar {
+    display: none;
+  }
+
+  .sidebar.mobileOpen {
+    display: flex;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 280px;
+    height: 100vh;
+    z-index: 1000;
+    box-shadow: var(--shadow-drawer);
+  }
+
+  .sidebar.mobileOpen .brandName,
+  .sidebar.mobileOpen .consoleBadge,
+  .sidebar.mobileOpen .navLabel,
+  .sidebar.mobileOpen .adminDetails,
+  .sidebar.mobileOpen .signOutText,
+  .sidebar.mobileOpen .creditText {
+    display: block;
+  }
+
+  .sidebar.mobileOpen .navItem {
+    justify-content: flex-start;
+  }
+}
+
+.mobileBackdrop {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .mobileBackdrop.open {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background-color: rgba(26, 26, 26, 0.4);
+    z-index: 999;
+  }
+}

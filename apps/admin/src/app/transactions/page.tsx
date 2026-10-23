@@ -1,7 +1,8 @@
 import React from 'react';
-import { colors } from '@davao-bank/shared';
+import { Download } from 'lucide-react';
 import { createAdminCookieServerClient } from '@/lib/supabase-cookies';
-import { AdminNav } from '@/components/AdminNav';
+import { AdminShell } from '@/components/AdminShell';
+import { PageHeader, Button } from '@/components/ui';
 import { TransactionsClient, type AdminTransactionRow } from './TransactionsClient';
 
 export const dynamic = 'force-dynamic';
@@ -45,14 +46,12 @@ export default async function AdminTransactionsPage() {
   const txAccountsMap: Record<string, Set<string>> = {};
 
   (ledgerData || []).forEach((entry) => {
-    // Collect accounts involved
     if (!txAccountsMap[entry.transaction_id]) {
       txAccountsMap[entry.transaction_id] = new Set<string>();
     }
     const accNum = accNumberMap[entry.account_id] || entry.account_id;
     txAccountsMap[entry.transaction_id].add(accNum);
 
-    // Collect amount
     if (!txAmountMap[entry.transaction_id]) {
       txAmountMap[entry.transaction_id] = Number(entry.amount);
     }
@@ -71,63 +70,18 @@ export default async function AdminTransactionsPage() {
   }));
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        backgroundColor: colors.background,
-        display: 'flex',
-        flexDirection: 'column',
-      }}
-    >
-      <AdminNav adminEmail={user?.email} adminName={profile?.full_name} />
-
-      <main
-        style={{
-          maxWidth: '1280px',
-          width: '100%',
-          margin: '0 auto',
-          padding: '2rem 1.5rem',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '1.5rem',
-        }}
+    <AdminShell adminEmail={user?.email} adminName={profile?.full_name}>
+      <PageHeader
+        title="Transaction Oversight & Reversals"
+        subtitle="Monitor ledger activity, inspect receipts, and execute compensating reversals."
       >
-        <div>
-          <div
-            style={{
-              fontSize: '0.8rem',
-              fontWeight: 800,
-              color: colors.primary,
-              letterSpacing: '1px',
-              textTransform: 'uppercase',
-            }}
-          >
-            Financial Monitoring &amp; Reversals
-          </div>
-          <h1
-            style={{
-              fontSize: '1.75rem',
-              fontWeight: 800,
-              color: colors.textPrimary,
-              marginTop: '0.25rem',
-            }}
-          >
-            Transaction Oversight &amp; Audit
-          </h1>
-          <p
-            style={{
-              fontSize: '0.9rem',
-              color: colors.textSecondary,
-              marginTop: '0.25rem',
-            }}
-          >
-            Monitor real-time ledger activity, filter by status or transaction type,
-            export audit CSV reports, and execute atomic compensating reversals.
-          </p>
-        </div>
-
-        <TransactionsClient initialTransactions={rows} />
-      </main>
-    </div>
+        <a href="/api/export/transactions">
+          <Button variant="secondary" icon={<Download size={16} />}>
+            Export Ledger CSV
+          </Button>
+        </a>
+      </PageHeader>
+      <TransactionsClient initialTransactions={rows} />
+    </AdminShell>
   );
 }

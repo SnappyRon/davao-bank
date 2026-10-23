@@ -3,7 +3,8 @@
 **Hand this entire file to your coding agent. It is self-contained.**
 
 It combines everything approved after Phase 4:
-- the **UI/UX redesign** (bold, polished experience inspired by the reference app *Clucky*, branded with the official Kadayawan 2026 logo and colors), and
+
+- the **UI/UX redesign** (bold, polished experience inspired by the reference app _Clucky_, branded with the official Kadayawan 2026 logo and colors), and
 - **eight new features** (Scope Change Record 01).
 
 It **supersedes** `Phase-4R-Prompt-UI-UX-Redesign.md`; all of that content is included here (Stage A).
@@ -16,16 +17,17 @@ After this phase come only **Phase 6 — Testing & Security Hardening** and **Ph
 
 Work through the stages **in order**:
 
-| Stage | What it delivers |
-|---|---|
-| **0** | Close out Phase 4 fixes + live-database verification + script env fix |
-| **A** | UI/UX redesign of every existing screen (design system first) |
+| Stage | What it delivers                                                                                          |
+| ----- | --------------------------------------------------------------------------------------------------------- |
+| **0** | Close out Phase 4 fixes + live-database verification + script env fix                                     |
+| **A** | UI/UX redesign of every existing screen (design system first)                                             |
 | **B** | Everyday extras: saved recipients, own-account shortcut, statements, hide balance, biometric confirmation |
-| **C** | Scheduled & recurring payments + simulated bill pay |
-| **D** | QR send & request money |
-| **E** | FX reference-rate chart (view only) + integration polish |
+| **C** | Scheduled & recurring payments + simulated bill pay                                                       |
+| **D** | QR send & request money                                                                                   |
+| **E** | FX reference-rate chart (view only) + integration polish                                                  |
 
 Rules for every stage:
+
 1. **Branch:** do all work on the branch `phase-5-redesign-features`.
 2. **One commit per stage**, titled `Phase 5 · Stage X — <name>`. This lets each stage be reviewed on its own.
 3. **One new migration per stage** that changes the database (`supabase/migrations/<timestamp>_phase5_stage_x_<name>.sql`). **Never edit an earlier migration.**
@@ -38,15 +40,17 @@ Rules for every stage:
 6. If anything in this prompt conflicts with the existing code or the approved proposal, **stop and flag it**. Do not guess.
 
 ### What to review before starting
-- **The proposal:** *Davao Bank Project Proposal v1.1* (simulated prototype — play money, not a licensed bank).
+
+- **The proposal:** _Davao Bank Project Proposal v1.1_ (simulated prototype — play money, not a licensed bank).
 - **Approved changes:** `Scope-Change-01-Feature-Additions.md`.
 - **Pending fixes:** `Phase-4-Fixes-Prompt.md`.
 - **Database:** every file in `supabase/migrations/` — schema, RLS, `is_admin()`, `write_audit`, `transfer`, `deposit`, `withdraw`, `get_account_transactions` and the `admin_*` functions.
 - **Shared package:** `packages/shared` (tokens, types, RPC callers, `generateIdempotencyKey`, `formatCentavosToPHP`).
 - **Apps:** both apps in full. Also read `apps/admin/AGENTS.md`: this Next.js version has breaking changes, so read the relevant guide in `node_modules/next/dist/docs/` before touching layouts or fonts.
-- **Visual reference:** the Figma file *Davao Bank — UI Redesign Mockup* — https://www.figma.com/design/cfRZvdUS79QuuG4hOrHIoB. Where it and this prompt disagree, **this prompt wins**. The Figma file still shows the older 2×2 Home grid; §A.4 has the final layout.
+- **Visual reference:** the Figma file _Davao Bank — UI Redesign Mockup_ — https://www.figma.com/design/cfRZvdUS79QuuG4hOrHIoB. Where it and this prompt disagree, **this prompt wins**. The Figma file still shows the older 2×2 Home grid; §A.4 has the final layout.
 
 ### Non-negotiable rules (all stages)
+
 - **Server-authoritative money.**
   - Clients never write money tables directly.
   - Every money movement goes through `SECURITY DEFINER` functions with a fixed `search_path`. They are atomic, idempotent, use row locks and are audited.
@@ -87,6 +91,7 @@ Rules for every stage:
    - no-op status cleanup
 
    If any item is missing, do it now (new migration).
+
 2. **Script env fix.** The CLI scripts don't load `.env`. Change the root `package.json` scripts `seed`, `test:rls`, `test:money` and `test:admin` to run with the env loaded, for example:
    ```
    node --env-file=.env --import tsx scripts/seed.ts
@@ -102,8 +107,16 @@ Rules for every stage:
    - `npm run test:admin`
    - the Phase 4-fix checks (concurrent double reversal, suspension, `write_audit` forgery attempts as both customer and anon)
 5. **Quality checks:** typecheck, lint, format:check, `build:admin`, `expo export`, and the secret-leak grep.
+6. **Remove the silent "Contract Mode" fallback from every test script** (added after the Phase 4 review).
+   - **What's wrong today:** `test-rls-and-auth.ts`, `test-phase3-money.ts` and `test-phase4-admin.ts` all switch to "Self-Contained Verification / Contract Mode" when the database tables can't be reached. That mode only searches the source files for keywords, yet it still prints PASS and exits 0.
+   - **What actually happened:** the Phase 4 fixes report presented that output as running "against" the hosted project. That project had **no tables**: every table returned HTTP 404. **None of those results count as verification.**
+   - **Required change:**
+     - If the database or its tables can't be reached, the script must print `NOT VERIFIED — database unreachable` and **exit with code 1**.
+     - Keep the source-file checks only as an extra step that runs **in addition to** the live tests, never instead of them.
+     - Each live suite must print the database URL host and the line `✓ Connected to live database` before running any test.
+   - **Report requirement:** include that connection line in `PHASE5_REPORT.md`. Results without it will be rejected.
 
-**Gate:** all green, or stop and report.
+**Gate:** all green **against a live database with tables present**, or stop and report.
 
 ---
 
@@ -111,7 +124,8 @@ Rules for every stage:
 
 This stage is **visual and UX only**. Every existing feature, server call, idempotency behavior and business rule must work exactly as before.
 
-What carries over from the reference app *Clucky*:
+What carries over from the reference app _Clucky_:
+
 - heavy, tightly spaced type, with the key number as the hero of each screen
 - one strong accent color on a warm neutral background
 - large rounded cards and chunky pill buttons
@@ -122,6 +136,7 @@ What carries over from the reference app *Clucky*:
 **Do not copy** its colors, logo, mascot, illustrations, copy, streaks or gamification. Branding comes from the official Kadayawan 2026 logo, which the owner uses with permission from the Davao City Tourism Operations Office.
 
 ### A.0 Brand assets
+
 - The owner supplies the logo files in `packages/shared/assets/brand/`:
   - `kadayawan-logo-mark.svg` — the diamond with four tiles
   - `kadayawan-logo-horizontal.svg`
@@ -132,37 +147,40 @@ What carries over from the reference app *Clucky*:
   - The **horizontal** version is used only where it has room: welcome screen, admin sidebar header, About screen.
 - Never recolor, stretch, rotate, add effects to or crop the logo. Keep clear space around it of at least ¼ of its height.
 - Put this credit on the mobile **About** screen and in the admin sidebar footer:
-  *"Kadayawan logo used with permission of the Davao City Tourism Operations Office."*
+  _"Kadayawan logo used with permission of the Davao City Tourism Operations Office."_
 
 ### A.1 Color tokens
+
 Sampled from the official logo and checked for contrast. Replace the current palette in `packages/shared/src/theme/`:
+
 - Keep existing token names where their meaning still fits, and add the new tokens.
 - Update `coreColorSwatches` to describe the five logo colors.
 - Let `npm run typecheck` catch any renamed tokens.
 
-| Token | Value | Use |
-|---|---|---|
-| `primary` | `#0C6D38` (Mt. Apo deep green) | Main buttons, active tab, links, focus ring, credit amounts (contrast 6.4:1 on white) |
-| `primaryPressed` | `#09552B` | Pressed state |
-| `primaryTint` | `#E3F2E8` | Selected chips, soft highlights, success badge background |
-| `green` | `#03AA56` | Fills only (Cash-in tile) |
-| `red` | `#EF2D23` | Fills only (destructive button, error icon) |
-| `redText` | `#C8102E` | Error and destructive text (5.9:1) |
-| `orange` | `#FD4B12` | Fills only (Cash-out tile) |
-| `orangeText` | `#C2410C` | Warning text (5.2:1) |
-| `yellow` | `#FEAD0B` | Fills only, **always with `ink` text and icons on top** |
-| `blue` | `#0099C8` | Fills only (Transfer tile) |
-| `blueText` | `#006E94` | Info text (5.7:1) |
-| `ink` | `#1A1A1A` | Primary text, debit amounts |
-| `textSecondary` | `#5C5A55` | Secondary text |
-| `textMuted` | `#8A877F` | Placeholders and non-essential hints only |
-| `canvas` | `#F7F5F0` | App background |
-| `surface` | `#FFFFFF` | Cards, sheets |
-| `surfaceSubtle` | `#EFECE6` | Inputs, inactive chips |
-| `border` | `#E4E0D8` | Dividers, outlines |
-| `tintRed` / `tintOrange` / `tintYellow` / `tintBlue` | `#FDE8E7` / `#FFEDE4` / `#FFF4DB` / `#E1F3FA` | Badge and icon-circle backgrounds |
+| Token                                                | Value                                         | Use                                                                                   |
+| ---------------------------------------------------- | --------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `primary`                                            | `#0C6D38` (Mt. Apo deep green)                | Main buttons, active tab, links, focus ring, credit amounts (contrast 6.4:1 on white) |
+| `primaryPressed`                                     | `#09552B`                                     | Pressed state                                                                         |
+| `primaryTint`                                        | `#E3F2E8`                                     | Selected chips, soft highlights, success badge background                             |
+| `green`                                              | `#03AA56`                                     | Fills only (Cash-in tile)                                                             |
+| `red`                                                | `#EF2D23`                                     | Fills only (destructive button, error icon)                                           |
+| `redText`                                            | `#C8102E`                                     | Error and destructive text (5.9:1)                                                    |
+| `orange`                                             | `#FD4B12`                                     | Fills only (Cash-out tile)                                                            |
+| `orangeText`                                         | `#C2410C`                                     | Warning text (5.2:1)                                                                  |
+| `yellow`                                             | `#FEAD0B`                                     | Fills only, **always with `ink` text and icons on top**                               |
+| `blue`                                               | `#0099C8`                                     | Fills only (Transfer tile)                                                            |
+| `blueText`                                           | `#006E94`                                     | Info text (5.7:1)                                                                     |
+| `ink`                                                | `#1A1A1A`                                     | Primary text, debit amounts                                                           |
+| `textSecondary`                                      | `#5C5A55`                                     | Secondary text                                                                        |
+| `textMuted`                                          | `#8A877F`                                     | Placeholders and non-essential hints only                                             |
+| `canvas`                                             | `#F7F5F0`                                     | App background                                                                        |
+| `surface`                                            | `#FFFFFF`                                     | Cards, sheets                                                                         |
+| `surfaceSubtle`                                      | `#EFECE6`                                     | Inputs, inactive chips                                                                |
+| `border`                                             | `#E4E0D8`                                     | Dividers, outlines                                                                    |
+| `tintRed` / `tintOrange` / `tintYellow` / `tintBlue` | `#FDE8E7` / `#FFEDE4` / `#FFF4DB` / `#E1F3FA` | Badge and icon-circle backgrounds                                                     |
 
 Rules:
+
 - **One accent.** Green is the only color for main actions and active states. The other Kadayawan colors appear only in action tiles, transaction-type icons, badges and alerts.
 - **Money amounts.**
   - Incoming: `+₱1,000.00` in `primary`.
@@ -172,22 +190,23 @@ Rules:
 - **Light mode only.**
 
 ### A.2 Typography, spacing, shape, motion, icons
+
 - **Font family.** Use **Plus Jakarta Sans** (open licence):
   - Mobile: `@expo-google-fonts/plus-jakarta-sans` + `expo-font`.
   - Admin: `next/font/google`.
   - Only weights 500 / 600 / 700 / 800.
 - **Type scale (size/line height · weight):**
 
-  | Style | Spec | Use |
-  |---|---|---|
-  | `display` | 40/44 · 800 · letter-spacing −1 | Balance, the amount being moved |
-  | `h1` | 28/32 · 800 · −0.5 | Screen titles |
-  | `h2` | 22/28 · 700 · −0.3 | Section titles |
-  | `title` | 18/24 · 700 | Card titles, tile labels, buttons |
-  | `bodyStrong` | 16/24 · 600 | Row titles, list amounts |
-  | `body` | 16/24 · 500 | Body text |
-  | `label` | 14/20 · 600 | Chips, form labels |
-  | `caption` | 12/16 · 500 | Timestamps, helper text |
+  | Style        | Spec                            | Use                               |
+  | ------------ | ------------------------------- | --------------------------------- |
+  | `display`    | 40/44 · 800 · letter-spacing −1 | Balance, the amount being moved   |
+  | `h1`         | 28/32 · 800 · −0.5              | Screen titles                     |
+  | `h2`         | 22/28 · 700 · −0.3              | Section titles                    |
+  | `title`      | 18/24 · 700                     | Card titles, tile labels, buttons |
+  | `bodyStrong` | 16/24 · 600                     | Row titles, list amounts          |
+  | `body`       | 16/24 · 500                     | Body text                         |
+  | `label`      | 14/20 · 600                     | Chips, form labels                |
+  | `caption`    | 12/16 · 500                     | Timestamps, helper text           |
 
 - **Tabular figures** (digits that line up in columns) for every money amount, account number and rate:
   - Mobile: `fontVariant: ['tabular-nums']`.
@@ -213,6 +232,7 @@ Rules:
 - **Icons:** Lucide only — `lucide-react-native` + `react-native-svg` on mobile, `lucide-react` on admin. Stroke width 2; sizes 20 / 24 / 28.
 
 ### A.3 Shared components (build these before any screen)
+
 - **Mobile** (`apps/mobile/src/components/`):
   - `Screen`, `Text` (variant-based)
   - `Button` (primary / secondary / ghost / destructive; loading state; full-width pill, 56 px tall)
@@ -231,6 +251,7 @@ Rules:
 - **Admin styling:** replace all inline `style={{…}}` with **CSS Modules + CSS variables** generated from the shared tokens. Add no new CSS framework.
 
 ### A.4 Mobile — navigation and screens
+
 - **Navigation.** Replace the single stack with a **4-tab bottom bar: Home · Activity · Inbox · Profile**.
   - Inbox shows an unread-count badge.
   - Money flows open as full-screen stack flows with a back/close button and a step indicator.
@@ -266,6 +287,7 @@ Rules:
   5. Success — check-mark, amount, receipt, new balance
 
   Keep the idempotency behavior exactly as it is: one key per transfer attempt, reused on retry. Show server errors (insufficient funds, frozen account, not found) inline, with a retry.
+
 - **Cash-in / Cash-out:** same pattern — amount with preset chips → review → success.
 - **Inbox:** notifications with an unread style, plus mark-read and mark-all-read.
 - **Profile:**
@@ -278,7 +300,7 @@ Rules:
 - **About:**
   - app version
   - logo credit
-  - disclaimer: *"Davao Bank is a simulated prototype for academic use. It is not a licensed bank and holds no real money."*
+  - disclaimer: _"Davao Bank is a simulated prototype for academic use. It is not a licensed bank and holds no real money."_
 - **Suspended screen:** restyled, calm tone, sign out.
 - **Loading, empty and error states everywhere:**
   - skeleton loaders instead of full-screen spinners
@@ -287,6 +309,7 @@ Rules:
 - **`app.json`:** app name "Davao Bank"; icon, adaptive icon and splash from the brand assets (the mark on the `canvas` color).
 
 ### A.5 Admin — layout and pages
+
 - **Layout:**
   - Left **sidebar**:
     - horizontal logo + "STAFF CONSOLE"
@@ -316,6 +339,7 @@ Rules:
 - **CSV export:** same route, styled as a secondary button, with a toast.
 
 **Stage A gate:**
+
 - Screenshots of every mobile screen (iPhone size + small Android), including loading, empty and error states.
 - Screenshots of every admin page at 1440 / 1024 / 768 px.
 - Hardcoded-hex grep = 0.
@@ -328,6 +352,7 @@ Rules:
 ## Stage B — Everyday extras
 
 ### B.1 Saved recipients + own-account shortcut
+
 - **Migration — new table `saved_recipients`:**
   - columns: `id uuid pk`, `owner_id uuid not null → profiles(id) on delete cascade`, `account_number text not null`, `nickname text not null check (char_length(nickname) between 1 and 40)`, `created_at timestamptz default now()`
   - `unique (owner_id, account_number)`
@@ -348,6 +373,7 @@ Rules:
   - Profile gains a **Saved recipients** row (list, rename, delete).
 
 ### B.2 Statements (CSV + PDF)
+
 - **Migration — `get_account_statement(p_account_id uuid, p_from date, p_to date)`** (`SECURITY DEFINER`, scoped to the caller, granted to authenticated):
   - Returns the opening balance (sum of ledger before `p_from`), the rows in the range (same shape as `get_account_transactions`) and the closing balance.
   - The range must be 1 year or less, with `p_from` on or before `p_to`.
@@ -364,6 +390,7 @@ Rules:
     - the generated-at time (Asia/Manila)
 
 ### B.3 Hide / reveal balance
+
 - An eye toggle in the balance card's header. The choice is saved on the device and persists across launches; balances are shown by default.
 - When hidden:
   - every **balance** in the app shows `₱••••••` (Home, account lists, available balance in flows, new balance on success screens);
@@ -372,6 +399,7 @@ Rules:
   - a single tap reveals the balance.
 
 ### B.4 Biometric confirmation before money moves
+
 - **Library:** `expo-local-authentication`.
 - **Applies before:** submitting a transfer, cash-out, bill payment, creating or editing a schedule, paying a payment request, and paying from a scanned QR. Cash-in can skip it.
 - **Profile → Security:**
@@ -385,6 +413,7 @@ Rules:
 - **State this limit in the README and the report:** the biometric prompt is a check **on the device only**. A server-verified transaction PIN would be stronger and is a production upgrade.
 
 **Stage B gate:** new script `scripts/test-phase5-extras.ts` (`npm run test:extras`) proves:
+
 - RLS isolation of saved recipients, and that direct client inserts are denied
 - `add_saved_recipient` rejects nonexistent, inactive and own accounts, and never leaks names
 - the per-user limits work
@@ -392,6 +421,7 @@ Rules:
 - a non-owner can't fetch another user's statement
 
 Also required:
+
 - a manual demo of the hide toggle, the biometric gate and the password fallback (screenshots)
 - all earlier tests still pass
 
@@ -402,6 +432,7 @@ Also required:
 This is the **highest money-integrity risk** in the phase. Test it the most.
 
 ### C.1 Schema (migration)
+
 - **Allow a system profile.**
   - Change the `profiles.role` check to allow `'system'`: drop the existing check constraint and recreate it in the **new** migration.
   - `is_admin()` stays `role = 'admin' and status = 'active'`.
@@ -436,6 +467,7 @@ This is the **highest money-integrity risk** in the phase. Test it the most.
 - **RLS for both schedule tables:** the owner can `select` their own; admins can `select` all; **no client writes** (all writes go through functions).
 
 ### C.2 One money engine (refactor, don't duplicate)
+
 - **Move the transfer logic into an internal core:**
   ```sql
   _transfer_core(p_actor uuid, p_from uuid, p_to uuid, p_amount bigint,
@@ -453,6 +485,7 @@ This is the **highest money-integrity risk** in the phase. Test it the most.
 - Also harden the Phase 3 edge case: on the insufficient-funds path, re-check the idempotency key first, so a simultaneous duplicate gets the replay instead of an "insufficient funds" error.
 
 ### C.3 Functions
+
 - **`pay_bill(p_from_account, p_biller_id, p_biller_reference, p_amount, p_idempotency_key)`** (granted to authenticated):
   - The biller must be active.
   - The reference must match `reference_pattern`.
@@ -491,6 +524,7 @@ This is the **highest money-integrity risk** in the phase. Test it the most.
 - **`admin_run_due_schedules_now()`** (admin-only, audited): runs the executor on demand, for demos and tests.
 
 ### C.4 Mobile
+
 - **Pay bills** (Home tile, `orange` or another tile color per the grid):
   1. Pick a biller (grouped by category, searchable).
   2. Enter the reference, labeled with the biller's `reference_label`, validated inline.
@@ -508,6 +542,7 @@ This is the **highest money-integrity risk** in the phase. Test it the most.
 - **Activity:** a Bills filter chip. Scheduled runs appear as normal transactions once executed.
 
 ### C.5 Admin
+
 - **Schedules page:** filterable list, a detail drawer with runs, cancel (`ConfirmDialog` + reason), and "Run due schedules now".
 - **Billers page:**
   - List all billers.
@@ -515,6 +550,7 @@ This is the **highest money-integrity risk** in the phase. Test it the most.
   - Activate or deactivate billers.
 
 **Stage C gate:** `scripts/test-phase5-schedules.ts` (`npm run test:schedules`) proves:
+
 - the `_transfer_core` refactor didn't change transfer behavior (`test:money` still passes)
 - `_transfer_core`, `run_due_scheduled_payments` and `write_audit` **are not callable** by customer or anon clients
 - **each run executes exactly once**, even when the executor is called repeatedly and concurrently
@@ -530,6 +566,7 @@ This is the **highest money-integrity risk** in the phase. Test it the most.
 ## Stage D — QR send & request money (Davao Bank users only)
 
 ### D.1 QR format
+
 - Payload: `davaobank://pay?v=1&acct=<10-digit account number>&amt=<centavos, optional>&note=<urlencoded, optional, max 60 chars>`.
   - Register the `davaobank` scheme in `app.json`.
   - Account numbers aren't secret, so the QR is unsigned.
@@ -538,6 +575,7 @@ This is the **highest money-integrity risk** in the phase. Test it the most.
 - Not supported: QR Ph interoperability, ATM QR, deposit-machine QR.
 
 ### D.2 Mobile
+
 - **QR hub** (Home tile `QR`) with two tabs:
   - **My QR:**
     - choose one of your accounts
@@ -555,6 +593,7 @@ This is the **highest money-integrity risk** in the phase. Test it the most.
   2. Review, then send.
 
 ### D.3 Payment requests
+
 - **Table `payment_requests`:**
   - columns:
     - `id uuid pk`
@@ -588,6 +627,7 @@ This is the **highest money-integrity risk** in the phase. Test it the most.
 - **Admin:** a read-only requests list on the Transactions page (a filter or tab).
 
 **Stage D gate:** `scripts/test-phase5-qr-requests.ts` (`npm run test:qr`) proves:
+
 - QR payload parsing accepts valid codes and rejects malformed, foreign, oversized and negative ones (unit tests)
 - **a request can be paid only once**, even with concurrent pay attempts
 - non-payers can't pay a request
@@ -603,6 +643,7 @@ Also required: a manual demo — My QR → scan on a second device or emulator �
 ## Stage E — FX reference-rate chart (view only) + integration polish
 
 ### E.1 Data
+
 - **Source:** **Frankfurter**, an open API that publishes European Central Bank reference rates.
   - **Before building, confirm the current endpoint and response format from its official documentation**, and confirm that PHP is supported and what attribution it requires.
   - Record all three in the README. Do not hardcode an unverified URL.
@@ -619,6 +660,7 @@ Also required: a manual demo — My QR → scan on a second device or emulator �
 - **No conversion, quotes, trading or alerts.** The app stays single-currency (PHP).
 
 ### E.2 Mobile
+
 - **Home "Currency watch" card**, placed below the tiles:
   - latest USD/PHP rate (4 decimals)
   - change against the previous rate date (+/−, with text, not color alone)
@@ -638,6 +680,7 @@ Also required: a manual demo — My QR → scan on a second device or emulator �
   - weekends and holidays skipped (gaps are expected)
 
 ### E.3 Integration polish (absorbs the original "Integration" phase)
+
 - **End-to-end consistency across all features:**
   - error messages turn server exceptions into friendly, actionable copy
   - every money flow ends in a clear result: completed / scheduled / failed, never vague
@@ -650,12 +693,14 @@ Also required: a manual demo — My QR → scan on a second device or emulator �
 - **Admin dashboard:** add KPIs for active schedules, failed runs in the last 7 days, and pending payment requests.
 
 **Stage E gate:** `scripts/test-phase5-fx.ts` (`npm run test:fx`) proves:
+
 - RLS on `fx_rates` (customers can read, can't write)
 - the sync upserts idempotently (no duplicate dates)
 - the backfill covers about 1 year
 - each period returns the expected date ranges
 
 Also required:
+
 - screenshots of the chart in every state
 - **the full regression suite**: `test:rls`, `test:money`, `test:admin`, `test:extras`, `test:schedules`, `test:qr`, `test:fx`, all passing against the named database
 - final ledger reconciliation
@@ -665,6 +710,7 @@ Also required:
 ---
 
 ## Final completion criteria (whole phase)
+
 1. Stage 0 complete: the Phase 4 fixes are verified against a live database, and the Phase 3 concurrency and reconciliation tests pass.
 2. Both apps are fully redesigned on the shared design system (Kadayawan tokens, Plus Jakarta Sans, Lucide). Hardcoded-hex grep is 0, and no inline styles remain in admin.
 3. All eight features work end to end, with the rules above:
@@ -684,10 +730,11 @@ Also required:
 8. `PHASE5_REPORT.md` holds every stage's entry with its full output, plus the lists of missing brand assets, added dependencies and any deviations.
 
 ## Do NOT
+
 - Edit earlier migrations, weaken any RLS policy, or grant client access to internal functions.
 - Add other banks or e-wallets, real FX conversion, card controls, ATM/deposit-machine QR, investments, installments, FX alerts, account groups, branch appointments, trusted devices, or holds. **These are excluded.**
 - Use real company names, the reference app's branding, or any traced or recreated version of the Kadayawan logo.
 - Show a person's name for a counterparty anywhere.
 - Label a scheduled payment as "sent" or "paid" before its run completes.
 
-*The reviewer will review each stage commit separately. That means running the migrations and every test suite against a live database, checking the screenshots against the design system and the Figma file, and diffing server-call sites — not relying on this report's summary.*
+_The reviewer will review each stage commit separately. That means running the migrations and every test suite against a live database, checking the screenshots against the design system and the Figma file, and diffing server-call sites — not relying on this report's summary._
