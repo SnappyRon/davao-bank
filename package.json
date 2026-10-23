@@ -1,0 +1,38 @@
+{
+  "name": "davao-bank",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Simulated mobile banking system rooted in Davao City culture. Academic capstone prototype.",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:admin": "npm run dev --workspace=admin",
+    "dev:mobile": "npm run start --workspace=mobile",
+    "ios:mobile": "npm run ios --workspace=mobile",
+    "android:mobile": "npm run android --workspace=mobile",
+    "build:admin": "npm run build --workspace=admin",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "seed": "tsx scripts/seed.ts",
+    "test:rls": "tsx scripts/test-rls-and-auth.ts",
+    "test:money": "tsx scripts/test-phase3-money.ts",
+    "test:admin": "tsx scripts/test-phase4-admin.ts"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.21.0",
+    "eslint": "^9.21.0",
+    "eslint-config-prettier": "^10.0.1",
+    "prettier": "^3.5.2",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2",
+    "typescript-eslint": "^8.25.0"
+  }
+}
