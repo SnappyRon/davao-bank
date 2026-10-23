@@ -12,7 +12,9 @@ import {
   spacing,
   radius,
   fetchTransactionHistory,
+  fetchAccountBalances,
   type TransactionHistoryItem,
+  type AccountBalance,
 } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
 import {
@@ -24,6 +26,7 @@ import {
   Skeleton,
 } from '../components';
 import { TransactionDetailModal } from './TransactionDetailModal';
+import { ExportStatementModal } from './ExportStatementModal';
 
 export type ActivityFilter =
   'all' | 'transfer' | 'deposit' | 'withdrawal' | 'adjustment' | 'reversal';
@@ -34,16 +37,24 @@ interface ActivityScreenProps {
 
 export function ActivityScreen({ onExportStatement }: ActivityScreenProps) {
   const [transactions, setTransactions] = useState<TransactionHistoryItem[]>([]);
+  const [accounts, setAccounts] = useState<AccountBalance[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [selectedFilter, setSelectedFilter] = useState<ActivityFilter>('all');
   const [selectedTx, setSelectedTx] = useState<TransactionHistoryItem | null>(null);
+  const [isExportOpen, setIsExportOpen] = useState(false);
 
   const loadHistory = useCallback(async () => {
     try {
-      const { data, error } = await fetchTransactionHistory(supabase);
-      if (!error && data) {
-        setTransactions(data);
+      const [txRes, accRes] = await Promise.all([
+        fetchTransactionHistory(supabase),
+        fetchAccountBalances(supabase),
+      ]);
+      if (!txRes.error && txRes.data) {
+        setTransactions(txRes.data);
+      }
+      if (!accRes.error && accRes.data) {
+        setAccounts(accRes.data);
       }
     } catch (err) {
       console.warn('Failed to fetch activity history:', err);
@@ -121,18 +132,23 @@ export function ActivityScreen({ onExportStatement }: ActivityScreenProps) {
       <View style={styles.header}>
         <View style={styles.headerTitleRow}>
           <Text variant="h1">Activity</Text>
-          {onExportStatement ? (
-            <TouchableOpacity
-              onPress={onExportStatement}
-              style={styles.exportButton}
-              activeOpacity={0.8}
-            >
-              <FileText size={18} color={colors.primary} />
-              <Text variant="bodyStrong" color={colors.primary}>
-                Statement
-              </Text>
-            </TouchableOpacity>
-          ) : null}
+          <TouchableOpacity
+            onPress={() => {
+              if (onExportStatement) {
+                onExportStatement();
+              } else {
+                setIsExportOpen(true);
+              }
+            }}
+            style={styles.exportButton}
+            activeOpacity={0.8}
+            accessibilityLabel="Export statement"
+          >
+            <FileText size={18} color={colors.primary} />
+            <Text variant="bodyStrong" color={colors.primary}>
+              Statement
+            </Text>
+          </TouchableOpacity>
         </View>
 
         <FilterChips
@@ -199,6 +215,12 @@ export function ActivityScreen({ onExportStatement }: ActivityScreenProps) {
           onClose={() => setSelectedTx(null)}
         />
       ) : null}
+
+      <ExportStatementModal
+        visible={isExportOpen}
+        onClose={() => setIsExportOpen(false)}
+        accounts={accounts}
+      />
     </Screen>
   );
 }

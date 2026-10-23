@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import { View, StyleSheet, ScrollView, Alert } from 'react-native';
 import { MinusCircle, CheckCircle2, AlertCircle } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import {
@@ -14,6 +14,7 @@ import {
   type MoneyOperationResult,
 } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
+import { useSettings } from '../context/SettingsContext';
 import {
   BottomSheet,
   Text,
@@ -37,6 +38,8 @@ export function WithdrawModal({
   accounts,
   onWithdrawSuccess,
 }: WithdrawModalProps) {
+  const { hideBalance, confirmBiometricPayment } = useSettings();
+
   const [selectedAccountId, setSelectedAccountId] = useState<string>(
     accounts[0]?.account_id || ''
   );
@@ -75,7 +78,7 @@ export function WithdrawModal({
     }
     if (centavos > selectedAccount.balance) {
       setErrorMessage(
-        `Insufficient funds. Available: ${formatCentavosToPHP(selectedAccount.balance)}`
+        `Insufficient funds. Available: ${hideBalance ? '₱••••••' : formatCentavosToPHP(selectedAccount.balance)}`
       );
       return;
     }
@@ -93,6 +96,67 @@ export function WithdrawModal({
 
     const centavos = phpToCentavos(amountStr);
 
+    // 1. Biometric confirmation (§B.4)
+    const bioResult = await confirmBiometricPayment(
+      `Confirm cash-out of ${formatCentavosToPHP(centavos)} from account ${selectedAccount.account_number}`
+    );
+
+    if (bioResult.cancelled) {
+      setLoading(false);
+      setErrorMessage(
+        'Cash-out authorization was cancelled. You can retry whenever ready.'
+      );
+      return;
+    }
+
+    if (bioResult.requiresPasswordFallback) {
+      Alert.prompt(
+        'Security Verification',
+        'Please enter your account password to authorize this cash-out:',
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel',
+            onPress: () => {
+              setLoading(false);
+              setErrorMessage('Cash-out authorization was cancelled.');
+            },
+          },
+          {
+            text: 'Authorize',
+            onPress: async (pwd?: string) => {
+              const {
+                data: { user },
+              } = await supabase.auth.getUser();
+              if (!user?.email || !pwd) {
+                setLoading(false);
+                setErrorMessage('Password is required to authorize cash-out.');
+                return;
+              }
+              const { error: authErr } = await supabase.auth.signInWithPassword({
+                email: user.email,
+                password: pwd,
+              });
+              if (authErr) {
+                setLoading(false);
+                setErrorMessage('Incorrect password. Cash-out rejected.');
+                return;
+              }
+              await executeServerWithdraw(centavos);
+            },
+          },
+        ],
+        'secure-text'
+      );
+      return;
+    }
+
+    await executeServerWithdraw(centavos);
+  };
+
+  const executeServerWithdraw = async (centavos: number) => {
+    if (!selectedAccount) return;
+
     const { data, error } = await executeWithdraw(supabase, {
       account: selectedAccount.account_id,
       amount: centavos,
@@ -106,14 +170,14 @@ export function WithdrawModal({
       try {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       } catch {
-        // Haptics optional
+        // Ignored
       }
       setErrorMessage(error);
     } else if (data) {
       try {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } catch {
-        // Haptics optional
+        // Ignored
       }
       setSuccessResult(data);
       setStep('success');
@@ -155,14 +219,14 @@ export function WithdrawModal({
               value={amountStr}
               onChangeText={setAmountStr}
               presetAmounts={[500, 1000, 2000, 5000]}
-              helperText={`Available Balance: ${formatCentavosToPHP(selectedAccount?.balance || 0)}`}
+              helperText={`Available: ${hideBalance ? '₱••••••' : formatCentavosToPHP(selectedAccount?.balance || 0)}`}
             />
 
             <TextField
-              label="Reference / Terminal"
+              label="Reference / Purpose"
               value={reference}
               onChangeText={setReference}
-              placeholder="e.g. ATM Downtown Davao"
+              placeholder="e.g. ATM Withdrawal"
             />
 
             <Button
@@ -189,7 +253,7 @@ export function WithdrawModal({
 
               <View style={styles.reviewRow}>
                 <Text variant="body" color={colors.textSecondary}>
-                  Source Account
+                  From Account
                 </Text>
                 <Text variant="bodyStrong" tabularNums color={colors.ink}>
                   {selectedAccount?.account_number}
@@ -198,11 +262,15 @@ export function WithdrawModal({
 
               <View style={styles.reviewRow}>
                 <Text variant="body" color={colors.textSecondary}>
-                  Remaining Balance
+                  New Balance
                 </Text>
-                <Text variant="bodyStrong" tabularNums color={colors.ink}>
-                  {formatCentavosToPHP((selectedAccount?.balance || 0) - centavosAmount)}
-                </Text>
+                <AmountText
+                  amountCentavos={(selectedAccount?.balance || 0) - centavosAmount}
+                  hidden={hideBalance}
+                  variant="bodyStrong"
+                  color={colors.ink}
+                  showSign={false}
+                />
               </View>
             </Card>
 
@@ -214,7 +282,7 @@ export function WithdrawModal({
                 style={styles.backButton}
               />
               <Button
-                title="Confirm Cash-out"
+                title="Authorize Cash-out"
                 onPress={handleConfirmWithdraw}
                 loading={loading}
                 icon={<MinusCircle size={18} color={colors.textInverse} />}
@@ -229,7 +297,7 @@ export function WithdrawModal({
             <View style={styles.successIconBox}>
               <CheckCircle2 size={54} color={colors.primary} />
               <Text variant="h2" align="center" style={styles.successTitle}>
-                Cash-out Completed
+                Cash-out Prepared
               </Text>
               <AmountText
                 amountCentavos={centavosAmount}
@@ -251,9 +319,13 @@ export function WithdrawModal({
                 <Text variant="caption" color={colors.textMuted}>
                   Updated Balance
                 </Text>
-                <Text variant="bodyStrong" tabularNums color={colors.ink}>
-                  {formatCentavosToPHP((selectedAccount?.balance || 0) - centavosAmount)}
-                </Text>
+                <AmountText
+                  amountCentavos={(selectedAccount?.balance || 0) - centavosAmount}
+                  hidden={hideBalance}
+                  variant="bodyStrong"
+                  color={colors.ink}
+                  showSign={false}
+                />
               </View>
               <View style={styles.receiptRow}>
                 <Text variant="caption" color={colors.textMuted}>

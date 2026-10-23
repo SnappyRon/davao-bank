@@ -1,5 +1,12 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Alert,
+  Switch,
+} from 'react-native';
 import {
   User,
   Info,
@@ -7,12 +14,15 @@ import {
   ChevronRight,
   ShieldCheck,
   CheckCircle2,
+  Users,
 } from 'lucide-react-native';
 import { colors, spacing, radius, type Profile } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
+import { useSettings } from '../context/SettingsContext';
 import { Screen, Text, Card, Badge, Button } from '../components';
 import { PersonalDetailsModal } from './PersonalDetailsModal';
 import { AboutModal } from './AboutModal';
+import { SavedRecipientsModal } from './SavedRecipientsModal';
 
 interface ProfileScreenProps {
   profile: Profile | null;
@@ -27,7 +37,10 @@ export function ProfileScreen({
   onProfileUpdated,
   onSignOut,
 }: ProfileScreenProps) {
+  const { biometricEnabled, setBiometricEnabled, biometricType, isBiometricSupported } =
+    useSettings();
   const [personalDetailsOpen, setPersonalDetailsOpen] = useState(false);
+  const [savedRecipientsOpen, setSavedRecipientsOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
 
@@ -125,6 +138,58 @@ export function ProfileScreen({
             <ChevronRight size={18} color={colors.textMuted} />
           </TouchableOpacity>
 
+          {/* Saved Recipients Row (§B.1) */}
+          <TouchableOpacity
+            style={styles.menuRow}
+            activeOpacity={0.7}
+            onPress={() => setSavedRecipientsOpen(true)}
+          >
+            <View style={styles.menuIconContainer}>
+              <Users size={20} color={colors.primary} />
+            </View>
+            <View style={styles.menuTextContainer}>
+              <Text variant="bodyStrong" color={colors.ink}>
+                Saved Recipients
+              </Text>
+              <Text variant="caption" color={colors.textSecondary}>
+                Manage trusted Davao Bank accounts for fast transfers
+              </Text>
+            </View>
+            <ChevronRight size={18} color={colors.textMuted} />
+          </TouchableOpacity>
+
+          {/* Biometrics Toggle Row (§B.4) */}
+          <View style={styles.menuRow}>
+            <View style={styles.menuIconContainer}>
+              <ShieldCheck size={20} color={colors.green} />
+            </View>
+            <View style={styles.menuTextContainer}>
+              <Text variant="bodyStrong" color={colors.ink}>
+                Confirm with {biometricType}
+              </Text>
+              <Text variant="caption" color={colors.textSecondary}>
+                {isBiometricSupported
+                  ? 'Require biometric confirmation before money moves'
+                  : 'Device biometric hardware not enrolled'}
+              </Text>
+            </View>
+            <Switch
+              value={biometricEnabled}
+              disabled={!isBiometricSupported}
+              onValueChange={async (nextVal) => {
+                const ok = await setBiometricEnabled(nextVal);
+                if (!ok) {
+                  Alert.alert(
+                    'Verification Required',
+                    'Biometric verification is required to turn off payment protection.'
+                  );
+                }
+              }}
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor={colors.surface}
+            />
+          </View>
+
           <TouchableOpacity
             style={styles.menuRow}
             activeOpacity={0.7}
@@ -179,6 +244,11 @@ export function ProfileScreen({
       />
 
       <AboutModal visible={aboutOpen} onClose={() => setAboutOpen(false)} />
+
+      <SavedRecipientsModal
+        visible={savedRecipientsOpen}
+        onClose={() => setSavedRecipientsOpen(false)}
+      />
     </Screen>
   );
 }

@@ -273,3 +273,38 @@ export interface AdminOperationResult {
   message?: string;
   [key: string]: unknown;
 }
+
+// --- Phase 5 Stage B: Everyday Extras Types ---
+
+export interface SavedRecipient {
+  id: string;
+  owner_id: string;
+  account_number: string;
+  nickname: string;
+  created_at: string;
+}
+
+export interface StatementTransactionItem {
+  id: string;
+  transaction_id: string;
+  account_id: string;
+  account_number: string;
+  type: TransactionType;
+  direction: LedgerDirection;
+  amount: number;
+  signed_amount: number;
+  status: TransactionStatus;
+  reference: string | null;
+  counterparty_account_number: string | null;
+  created_at: string;
+}
+
+export interface AccountStatement {
+  account_id: string;
+  account_number: string;
+  period_from: string;
+  period_to: string;
+  opening_balance: number;
+  closing_balance: number;
+  transactions: StatementTransactionItem[];
+}

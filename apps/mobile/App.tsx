@@ -20,6 +20,7 @@ import {
   type Profile,
 } from '@davao-bank/shared';
 import { supabase } from './src/lib/supabase';
+import { SettingsProvider } from './src/context/SettingsContext';
 import { Logo, Text } from './src/components';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { ActivityScreen } from './src/screens/ActivityScreen';
@@ -194,75 +195,77 @@ export default function App() {
   }
 
   return (
-    <NavigationContainer>
-      <StatusBar style="dark" />
-      <Tab.Navigator
-        screenOptions={{
-          headerShown: false,
-          tabBarStyle: styles.tabBar,
-          tabBarActiveTintColor: colors.primary,
-          tabBarInactiveTintColor: colors.textMuted,
-          tabBarLabelStyle: styles.tabBarLabel,
-        }}
-      >
-        <Tab.Screen
-          name="HomeTab"
-          options={{
-            tabBarLabel: 'Home',
-            tabBarIcon: ({ color, size }) => <Home size={size} color={color} />,
+    <SettingsProvider>
+      <NavigationContainer>
+        <StatusBar style="dark" />
+        <Tab.Navigator
+          screenOptions={{
+            headerShown: false,
+            tabBarStyle: styles.tabBar,
+            tabBarActiveTintColor: colors.primary,
+            tabBarInactiveTintColor: colors.textMuted,
+            tabBarLabelStyle: styles.tabBarLabel,
           }}
         >
-          {({ navigation }) => (
-            <HomeScreen
-              onNavigateToActivity={() => navigation.navigate('ActivityTab')}
-              onNavigateToProfile={() => navigation.navigate('ProfileTab')}
-            />
-          )}
-        </Tab.Screen>
+          <Tab.Screen
+            name="HomeTab"
+            options={{
+              tabBarLabel: 'Home',
+              tabBarIcon: ({ color, size }) => <Home size={size} color={color} />,
+            }}
+          >
+            {({ navigation }) => (
+              <HomeScreen
+                onNavigateToActivity={() => navigation.navigate('ActivityTab')}
+                onNavigateToProfile={() => navigation.navigate('ProfileTab')}
+              />
+            )}
+          </Tab.Screen>
 
-        <Tab.Screen
-          name="ActivityTab"
-          component={ActivityScreen}
-          options={{
-            tabBarLabel: 'Activity',
-            tabBarIcon: ({ color, size }) => <Receipt size={size} color={color} />,
-          }}
-        />
+          <Tab.Screen
+            name="ActivityTab"
+            component={ActivityScreen}
+            options={{
+              tabBarLabel: 'Activity',
+              tabBarIcon: ({ color, size }) => <Receipt size={size} color={color} />,
+            }}
+          />
 
-        <Tab.Screen
-          name="InboxTab"
-          options={{
-            tabBarLabel: 'Inbox',
-            tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
-            tabBarBadgeStyle: styles.badgeStyle,
-            tabBarIcon: ({ color, size }) => <Bell size={size} color={color} />,
-          }}
-        >
-          {() => <InboxScreen onUnreadCountChange={setUnreadCount} />}
-        </Tab.Screen>
+          <Tab.Screen
+            name="InboxTab"
+            options={{
+              tabBarLabel: 'Inbox',
+              tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
+              tabBarBadgeStyle: styles.badgeStyle,
+              tabBarIcon: ({ color, size }) => <Bell size={size} color={color} />,
+            }}
+          >
+            {() => <InboxScreen onUnreadCountChange={setUnreadCount} />}
+          </Tab.Screen>
 
-        <Tab.Screen
-          name="ProfileTab"
-          options={{
-            tabBarLabel: 'Profile',
-            tabBarIcon: ({ color, size }) => <User size={size} color={color} />,
-          }}
-        >
-          {() => (
-            <ProfileScreen
-              profile={profile}
-              userEmail={session?.user?.email || null}
-              onProfileUpdated={(updated) => setProfile(updated)}
-              onSignOut={() => {
-                setSession(null);
-                setProfile(null);
-                setAuthScreen('login');
-              }}
-            />
-          )}
-        </Tab.Screen>
-      </Tab.Navigator>
-    </NavigationContainer>
+          <Tab.Screen
+            name="ProfileTab"
+            options={{
+              tabBarLabel: 'Profile',
+              tabBarIcon: ({ color, size }) => <User size={size} color={color} />,
+            }}
+          >
+            {() => (
+              <ProfileScreen
+                profile={profile}
+                userEmail={session?.user?.email || null}
+                onProfileUpdated={(updated) => setProfile(updated)}
+                onSignOut={() => {
+                  setSession(null);
+                  setProfile(null);
+                  setAuthScreen('login');
+                }}
+              />
+            )}
+          </Tab.Screen>
+        </Tab.Navigator>
+      </NavigationContainer>
+    </SettingsProvider>
   );
 }
 

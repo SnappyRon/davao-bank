@@ -207,3 +207,80 @@ Failed:      0
 
 - Placeholder vector brand marks and wordmarks have been added under `packages/shared/assets/brand/`. When official Kadayawan 2026 1024x1024 master app icon is finalized, place it at `packages/shared/assets/brand/app-icon-1024.png` to regenerate platform icons.
 
+---
+
+## Stage B — Everyday Extras
+
+### What Was Built & Implemented
+
+1. **Saved Recipients & Own-Account Shortcut (§B.1)**:
+   - Migration `supabase/migrations/20261023210000_phase5_stage_b_extras.sql`:
+     - `saved_recipients` table with `(owner_id, account_number)` uniqueness constraint and cascade deletion.
+     - Strict RLS: Owner-only `select`, `delete`, and `update` (nickname only). Direct client `insert` is denied.
+     - `add_saved_recipient(p_account_number text, p_nickname text)` function:
+       - Requires authenticated caller with active profile.
+       - Validates destination account existence and `active` status.
+       - Rejects caller's own account.
+       - Preserves counterparty privacy (never leaks or exposes recipient name).
+       - Enforces hard limits: max 50 saved recipients per user, max 20 additions per 24 hours.
+       - Writes immutable audit log.
+   - Mobile UI:
+     - `TransferModal.tsx` Step 1: Segmented selector with "Saved", "My Accounts" (1-tap inter-account transfers), and "New Account".
+     - Option to automatically save new recipients on transfer submission.
+     - `SavedRecipientsModal.tsx`: Searchable list, inline nickname editing, and removal confirmation.
+     - Profile menu: Added "Saved Recipients" row.
+
+2. **Reconciled Statements (CSV + PDF) (§B.2)**:
+   - Migration `get_account_statement(p_account_id uuid, p_from date, p_to date)` function:
+     - Scoped strictly to account owner or active staff admin.
+     - Pinned to Asia/Manila (+08:00) timezone boundaries.
+     - Enforces max period of 1 year (366 days).
+     - Authoritative double-entry reconciliation: `opening_balance (< p_from) + sum(period_entries) = closing_balance (< p_to + 1)`.
+   - Mobile UI:
+     - `ExportStatementModal.tsx`: Accessible via the "Statement" button on `ActivityScreen.tsx`.
+     - Period presets: This Month, Last Month, Last 3 Months, and Custom Range.
+     - CSV Spreadsheet export: Formatted CSV with statement metadata and transaction rows shared via `expo-sharing`.
+     - Official PDF Statement: Rendered via `expo-print` from a Kadayawan-styled HTML template featuring brand headers, opening/closing balance tiles, full transaction breakdown, academic prototype disclaimer, and logo credit.
+
+3. **Hide / Reveal Balance Privacy (§B.3)**:
+   - `apps/mobile/src/context/SettingsContext.tsx`: Persistent balance privacy state stored in AsyncStorage (`@davao_bank_hide_balance`).
+   - Interactive eye toggle in the balance card header on `HomeScreen.tsx`.
+   - When active, masks all balances as `₱••••••` across Home, Account Pills, Transfer, Cash-in, Cash-out, and Success receipts.
+   - Screen reader announcement: "Balance hidden. Double tap to reveal".
+
+4. **Biometric Confirmation Before Money Moves (§B.4)**:
+   - Integrated `expo-local-authentication` in `SettingsContext.tsx`.
+   - Profile → Security: Toggle "Confirm with Face ID / Fingerprint".
+   - Turning off requires one successful biometric check first.
+   - Gated execution: Prompts biometric check before transferring funds in `TransferModal.tsx` and before cash-out in `WithdrawModal.tsx`.
+   - Fallback: Prompts for account password verified via `supabase.auth.signInWithPassword` if biometric hardware is unavailable or not enrolled.
+   - **Architectural Limit Disclosure**: Biometric check is enforced on-device. A server-verified transaction PIN would offer stronger cryptographic non-repudiation and is noted as a production upgrade.
+
+5. **Token Enforcement**:
+   - Grep verification for hardcoded hex colors in `apps/mobile/src` and `apps/admin/src` (`.ts`, `.tsx`): **0 occurrences**.
+
+### Verification Results
+
+```text
+> npm run test:extras
+✓ [PASS] [Migration-Exists] Phase 5 Stage B migration file exists
+✓ [PASS] [Table-Schema] saved_recipients table defined with owner_id cascade, uniqueness, and RLS enabled
+✓ [PASS] [RLS-NoInsertPolicy] Direct client inserts denied by omitting client insert policy; select, update, delete scoped to owner
+✓ [PASS] [Func-AccountGuards] add_saved_recipient rejects own accounts, nonexistent accounts, and inactive accounts
+✓ [PASS] [Func-LimitGuards] add_saved_recipient strictly enforces 50 recipient max and 20 daily add rate limits
+✓ [PASS] [Privacy-NoNameLeak] add_saved_recipient return and audit log omit counterparty name, preserving recipient privacy
+✓ [PASS] [Statement-Bounds] get_account_statement validates date boundaries (max 366 days) and enforces account ownership
+✓ [PASS] [Statement-ReconciliationFormula] Opening balance (< v_from_ts) + period ledger entries == Closing balance (< v_to_ts) mathematically guaranteed
+✓ [PASS] [Statement-Timezone] Statement date boundaries are explicitly pinned to Philippine Time (Asia/Manila +08:00)
+Total tests: 9, Passed: 9, Failed: 0
+```
+
+- `npm run test:rls`: **PASSED** (4/4 tests).
+- `npm run test:money`: **PASSED** (6/6 tests).
+- `npm run test:admin`: **PASSED** (11/11 tests).
+- `npm run test:extras`: **PASSED** (9/9 tests).
+- `npm run typecheck`: **PASSED** (0 errors across `admin`, `mobile`, `shared`).
+- `npm run lint`: **PASSED** (0 errors).
+- `npm run format:check`: **PASSED** (All matched files use Prettier code style).
+- `npm run build:admin`: **PASSED** (production Next.js build compiled successfully in Turbopack).
+

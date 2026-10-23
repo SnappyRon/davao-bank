@@ -21,7 +21,8 @@
     "seed": "node --env-file=.env --import tsx scripts/seed.ts",
     "test:rls": "node --env-file=.env --import tsx scripts/test-rls-and-auth.ts",
     "test:money": "node --env-file=.env --import tsx scripts/test-phase3-money.ts",
-    "test:admin": "node --env-file=.env --import tsx scripts/test-phase4-admin.ts"
+    "test:admin": "node --env-file=.env --import tsx scripts/test-phase4-admin.ts",
+    "test:extras": "node --env-file=.env --import tsx scripts/test-phase5-extras.ts"
   },
   "engines": {
     "node": ">=20.0.0"

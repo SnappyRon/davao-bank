@@ -33,6 +33,7 @@ import {
   type MoneyOperationResult,
 } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
+import { useSettings } from '../context/SettingsContext';
 import {
   Screen,
   Text,
@@ -64,7 +65,7 @@ export function HomeScreen({
   const [accounts, setAccounts] = useState<AccountBalance[]>([]);
   const [transactions, setTransactions] = useState<TransactionHistoryItem[]>([]);
   const [selectedAccountIndex, setSelectedAccountIndex] = useState<number>(0);
-  const [hideBalance, setHideBalance] = useState<boolean>(false);
+  const { hideBalance, toggleHideBalance } = useSettings();
 
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
@@ -195,10 +196,12 @@ export function HomeScreen({
               </TouchableOpacity>
 
               <TouchableOpacity
-                onPress={() => setHideBalance((prev) => !prev)}
+                onPress={toggleHideBalance}
                 style={styles.eyeButton}
                 activeOpacity={0.7}
-                accessibilityLabel={hideBalance ? 'Reveal balance' : 'Hide balance'}
+                accessibilityLabel={
+                  hideBalance ? 'Balance hidden. Double tap to reveal' : 'Hide balance'
+                }
               >
                 {hideBalance ? (
                   <EyeOff size={20} color={colors.textInverse} />

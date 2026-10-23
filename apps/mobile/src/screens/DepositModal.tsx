@@ -14,6 +14,7 @@ import {
   type MoneyOperationResult,
 } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
+import { useSettings } from '../context/SettingsContext';
 import {
   BottomSheet,
   Text,
@@ -37,6 +38,7 @@ export function DepositModal({
   accounts,
   onDepositSuccess,
 }: DepositModalProps) {
+  const { hideBalance } = useSettings();
   const [selectedAccountId, setSelectedAccountId] = useState<string>(
     accounts[0]?.account_id || ''
   );
@@ -149,7 +151,7 @@ export function DepositModal({
               value={amountStr}
               onChangeText={setAmountStr}
               presetAmounts={[500, 1000, 2000, 5000]}
-              helperText={`Current Balance: ${formatCentavosToPHP(selectedAccount?.balance || 0)}`}
+              helperText={`Current Balance: ${hideBalance ? '₱••••••' : formatCentavosToPHP(selectedAccount?.balance || 0)}`}
             />
 
             <TextField
@@ -194,9 +196,13 @@ export function DepositModal({
                 <Text variant="body" color={colors.textSecondary}>
                   New Balance
                 </Text>
-                <Text variant="bodyStrong" tabularNums color={colors.primary}>
-                  {formatCentavosToPHP((selectedAccount?.balance || 0) + centavosAmount)}
-                </Text>
+                <AmountText
+                  amountCentavos={(selectedAccount?.balance || 0) + centavosAmount}
+                  hidden={hideBalance}
+                  variant="bodyStrong"
+                  color={colors.primary}
+                  showSign={false}
+                />
               </View>
             </Card>
 
@@ -245,9 +251,13 @@ export function DepositModal({
                 <Text variant="caption" color={colors.textMuted}>
                   Updated Balance
                 </Text>
-                <Text variant="bodyStrong" tabularNums color={colors.primary}>
-                  {formatCentavosToPHP((selectedAccount?.balance || 0) + centavosAmount)}
-                </Text>
+                <AmountText
+                  amountCentavos={(selectedAccount?.balance || 0) + centavosAmount}
+                  hidden={hideBalance}
+                  variant="bodyStrong"
+                  color={colors.primary}
+                  showSign={false}
+                />
               </View>
               <View style={styles.receiptRow}>
                 <Text variant="caption" color={colors.textMuted}>
