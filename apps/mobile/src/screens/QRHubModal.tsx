@@ -201,11 +201,7 @@ export function QRHubModal({
   };
 
   return (
-    <BottomSheet
-      visible={visible}
-      onClose={resetState}
-      title="Davao Bank QR & Request"
-    >
+    <BottomSheet visible={visible} onClose={resetState} title="Davao Bank QR & Request">
       <View style={styles.container}>
         {/* Navigation Tabs */}
         <View style={styles.tabBar}>
@@ -360,7 +356,9 @@ export function QRHubModal({
                 activeOpacity={0.7}
               >
                 <Text variant="bodyStrong" color={colors.primary}>
-                  {showOptions ? 'Hide custom amount & note' : '+ Add custom amount or note'}
+                  {showOptions
+                    ? 'Hide custom amount & note'
+                    : '+ Add custom amount or note'}
                 </Text>
               </TouchableOpacity>
 
@@ -401,7 +399,8 @@ export function QRHubModal({
                     color={colors.textSecondary}
                     style={styles.permDesc}
                   >
-                    Camera permission is required to scan Davao Bank QR codes for instant transfers and bill payments.
+                    Camera permission is required to scan Davao Bank QR codes for instant
+                    transfers and bill payments.
                   </Text>
 
                   <Button
@@ -448,10 +447,7 @@ export function QRHubModal({
                       )}
 
                       <TouchableOpacity
-                        style={[
-                          styles.torchToggle,
-                          torch && styles.torchToggleActive,
-                        ]}
+                        style={[styles.torchToggle, torch && styles.torchToggleActive]}
                         onPress={() => setTorch((prev) => !prev)}
                         activeOpacity={0.8}
                       >
@@ -500,7 +496,8 @@ export function QRHubModal({
                     <Text variant="bodyStrong" color={colors.ink}>
                       {formatCentavosToPHP(phpToCentavos(reqAmountStr))}
                     </Text>{' '}
-                    was sent to account {reqPayerAccount}. You will receive a notification as soon as they authorize the transfer.
+                    was sent to account {reqPayerAccount}. You will receive a notification
+                    as soon as they authorize the transfer.
                   </Text>
 
                   <Button
@@ -513,7 +510,8 @@ export function QRHubModal({
               ) : (
                 <View style={styles.requestForm}>
                   <Text variant="body" color={colors.textSecondary}>
-                    Send a formal payment request to another Davao Bank customer. They can review and authorize it with biometrics.
+                    Send a formal payment request to another Davao Bank customer. They can
+                    review and authorize it with biometrics.
                   </Text>
 
                   {reqError && (
@@ -556,7 +554,8 @@ export function QRHubModal({
 
                   <View style={styles.reqNotice}>
                     <Text variant="caption" color={colors.textMuted}>
-                      Privacy guarantee: Neither your full name nor the payer's name is revealed in notifications. Account numbers only.
+                      Privacy guarantee: Neither your full name nor the payer's name is
+                      revealed in notifications. Account numbers only.
                     </Text>
                   </View>
 

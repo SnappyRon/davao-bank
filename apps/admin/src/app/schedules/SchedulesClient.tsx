@@ -19,10 +19,7 @@ import {
   type ScheduledPaymentFrequency,
   type ScheduledPaymentStatus,
 } from '@davao-bank/shared';
-import {
-  adminRunDueSchedulesAction,
-  adminCancelScheduleAction,
-} from '../actions';
+import { adminRunDueSchedulesAction, adminCancelScheduleAction } from '../actions';
 import {
   Table,
   FilterBar,
@@ -83,7 +80,9 @@ export function SchedulesClient({ initialSchedules }: SchedulesClientProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | ScheduledPaymentStatus>('all');
   const [kindFilter, setKindFilter] = useState<'all' | ScheduledPaymentKind>('all');
-  const [frequencyFilter, setFrequencyFilter] = useState<'all' | ScheduledPaymentFrequency>('all');
+  const [frequencyFilter, setFrequencyFilter] = useState<
+    'all' | ScheduledPaymentFrequency
+  >('all');
 
   // Detail Drawer
   const [selectedSchedule, setSelectedSchedule] = useState<AdminScheduleRow | null>(null);
@@ -102,7 +101,9 @@ export function SchedulesClient({ initialSchedules }: SchedulesClientProps) {
       const res = await adminRunDueSchedulesAction();
       if (res.success) {
         const d = res.data as any;
-        const msg = d?.message || `Evaluated ${d?.processed ?? 0} schedule(s): ${d?.succeeded ?? 0} succeeded, ${d?.failed ?? 0} failed.`;
+        const msg =
+          d?.message ||
+          `Evaluated ${d?.processed ?? 0} schedule(s): ${d?.succeeded ?? 0} succeeded, ${d?.failed ?? 0} failed.`;
         setExecutorNotice(msg);
         router.refresh();
       } else {
@@ -167,7 +168,13 @@ export function SchedulesClient({ initialSchedules }: SchedulesClientProps) {
       render: (s: AdminScheduleRow) => (
         <div>
           <div style={{ fontWeight: 600 }}>{s.owner_name}</div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', fontFamily: 'monospace' }}>
+          <div
+            style={{
+              fontSize: '0.75rem',
+              color: 'var(--color-text-secondary)',
+              fontFamily: 'monospace',
+            }}
+          >
             From: {s.from_account_number}
           </div>
         </div>
@@ -188,7 +195,13 @@ export function SchedulesClient({ initialSchedules }: SchedulesClientProps) {
           ) : (
             <>
               <div style={{ fontWeight: 600 }}>Account Transfer</div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', fontFamily: 'monospace' }}>
+              <div
+                style={{
+                  fontSize: '0.75rem',
+                  color: 'var(--color-text-secondary)',
+                  fontFamily: 'monospace',
+                }}
+              >
                 To: {s.to_account_number || '—'}
               </div>
             </>
@@ -215,7 +228,8 @@ export function SchedulesClient({ initialSchedules }: SchedulesClientProps) {
             {s.frequency}
           </div>
           <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>
-            Next: {s.status === 'active' ? s.next_run_date : '—'} &bull; Runs: {s.runs_done}
+            Next: {s.status === 'active' ? s.next_run_date : '—'} &bull; Runs:{' '}
+            {s.runs_done}
             {s.max_runs ? ` / ${s.max_runs}` : ''}
           </div>
         </div>
@@ -226,7 +240,8 @@ export function SchedulesClient({ initialSchedules }: SchedulesClientProps) {
       header: 'Status',
       render: (s: AdminScheduleRow) => {
         if (s.status === 'active') return <Badge label="Active" variant="success" />;
-        if (s.status === 'completed') return <Badge label="Completed" variant="neutral" />;
+        if (s.status === 'completed')
+          return <Badge label="Completed" variant="neutral" />;
         return <Badge label="Cancelled" variant="danger" />;
       },
     },
@@ -396,21 +411,45 @@ export function SchedulesClient({ initialSchedules }: SchedulesClientProps) {
         {selectedSchedule && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             <Card title="Instruction Parameters">
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', fontSize: '0.85rem' }}>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
+                  gap: '0.75rem',
+                  fontSize: '0.85rem',
+                }}
+              >
                 <div>
-                  <span style={{ color: 'var(--color-text-secondary)', display: 'block', fontSize: '0.75rem' }}>
+                  <span
+                    style={{
+                      color: 'var(--color-text-secondary)',
+                      display: 'block',
+                      fontSize: '0.75rem',
+                    }}
+                  >
                     CUSTOMER
                   </span>
                   <strong>{selectedSchedule.owner_name}</strong>
                   {selectedSchedule.owner_phone ? (
-                    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>
+                    <div
+                      style={{
+                        fontSize: '0.75rem',
+                        color: 'var(--color-text-secondary)',
+                      }}
+                    >
                       {selectedSchedule.owner_phone}
                     </div>
                   ) : null}
                 </div>
 
                 <div>
-                  <span style={{ color: 'var(--color-text-secondary)', display: 'block', fontSize: '0.75rem' }}>
+                  <span
+                    style={{
+                      color: 'var(--color-text-secondary)',
+                      display: 'block',
+                      fontSize: '0.75rem',
+                    }}
+                  >
                     AMOUNT
                   </span>
                   <strong style={{ fontSize: '1rem', color: 'var(--color-primary)' }}>
@@ -419,19 +458,34 @@ export function SchedulesClient({ initialSchedules }: SchedulesClientProps) {
                 </div>
 
                 <div>
-                  <span style={{ color: 'var(--color-text-secondary)', display: 'block', fontSize: '0.75rem' }}>
+                  <span
+                    style={{
+                      color: 'var(--color-text-secondary)',
+                      display: 'block',
+                      fontSize: '0.75rem',
+                    }}
+                  >
                     FROM ACCOUNT
                   </span>
-                  <span style={{ fontFamily: 'monospace' }}>{selectedSchedule.from_account_number}</span>
+                  <span style={{ fontFamily: 'monospace' }}>
+                    {selectedSchedule.from_account_number}
+                  </span>
                 </div>
 
                 <div>
-                  <span style={{ color: 'var(--color-text-secondary)', display: 'block', fontSize: '0.75rem' }}>
+                  <span
+                    style={{
+                      color: 'var(--color-text-secondary)',
+                      display: 'block',
+                      fontSize: '0.75rem',
+                    }}
+                  >
                     DESTINATION
                   </span>
                   {selectedSchedule.kind === 'bill' ? (
                     <span>
-                      {selectedSchedule.biller_name} &bull; Ref: {selectedSchedule.biller_reference}
+                      {selectedSchedule.biller_name} &bull; Ref:{' '}
+                      {selectedSchedule.biller_reference}
                     </span>
                   ) : (
                     <span style={{ fontFamily: 'monospace' }}>
@@ -441,26 +495,52 @@ export function SchedulesClient({ initialSchedules }: SchedulesClientProps) {
                 </div>
 
                 <div>
-                  <span style={{ color: 'var(--color-text-secondary)', display: 'block', fontSize: '0.75rem' }}>
+                  <span
+                    style={{
+                      color: 'var(--color-text-secondary)',
+                      display: 'block',
+                      fontSize: '0.75rem',
+                    }}
+                  >
                     RECURRENCE
                   </span>
                   <span style={{ textTransform: 'capitalize', fontWeight: 600 }}>
                     {selectedSchedule.frequency}
                   </span>
-                  <span style={{ color: 'var(--color-text-secondary)', fontSize: '0.75rem' }}>
-                    {' '}(Runs: {selectedSchedule.runs_done}{selectedSchedule.max_runs ? ` / ${selectedSchedule.max_runs}` : ''})
+                  <span
+                    style={{ color: 'var(--color-text-secondary)', fontSize: '0.75rem' }}
+                  >
+                    {' '}
+                    (Runs: {selectedSchedule.runs_done}
+                    {selectedSchedule.max_runs ? ` / ${selectedSchedule.max_runs}` : ''})
                   </span>
                 </div>
 
                 <div>
-                  <span style={{ color: 'var(--color-text-secondary)', display: 'block', fontSize: '0.75rem' }}>
+                  <span
+                    style={{
+                      color: 'var(--color-text-secondary)',
+                      display: 'block',
+                      fontSize: '0.75rem',
+                    }}
+                  >
                     NEXT RUN DATE
                   </span>
-                  <strong>{selectedSchedule.status === 'active' ? selectedSchedule.next_run_date : 'Completed / Cancelled'}</strong>
+                  <strong>
+                    {selectedSchedule.status === 'active'
+                      ? selectedSchedule.next_run_date
+                      : 'Completed / Cancelled'}
+                  </strong>
                 </div>
 
                 <div>
-                  <span style={{ color: 'var(--color-text-secondary)', display: 'block', fontSize: '0.75rem' }}>
+                  <span
+                    style={{
+                      color: 'var(--color-text-secondary)',
+                      display: 'block',
+                      fontSize: '0.75rem',
+                    }}
+                  >
                     STATUS
                   </span>
                   <span style={{ textTransform: 'capitalize', fontWeight: 700 }}>
@@ -469,16 +549,37 @@ export function SchedulesClient({ initialSchedules }: SchedulesClientProps) {
                 </div>
 
                 <div>
-                  <span style={{ color: 'var(--color-text-secondary)', display: 'block', fontSize: '0.75rem' }}>
+                  <span
+                    style={{
+                      color: 'var(--color-text-secondary)',
+                      display: 'block',
+                      fontSize: '0.75rem',
+                    }}
+                  >
                     CREATED ON
                   </span>
-                  <span>{new Date(selectedSchedule.created_at).toLocaleDateString()}</span>
+                  <span>
+                    {new Date(selectedSchedule.created_at).toLocaleDateString()}
+                  </span>
                 </div>
               </div>
 
               {selectedSchedule.note && (
-                <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid var(--color-border)', fontSize: '0.85rem' }}>
-                  <span style={{ color: 'var(--color-text-secondary)', display: 'block', fontSize: '0.75rem' }}>
+                <div
+                  style={{
+                    marginTop: '0.75rem',
+                    paddingTop: '0.75rem',
+                    borderTop: '1px solid var(--color-border)',
+                    fontSize: '0.85rem',
+                  }}
+                >
+                  <span
+                    style={{
+                      color: 'var(--color-text-secondary)',
+                      display: 'block',
+                      fontSize: '0.75rem',
+                    }}
+                  >
                     NOTE
                   </span>
                   <span>{selectedSchedule.note}</span>
@@ -515,7 +616,9 @@ export function SchedulesClient({ initialSchedules }: SchedulesClientProps) {
                         }`,
                       }}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <div
+                        style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                      >
                         {run.status === 'completed' ? (
                           <CheckCircle2 size={16} color="var(--color-success, #2e7d32)" />
                         ) : (
@@ -526,12 +629,23 @@ export function SchedulesClient({ initialSchedules }: SchedulesClientProps) {
                             Run Date: {run.run_date}
                           </div>
                           {run.transaction_id ? (
-                            <div style={{ fontSize: '0.72rem', color: 'var(--color-text-secondary)', fontFamily: 'monospace' }}>
+                            <div
+                              style={{
+                                fontSize: '0.72rem',
+                                color: 'var(--color-text-secondary)',
+                                fontFamily: 'monospace',
+                              }}
+                            >
                               Tx: {run.transaction_id}
                             </div>
                           ) : null}
                           {run.failure_reason ? (
-                            <div style={{ fontSize: '0.75rem', color: 'var(--color-error, #d32f2f)' }}>
+                            <div
+                              style={{
+                                fontSize: '0.75rem',
+                                color: 'var(--color-error, #d32f2f)',
+                              }}
+                            >
                               Failed: {run.failure_reason}
                             </div>
                           ) : null}
@@ -543,8 +657,17 @@ export function SchedulesClient({ initialSchedules }: SchedulesClientProps) {
                           label={run.status}
                           variant={run.status === 'completed' ? 'success' : 'danger'}
                         />
-                        <div style={{ fontSize: '0.7rem', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
-                          {new Date(run.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        <div
+                          style={{
+                            fontSize: '0.7rem',
+                            color: 'var(--color-text-secondary)',
+                            marginTop: '2px',
+                          }}
+                        >
+                          {new Date(run.created_at).toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
                         </div>
                       </div>
                     </div>

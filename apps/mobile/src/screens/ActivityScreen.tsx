@@ -29,7 +29,13 @@ import { TransactionDetailModal } from './TransactionDetailModal';
 import { ExportStatementModal } from './ExportStatementModal';
 
 export type ActivityFilter =
-  'all' | 'transfer' | 'deposit' | 'withdrawal' | 'adjustment' | 'reversal' | 'bill_payment';
+  | 'all'
+  | 'transfer'
+  | 'deposit'
+  | 'withdrawal'
+  | 'adjustment'
+  | 'reversal'
+  | 'bill_payment';
 
 interface ActivityScreenProps {
   onExportStatement?: () => void;

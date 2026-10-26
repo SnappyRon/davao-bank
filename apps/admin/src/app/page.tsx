@@ -9,6 +9,9 @@ import {
   ArrowRight,
   Download,
   Sliders,
+  CalendarClock,
+  AlertTriangle,
+  Inbox,
 } from 'lucide-react';
 import { formatCentavosToPHP, type AdminDashboardStats } from '@davao-bank/shared';
 import { createAdminCookieServerClient } from '@/lib/supabase-cookies';
@@ -49,14 +52,35 @@ export default async function AdminDashboardPage() {
     recent_30d_transactions: 0,
   };
 
-  // 3. Fetch Recent Transactions
+  // 3. Fetch Operational Expansion KPIs (§E.3)
+  const [
+    { count: activeSchedulesCount },
+    { count: failedRuns7dCount },
+    { count: pendingRequestsCount },
+  ] = await Promise.all([
+    supabase
+      .from('scheduled_payments')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'active'),
+    supabase
+      .from('scheduled_payment_runs')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'failed')
+      .gte('executed_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()),
+    supabase
+      .from('payment_requests')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'pending'),
+  ]);
+
+  // 4. Fetch Recent Transactions
   const { data: recentTransactions } = await supabase
     .from('transactions')
     .select('id, type, status, reference, created_at, initiated_by')
     .order('created_at', { ascending: false })
     .limit(6);
 
-  // 4. Fetch Recent Audit Logs
+  // 5. Fetch Recent Audit Logs
   const { data: recentAudits } = await supabase
     .from('audit_logs')
     .select('id, actor_role, action, entity, created_at')
@@ -159,6 +183,34 @@ export default async function AdminDashboardPage() {
           subtext="Audited balance adjustments"
           icon={<RotateCcw size={20} />}
           iconColor="red"
+        />
+
+        <StatTile
+          label="Active Schedules"
+          value={activeSchedulesCount ?? 0}
+          subtext="Recurring transfers & bills"
+          icon={<CalendarClock size={20} />}
+          iconColor="blue"
+        />
+
+        <StatTile
+          label="Failed Runs (7d)"
+          value={failedRuns7dCount ?? 0}
+          subtext={
+            failedRuns7dCount && failedRuns7dCount > 0
+              ? 'Requires inspection'
+              : 'All runs nominal'
+          }
+          icon={<AlertTriangle size={20} />}
+          iconColor={failedRuns7dCount && failedRuns7dCount > 0 ? 'red' : 'green'}
+        />
+
+        <StatTile
+          label="Pending Requests"
+          value={pendingRequestsCount ?? 0}
+          subtext="P2P money requests awaiting action"
+          icon={<Inbox size={20} />}
+          iconColor="yellow"
         />
       </div>
 

@@ -2,10 +2,7 @@ import React from 'react';
 import { createAdminCookieServerClient } from '@/lib/supabase-cookies';
 import { AdminShell } from '@/components/AdminShell';
 import { PageHeader } from '@/components/ui';
-import {
-  SchedulesClient,
-  type AdminScheduleRow,
-} from './SchedulesClient';
+import { SchedulesClient, type AdminScheduleRow } from './SchedulesClient';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,7 +30,8 @@ export default async function AdminSchedulesPage() {
   const { data: profilesData } = await supabase
     .from('profiles')
     .select('id, full_name, phone');
-  const profileMap: Record<string, { full_name: string | null; phone: string | null }> = {};
+  const profileMap: Record<string, { full_name: string | null; phone: string | null }> =
+    {};
   (profilesData || []).forEach((p) => {
     profileMap[p.id] = { full_name: p.full_name, phone: p.phone };
   });

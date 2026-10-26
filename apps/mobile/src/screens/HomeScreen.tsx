@@ -50,6 +50,7 @@ import {
   Skeleton,
   Logo,
   Badge,
+  CurrencyWatchCard,
 } from '../components';
 import { TransferModal } from './TransferModal';
 import { DepositModal } from './DepositModal';
@@ -60,6 +61,7 @@ import { PayBillsModal } from './PayBillsModal';
 import { ScheduledPaymentsModal } from './ScheduledPaymentsModal';
 import { QRHubModal } from './QRHubModal';
 import { PaymentRequestsModal } from './PaymentRequestsModal';
+import { FXRatesModal } from './FXRatesModal';
 
 interface HomeScreenProps {
   onNavigateToActivity?: () => void;
@@ -87,6 +89,7 @@ export function HomeScreen({
   const [isScheduledOpen, setIsScheduledOpen] = useState(false);
   const [isQROpen, setIsQROpen] = useState(false);
   const [isRequestsOpen, setIsRequestsOpen] = useState(false);
+  const [isFXOpen, setIsFXOpen] = useState(false);
   const [selectedTx, setSelectedTx] = useState<TransactionHistoryItem | null>(null);
 
   // QR transfer prefill state
@@ -289,7 +292,8 @@ export function HomeScreen({
             </View>
             <View style={{ flex: 1 }}>
               <Text variant="bodyStrong" color={colors.primary}>
-                {pendingRequestsCount} Pending Payment Request{pendingRequestsCount > 1 ? 's' : ''}
+                {pendingRequestsCount} Pending Payment Request
+                {pendingRequestsCount > 1 ? 's' : ''}
               </Text>
               <Text variant="caption" color={colors.textSecondary}>
                 Tap to review, pay, or decline
@@ -343,6 +347,9 @@ export function HomeScreen({
             onPress={() => setIsScheduledOpen(true)}
           />
         </ActionTileGrid>
+
+        {/* Currency Watch Card (§E.2) */}
+        <CurrencyWatchCard onPress={() => setIsFXOpen(true)} />
 
         {/* Upcoming Payments Strip */}
         {upcomingSchedules.length > 0 && (
@@ -535,6 +542,8 @@ export function HomeScreen({
         accounts={accounts}
         onPaymentSuccess={loadData}
       />
+
+      <FXRatesModal visible={isFXOpen} onClose={() => setIsFXOpen(false)} />
 
       {selectedTx ? (
         <TransactionDetailModal

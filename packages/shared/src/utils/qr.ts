@@ -18,13 +18,12 @@ export interface GenerateQROptions {
 export function generateDavaoBankQRPayload(options: GenerateQROptions): string {
   const cleanAccount = (options.accountNumber || '').trim();
   if (!/^[0-9]{10}$/.test(cleanAccount)) {
-    throw new Error('Invalid account number. Davao Bank account numbers must be exactly 10 digits.');
+    throw new Error(
+      'Invalid account number. Davao Bank account numbers must be exactly 10 digits.'
+    );
   }
 
-  const queryParts: string[] = [
-    `v=${DAVAO_BANK_QR_VERSION}`,
-    `acct=${cleanAccount}`,
-  ];
+  const queryParts: string[] = [`v=${DAVAO_BANK_QR_VERSION}`, `acct=${cleanAccount}`];
 
   if (options.amountCentavos && options.amountCentavos > 0) {
     const intAmount = Math.floor(options.amountCentavos);

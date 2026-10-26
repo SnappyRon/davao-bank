@@ -93,12 +93,18 @@ async function runStageDTests() {
       break;
     }
   }
-  assert(foreignRejected, "[QR-Reject-Foreign] Rejects non-davaobank schemes with exact copy: \"This isn't a Davao Bank QR code\"");
+  assert(
+    foreignRejected,
+    '[QR-Reject-Foreign] Rejects non-davaobank schemes with exact copy: "This isn\'t a Davao Bank QR code"'
+  );
 
   // 1.4 Rejection of malformed version
   const badVersionUri = 'davaobank://pay?v=2&acct=1012345678';
   const resBadVer = parseDavaoBankQRPayload(badVersionUri);
-  assert(!resBadVer.valid, '[QR-Reject-Version] Rejects unrecognized version number (v=2)');
+  assert(
+    !resBadVer.valid,
+    '[QR-Reject-Version] Rejects unrecognized version number (v=2)'
+  );
 
   // 1.5 Rejection of malformed account numbers
   const badAccounts = [
@@ -115,7 +121,10 @@ async function runStageDTests() {
       break;
     }
   }
-  assert(badAccountsRejected, '[QR-Reject-Account] Strictly requires exactly 10 numeric digits for account number');
+  assert(
+    badAccountsRejected,
+    '[QR-Reject-Account] Strictly requires exactly 10 numeric digits for account number'
+  );
 
   // 1.6 Rejection of invalid, negative, zero, float, or over-limit amounts
   const badAmounts = [
@@ -132,38 +141,55 @@ async function runStageDTests() {
       break;
     }
   }
-  assert(badAmountsRejected, '[QR-Reject-Amount] Rejects negative, zero, float, or excessive amounts exceeding transfer cap');
+  assert(
+    badAmountsRejected,
+    '[QR-Reject-Amount] Rejects negative, zero, float, or excessive amounts exceeding transfer cap'
+  );
 
   // 1.7 Note length boundary check (max 60 chars)
   const longNote = 'A'.repeat(MAX_QR_NOTE_LENGTH + 1);
   const badNoteUri = `davaobank://pay?v=1&acct=1012345678&note=${longNote}`;
   const resLongNote = parseDavaoBankQRPayload(badNoteUri);
-  assert(!resLongNote.valid, '[QR-Reject-Note] Rejects note exceeding 60 character maximum');
+  assert(
+    !resLongNote.valid,
+    '[QR-Reject-Note] Rejects note exceeding 60 character maximum'
+  );
 
   // ----------------------------------------------------------------------------
   // SECTION 2: SQL Migration & Contract Checks (§D.3)
   // ----------------------------------------------------------------------------
-  console.log('\n[Contract Checks] Verifying Phase 5 Stage D SQL Migrations & Code Invariants...');
+  console.log(
+    '\n[Contract Checks] Verifying Phase 5 Stage D SQL Migrations & Code Invariants...'
+  );
 
   const migrationPath = path.resolve(
     __dirname,
     '../supabase/migrations/20261024090000_phase5_stage_d_qr_requests.sql'
   );
-  assert(fs.existsSync(migrationPath), '[Migration-Exists] Stage D migration file exists (20261024090000_phase5_stage_d_qr_requests.sql)');
+  assert(
+    fs.existsSync(migrationPath),
+    '[Migration-Exists] Stage D migration file exists (20261024090000_phase5_stage_d_qr_requests.sql)'
+  );
 
   const migrationSql = fs.readFileSync(migrationPath, 'utf8');
 
   // 2.1 Schema validation
   assert(
     migrationSql.includes('create table if not exists public.payment_requests') &&
-      migrationSql.includes("status in ('pending', 'paid', 'declined', 'cancelled', 'expired')") &&
-      migrationSql.includes("expires_at timestamptz not null default (now() + interval '7 days')"),
+      migrationSql.includes(
+        "status in ('pending', 'paid', 'declined', 'cancelled', 'expired')"
+      ) &&
+      migrationSql.includes(
+        "expires_at timestamptz not null default (now() + interval '7 days')"
+      ),
     '[Schema-RequestsTable] payment_requests table defined with status states and 7-day default expiration'
   );
 
   // 2.2 RLS validation
   assert(
-    migrationSql.includes('alter table public.payment_requests enable row level security;') &&
+    migrationSql.includes(
+      'alter table public.payment_requests enable row level security;'
+    ) &&
       migrationSql.includes('requester_id = auth.uid()') &&
       migrationSql.includes('payer_user_id = auth.uid()') &&
       migrationSql.includes('public.is_admin()') &&
@@ -174,18 +200,20 @@ async function runStageDTests() {
   // 2.3 Creation guards (rate limiting & self-request prevention)
   assert(
     migrationSql.includes('Cannot request money from your own account') &&
-      migrationSql.includes('Daily payment request limit reached (maximum 10 requests per day)') &&
+      migrationSql.includes(
+        'Daily payment request limit reached (maximum 10 requests per day)'
+      ) &&
       migrationSql.includes("status <> 'active'") &&
-      migrationSql.includes("char_length(v_clean_note) > 60"),
+      migrationSql.includes('char_length(v_clean_note) > 60'),
     '[Func-CreateGuards] create_payment_request rejects self-requests, enforces active profile/account, and caps at 10/day'
   );
 
   // 2.4 Atomic payment & run-once lock
   assert(
     migrationSql.includes('for update') &&
-      migrationSql.includes('v_req.status <> \'pending\'') &&
+      migrationSql.includes("v_req.status <> 'pending'") &&
       migrationSql.includes('public._transfer_core(') &&
-      migrationSql.includes('set status = \'paid\''),
+      migrationSql.includes("set status = 'paid'"),
     '[Func-PayRunOnce] pay_payment_request locks row FOR UPDATE, prevents re-paying, and updates status in same atomic transaction'
   );
 
@@ -193,14 +221,16 @@ async function runStageDTests() {
   assert(
     migrationSql.includes("'payer_account', v_clean_payer_acc_num") &&
       migrationSql.includes("'requester_account', v_req_acc.account_number") &&
-      !migrationSql.includes("profiles.full_name") &&
-      !migrationSql.includes("v_caller_profile.full_name"),
+      !migrationSql.includes('profiles.full_name') &&
+      !migrationSql.includes('v_caller_profile.full_name'),
     '[Privacy-NoNameLeak] Payment request notifications and audits reference only account numbers, never leaking customer names'
   );
 
   // 2.6 Revocation of internal batch jobs
   assert(
-    migrationSql.includes('revoke all on function public.expire_due_payment_requests() from public, anon, authenticated;'),
+    migrationSql.includes(
+      'revoke all on function public.expire_due_payment_requests() from public, anon, authenticated;'
+    ),
     '[Security-RevokeBatch] expire_due_payment_requests is strictly revoked from public, anon, and authenticated clients'
   );
 
@@ -214,7 +244,9 @@ async function runStageDTests() {
     const { error } = await client.from('payment_requests').select('id').limit(1);
     if (!error) {
       liveConnected = true;
-      console.log('\n[Live Checks] Connected to Supabase — executing live authorization checks...');
+      console.log(
+        '\n[Live Checks] Connected to Supabase — executing live authorization checks...'
+      );
       // Additional live checks if reachable
     }
   } catch {

@@ -180,8 +180,8 @@ export function ScheduledPaymentsModal({
                     selectedSchedule.status === 'active'
                       ? 'success'
                       : selectedSchedule.status === 'completed'
-                      ? 'neutral'
-                      : 'danger'
+                        ? 'neutral'
+                        : 'danger'
                   }
                   label={selectedSchedule.status.toUpperCase()}
                 />
@@ -258,7 +258,8 @@ export function ScheduledPaymentsModal({
                   </View>
                   <View style={styles.runTextContainer}>
                     <Text variant="bodyStrong">
-                      {run.run_date} · {run.status === 'completed' ? 'Completed' : 'Failed'}
+                      {run.run_date} ·{' '}
+                      {run.status === 'completed' ? 'Completed' : 'Failed'}
                     </Text>
                     {run.failure_reason && (
                       <Text variant="caption" color="redText">
@@ -333,8 +334,8 @@ export function ScheduledPaymentsModal({
                         item.status === 'active'
                           ? 'success'
                           : item.status === 'completed'
-                          ? 'neutral'
-                          : 'danger'
+                            ? 'neutral'
+                            : 'danger'
                       }
                       label={item.frequency}
                     />

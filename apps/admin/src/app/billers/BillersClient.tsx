@@ -14,13 +14,8 @@ import {
   Power,
   ShieldAlert,
 } from 'lucide-react';
-import {
-  type BillerCategory,
-} from '@davao-bank/shared';
-import {
-  adminCreateBillerAction,
-  adminSetBillerActiveAction,
-} from '../actions';
+import { type BillerCategory } from '@davao-bank/shared';
+import { adminCreateBillerAction, adminSetBillerActiveAction } from '../actions';
 import {
   Table,
   FilterBar,
@@ -198,7 +193,9 @@ export function BillersClient({ initialBillers }: BillersClientProps) {
       header: 'Settlement Account',
       render: (b: AdminBillerRow) => (
         <div>
-          <span style={{ fontFamily: 'monospace', fontWeight: 600, fontSize: '0.875rem' }}>
+          <span
+            style={{ fontFamily: 'monospace', fontWeight: 600, fontSize: '0.875rem' }}
+          >
             {b.account_number}
           </span>
           <div style={{ fontSize: '0.72rem', color: 'var(--color-text-secondary)' }}>
@@ -212,7 +209,9 @@ export function BillersClient({ initialBillers }: BillersClientProps) {
       header: 'Reference Validation',
       render: (b: AdminBillerRow) => (
         <div>
-          <div style={{ fontWeight: 600, fontSize: '0.8125rem' }}>{b.reference_label}</div>
+          <div style={{ fontWeight: 600, fontSize: '0.8125rem' }}>
+            {b.reference_label}
+          </div>
           <code
             style={{
               fontSize: '0.72rem',
@@ -342,10 +341,13 @@ export function BillersClient({ initialBillers }: BillersClientProps) {
         onClose={() => setIsCreateOpen(false)}
         title="Register New Biller"
       >
-        <form onSubmit={handleCreateBiller} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <form
+          onSubmit={handleCreateBiller}
+          style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}
+        >
           <p style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>
-            Registering a biller will automatically provision an official Davao Bank settlement checking account
-            under the secure system profile.
+            Registering a biller will automatically provision an official Davao Bank
+            settlement checking account under the secure system profile.
           </p>
 
           {createError && (
@@ -364,7 +366,14 @@ export function BillersClient({ initialBillers }: BillersClientProps) {
           )}
 
           <div>
-            <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, marginBottom: '0.375rem' }}>
+            <label
+              style={{
+                display: 'block',
+                fontSize: '0.8125rem',
+                fontWeight: 600,
+                marginBottom: '0.375rem',
+              }}
+            >
               Biller Name
             </label>
             <Input
@@ -376,7 +385,14 @@ export function BillersClient({ initialBillers }: BillersClientProps) {
           </div>
 
           <div>
-            <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, marginBottom: '0.375rem' }}>
+            <label
+              style={{
+                display: 'block',
+                fontSize: '0.8125rem',
+                fontWeight: 600,
+                marginBottom: '0.375rem',
+              }}
+            >
               Category
             </label>
             <Select
@@ -393,7 +409,14 @@ export function BillersClient({ initialBillers }: BillersClientProps) {
           </div>
 
           <div>
-            <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, marginBottom: '0.375rem' }}>
+            <label
+              style={{
+                display: 'block',
+                fontSize: '0.8125rem',
+                fontWeight: 600,
+                marginBottom: '0.375rem',
+              }}
+            >
               Reference Label (shown to customer)
             </label>
             <Input
@@ -405,7 +428,14 @@ export function BillersClient({ initialBillers }: BillersClientProps) {
           </div>
 
           <div>
-            <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, marginBottom: '0.375rem' }}>
+            <label
+              style={{
+                display: 'block',
+                fontSize: '0.8125rem',
+                fontWeight: 600,
+                marginBottom: '0.375rem',
+              }}
+            >
               Reference Pattern (Regular Expression)
             </label>
             <Input
@@ -414,12 +444,27 @@ export function BillersClient({ initialBillers }: BillersClientProps) {
               onChange={(e) => setCreateRefPattern(e.target.value)}
               required
             />
-            <span style={{ fontSize: '0.72rem', color: 'var(--color-text-secondary)', marginTop: '4px', display: 'block' }}>
-              Must be valid regex. Example: <code>^[0-9]&#123;10&#125;$</code> for 10 digits.
+            <span
+              style={{
+                fontSize: '0.72rem',
+                color: 'var(--color-text-secondary)',
+                marginTop: '4px',
+                display: 'block',
+              }}
+            >
+              Must be valid regex. Example: <code>^[0-9]&#123;10&#125;$</code> for 10
+              digits.
             </span>
           </div>
 
-          <div style={{ marginTop: '1rem', display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+          <div
+            style={{
+              marginTop: '1rem',
+              display: 'flex',
+              gap: '0.75rem',
+              justifyContent: 'flex-end',
+            }}
+          >
             <Button
               type="button"
               variant="secondary"
@@ -428,11 +473,7 @@ export function BillersClient({ initialBillers }: BillersClientProps) {
             >
               Cancel
             </Button>
-            <Button
-              type="submit"
-              variant="primary"
-              disabled={creating}
-            >
+            <Button type="submit" variant="primary" disabled={creating}>
               {creating ? 'Provisioning Account...' : 'Create Biller'}
             </Button>
           </div>

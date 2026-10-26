@@ -304,7 +304,8 @@ export function TransferModal({
         return;
       }
 
-      const maxRuns = timing === 'recurring' && maxRunsStr ? parseInt(maxRunsStr, 10) : null;
+      const maxRuns =
+        timing === 'recurring' && maxRunsStr ? parseInt(maxRunsStr, 10) : null;
       const { error: schedErr } = await supabase.rpc('create_scheduled_payment', {
         p_from_account: selectedAccount.account_id,
         p_kind: 'transfer',
@@ -600,10 +601,18 @@ export function TransferModal({
             {onRequestMoneyPress && (
               <TouchableOpacity
                 onPress={onRequestMoneyPress}
-                style={{ marginTop: spacing.sm, alignItems: 'center', padding: spacing.xs }}
+                style={{
+                  marginTop: spacing.sm,
+                  alignItems: 'center',
+                  padding: spacing.xs,
+                }}
                 activeOpacity={0.7}
               >
-                <Text variant="caption" color={colors.primary} style={{ fontWeight: '700' }}>
+                <Text
+                  variant="caption"
+                  color={colors.primary}
+                  style={{ fontWeight: '700' }}
+                >
                   Need to receive funds? Request money instead &rarr;
                 </Text>
               </TouchableOpacity>
@@ -632,7 +641,11 @@ export function TransferModal({
 
             {/* Timing Selector (§C.4) */}
             <View style={styles.timingSection}>
-              <Text variant="label" color={colors.textSecondary} style={styles.timingLabel}>
+              <Text
+                variant="label"
+                color={colors.textSecondary}
+                style={styles.timingLabel}
+              >
                 When to send
               </Text>
               <View style={styles.chipRow}>
@@ -797,10 +810,22 @@ export function TransferModal({
                 style={styles.backButton}
               />
               <Button
-                title={timing === 'now' ? 'Authorize Transfer' : timing === 'recurring' ? 'Schedule Recurring' : 'Schedule Transfer'}
+                title={
+                  timing === 'now'
+                    ? 'Authorize Transfer'
+                    : timing === 'recurring'
+                      ? 'Schedule Recurring'
+                      : 'Schedule Transfer'
+                }
                 onPress={handleConfirmTransfer}
                 loading={loading}
-                icon={timing === 'now' ? <Send size={18} color={colors.textInverse} /> : <Calendar size={18} color={colors.textInverse} />}
+                icon={
+                  timing === 'now' ? (
+                    <Send size={18} color={colors.textInverse} />
+                  ) : (
+                    <Calendar size={18} color={colors.textInverse} />
+                  )
+                }
                 style={styles.forwardButton}
               />
             </View>
@@ -870,7 +895,9 @@ export function TransferModal({
             <View style={styles.successIconBox}>
               <Calendar size={54} color={colors.primary} />
               <Text variant="h2" align="center" style={styles.successTitle}>
-                {timing === 'recurring' ? 'Recurring Transfer Scheduled' : 'Transfer Scheduled'}
+                {timing === 'recurring'
+                  ? 'Recurring Transfer Scheduled'
+                  : 'Transfer Scheduled'}
               </Text>
               <AmountText
                 amountCentavos={centavosAmount}

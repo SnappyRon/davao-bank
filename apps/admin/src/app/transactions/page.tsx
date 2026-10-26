@@ -103,10 +103,7 @@ export default async function AdminTransactionsPage() {
           </Button>
         </a>
       </PageHeader>
-      <TransactionsClient
-        initialTransactions={rows}
-        initialRequests={requests}
-      />
+      <TransactionsClient initialTransactions={rows} initialRequests={requests} />
     </AdminShell>
   );
 }

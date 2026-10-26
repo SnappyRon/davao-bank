@@ -250,7 +250,10 @@ async function seed() {
           .single();
 
         if (accErr || !newAcc) {
-          console.error(`Failed to create settlement account for ${biller.name}:`, accErr?.message);
+          console.error(
+            `Failed to create settlement account for ${biller.name}:`,
+            accErr?.message
+          );
           continue;
         }
 
@@ -266,7 +269,9 @@ async function seed() {
         if (billerErr) {
           console.error(`Failed to insert biller ${biller.name}:`, billerErr.message);
         } else {
-          console.log(`✓ Seeded biller: ${biller.name} (${biller.category}) -> Acct: ${randomAcc}`);
+          console.log(
+            `✓ Seeded biller: ${biller.name} (${biller.category}) -> Acct: ${randomAcc}`
+          );
         }
       } else {
         console.log(`Existing biller found: ${biller.name}`);

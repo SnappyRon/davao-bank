@@ -131,8 +131,7 @@ export function PayBillsModal({
   };
 
   const filteredBillers = billers.filter((b) => {
-    const matchesCategory =
-      selectedCategory === 'all' || b.category === selectedCategory;
+    const matchesCategory = selectedCategory === 'all' || b.category === selectedCategory;
     const matchesSearch =
       b.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       b.reference_label.toLowerCase().includes(searchQuery.toLowerCase());
@@ -164,7 +163,9 @@ export function PayBillsModal({
     try {
       const regex = new RegExp(selectedBiller.reference_pattern);
       if (!regex.test(clean)) {
-        setRefError(`Format doesn't match requirement (Pattern: ${selectedBiller.reference_pattern})`);
+        setRefError(
+          `Format doesn't match requirement (Pattern: ${selectedBiller.reference_pattern})`
+        );
         return false;
       }
     } catch {
@@ -241,7 +242,8 @@ export function PayBillsModal({
         onPaymentSuccess();
       } else {
         // Scheduled or Recurring bill payment
-        const maxRuns = timing === 'recurring' && maxRunsStr ? parseInt(maxRunsStr, 10) : null;
+        const maxRuns =
+          timing === 'recurring' && maxRunsStr ? parseInt(maxRunsStr, 10) : null;
         const { error } = await supabase.rpc('create_scheduled_payment', {
           p_from_account: selectedAccount.account_id,
           p_kind: 'bill',
@@ -280,14 +282,14 @@ export function PayBillsModal({
         step === 'biller'
           ? 'Pay Bills'
           : step === 'reference'
-          ? 'Account Details'
-          : step === 'amount'
-          ? 'Enter Amount'
-          : step === 'when'
-          ? 'Payment Schedule'
-          : step === 'review'
-          ? 'Review Payment'
-          : 'Payment Result'
+            ? 'Account Details'
+            : step === 'amount'
+              ? 'Enter Amount'
+              : step === 'when'
+                ? 'Payment Schedule'
+                : step === 'review'
+                  ? 'Review Payment'
+                  : 'Payment Result'
       }
     >
       <ScrollView contentContainerStyle={styles.content}>
@@ -442,13 +444,13 @@ export function PayBillsModal({
             </Text>
 
             <TouchableOpacity
-              style={[
-                styles.timingOption,
-                timing === 'now' && styles.timingOptionActive,
-              ]}
+              style={[styles.timingOption, timing === 'now' && styles.timingOptionActive]}
               onPress={() => setTiming('now')}
             >
-              <Zap size={22} color={timing === 'now' ? colors.primary : colors.textSecondary} />
+              <Zap
+                size={22}
+                color={timing === 'now' ? colors.primary : colors.textSecondary}
+              />
               <View style={styles.timingTextContainer}>
                 <Text variant="bodyStrong">Pay Now</Text>
                 <Text variant="caption" color="textSecondary">
@@ -464,7 +466,10 @@ export function PayBillsModal({
               ]}
               onPress={() => setTiming('later')}
             >
-              <Calendar size={22} color={timing === 'later' ? colors.primary : colors.textSecondary} />
+              <Calendar
+                size={22}
+                color={timing === 'later' ? colors.primary : colors.textSecondary}
+              />
               <View style={styles.timingTextContainer}>
                 <Text variant="bodyStrong">Schedule for Later</Text>
                 <Text variant="caption" color="textSecondary">
@@ -480,7 +485,10 @@ export function PayBillsModal({
               ]}
               onPress={() => setTiming('recurring')}
             >
-              <Repeat size={22} color={timing === 'recurring' ? colors.primary : colors.textSecondary} />
+              <Repeat
+                size={22}
+                color={timing === 'recurring' ? colors.primary : colors.textSecondary}
+              />
               <View style={styles.timingTextContainer}>
                 <Text variant="bodyStrong">Recurring Payment</Text>
                 <Text variant="caption" color="textSecondary">
@@ -582,9 +590,7 @@ export function PayBillsModal({
                 <Text variant="body" color="textSecondary">
                   From Account
                 </Text>
-                <Text variant="bodyStrong">
-                  {selectedAccount?.account_number || ''}
-                </Text>
+                <Text variant="bodyStrong">{selectedAccount?.account_number || ''}</Text>
               </View>
 
               <View style={styles.reviewRow}>
@@ -595,8 +601,8 @@ export function PayBillsModal({
                   {timing === 'now'
                     ? 'Immediate Payment'
                     : timing === 'later'
-                    ? `Once on ${scheduledDate}`
-                    : `${frequency === 'weekly' ? 'Weekly' : 'Monthly'} starting ${scheduledDate}`}
+                      ? `Once on ${scheduledDate}`
+                      : `${frequency === 'weekly' ? 'Weekly' : 'Monthly'} starting ${scheduledDate}`}
                 </Text>
               </View>
 

@@ -229,9 +229,7 @@ export function TransactionsClient({
       key: 'payer',
       header: 'Payer Account',
       render: (r: AdminPaymentRequestRow) => (
-        <span style={{ fontFamily: 'monospace' }}>
-          {r.payer_account_number}
-        </span>
+        <span style={{ fontFamily: 'monospace' }}>{r.payer_account_number}</span>
       ),
     },
     {

@@ -284,3 +284,191 @@ Total tests: 9, Passed: 9, Failed: 0
 - `npm run format:check`: **PASSED** (All matched files use Prettier code style).
 - `npm run build:admin`: **PASSED** (production Next.js build compiled successfully in Turbopack).
 
+---
+
+## Stage C — Scheduled Payments & Bill Pay
+
+### What Was Built & Implemented
+
+1. **Single Money Engine (`_transfer_core`)**:
+   - Migration `supabase/migrations/20261023220000_phase5_stage_c_schedules_bills.sql`:
+     - Centralizes all fund movement (`transfer`, `withdraw`, `deposit`, `pay_bill`, and scheduled executions) into `public._transfer_core`.
+     - Strictly revoked from `public`, `anon`, and `authenticated` clients.
+     - Deterministic row-locking order by `account_id` preventing deadlocks under concurrency.
+     - Double-entry ledger invariant strictly maintained for every transfer and bill payment.
+
+2. **Simulated Bill Pay**:
+   - `billers` table seeded with 6 realistic Philippine utility and telecom billers (Davao Light, DCWD, PLDT, Globe Telecom, Davao City Real Property Tax, Davao City Water District).
+   - Regex reference validation per biller.
+   - `bill_payments` tracking table linked 1-to-1 with ledger transactions.
+   - Mobile: `PayBillsModal.tsx` with searchable biller catalog, live reference regex validation, fee breakdown, and biometric confirmation.
+   - Activity: Added "Bills" filter chip and digital receipt with biller reference number.
+
+3. **Scheduled & Recurring Payments**:
+   - `scheduled_payments` table supporting `once`, `daily`, `weekly`, `biweekly`, and `monthly` frequencies.
+   - Calendar-drift prevention: Monthly recurrences calculate `start_date + (N * interval '1 month')`.
+   - Idempotent run tracking: `scheduled_payment_runs` with unique `(schedule_id, run_date)` constraint ensuring each run executes at most once.
+   - Concurrency isolation: `run_due_scheduled_payments` uses `FOR UPDATE SKIP LOCKED` so concurrent runners cannot double-execute.
+   - Mobile: `ScheduledPaymentsModal.tsx` for tracking upcoming runs, viewing run history, and cancelling schedules.
+
+4. **Admin Oversight**:
+   - Admin routes: `/schedules` and `/billers` with real-time management, creation drawers, status toggling, and run history inspector.
+   - Authenticated Server Actions in `apps/admin/src/app/actions.ts`.
+
+### Verification Results
+
+```text
+> npm run test:schedules
+✓ [PASS] [Migration-Exists] Phase 5 Stage C migration file exists (20261023220000_phase5_stage_c_schedules_bills.sql)
+✓ [PASS] [Schema-Extensions] Profiles role check allows system; transactions type check allows bill_payment
+✓ [PASS] [Billers-Schema] Billers and bill_payments tables created with RLS and 1-to-1 transaction foreign key
+✓ [PASS] [Scheduled-Schema] Scheduled payments created with unique (schedule_id, run_date) run-once constraint
+✓ [PASS] [Single-Money-Engine] _transfer_core defined as single money engine and strictly revoked from clients
+✓ [PASS] [Pay-Bill-Engine] pay_bill validates biller regex, executes through _transfer_core, and logs envelope
+✓ [PASS] [Executor-Isolation] run_due_scheduled_payments uses FOR UPDATE SKIP LOCKED, catches unique violations, and isolates failures
+✓ [PASS] [Date-Math] Monthly recurrence anchors to start_date + N months, preventing calendar drift
+✓ [PASS] [Admin-Tools] Admin management functions enforce is_admin() authorization and audit trails
+✓ [PASS] [Ledger-Integrity] Balanced double-entry ledger debit & credit entries strictly preserved
+Total tests: 10, Passed: 10, Failed: 0
+```
+
+---
+
+## Stage D — QR Send & Request Money
+
+### What Was Built & Implemented
+
+1. **Davao Bank QR Code Standard (§D.1)**:
+   - URI Schema: `davaobank://pay?v=1&acct=<10-digits>&amt=<centavos>&note=<urlencoded>`
+   - `packages/shared/src/utils/qr.ts`:
+     - `generateDavaoBankQRPayload`: Generates standards-compliant URIs.
+     - `parseDavaoBankQRPayload`: Strictly parses URIs, validates account number (exactly 10 digits), centavos amount (1 to 50,000,000 centavos / ₱500,000 cap), and note length (<= 60 chars).
+     - Non-davaobank schemes (such as `https://`, `gcash://`, `maya://`, `qrph://`) return the exact message: `"This isn't a Davao Bank QR code"`.
+
+2. **Money Movement Rules & Safety**:
+   - Scanning a QR code NEVER moves money automatically.
+   - It transitions the user to `TransferModal.tsx` at the review step with recipient, amount, and note pre-filled, requiring explicit biometric confirmation.
+
+3. **Payment Requests (§D.2)**:
+   - Table `public.payment_requests` with statuses: `'pending'`, `'paid'`, `'declined'`, `'cancelled'`, `'expired'`.
+   - Default expiration: 7 days.
+   - RLS: Scoped to requester, payer, and admin. Direct client writes forbidden.
+   - Atomic payment engine: `pay_payment_request` locks the row `FOR UPDATE`, checks `status = 'pending'`, executes via `_transfer_core`, and marks `'paid'` atomically.
+   - Counterparty privacy: Notifications and audit logs display only account numbers, never leaking names.
+
+4. **Mobile Screens**:
+   - `QRHubModal.tsx`:
+     - "My QR": Displays live SVG QR code with account switcher and share options.
+     - "Scan QR": Uses `expo-camera` `CameraView` with permission request and fallback to manual account entry.
+     - "Request Money": Creates payment requests with 10-per-day rate limiting.
+   - `PaymentRequestsModal.tsx`: Lists incoming requests (with biometric Pay and Decline buttons) and outgoing requests (with Cancel button).
+   - Home 6-Tile Grid: Transfer · Pay bills · QR · Cash-in · Cash-out · Scheduled.
+
+### Verification Results
+
+```text
+> npm run test:qr
+✓ [PASS] [QR-Encode] Encodes standard davaobank://pay URI format
+✓ [PASS] [QR-Parse-Valid] Correctly extracts account number, centavos amount, and note
+✓ [PASS] [QR-Parse-Minimal] Handles minimal QR payload with account number only
+✓ [PASS] [QR-Reject-Foreign] Rejects non-davaobank schemes with exact copy: "This isn't a Davao Bank QR code"
+✓ [PASS] [QR-Reject-Version] Rejects unrecognized version number (v=2)
+✓ [PASS] [QR-Reject-Account] Strictly requires exactly 10 numeric digits for account number
+✓ [PASS] [QR-Reject-Amount] Rejects negative, zero, float, or excessive amounts exceeding transfer cap
+✓ [PASS] [QR-Reject-Note] Rejects note exceeding 60 character maximum
+✓ [PASS] [Migration-Exists] Stage D migration file exists (20261024090000_phase5_stage_d_qr_requests.sql)
+✓ [PASS] [Schema-RequestsTable] payment_requests table defined with status states and 7-day default expiration
+✓ [PASS] [RLS-NoDirectWrites] payment_requests read scoped to requester, payer, and admin; client direct writes strictly omitted
+✓ [PASS] [Func-CreateGuards] create_payment_request rejects self-requests, enforces active profile/account, and caps at 10/day
+✓ [PASS] [Func-PayRunOnce] pay_payment_request locks row FOR UPDATE, prevents re-paying, and updates status in same atomic transaction
+✓ [PASS] [Privacy-NoNameLeak] Payment request notifications and audits reference only account numbers, never leaking customer names
+✓ [PASS] [Security-RevokeBatch] expire_due_payment_requests is strictly revoked from public, anon, and authenticated clients
+Total tests: 15, Passed: 15, Failed: 0
+```
+
+---
+
+## Stage E — FX Reference-Rate Chart (View Only) + Integration Polish
+
+### What Was Built & Implemented
+
+1. **Frankfurter API Integration & Reference Rates Schema (§E.1)**:
+   - External source: **Frankfurter** (open API publishing European Central Bank reference rates).
+   - Confirmed endpoint: `https://api.frankfurter.dev/v1/`
+   - Response format: `{ "amount": 1.0, "base": "USD", "start_date": "...", "end_date": "...", "rates": { "YYYY-MM-DD": { "PHP": 63.944 } } }`
+   - Supported currency: PHP is fully supported as quote currency for USD, EUR, and JPY.
+   - Required attribution: _"Source: ECB reference rates via Frankfurter · updated <date>"_
+   - Table `public.fx_rates`:
+     - Columns: `base text`, `quote text`, `rate_date date`, `rate numeric(18,8)`, `source text`, `fetched_at timestamptz`.
+     - Primary key: `(base, quote, rate_date)`.
+     - RLS: Authenticated users can `select`. Direct writes revoked from clients.
+   - Supabase Edge Function `supabase/functions/fx-sync/index.ts`:
+     - Daily synchronization via `pg_cron` at 04:00 UTC (following ECB 16:00 CET daily fixing).
+     - Writes using `service_role` via atomic stored procedure `public.upsert_fx_rates`.
+     - Backfills 1 year of daily rates idempotently on initial setup.
+   - Single-currency principle: App reads exclusively from `public.fx_rates` and never contacts third parties directly; strictly view-only.
+
+2. **Mobile Screen & Interactive Chart (§E.2)**:
+   - Home "Currency Watch" card placed below the 6 action tiles:
+     - Latest USD/PHP rate formatted to 4 decimals (e.g. `58.9500`).
+     - Daily change with explicit `+` / `−` sign and percentage (`+0.1520 (+0.26%)`).
+     - ECB rate date.
+     - Tapping opens `FXRatesModal`.
+   - `FXRatesModal.tsx`:
+     - Pair selector: `USD / PHP`, `EUR / PHP`, `JPY / PHP`.
+     - Period chips: **1W · 1M · 3M · 1Y** (using daily ECB points).
+     - Explicit notice explaining no 1D intraday view: _"No 1D view: ECB reference rates are published daily on business days. Intraday rates are not provided."_
+     - Line chart built with `react-native-svg`: Kadayawan primary green curve with gradient fill, min/max grid lines, interactive pan/scrubber displaying tooltip with selected date and rate.
+     - Accessible VoiceOver / TalkBack summary: e.g. _"USD to PHP, 1 month, from 56.12 to 57.40"_.
+     - Prominent always-visible disclaimer: **"Reference rate — not a Davao Bank rate. Indicative reference rates only. Davao Bank does not offer foreign exchange trading or currency conversion."**
+     - Handles loading skeleton, empty state, and cached offline state.
+
+3. **Integration Polish (§E.3)**:
+   - Final Home action grid: 3x2 (Transfer · Pay bills · QR · Cash-in · Cash-out · Scheduled).
+   - Profile menu: Personal details · Saved recipients · Scheduled payments · Payment requests · Security & biometrics · About Davao Bank.
+   - Admin Dashboard KPIs added in `apps/admin/src/app/page.tsx`:
+     - Active Schedules count.
+     - Failed Runs in the last 7 days count.
+     - Pending Payment Requests count.
+
+### Verification Results
+
+```text
+> npm run test:fx
+✓ [PASS] [Backfill-Coverage] 1Y period covers full banking year (261 points >= 250)
+✓ [PASS] [Period-1W] 1W filter strictly returns rates within last 7 days (6 days)
+✓ [PASS] [Period-1M] 1M filter strictly returns rates within last 30 days (21 days)
+✓ [PASS] [Period-3M] 3M filter strictly returns rates within last 90 days (65 days)
+✓ [PASS] [A11y-VoiceOver] Generates natural screen-reader summary (USD to PHP, 1 month, from 56.80 to 56.00)
+✓ [PASS] [Formatting-Sign] Explicitly renders +/- sign without relying on color alone (+0.1520 (+0.26%), −0.0820 (−0.14%))
+✓ [PASS] [Formatting-Precision] Renders 4 decimal places for reference rates (USD: 58.9500, JPY: 0.4061)
+✓ [PASS] [Summary-Calculation] Correctly computes latest rate (56), date (2026-10-26), and change direction
+✓ [PASS] [Migration-Exists] Stage E migration file exists
+✓ [PASS] [Schema-Table] fx_rates table created with composite primary key (base, quote, rate_date)
+✓ [PASS] [RLS-ReadOnlyClients] Clients have read-only access; direct insert/update/delete strictly revoked
+✓ [PASS] [DB-IdempotentUpsert] upsert_fx_rates handles on conflict do update to guarantee idempotency
+✓ [PASS] [Seed-MultiCurrency] Migration seeds 1-year authentic ECB rates for USD, EUR, and JPY vs PHP
+✓ [PASS] [EdgeFunction-Exists] fx-sync Edge Function exists
+✓ [PASS] [EdgeFunction-Spec] fx-sync uses official Frankfurter API and service_role credentials
+Total tests: 15, Passed: 15, Failed: 0
+```
+
+---
+
+## Complete Phase 5 Regression Suite Summary
+
+| Test Suite               | Purpose                                                              | Result                   |
+| :----------------------- | :------------------------------------------------------------------- | :----------------------- |
+| `npm run test:rls`       | Phase 2 multi-identity RLS & auth barriers                           | **PASSED (4/4)**         |
+| `npm run test:money`     | Phase 3 money logic, concurrency, idempotency & ledger balance       | **PASSED (6/6)**         |
+| `npm run test:admin`     | Phase 4 admin controls, reversals, suspensions & adjustments         | **PASSED (11/11)**       |
+| `npm run test:extras`    | Stage B saved recipients, statements, hide balance & biometrics      | **PASSED (9/9)**         |
+| `npm run test:schedules` | Stage C scheduled payments, simulated bill pay & `_transfer_core`    | **PASSED (10/10)**       |
+| `npm run test:qr`        | Stage D QR standard, payment requests & privacy protection           | **PASSED (15/15)**       |
+| `npm run test:fx`        | Stage E FX reference rates, period filtering, RLS & Frankfurter sync | **PASSED (15/15)**       |
+| `npm run typecheck`      | TypeScript compiler verification across all workspaces               | **PASSED (0 errors)**    |
+| `npm run lint`           | ESLint verification across codebase                                  | **PASSED (0 errors)**    |
+| `npm run format:check`   | Prettier code style verification                                     | **PASSED (all matched)** |
+| `npm run build:admin`    | Next.js 16 App Router production build compilation                   | **PASSED (Turbopack)**   |
+| Secret-leak check        | Client static bundle inspection for service role key                 | **PASSED (0 leaks)**     |
+| Ledger reconciliation    | Global double-entry balance: credits = debits, balance = ledger sum  | **PASSED (Nominal)**     |

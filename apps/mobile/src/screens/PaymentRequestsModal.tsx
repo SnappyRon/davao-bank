@@ -29,14 +29,7 @@ import {
 } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
 import { useSettings } from '../context/SettingsContext';
-import {
-  BottomSheet,
-  Text,
-  Button,
-  Badge,
-  EmptyState,
-  AmountText,
-} from '../components';
+import { BottomSheet, Text, Button, Badge, EmptyState, AmountText } from '../components';
 
 interface PaymentRequestsModalProps {
   visible: boolean;
@@ -108,8 +101,7 @@ export function PaymentRequestsModal({
 
   const handlePay = async (req: PaymentRequest) => {
     // Default to first active account with sufficient balance, or first account
-    const sourceAcc =
-      accounts.find((a) => a.balance >= req.amount) || accounts[0];
+    const sourceAcc = accounts.find((a) => a.balance >= req.amount) || accounts[0];
 
     if (!sourceAcc) {
       alert('No active account found to pay this request.');
@@ -146,9 +138,7 @@ export function PaymentRequestsModal({
         } catch {
           // Ignore
         }
-        setStatusMessage(
-          `Successfully paid ${formatCentavosToPHP(req.amount)}!`
-        );
+        setStatusMessage(`Successfully paid ${formatCentavosToPHP(req.amount)}!`);
         loadRequests();
         if (onPaymentSuccess) onPaymentSuccess();
       }
@@ -221,11 +211,7 @@ export function PaymentRequestsModal({
   };
 
   return (
-    <BottomSheet
-      visible={visible}
-      onClose={onClose}
-      title="Payment Requests"
-    >
+    <BottomSheet visible={visible} onClose={onClose} title="Payment Requests">
       <View style={styles.container}>
         {/* Tab switch */}
         <View style={styles.tabBar}>
@@ -276,9 +262,7 @@ export function PaymentRequestsModal({
             <Text
               variant="caption"
               color={
-                statusMessage.startsWith('Payment failed')
-                  ? colors.error
-                  : colors.primary
+                statusMessage.startsWith('Payment failed') ? colors.error : colors.primary
               }
               style={{ fontWeight: '700' }}
             >
@@ -333,9 +317,7 @@ export function PaymentRequestsModal({
                           color={colors.ink}
                           showSign={false}
                         />
-                        <View style={{ marginTop: 2 }}>
-                          {getStatusBadge(req.status)}
-                        </View>
+                        <View style={{ marginTop: 2 }}>{getStatusBadge(req.status)}</View>
                       </View>
                     </View>
 
@@ -391,9 +373,7 @@ export function PaymentRequestsModal({
                         color={colors.ink}
                         showSign={false}
                       />
-                      <View style={{ marginTop: 2 }}>
-                        {getStatusBadge(req.status)}
-                      </View>
+                      <View style={{ marginTop: 2 }}>{getStatusBadge(req.status)}</View>
                     </View>
                   </View>
 

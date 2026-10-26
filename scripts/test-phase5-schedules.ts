@@ -138,7 +138,11 @@ async function runTestSuite() {
       password: 'Password123!',
     });
 
-    assert('Auth', Boolean(auth1?.user && auth2?.user && authAdmin?.user), 'Test users authenticated');
+    assert(
+      'Auth',
+      Boolean(auth1?.user && auth2?.user && authAdmin?.user),
+      'Test users authenticated'
+    );
     if (!auth1?.user || !auth2?.user) return;
 
     // 1. Verify _transfer_core is NOT callable by client
@@ -203,15 +207,18 @@ async function runTestSuite() {
 
     if (fromAcc && toAcc) {
       const today = new Date().toISOString().split('T')[0];
-      const { data: schedRes, error: schedErr } = await cust1.rpc('create_scheduled_payment', {
-        p_from_account: fromAcc.account_id,
-        p_kind: 'transfer',
-        p_to_account: toAcc.account_id,
-        p_amount: 50000, // PHP 500.00
-        p_frequency: 'once',
-        p_start_date: today,
-        p_note: 'Test automated run',
-      });
+      const { data: schedRes, error: schedErr } = await cust1.rpc(
+        'create_scheduled_payment',
+        {
+          p_from_account: fromAcc.account_id,
+          p_kind: 'transfer',
+          p_to_account: toAcc.account_id,
+          p_amount: 50000, // PHP 500.00
+          p_frequency: 'once',
+          p_start_date: today,
+          p_note: 'Test automated run',
+        }
+      );
 
       assert(
         'Schedule-Create',
@@ -250,7 +257,9 @@ async function runTestSuite() {
 
     // 4. Ledger Reconciliation Check
     console.log('\n[5/5] Checking System-Wide Double-Entry Ledger Reconciliation...');
-    const { data: ledgerEntries } = await adminClient.from('ledger_entries').select('direction, amount');
+    const { data: ledgerEntries } = await adminClient
+      .from('ledger_entries')
+      .select('direction, amount');
     let totalCredits = 0n;
     let totalDebits = 0n;
     for (const entry of ledgerEntries || []) {
@@ -266,7 +275,6 @@ async function runTestSuite() {
       totalCredits === totalDebits,
       `Ledger is strictly balanced (Total Credits: ${totalCredits} == Total Debits: ${totalDebits})`
     );
-
   } catch (err: any) {
     console.error('Live database test error:', err?.message || err);
     process.exit(1);
@@ -280,7 +288,9 @@ async function runTestSuite() {
  * Validates Phase 5 Stage C SQL Migration, Schema Definitions, and Invariants.
  */
 function runContractValidations() {
-  console.log('[Contract Checks] Verifying Phase 5 Stage C SQL Migrations & Code Invariants...\n');
+  console.log(
+    '[Contract Checks] Verifying Phase 5 Stage C SQL Migrations & Code Invariants...\n'
+  );
 
   const migrationsDir = path.resolve(process.cwd(), 'supabase/migrations');
   const files = fs.readdirSync(migrationsDir);
@@ -319,7 +329,9 @@ function runContractValidations() {
     'Scheduled-Schema',
     sqlContent.includes('create table if not exists public.scheduled_payments') &&
       sqlContent.includes('create table if not exists public.scheduled_payment_runs') &&
-      sqlContent.includes('constraint unique_schedule_run_date unique (schedule_id, run_date)'),
+      sqlContent.includes(
+        'constraint unique_schedule_run_date unique (schedule_id, run_date)'
+      ),
     'Scheduled payments created with unique (schedule_id, run_date) run-once constraint'
   );
 
@@ -348,8 +360,10 @@ function runContractValidations() {
     'Executor-Isolation',
     sqlContent.includes('for update skip locked') &&
       sqlContent.includes('run_due_scheduled_payments()') &&
-      sqlContent.includes('revoke execute on function public.run_due_scheduled_payments()') &&
-      sqlContent.includes("when unique_violation then") &&
+      sqlContent.includes(
+        'revoke execute on function public.run_due_scheduled_payments()'
+      ) &&
+      sqlContent.includes('when unique_violation then') &&
       sqlContent.includes("status = 'failed'"),
     'run_due_scheduled_payments uses FOR UPDATE SKIP LOCKED, catches unique violations, and isolates failures'
   );

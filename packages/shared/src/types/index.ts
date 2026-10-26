@@ -47,12 +47,7 @@ export interface Account {
 
 // --- Transactions & Ledger ---
 export type TransactionType =
-  | 'transfer'
-  | 'deposit'
-  | 'withdrawal'
-  | 'adjustment'
-  | 'reversal'
-  | 'bill_payment';
+  'transfer' | 'deposit' | 'withdrawal' | 'adjustment' | 'reversal' | 'bill_payment';
 
 export type TransactionStatus = 'pending' | 'completed' | 'failed' | 'reversed';
 
@@ -400,11 +395,7 @@ export interface CreateScheduledPaymentParams {
 // --- Phase 5 Stage D: QR Send & Request Money Types ---
 
 export type PaymentRequestStatus =
-  | 'pending'
-  | 'paid'
-  | 'declined'
-  | 'cancelled'
-  | 'expired';
+  'pending' | 'paid' | 'declined' | 'cancelled' | 'expired';
 
 export interface PaymentRequest {
   id: string;
@@ -442,3 +433,28 @@ export interface QRPayloadResult {
   error?: string;
 }
 
+// --- Phase 5 Stage E: FX Reference Rates Types ---
+
+export type FXPair = 'USD/PHP' | 'EUR/PHP' | 'JPY/PHP';
+export type FXPeriod = '1W' | '1M' | '3M' | '1Y';
+
+export interface FXRate {
+  base: string;
+  quote: string;
+  rate_date: string; // 'YYYY-MM-DD'
+  rate: number;
+  source: string;
+  fetched_at: string;
+}
+
+export interface FXSummary {
+  base: string;
+  quote: string;
+  latestRate: number;
+  previousRate: number | null;
+  rateDate: string;
+  previousDate: string | null;
+  changeValue: number;
+  changePercent: number;
+  direction: 'up' | 'down' | 'flat';
+}

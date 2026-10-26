@@ -198,17 +198,45 @@ Verifies:
 - Atomic transaction reversal, compensating ledger entries, status transition to `'reversed'`, and double-reversal rejection
 - Post-operation system-wide ledger reconciliation: for every account, balance equals ledger sum; all transfers and reversals remain strictly balanced
 
-### 6. Verify Production Builds & Secret Leaks
+### 6. Run Phase 5 Test Suites
 
 ```bash
-npm run build:admin    # Next.js admin production build
-cd apps/mobile && npx expo export --output-dir /tmp/export # Expo mobile build bundle
-grep -rn "SUPABASE_SERVICE_ROLE_KEY" apps/admin/.next/static/ apps/mobile/src/ # Secret-leak check
+npm run test:extras     # Stage B: Saved recipients, statements, hide balance, biometrics
+npm run test:schedules  # Stage C: Scheduled & recurring payments, simulated bill pay
+npm run test:qr         # Stage D: QR Send & Request Money
+npm run test:fx         # Stage E: FX Reference Rates & Frankfurter Integration
 ```
 
 ---
 
-## 6. Scope Boundaries Maintained
+## 6. FX Reference Rates & External Data Integration (§E.1)
+
+### External Source: Frankfurter (European Central Bank Reference Rates)
+
+- **Official Documentation:** [https://frankfurter.dev](https://frankfurter.dev)
+- **Base Endpoint:** `https://api.frankfurter.dev/v1/`
+  - Latest rate: `/v1/latest?base=USD&symbols=PHP`
+  - Historical time series: `/v1/{startDate}..{endDate}?base=USD&symbols=PHP`
+- **Response Format:**
+  ```json
+  {
+    "amount": 1.0,
+    "base": "USD",
+    "start_date": "2025-10-24",
+    "end_date": "2026-10-26",
+    "rates": {
+      "2026-10-26": { "PHP": 63.944 }
+    }
+  }
+  ```
+- **Currency Support:** PHP (Philippine Peso) is fully supported as quote currency for USD, EUR, and JPY.
+- **Required Attribution:** _"Source: ECB reference rates via Frankfurter · updated <date>"_ (published by European Central Bank, served via Frankfurter open API).
+- **Scheduled Sync:** Implemented via Supabase Edge Function `supabase/functions/fx-sync/index.ts` scheduled daily with `pg_cron` at 04:00 UTC (following ECB 16:00 CET daily fixing). The client apps strictly read from `public.fx_rates` and never contact third-party APIs directly.
+- **Single-Currency Principle:** Davao Bank remains strictly single-currency (PHP). No currency exchange, trading, or alerts are offered.
+
+---
+
+## 7. Scope Boundaries Maintained
 
 - **In Scope (Phase 4 Complete):**
   - Server-side admin functions (`admin_set_user_status`, `admin_open_account`, `admin_set_account_status`, `admin_adjust_balance`, `admin_reverse_transaction`).
