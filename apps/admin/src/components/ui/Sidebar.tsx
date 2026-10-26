@@ -9,6 +9,8 @@ import {
   CreditCard,
   ArrowLeftRight,
   ClipboardList,
+  CalendarClock,
+  Building2,
   LogOut,
   Menu,
 } from 'lucide-react';
@@ -37,6 +39,8 @@ export function Sidebar({ adminEmail, adminName }: SidebarProps) {
     { label: 'Users', href: '/users', icon: <Users size={20} /> },
     { label: 'Accounts', href: '/accounts', icon: <CreditCard size={20} /> },
     { label: 'Transactions', href: '/transactions', icon: <ArrowLeftRight size={20} /> },
+    { label: 'Schedules', href: '/schedules', icon: <CalendarClock size={20} /> },
+    { label: 'Billers', href: '/billers', icon: <Building2 size={20} /> },
     { label: 'Audit Log', href: '/audit', icon: <ClipboardList size={20} /> },
   ];
 

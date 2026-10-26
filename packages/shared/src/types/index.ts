@@ -19,7 +19,7 @@ export interface HealthCheckState {
 }
 
 // --- User Roles & Profile ---
-export type UserRole = 'customer' | 'admin';
+export type UserRole = 'customer' | 'admin' | 'system';
 export type ProfileStatus = 'active' | 'suspended';
 
 export interface Profile {
@@ -47,7 +47,12 @@ export interface Account {
 
 // --- Transactions & Ledger ---
 export type TransactionType =
-  'transfer' | 'deposit' | 'withdrawal' | 'adjustment' | 'reversal';
+  | 'transfer'
+  | 'deposit'
+  | 'withdrawal'
+  | 'adjustment'
+  | 'reversal'
+  | 'bill_payment';
 
 export type TransactionStatus = 'pending' | 'completed' | 'failed' | 'reversed';
 
@@ -308,3 +313,87 @@ export interface AccountStatement {
   closing_balance: number;
   transactions: StatementTransactionItem[];
 }
+
+// --- Phase 5 Stage C: Scheduled Payments & Bill Pay Types ---
+
+export type BillerCategory = 'electricity' | 'water' | 'internet' | 'mobile' | 'other';
+
+export interface Biller {
+  id: string;
+  name: string;
+  category: BillerCategory;
+  account_id: string;
+  reference_label: string;
+  reference_pattern: string;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface BillPayment {
+  id: string;
+  transaction_id: string;
+  biller_id: string;
+  payer_account: string;
+  biller_reference: string;
+  created_at: string;
+}
+
+export type ScheduledPaymentKind = 'transfer' | 'bill';
+export type ScheduledPaymentFrequency = 'once' | 'weekly' | 'monthly';
+export type ScheduledPaymentStatus = 'active' | 'completed' | 'cancelled';
+
+export interface ScheduledPayment {
+  id: string;
+  owner_id: string;
+  from_account: string;
+  kind: ScheduledPaymentKind;
+  to_account: string | null;
+  biller_id: string | null;
+  biller_reference: string | null;
+  amount: number; // centavos
+  note: string | null;
+  frequency: ScheduledPaymentFrequency;
+  start_date: string;
+  end_date: string | null;
+  max_runs: number | null;
+  runs_done: number;
+  next_run_date: string;
+  status: ScheduledPaymentStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export type ScheduledPaymentRunStatus = 'completed' | 'failed';
+
+export interface ScheduledPaymentRun {
+  id: string;
+  schedule_id: string;
+  run_date: string;
+  status: ScheduledPaymentRunStatus;
+  transaction_id: string | null;
+  failure_reason: string | null;
+  created_at: string;
+}
+
+export interface PayBillParams {
+  from_account: string;
+  biller_id: string;
+  biller_reference: string;
+  amount: number; // centavos
+  idempotency_key: string;
+}
+
+export interface CreateScheduledPaymentParams {
+  from_account: string;
+  kind: ScheduledPaymentKind;
+  to_account?: string | null;
+  biller_id?: string | null;
+  biller_reference?: string | null;
+  amount: number;
+  frequency: ScheduledPaymentFrequency;
+  start_date: string;
+  end_date?: string | null;
+  max_runs?: number | null;
+  note?: string | null;
+}
+

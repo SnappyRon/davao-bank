@@ -34,7 +34,7 @@ interface SeedUserConfig {
   password: string;
   fullName: string;
   phone?: string;
-  role: 'admin' | 'customer';
+  role: 'admin' | 'customer' | 'system';
   initialBalanceCentavos?: number;
 }
 
@@ -60,6 +60,12 @@ const SEED_USERS: SeedUserConfig[] = [
     phone: '+639189876543',
     role: 'customer',
     initialBalanceCentavos: 2500000, // PHP 25,000.00
+  },
+  {
+    email: 'billers@system.davaobank.invalid',
+    password: 'SystemPasswordDisabled123!',
+    fullName: 'Davao Bank System Billers',
+    role: 'system',
   },
 ];
 
@@ -181,6 +187,89 @@ async function seed() {
             );
           }
         }
+      }
+    }
+  }
+
+  // 5. Seed Demo Billers under the System profile
+  console.log('\n--- Seeding Simulated Demo Billers ---');
+  const { data: systemProfile } = await supabaseAdmin
+    .from('profiles')
+    .select('id')
+    .eq('role', 'system')
+    .maybeSingle();
+
+  if (systemProfile) {
+    const DEMO_BILLERS = [
+      {
+        name: 'Mindanao Power Co. (demo)',
+        category: 'electricity',
+        referenceLabel: 'Customer Account No.',
+        referencePattern: '^[0-9]{10}$',
+      },
+      {
+        name: 'Bayanihan Water (demo)',
+        category: 'water',
+        referenceLabel: 'Meter Account No.',
+        referencePattern: '^[0-9]{8}$',
+      },
+      {
+        name: 'Apo Fiber Internet (demo)',
+        category: 'internet',
+        referenceLabel: 'Subscriber No.',
+        referencePattern: '^[0-9]{10}$',
+      },
+      {
+        name: 'Durian City Mobile (demo)',
+        category: 'mobile',
+        referenceLabel: 'Mobile Number',
+        referencePattern: '^09[0-9]{9}$',
+      },
+    ];
+
+    for (const biller of DEMO_BILLERS) {
+      const { data: existingBiller } = await supabaseAdmin
+        .from('billers')
+        .select('id, name')
+        .eq('name', biller.name)
+        .maybeSingle();
+
+      if (!existingBiller) {
+        // Create settlement account for biller
+        const randomAcc = '10' + Math.floor(10000000 + Math.random() * 90000000);
+        const { data: newAcc, error: accErr } = await supabaseAdmin
+          .from('accounts')
+          .insert({
+            user_id: systemProfile.id,
+            account_number: randomAcc,
+            type: 'checking',
+            currency: 'PHP',
+            status: 'active',
+          })
+          .select('id')
+          .single();
+
+        if (accErr || !newAcc) {
+          console.error(`Failed to create settlement account for ${biller.name}:`, accErr?.message);
+          continue;
+        }
+
+        const { error: billerErr } = await supabaseAdmin.from('billers').insert({
+          name: biller.name,
+          category: biller.category,
+          account_id: newAcc.id,
+          reference_label: biller.referenceLabel,
+          reference_pattern: biller.referencePattern,
+          is_active: true,
+        });
+
+        if (billerErr) {
+          console.error(`Failed to insert biller ${biller.name}:`, billerErr.message);
+        } else {
+          console.log(`✓ Seeded biller: ${biller.name} (${biller.category}) -> Acct: ${randomAcc}`);
+        }
+      } else {
+        console.log(`Existing biller found: ${biller.name}`);
       }
     }
   }

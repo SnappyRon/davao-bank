@@ -8,6 +8,9 @@ import {
   Users,
   BookmarkCheck,
   UserCheck,
+  Calendar,
+  Clock,
+  Repeat,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import {
@@ -21,6 +24,7 @@ import {
   type AccountBalance,
   type MoneyOperationResult,
   type SavedRecipient,
+  type ScheduledPaymentFrequency,
 } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
 import { useSettings } from '../context/SettingsContext';
@@ -70,6 +74,18 @@ export function TransferModal({
   // Saved recipients
   const [savedRecipients, setSavedRecipients] = useState<SavedRecipient[]>([]);
 
+  // Timing & Scheduling (§C.4)
+  type TransferTiming = 'now' | 'later' | 'recurring';
+  const [timing, setTiming] = useState<TransferTiming>('now');
+  const [scheduledDate, setScheduledDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return d.toISOString().split('T')[0];
+  });
+  const [frequency, setFrequency] = useState<ScheduledPaymentFrequency>('monthly');
+  const [maxRunsStr, setMaxRunsStr] = useState('12');
+  const [isScheduledSuccess, setIsScheduledSuccess] = useState(false);
+
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successResult, setSuccessResult] = useState<MoneyOperationResult | null>(null);
@@ -115,6 +131,8 @@ export function TransferModal({
     setReference('');
     setShouldSaveRecipient(false);
     setSaveNickname('');
+    setTiming('now');
+    setIsScheduledSuccess(false);
     setErrorMessage(null);
     setSuccessResult(null);
     setIdempotencyKey('');
@@ -176,9 +194,12 @@ export function TransferModal({
     const centavos = phpToCentavos(amountStr);
 
     // 1. Biometric confirmation before money moves (§B.4)
-    const bioResult = await confirmBiometricPayment(
-      `Confirm transfer of ${formatCentavosToPHP(centavos)} to ${recipientAccountNumber}`
-    );
+    const bioMessage =
+      timing === 'now'
+        ? `Confirm transfer of ${formatCentavosToPHP(centavos)} to ${recipientAccountNumber}`
+        : `Confirm scheduling transfer of ${formatCentavosToPHP(centavos)} to ${recipientAccountNumber}`;
+
+    const bioResult = await confirmBiometricPayment(bioMessage);
 
     if (bioResult.cancelled) {
       setLoading(false);
@@ -223,7 +244,11 @@ export function TransferModal({
                 return;
               }
               // Proceed with transfer
-              await executeServerTransfer(centavos);
+              if (timing === 'now') {
+                await executeServerTransfer(centavos);
+              } else {
+                await executeScheduledTransfer(centavos);
+              }
             },
           },
         ],
@@ -232,7 +257,63 @@ export function TransferModal({
       return;
     }
 
-    await executeServerTransfer(centavos);
+    if (timing === 'now') {
+      await executeServerTransfer(centavos);
+    } else {
+      await executeScheduledTransfer(centavos);
+    }
+  };
+
+  const executeScheduledTransfer = async (centavos: number) => {
+    if (!selectedAccount) return;
+
+    try {
+      const { data: destAcc, error: destErr } = await supabase
+        .from('accounts')
+        .select('id')
+        .eq('account_number', recipientAccountNumber.trim())
+        .single();
+
+      if (destErr || !destAcc) {
+        setLoading(false);
+        setErrorMessage('Destination account was not found or is inactive.');
+        return;
+      }
+
+      const maxRuns = timing === 'recurring' && maxRunsStr ? parseInt(maxRunsStr, 10) : null;
+      const { error: schedErr } = await supabase.rpc('create_scheduled_payment', {
+        p_from_account: selectedAccount.account_id,
+        p_kind: 'transfer',
+        p_to_account: destAcc.id,
+        p_amount: centavos,
+        p_frequency: timing === 'recurring' ? frequency : 'once',
+        p_start_date: scheduledDate,
+        p_max_runs: maxRuns,
+        p_note: reference.trim() || 'Scheduled Transfer',
+      });
+
+      setLoading(false);
+
+      if (schedErr) {
+        try {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        } catch {
+          // Haptics unavailable on simulator/web
+        }
+        setErrorMessage(schedErr.message);
+      } else {
+        try {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        } catch {
+          // Haptics unavailable on simulator/web
+        }
+        setIsScheduledSuccess(true);
+        setStep('success');
+      }
+    } catch (err: any) {
+      setLoading(false);
+      setErrorMessage(err?.message || 'Failed to schedule transfer');
+    }
   };
 
   const executeServerTransfer = async (centavos: number) => {
@@ -513,6 +594,64 @@ export function TransferModal({
               maxLength={60}
             />
 
+            {/* Timing Selector (§C.4) */}
+            <View style={styles.timingSection}>
+              <Text variant="label" color={colors.textSecondary} style={styles.timingLabel}>
+                When to send
+              </Text>
+              <View style={styles.chipRow}>
+                <Chip
+                  label="Now"
+                  selected={timing === 'now'}
+                  onPress={() => setTiming('now')}
+                />
+                <Chip
+                  label="Later"
+                  selected={timing === 'later'}
+                  onPress={() => setTiming('later')}
+                />
+                <Chip
+                  label="Recurring"
+                  selected={timing === 'recurring'}
+                  onPress={() => setTiming('recurring')}
+                />
+              </View>
+            </View>
+
+            {timing !== 'now' && (
+              <TextField
+                label={timing === 'recurring' ? 'Start Date' : 'Scheduled Date'}
+                value={scheduledDate}
+                onChangeText={setScheduledDate}
+                placeholder="YYYY-MM-DD"
+                maxLength={10}
+              />
+            )}
+
+            {timing === 'recurring' && (
+              <View style={styles.recurringFields}>
+                <View style={styles.chipRow}>
+                  <Chip
+                    label="Weekly"
+                    selected={frequency === 'weekly'}
+                    onPress={() => setFrequency('weekly')}
+                  />
+                  <Chip
+                    label="Monthly"
+                    selected={frequency === 'monthly'}
+                    onPress={() => setFrequency('monthly')}
+                  />
+                </View>
+                <TextField
+                  label="Max Runs (optional)"
+                  value={maxRunsStr}
+                  onChangeText={setMaxRunsStr}
+                  placeholder="e.g. 12"
+                  maxLength={3}
+                />
+              </View>
+            )}
+
             <View style={styles.navRow}>
               <Button
                 title="Back"
@@ -575,18 +714,43 @@ export function TransferModal({
                 </View>
               ) : null}
 
-              <View style={styles.reviewRow}>
-                <Text variant="body" color={colors.textSecondary}>
-                  Projected Balance
-                </Text>
-                <AmountText
-                  amountCentavos={(selectedAccount?.balance || 0) - centavosAmount}
-                  hidden={hideBalance}
-                  variant="bodyStrong"
-                  color={colors.ink}
-                  showSign={false}
-                />
-              </View>
+              {/* Timing info (§C.4) */}
+              {timing !== 'now' && (
+                <View style={styles.reviewRow}>
+                  <Text variant="body" color={colors.textSecondary}>
+                    {timing === 'recurring' ? 'Starts' : 'Scheduled'}
+                  </Text>
+                  <Text variant="bodyStrong" color={colors.ink}>
+                    {scheduledDate}
+                  </Text>
+                </View>
+              )}
+              {timing === 'recurring' && (
+                <View style={styles.reviewRow}>
+                  <Text variant="body" color={colors.textSecondary}>
+                    Frequency
+                  </Text>
+                  <Text variant="bodyStrong" color={colors.ink}>
+                    {frequency.charAt(0).toUpperCase() + frequency.slice(1)}
+                    {maxRunsStr ? ` · ${maxRunsStr} runs` : ''}
+                  </Text>
+                </View>
+              )}
+
+              {timing === 'now' && (
+                <View style={styles.reviewRow}>
+                  <Text variant="body" color={colors.textSecondary}>
+                    Projected Balance
+                  </Text>
+                  <AmountText
+                    amountCentavos={(selectedAccount?.balance || 0) - centavosAmount}
+                    hidden={hideBalance}
+                    variant="bodyStrong"
+                    color={colors.ink}
+                    showSign={false}
+                  />
+                </View>
+              )}
             </Card>
 
             <View style={styles.navRow}>
@@ -597,17 +761,17 @@ export function TransferModal({
                 style={styles.backButton}
               />
               <Button
-                title="Authorize Transfer"
+                title={timing === 'now' ? 'Authorize Transfer' : timing === 'recurring' ? 'Schedule Recurring' : 'Schedule Transfer'}
                 onPress={handleConfirmTransfer}
                 loading={loading}
-                icon={<Send size={18} color={colors.textInverse} />}
+                icon={timing === 'now' ? <Send size={18} color={colors.textInverse} /> : <Calendar size={18} color={colors.textInverse} />}
                 style={styles.forwardButton}
               />
             </View>
           </View>
         )}
 
-        {/* STEP 4: SUCCESS */}
+        {/* STEP 4: SUCCESS (instant transfer) */}
         {step === 'success' && successResult && (
           <View style={styles.stepContainer}>
             <View style={styles.successIconBox}>
@@ -653,6 +817,61 @@ export function TransferModal({
                   {successResult.id}
                 </Text>
               </View>
+            </Card>
+
+            <Button
+              title="Done"
+              variant="secondary"
+              onPress={resetState}
+              style={styles.actionButton}
+            />
+          </View>
+        )}
+
+        {/* STEP 4: SUCCESS (scheduled transfer) */}
+        {step === 'success' && isScheduledSuccess && !successResult && (
+          <View style={styles.stepContainer}>
+            <View style={styles.successIconBox}>
+              <Calendar size={54} color={colors.primary} />
+              <Text variant="h2" align="center" style={styles.successTitle}>
+                {timing === 'recurring' ? 'Recurring Transfer Scheduled' : 'Transfer Scheduled'}
+              </Text>
+              <AmountText
+                amountCentavos={centavosAmount}
+                direction="outgoing"
+                variant="display"
+              />
+            </View>
+
+            <Card variant="subtle" style={styles.receiptCard}>
+              <View style={styles.receiptRow}>
+                <Text variant="caption" color={colors.textMuted}>
+                  Recipient
+                </Text>
+                <Text variant="bodyStrong" tabularNums color={colors.ink}>
+                  {recipientNickname
+                    ? `${recipientNickname} (${recipientAccountNumber})`
+                    : recipientAccountNumber}
+                </Text>
+              </View>
+              <View style={styles.receiptRow}>
+                <Text variant="caption" color={colors.textMuted}>
+                  {timing === 'recurring' ? 'Starting' : 'Scheduled for'}
+                </Text>
+                <Text variant="bodyStrong" color={colors.ink}>
+                  {scheduledDate}
+                </Text>
+              </View>
+              {timing === 'recurring' && (
+                <View style={styles.receiptRow}>
+                  <Text variant="caption" color={colors.textMuted}>
+                    Frequency
+                  </Text>
+                  <Text variant="bodyStrong" color={colors.ink}>
+                    {frequency.charAt(0).toUpperCase() + frequency.slice(1)}
+                  </Text>
+                </View>
+              )}
             </Card>
 
             <Button
@@ -815,5 +1034,20 @@ const styles = StyleSheet.create({
   idText: {
     fontFamily: 'monospace',
     fontSize: 11,
+  },
+  timingSection: {
+    marginTop: spacing.sm,
+  },
+  timingLabel: {
+    marginBottom: spacing.xs,
+  },
+  chipRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    flexWrap: 'wrap',
+  },
+  recurringFields: {
+    gap: spacing.sm,
+    marginTop: spacing.xs,
   },
 });

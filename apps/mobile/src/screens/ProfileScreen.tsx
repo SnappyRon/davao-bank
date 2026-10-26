@@ -15,6 +15,7 @@ import {
   ShieldCheck,
   CheckCircle2,
   Users,
+  CalendarClock,
 } from 'lucide-react-native';
 import { colors, spacing, radius, type Profile } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
@@ -23,6 +24,7 @@ import { Screen, Text, Card, Badge, Button } from '../components';
 import { PersonalDetailsModal } from './PersonalDetailsModal';
 import { AboutModal } from './AboutModal';
 import { SavedRecipientsModal } from './SavedRecipientsModal';
+import { ScheduledPaymentsModal } from './ScheduledPaymentsModal';
 
 interface ProfileScreenProps {
   profile: Profile | null;
@@ -41,6 +43,7 @@ export function ProfileScreen({
     useSettings();
   const [personalDetailsOpen, setPersonalDetailsOpen] = useState(false);
   const [savedRecipientsOpen, setSavedRecipientsOpen] = useState(false);
+  const [scheduledOpen, setScheduledOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
 
@@ -190,6 +193,26 @@ export function ProfileScreen({
             />
           </View>
 
+          {/* Scheduled Payments Row (§C) */}
+          <TouchableOpacity
+            style={styles.menuRow}
+            activeOpacity={0.7}
+            onPress={() => setScheduledOpen(true)}
+          >
+            <View style={styles.menuIconContainer}>
+              <CalendarClock size={20} color={colors.primary} />
+            </View>
+            <View style={styles.menuTextContainer}>
+              <Text variant="bodyStrong" color={colors.ink}>
+                Scheduled Payments
+              </Text>
+              <Text variant="caption" color={colors.textSecondary}>
+                View and manage recurring transfers and bill payments
+              </Text>
+            </View>
+            <ChevronRight size={18} color={colors.textMuted} />
+          </TouchableOpacity>
+
           <TouchableOpacity
             style={styles.menuRow}
             activeOpacity={0.7}
@@ -248,6 +271,11 @@ export function ProfileScreen({
       <SavedRecipientsModal
         visible={savedRecipientsOpen}
         onClose={() => setSavedRecipientsOpen(false)}
+      />
+
+      <ScheduledPaymentsModal
+        visible={scheduledOpen}
+        onClose={() => setScheduledOpen(false)}
       />
     </Screen>
   );

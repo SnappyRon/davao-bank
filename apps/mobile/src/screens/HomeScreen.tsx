@@ -10,12 +10,13 @@ import {
   Send,
   PlusCircle,
   MinusCircle,
-  Clock,
   Eye,
   EyeOff,
   ChevronDown,
   ChevronRight,
   ShieldCheck,
+  Zap,
+  CalendarClock,
 } from 'lucide-react-native';
 import {
   colors,
@@ -31,6 +32,7 @@ import {
   type TransactionHistoryItem,
   type HealthCheck,
   type MoneyOperationResult,
+  type ScheduledPayment,
 } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
 import { useSettings } from '../context/SettingsContext';
@@ -45,12 +47,15 @@ import {
   EmptyState,
   Skeleton,
   Logo,
+  Badge,
 } from '../components';
 import { TransferModal } from './TransferModal';
 import { DepositModal } from './DepositModal';
 import { WithdrawModal } from './WithdrawModal';
 import { TransactionDetailModal } from './TransactionDetailModal';
 import { SuspendedScreen } from './SuspendedScreen';
+import { PayBillsModal } from './PayBillsModal';
+import { ScheduledPaymentsModal } from './ScheduledPaymentsModal';
 
 interface HomeScreenProps {
   onNavigateToActivity?: () => void;
@@ -74,7 +79,12 @@ export function HomeScreen({
   const [isTransferOpen, setIsTransferOpen] = useState(false);
   const [isDepositOpen, setIsDepositOpen] = useState(false);
   const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
+  const [isPayBillsOpen, setIsPayBillsOpen] = useState(false);
+  const [isScheduledOpen, setIsScheduledOpen] = useState(false);
   const [selectedTx, setSelectedTx] = useState<TransactionHistoryItem | null>(null);
+
+  // Upcoming scheduled payments
+  const [upcomingSchedules, setUpcomingSchedules] = useState<ScheduledPayment[]>([]);
 
   // Dev health check
   const [health, setHealth] = useState<HealthCheck | null>(null);
@@ -95,6 +105,19 @@ export function HomeScreen({
         if (profileRes.data) setProfile(profileRes.data);
         if (accountsRes.data) setAccounts(accountsRes.data);
         if (txRes.data) setTransactions(txRes.data);
+      }
+
+      // Load upcoming scheduled payments
+      try {
+        const { data: schedData } = await supabase
+          .from('scheduled_payments')
+          .select('*')
+          .eq('status', 'active')
+          .order('next_run_date', { ascending: true })
+          .limit(3);
+        if (schedData) setUpcomingSchedules(schedData as ScheduledPayment[]);
+      } catch {
+        // Non-critical
       }
 
       if (__DEV__) {
@@ -230,13 +253,19 @@ export function HomeScreen({
           </View>
         )}
 
-        {/* Action Grid: 4 tiles in 2x2 for Stage A */}
-        <ActionTileGrid columns={2}>
+        {/* Action Grid: 5 tiles in 3x2 (Stage C; QR added in Stage D) */}
+        <ActionTileGrid columns={3}>
           <ActionTile
             label="Transfer"
             color="blue"
             icon={<Send size={24} color={colors.textInverse} />}
             onPress={() => setIsTransferOpen(true)}
+          />
+          <ActionTile
+            label="Pay Bills"
+            color="orange"
+            icon={<Zap size={24} color={colors.textInverse} />}
+            onPress={() => setIsPayBillsOpen(true)}
           />
           <ActionTile
             label="Cash-in"
@@ -251,14 +280,61 @@ export function HomeScreen({
             onPress={() => setIsWithdrawOpen(true)}
           />
           <ActionTile
-            label="Activity"
+            label="Scheduled"
             color="yellow"
-            icon={<Clock size={24} color={colors.ink} />}
-            onPress={() => {
-              if (onNavigateToActivity) onNavigateToActivity();
-            }}
+            icon={<CalendarClock size={24} color={colors.ink} />}
+            onPress={() => setIsScheduledOpen(true)}
           />
         </ActionTileGrid>
+
+        {/* Upcoming Payments Strip */}
+        {upcomingSchedules.length > 0 && (
+          <View>
+            <View style={styles.sectionHeader}>
+              <Text variant="h2">Upcoming Payments</Text>
+              <TouchableOpacity
+                onPress={() => setIsScheduledOpen(true)}
+                style={styles.seeAllButton}
+                activeOpacity={0.7}
+              >
+                <Text variant="bodyStrong" color={colors.primary}>
+                  See all
+                </Text>
+                <ChevronRight size={16} color={colors.primary} />
+              </TouchableOpacity>
+            </View>
+            {upcomingSchedules.map((sched) => (
+              <TouchableOpacity
+                key={sched.id}
+                style={styles.upcomingCard}
+                onPress={() => setIsScheduledOpen(true)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.upcomingIconCircle}>
+                  {sched.kind === 'bill' ? (
+                    <Zap size={18} color={colors.yellow} />
+                  ) : (
+                    <Send size={18} color={colors.blue} />
+                  )}
+                </View>
+                <View style={styles.upcomingInfo}>
+                  <Text variant="bodyStrong">
+                    {sched.note || (sched.kind === 'bill' ? 'Bill Payment' : 'Transfer')}
+                  </Text>
+                  <Text variant="caption" color={colors.textSecondary}>
+                    {sched.next_run_date} · {sched.frequency}
+                  </Text>
+                </View>
+                <AmountText
+                  amountCentavos={sched.amount}
+                  variant="bodyStrong"
+                  color={colors.ink}
+                  showSign={false}
+                />
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
 
         {/* Recent Activity Section */}
         <View style={styles.sectionHeader}>
@@ -345,6 +421,22 @@ export function HomeScreen({
           setIsWithdrawOpen(false);
           loadData();
         }}
+      />
+
+      <PayBillsModal
+        visible={isPayBillsOpen}
+        onClose={() => setIsPayBillsOpen(false)}
+        accounts={accounts}
+        onPaymentSuccess={() => {
+          setIsPayBillsOpen(false);
+          loadData();
+        }}
+      />
+
+      <ScheduledPaymentsModal
+        visible={isScheduledOpen}
+        onClose={() => setIsScheduledOpen(false)}
+        onRefresh={loadData}
       />
 
       {selectedTx ? (
@@ -459,5 +551,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
+  },
+  upcomingCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.md,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: spacing.sm,
+  },
+  upcomingIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surfaceSubtle,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.md,
+  },
+  upcomingInfo: {
+    flex: 1,
   },
 });

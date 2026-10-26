@@ -29,7 +29,7 @@ import { TransactionDetailModal } from './TransactionDetailModal';
 import { ExportStatementModal } from './ExportStatementModal';
 
 export type ActivityFilter =
-  'all' | 'transfer' | 'deposit' | 'withdrawal' | 'adjustment' | 'reversal';
+  'all' | 'transfer' | 'deposit' | 'withdrawal' | 'adjustment' | 'reversal' | 'bill_payment';
 
 interface ActivityScreenProps {
   onExportStatement?: () => void;
@@ -76,6 +76,7 @@ export function ActivityScreen({ onExportStatement }: ActivityScreenProps) {
   const filterOptions = [
     { label: 'All', value: 'all' },
     { label: 'Transfers', value: 'transfer' },
+    { label: 'Bills', value: 'bill_payment' },
     { label: 'Cash-in', value: 'deposit' },
     { label: 'Cash-out', value: 'withdrawal' },
     { label: 'Adjustments', value: 'adjustment' },
