@@ -44,6 +44,10 @@ interface TransferModalProps {
   onClose: () => void;
   accounts: AccountBalance[];
   onTransferSuccess: (result: MoneyOperationResult) => void;
+  initialRecipientAccount?: string;
+  initialAmountCentavos?: number;
+  initialNote?: string;
+  onRequestMoneyPress?: () => void;
 }
 
 type TransferStep = 'recipient' | 'amount' | 'review' | 'success';
@@ -54,6 +58,10 @@ export function TransferModal({
   onClose,
   accounts,
   onTransferSuccess,
+  initialRecipientAccount,
+  initialAmountCentavos,
+  initialNote,
+  onRequestMoneyPress,
 }: TransferModalProps) {
   const { hideBalance, confirmBiometricPayment } = useSettings();
 
@@ -120,8 +128,24 @@ export function TransferModal({
   useEffect(() => {
     if (visible) {
       loadSavedRecipients();
+      if (initialRecipientAccount) {
+        setRecipientAccountNumber(initialRecipientAccount);
+        if (initialAmountCentavos && initialAmountCentavos > 0) {
+          setAmountStr((initialAmountCentavos / 100).toFixed(2));
+          if (initialNote) setReference(initialNote);
+          setStep('review');
+        } else {
+          setStep('amount');
+        }
+      }
     }
-  }, [visible, loadSavedRecipients]);
+  }, [
+    visible,
+    loadSavedRecipients,
+    initialRecipientAccount,
+    initialAmountCentavos,
+    initialNote,
+  ]);
 
   const resetState = () => {
     setStep('recipient');
@@ -571,6 +595,18 @@ export function TransferModal({
                 onPress={handleNextFromRecipient}
                 style={styles.actionButton}
               />
+            )}
+
+            {onRequestMoneyPress && (
+              <TouchableOpacity
+                onPress={onRequestMoneyPress}
+                style={{ marginTop: spacing.sm, alignItems: 'center', padding: spacing.xs }}
+                activeOpacity={0.7}
+              >
+                <Text variant="caption" color={colors.primary} style={{ fontWeight: '700' }}>
+                  Need to receive funds? Request money instead &rarr;
+                </Text>
+              </TouchableOpacity>
             )}
           </View>
         )}

@@ -17,6 +17,8 @@ import {
   ShieldCheck,
   Zap,
   CalendarClock,
+  QrCode,
+  Inbox,
 } from 'lucide-react-native';
 import {
   colors,
@@ -56,6 +58,8 @@ import { TransactionDetailModal } from './TransactionDetailModal';
 import { SuspendedScreen } from './SuspendedScreen';
 import { PayBillsModal } from './PayBillsModal';
 import { ScheduledPaymentsModal } from './ScheduledPaymentsModal';
+import { QRHubModal } from './QRHubModal';
+import { PaymentRequestsModal } from './PaymentRequestsModal';
 
 interface HomeScreenProps {
   onNavigateToActivity?: () => void;
@@ -81,10 +85,18 @@ export function HomeScreen({
   const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
   const [isPayBillsOpen, setIsPayBillsOpen] = useState(false);
   const [isScheduledOpen, setIsScheduledOpen] = useState(false);
+  const [isQROpen, setIsQROpen] = useState(false);
+  const [isRequestsOpen, setIsRequestsOpen] = useState(false);
   const [selectedTx, setSelectedTx] = useState<TransactionHistoryItem | null>(null);
 
-  // Upcoming scheduled payments
+  // QR transfer prefill state
+  const [qrPrefillAccount, setQrPrefillAccount] = useState<string | undefined>();
+  const [qrPrefillAmount, setQrPrefillAmount] = useState<number | undefined>();
+  const [qrPrefillNote, setQrPrefillNote] = useState<string | undefined>();
+
+  // Upcoming scheduled payments & Pending requests
   const [upcomingSchedules, setUpcomingSchedules] = useState<ScheduledPayment[]>([]);
+  const [pendingRequestsCount, setPendingRequestsCount] = useState<number>(0);
 
   // Dev health check
   const [health, setHealth] = useState<HealthCheck | null>(null);
@@ -105,6 +117,18 @@ export function HomeScreen({
         if (profileRes.data) setProfile(profileRes.data);
         if (accountsRes.data) setAccounts(accountsRes.data);
         if (txRes.data) setTransactions(txRes.data);
+
+        // Load pending payment requests count
+        try {
+          const { count } = await supabase
+            .from('payment_requests')
+            .select('*', { count: 'exact', head: true })
+            .eq('payer_user_id', user.id)
+            .eq('status', 'pending');
+          setPendingRequestsCount(count || 0);
+        } catch {
+          // Non-critical
+        }
       }
 
       // Load upcoming scheduled payments
@@ -253,19 +277,52 @@ export function HomeScreen({
           </View>
         )}
 
-        {/* Action Grid: 5 tiles in 3x2 (Stage C; QR added in Stage D) */}
+        {/* Pending Payment Requests Banner */}
+        {pendingRequestsCount > 0 && (
+          <TouchableOpacity
+            style={styles.requestsBanner}
+            onPress={() => setIsRequestsOpen(true)}
+            activeOpacity={0.8}
+          >
+            <View style={styles.requestsIconBox}>
+              <Inbox size={20} color={colors.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text variant="bodyStrong" color={colors.primary}>
+                {pendingRequestsCount} Pending Payment Request{pendingRequestsCount > 1 ? 's' : ''}
+              </Text>
+              <Text variant="caption" color={colors.textSecondary}>
+                Tap to review, pay, or decline
+              </Text>
+            </View>
+            <ChevronRight size={18} color={colors.primary} />
+          </TouchableOpacity>
+        )}
+
+        {/* Action Grid: 6 tiles in 3x2 (Final Stages C & D) */}
         <ActionTileGrid columns={3}>
           <ActionTile
             label="Transfer"
             color="blue"
             icon={<Send size={24} color={colors.textInverse} />}
-            onPress={() => setIsTransferOpen(true)}
+            onPress={() => {
+              setQrPrefillAccount(undefined);
+              setQrPrefillAmount(undefined);
+              setQrPrefillNote(undefined);
+              setIsTransferOpen(true);
+            }}
           />
           <ActionTile
             label="Pay Bills"
             color="orange"
             icon={<Zap size={24} color={colors.textInverse} />}
             onPress={() => setIsPayBillsOpen(true)}
+          />
+          <ActionTile
+            label="QR"
+            color="purple"
+            icon={<QrCode size={24} color={colors.textInverse} />}
+            onPress={() => setIsQROpen(true)}
           />
           <ActionTile
             label="Cash-in"
@@ -395,10 +452,25 @@ export function HomeScreen({
       {/* Money Action Modals */}
       <TransferModal
         visible={isTransferOpen}
-        onClose={() => setIsTransferOpen(false)}
+        onClose={() => {
+          setIsTransferOpen(false);
+          setQrPrefillAccount(undefined);
+          setQrPrefillAmount(undefined);
+          setQrPrefillNote(undefined);
+        }}
         accounts={accounts}
+        initialRecipientAccount={qrPrefillAccount}
+        initialAmountCentavos={qrPrefillAmount}
+        initialNote={qrPrefillNote}
+        onRequestMoneyPress={() => {
+          setIsTransferOpen(false);
+          setIsQROpen(true);
+        }}
         onTransferSuccess={() => {
           setIsTransferOpen(false);
+          setQrPrefillAccount(undefined);
+          setQrPrefillAmount(undefined);
+          setQrPrefillNote(undefined);
           loadData();
         }}
       />
@@ -437,6 +509,31 @@ export function HomeScreen({
         visible={isScheduledOpen}
         onClose={() => setIsScheduledOpen(false)}
         onRefresh={loadData}
+      />
+
+      <QRHubModal
+        visible={isQROpen}
+        onClose={() => setIsQROpen(false)}
+        accounts={accounts}
+        onScanResult={(res) => {
+          setIsQROpen(false);
+          setQrPrefillAccount(res.accountNumber);
+          setQrPrefillAmount(res.amountCentavos);
+          setQrPrefillNote(res.note);
+          setIsTransferOpen(true);
+        }}
+        onManualTransferFallback={() => {
+          setIsQROpen(false);
+          setIsTransferOpen(true);
+        }}
+        onRequestSent={loadData}
+      />
+
+      <PaymentRequestsModal
+        visible={isRequestsOpen}
+        onClose={() => setIsRequestsOpen(false)}
+        accounts={accounts}
+        onPaymentSuccess={loadData}
       />
 
       {selectedTx ? (
@@ -573,5 +670,24 @@ const styles = StyleSheet.create({
   },
   upcomingInfo: {
     flex: 1,
+  },
+  requestsBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.md,
+    backgroundColor: colors.surfaceSubtle,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.primaryTint,
+    marginBottom: spacing.base,
+    gap: spacing.md,
+  },
+  requestsIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(106, 27, 122, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

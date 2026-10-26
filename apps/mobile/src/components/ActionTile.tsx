@@ -4,7 +4,7 @@ import * as Haptics from 'expo-haptics';
 import { colors, radius, spacing } from '@davao-bank/shared';
 import { Text } from './Text';
 
-export type ActionTileColor = 'blue' | 'green' | 'orange' | 'yellow';
+export type ActionTileColor = 'blue' | 'green' | 'orange' | 'yellow' | 'purple';
 
 export interface ActionTileProps {
   label: string;
@@ -34,6 +34,8 @@ export function ActionTile({ label, color, icon, onPress, style }: ActionTilePro
         return colors.orange;
       case 'yellow':
         return colors.yellow;
+      case 'purple':
+        return colors.primary;
     }
   };
 

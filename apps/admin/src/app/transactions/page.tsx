@@ -69,11 +69,33 @@ export default async function AdminTransactionsPage() {
     accounts_involved: Array.from(txAccountsMap[tx.id] || []),
   }));
 
+  // Query all payment requests (§D.3)
+  const { data: requestsData } = await supabase
+    .from('payment_requests')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  const requests = (requestsData || []).map((r: any) => ({
+    id: r.id,
+    requester_id: r.requester_id,
+    requester_account: r.requester_account,
+    requester_account_number: accNumberMap[r.requester_account] || r.requester_account,
+    payer_account_number: r.payer_account_number,
+    payer_user_id: r.payer_user_id,
+    amount: Number(r.amount),
+    note: r.note,
+    status: r.status,
+    transaction_id: r.transaction_id,
+    expires_at: r.expires_at,
+    created_at: r.created_at,
+    responded_at: r.responded_at,
+  }));
+
   return (
     <AdminShell adminEmail={user?.email} adminName={profile?.full_name}>
       <PageHeader
         title="Transaction Oversight & Reversals"
-        subtitle="Monitor ledger activity, inspect receipts, and execute compensating reversals."
+        subtitle="Monitor ledger activity, inspect receipts, and oversee customer payment requests."
       >
         <a href="/api/export/transactions">
           <Button variant="secondary" icon={<Download size={16} />}>
@@ -81,7 +103,10 @@ export default async function AdminTransactionsPage() {
           </Button>
         </a>
       </PageHeader>
-      <TransactionsClient initialTransactions={rows} />
+      <TransactionsClient
+        initialTransactions={rows}
+        initialRequests={requests}
+      />
     </AdminShell>
   );
 }

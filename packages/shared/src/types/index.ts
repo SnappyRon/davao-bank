@@ -397,3 +397,48 @@ export interface CreateScheduledPaymentParams {
   note?: string | null;
 }
 
+// --- Phase 5 Stage D: QR Send & Request Money Types ---
+
+export type PaymentRequestStatus =
+  | 'pending'
+  | 'paid'
+  | 'declined'
+  | 'cancelled'
+  | 'expired';
+
+export interface PaymentRequest {
+  id: string;
+  requester_id: string;
+  requester_account: string;
+  payer_account_number: string;
+  payer_user_id: string;
+  amount: number; // centavos
+  note: string | null;
+  status: PaymentRequestStatus;
+  transaction_id: string | null;
+  expires_at: string;
+  created_at: string;
+  responded_at: string | null;
+}
+
+export interface CreatePaymentRequestParams {
+  requester_account: string;
+  payer_account_number: string;
+  amount: number; // centavos
+  note?: string | null;
+}
+
+export interface PayPaymentRequestParams {
+  request_id: string;
+  from_account: string;
+  idempotency_key: string;
+}
+
+export interface QRPayloadResult {
+  valid: boolean;
+  accountNumber?: string;
+  amountCentavos?: number;
+  note?: string;
+  error?: string;
+}
+
