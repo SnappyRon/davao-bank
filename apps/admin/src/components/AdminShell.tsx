@@ -20,30 +20,14 @@ export function AdminShell({ adminEmail, adminName, children }: AdminShellProps)
         <header className={styles.mobileTopBar}>
           <div className={styles.mobileBrand}>
             <span>Davao Bank</span>
-            <span
-              style={{
-                fontSize: '0.6875rem',
-                color: 'var(--color-text-secondary)',
-                fontWeight: 600,
-              }}
-            >
-              STAFF CONSOLE
-            </span>
+            <span className={styles.consoleBadge}>STAFF CONSOLE</span>
           </div>
           <button
             onClick={() => {
               const aside = document.querySelector('aside');
               if (aside) aside.classList.toggle('mobileOpen');
             }}
-            style={{
-              background: 'none',
-              border: '1px solid var(--color-border)',
-              borderRadius: 'var(--radius-md)',
-              padding: '0.375rem',
-              cursor: 'pointer',
-              color: 'var(--color-ink)',
-              display: 'flex',
-            }}
+            className={styles.mobileMenuBtn}
             aria-label="Toggle menu"
           >
             <Menu size={20} />

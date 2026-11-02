@@ -8,6 +8,14 @@ import React, {
 } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as LocalAuthentication from 'expo-local-authentication';
+import { supabase } from '../lib/supabase';
+import { PasswordConfirmationModal } from '../components/PasswordConfirmationModal';
+
+export interface ConfirmMoneyOptions {
+  title?: string;
+  message?: string;
+  promptMessage?: string;
+}
 
 interface SettingsContextType {
   hideBalance: boolean;
@@ -16,10 +24,16 @@ interface SettingsContextType {
   setBiometricEnabled: (enabled: boolean) => Promise<boolean>;
   isBiometricSupported: boolean;
   biometricType: string;
-  confirmBiometricPayment: (promptMessage?: string) => Promise<{
+  confirmBiometricPayment: (
+    promptMessageOrOptions?: string | ConfirmMoneyOptions
+  ) => Promise<{
     success: boolean;
     cancelled?: boolean;
-    requiresPasswordFallback?: boolean;
+    error?: string;
+  }>;
+  confirmMoneyAction: (options?: ConfirmMoneyOptions) => Promise<{
+    success: boolean;
+    cancelled?: boolean;
     error?: string;
   }>;
 }
@@ -34,6 +48,14 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const [biometricEnabled, setBiometricEnabledState] = useState<boolean>(true);
   const [isBiometricSupported, setIsBiometricSupported] = useState<boolean>(false);
   const [biometricType, setBiometricType] = useState<string>('Biometrics');
+
+  // Password confirmation modal state
+  const [passwordModalVisible, setPasswordModalVisible] = useState(false);
+  const [passwordModalConfig, setPasswordModalConfig] = useState<{
+    title: string;
+    message: string;
+    resolve: (val: { success: boolean; cancelled?: boolean; error?: string }) => void;
+  } | null>(null);
 
   // Load initial settings
   useEffect(() => {
@@ -84,7 +106,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
   const setBiometricEnabled = useCallback(
     async (nextVal: boolean): Promise<boolean> => {
-      // "Turning it off requires one successful check first."
+      // Turning off requires one successful check first
       if (!nextVal && biometricEnabled && isBiometricSupported) {
         try {
           const result = await LocalAuthentication.authenticateAsync({
@@ -107,44 +129,111 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     [biometricEnabled, isBiometricSupported]
   );
 
-  const confirmBiometricPayment = useCallback(
+  /**
+   * Universal money movement confirmation helper (Fix 6).
+   *
+   * 1. If biometrics available & enabled: prompts biometric check (may fall back to device passcode).
+   * 2. Otherwise (no biometrics, setting turned off, or biometric failure/fallback requested):
+   *    requires password re-entry verified via supabase.auth.signInWithPassword for the caller's email.
+   * 3. Never returns success: true without one of those two checks succeeding.
+   */
+  const confirmMoneyAction = useCallback(
     async (
-      promptMessage = 'Confirm transaction with Face ID / Fingerprint'
+      options?: ConfirmMoneyOptions
     ): Promise<{
       success: boolean;
       cancelled?: boolean;
-      requiresPasswordFallback?: boolean;
       error?: string;
     }> => {
-      if (!biometricEnabled || !isBiometricSupported) {
-        // Fallback to password or proceed
-        return { success: true };
+      const promptTitle = options?.title || 'Authorize Transaction';
+      const promptMsg =
+        options?.promptMessage ||
+        options?.message ||
+        'Please confirm your identity to authorize this transaction.';
+
+      if (biometricEnabled && isBiometricSupported) {
+        try {
+          const result = await LocalAuthentication.authenticateAsync({
+            promptMessage: promptMsg,
+            fallbackLabel: 'Enter Password',
+            cancelLabel: 'Cancel',
+            disableDeviceFallback: false,
+          });
+
+          if (result.success) {
+            return { success: true };
+          }
+
+          if (result.error === 'user_cancel' || result.error === 'app_cancel') {
+            return { success: false, cancelled: true };
+          }
+          // Biometric failed or user selected password fallback; proceed to password modal
+        } catch {
+          // Proceed to password modal fallback
+        }
       }
 
-      try {
-        const result = await LocalAuthentication.authenticateAsync({
-          promptMessage,
-          fallbackLabel: 'Enter Password',
-          cancelLabel: 'Cancel',
-          disableDeviceFallback: false,
+      // Fallback: in-app password re-entry modal
+      return new Promise((resolve) => {
+        setPasswordModalConfig({
+          title: promptTitle,
+          message: promptMsg,
+          resolve,
         });
-
-        if (result.success) {
-          return { success: true };
-        }
-
-        if (result.error === 'user_cancel' || result.error === 'app_cancel') {
-          return { success: false, cancelled: true };
-        }
-
-        return { success: false, requiresPasswordFallback: true, error: result.error };
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        return { success: false, requiresPasswordFallback: true, error: msg };
-      }
+        setPasswordModalVisible(true);
+      });
     },
     [biometricEnabled, isBiometricSupported]
   );
+
+  const confirmBiometricPayment = useCallback(
+    async (
+      promptMessageOrOptions?: string | ConfirmMoneyOptions
+    ): Promise<{
+      success: boolean;
+      cancelled?: boolean;
+      error?: string;
+    }> => {
+      const opts: ConfirmMoneyOptions =
+        typeof promptMessageOrOptions === 'string'
+          ? { promptMessage: promptMessageOrOptions }
+          : promptMessageOrOptions || {};
+      return confirmMoneyAction(opts);
+    },
+    [confirmMoneyAction]
+  );
+
+  const handlePasswordModalConfirm = async (password: string): Promise<boolean> => {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user?.email) {
+        return false;
+      }
+
+      const { error: authErr } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password,
+      });
+
+      if (authErr) {
+        return false;
+      }
+
+      setPasswordModalVisible(false);
+      passwordModalConfig?.resolve({ success: true });
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const handlePasswordModalCancel = () => {
+    setPasswordModalVisible(false);
+    passwordModalConfig?.resolve({ success: false, cancelled: true });
+  };
 
   return (
     <SettingsContext.Provider
@@ -156,9 +245,17 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         isBiometricSupported,
         biometricType,
         confirmBiometricPayment,
+        confirmMoneyAction,
       }}
     >
       {children}
+      <PasswordConfirmationModal
+        visible={passwordModalVisible}
+        title={passwordModalConfig?.title}
+        message={passwordModalConfig?.message}
+        onConfirm={handlePasswordModalConfirm}
+        onCancel={handlePasswordModalCancel}
+      />
     </SettingsContext.Provider>
   );
 }

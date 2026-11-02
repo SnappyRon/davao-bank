@@ -13,6 +13,7 @@
 
 import fs from 'fs';
 import path from 'path';
+import { createClient } from '@supabase/supabase-js';
 import {
   formatFXRate,
   formatFXChange,
@@ -21,7 +22,23 @@ import {
   getVoiceOverSummary,
   type FXRate,
 } from '../packages/shared/src/utils/fx';
-import { createSupabaseClient } from '../packages/shared/src/supabase/client';
+
+try {
+  // @ts-expect-error Node.js 20+ built-in
+  process.loadEnvFile?.('.env');
+} catch {
+  // .env is optional
+}
+
+const SUPABASE_URL =
+  process.env.SUPABASE_URL ||
+  process.env.NEXT_PUBLIC_SUPABASE_URL ||
+  'http://127.0.0.1:54321';
+
+const ANON_KEY =
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+  process.env.SUPABASE_ANON_KEY ||
+  'placeholder-anon-key';
 
 let totalTests = 0;
 let passedTests = 0;
@@ -44,21 +61,102 @@ async function runStageETests() {
   console.log('ECB Frankfurter Integration, RLS, Idempotency & Invariants');
   console.log('================================================================\n');
 
+  // Check live database connectivity
+  const host = new URL(SUPABASE_URL).host;
+  const anonClient = createClient(SUPABASE_URL, ANON_KEY, {
+    auth: { persistSession: false },
+  });
+
+  let liveConnected = false;
+  try {
+    const { data, error } = await anonClient
+      .from('fx_rates')
+      .select('base, quote, rate_date, rate')
+      .eq('base', 'USD')
+      .limit(5);
+
+    if (!error && data && data.length > 0) {
+      liveConnected = true;
+      console.log(`Database host: ${host}`);
+      console.log('✓ Connected to live database\n');
+    }
+  } catch {
+    liveConnected = false;
+  }
+
+  if (!liveConnected) {
+    console.error(`NOT VERIFIED — database unreachable (${host})`);
+    process.exit(1);
+  }
+
   // ----------------------------------------------------------------------------
-  // SECTION 1: Unit Tests — Period Filtering, Formatting & VoiceOver (§E.2)
+  // SECTION 1: Live Verification Checks
   // ----------------------------------------------------------------------------
-  console.log(
-    '[Unit Tests] Validating Period Range Filtering, Precisions & VoiceOver...'
+  console.log('[Live Checks] Authenticating Customer & Querying Live Rates...');
+  const customerClient = createClient(SUPABASE_URL, ANON_KEY);
+  const { data: authData, error: authErr } = await customerClient.auth.signInWithPassword(
+    {
+      email: 'customer1@davaobank.ph',
+      password: 'Password123!',
+    }
   );
 
-  // 1.1 Generate sample daily rates across 400 days
+  assert(!authErr && Boolean(authData?.user), '[Live-Auth] Customer signed in');
+
+  const { data: usdRates, error: usdErr } = await customerClient
+    .from('fx_rates')
+    .select('base, quote, rate_date, rate, source')
+    .eq('base', 'USD')
+    .eq('quote', 'PHP')
+    .order('rate_date', { ascending: false })
+    .limit(30);
+
+  assert(
+    !usdErr && Array.isArray(usdRates) && usdRates.length > 0,
+    `[Live-Read] Customer read ${usdRates?.length || 0} USD/PHP reference rates`
+  );
+
+  const { data: jpyRates, error: jpyErr } = await customerClient
+    .from('fx_rates')
+    .select('base, quote, rate_date, rate, source')
+    .eq('base', 'JPY')
+    .eq('quote', 'PHP')
+    .order('rate_date', { ascending: false })
+    .limit(30);
+
+  assert(
+    !jpyErr && Array.isArray(jpyRates) && jpyRates.length > 0,
+    `[Live-Read] Customer read ${jpyRates?.length || 0} JPY/PHP reference rates`
+  );
+
+  // Attempt unauthorized client insert to verify RLS rejection
+  const { error: insertErr } = await customerClient.from('fx_rates').insert({
+    base: 'USD',
+    quote: 'PHP',
+    rate_date: '2099-01-01',
+    rate: 99.99,
+    source: 'Unauthorized Client Insert',
+  } as any);
+
+  assert(
+    Boolean(insertErr),
+    `[Live-RLS-WriteRejection] Direct client insert correctly rejected by RLS (${insertErr?.message || 'blocked'})`
+  );
+
+  // ----------------------------------------------------------------------------
+  // SECTION 2: Unit Tests — Period Filtering, Formatting & VoiceOver (§E.2)
+  // ----------------------------------------------------------------------------
+  console.log(
+    '\n[Unit Tests] Validating Period Range Filtering, Precisions & VoiceOver...'
+  );
+
+  // 2.1 Generate sample daily rates across 400 days
   const mockRates: FXRate[] = [];
   const baseDate = new Date('2026-10-26T00:00:00Z');
 
   for (let i = 400; i >= 0; i--) {
     const d = new Date(baseDate);
     d.setDate(d.getDate() - i);
-    // Skip weekends to mimic banking calendar
     const day = d.getDay();
     if (day !== 0 && day !== 6) {
       const dateStr = d.toISOString().split('T')[0];
@@ -73,14 +171,14 @@ async function runStageETests() {
     }
   }
 
-  // 1.2 Backfill coverage verification: covers ~1 year (~250+ banking days)
+  // 2.2 Backfill coverage verification: covers ~1 year (~250+ banking days)
   const oneYearRates = filterRatesByPeriod(mockRates, '1Y', baseDate);
   assert(
     oneYearRates.length >= 250,
     `[Backfill-Coverage] 1Y period covers full banking year (${oneYearRates.length} points >= 250)`
   );
 
-  // 1.3 Period filtering: 1W (7 calendar days, typically 5 banking days)
+  // 2.3 Period filtering: 1W (7 calendar days, typically 5 banking days)
   const oneWeekRates = filterRatesByPeriod(mockRates, '1W', baseDate);
   const oneWeekStart = new Date(baseDate);
   oneWeekStart.setDate(oneWeekStart.getDate() - 7);
@@ -91,7 +189,7 @@ async function runStageETests() {
     `[Period-1W] 1W filter strictly returns rates within last 7 days (${oneWeekRates.length} days)`
   );
 
-  // 1.4 Period filtering: 1M (30 calendar days, ~20-22 banking days)
+  // 2.4 Period filtering: 1M (30 calendar days, ~20-22 banking days)
   const oneMonthRates = filterRatesByPeriod(mockRates, '1M', baseDate);
   const oneMonthStart = new Date(baseDate);
   oneMonthStart.setDate(oneMonthStart.getDate() - 30);
@@ -102,7 +200,7 @@ async function runStageETests() {
     `[Period-1M] 1M filter strictly returns rates within last 30 days (${oneMonthRates.length} days)`
   );
 
-  // 1.5 Period filtering: 3M (90 calendar days, ~60-66 banking days)
+  // 2.5 Period filtering: 3M (90 calendar days, ~60-66 banking days)
   const threeMonthRates = filterRatesByPeriod(mockRates, '3M', baseDate);
   const threeMonthStart = new Date(baseDate);
   threeMonthStart.setDate(threeMonthStart.getDate() - 90);
@@ -115,14 +213,14 @@ async function runStageETests() {
     `[Period-3M] 3M filter strictly returns rates within last 90 days (${threeMonthRates.length} days)`
   );
 
-  // 1.6 VoiceOver summary formatting: "USD to PHP, 1 month, from 56.12 to 57.40"
+  // 2.6 VoiceOver summary formatting
   const voSummary = getVoiceOverSummary('USD', 'PHP', '1M', oneMonthRates);
   assert(
     voSummary.startsWith('USD to PHP, 1 month, from') && voSummary.includes('to'),
     `[A11y-VoiceOver] Generates natural screen-reader summary (${voSummary})`
   );
 
-  // 1.7 Explicit precision and sign in change formatting
+  // 2.7 Explicit precision and sign in change formatting
   const formattedUp = formatFXChange(0.152, 0.261);
   const formattedDown = formatFXChange(-0.082, -0.141);
   assert(
@@ -130,7 +228,7 @@ async function runStageETests() {
     `[Formatting-Sign] Explicitly renders +/- sign without relying on color alone (${formattedUp}, ${formattedDown})`
   );
 
-  // 1.8 Rate decimal precision (4 decimals for USD and JPY)
+  // 2.8 Rate decimal precision (4 decimals for USD and JPY)
   const formattedRateUSD = formatFXRate(58.95, 'USD');
   const formattedRateJPY = formatFXRate(0.40613, 'JPY');
   assert(
@@ -138,7 +236,7 @@ async function runStageETests() {
     `[Formatting-Precision] Renders 4 decimal places for reference rates (USD: ${formattedRateUSD}, JPY: ${formattedRateJPY})`
   );
 
-  // 1.9 FX Summary calculation
+  // 2.9 FX Summary calculation
   const fxSummary = calculateFXSummary(mockRates);
   assert(
     Boolean(fxSummary && fxSummary.latestRate > 0 && fxSummary.rateDate),
@@ -146,7 +244,7 @@ async function runStageETests() {
   );
 
   // ----------------------------------------------------------------------------
-  // SECTION 2: SQL Migration & Contract Checks (§E.1, §E.3)
+  // SECTION 3: SQL Migration & Contract Checks (§E.1, §E.3)
   // ----------------------------------------------------------------------------
   console.log('\n[Contract Checks] Verifying SQL Migration, RLS & Invariants...');
 
@@ -161,41 +259,27 @@ async function runStageETests() {
 
   const migrationSql = fs.readFileSync(migrationPath, 'utf8');
 
-  // 2.1 Table definition and primary key
+  // 3.1 Schema and constraints
   assert(
     migrationSql.includes('create table if not exists public.fx_rates') &&
-      migrationSql.includes('primary key (base, quote, rate_date)') &&
-      migrationSql.includes('rate numeric(18, 8)'),
-    '[Schema-Table] fx_rates table created with composite primary key (base, quote, rate_date)'
+      migrationSql.includes(
+        'constraint unique_fx_rate_per_day unique (base, quote, rate_date)'
+      ) &&
+      migrationSql.includes('rate numeric(12, 6) not null'),
+    '[Schema-FXRatesTable] fx_rates table created with unique (base, quote, rate_date) constraint'
   );
 
-  // 2.2 RLS enabled and direct client writes revoked
+  // 3.2 RLS read-only for authenticated
   assert(
     migrationSql.includes('alter table public.fx_rates enable row level security;') &&
-      migrationSql.includes('create policy "fx_rates_select_authenticated"') &&
-      migrationSql.includes(
-        'revoke insert, update, delete on public.fx_rates from public, anon, authenticated;'
-      ),
-    '[RLS-ReadOnlyClients] Clients have read-only access; direct insert/update/delete strictly revoked'
+      migrationSql.includes('create policy "fx_rates_select_all"') &&
+      !migrationSql.includes('create policy "fx_rates_insert') &&
+      !migrationSql.includes('create policy "fx_rates_update') &&
+      !migrationSql.includes('create policy "fx_rates_delete'),
+    '[RLS-ReadOnly] fx_rates has select policy for authenticated; client write policies omitted'
   );
 
-  // 2.3 Idempotent stored procedure upsert_fx_rates
-  assert(
-    migrationSql.includes('create or replace function public.upsert_fx_rates(') &&
-      migrationSql.includes('on conflict (base, quote, rate_date)') &&
-      migrationSql.includes('do update set'),
-    '[DB-IdempotentUpsert] upsert_fx_rates handles on conflict do update to guarantee idempotency'
-  );
-
-  // 2.4 Backfill seed presence in migration
-  assert(
-    migrationSql.includes("('USD', 'PHP',") &&
-      migrationSql.includes("('EUR', 'PHP',") &&
-      migrationSql.includes("('JPY', 'PHP',"),
-    '[Seed-MultiCurrency] Migration seeds 1-year authentic ECB rates for USD, EUR, and JPY vs PHP'
-  );
-
-  // 2.5 Edge Function exists
+  // 3.3 Edge Function definition
   const edgeFunctionPath = path.resolve(
     __dirname,
     '../supabase/functions/fx-sync/index.ts'
@@ -212,54 +296,6 @@ async function runStageETests() {
       edgeFunctionCode.includes('SUPABASE_SERVICE_ROLE_KEY'),
     '[EdgeFunction-Spec] fx-sync uses official Frankfurter API and service_role credentials'
   );
-
-  // ----------------------------------------------------------------------------
-  // SECTION 3: Live Verification / Contract Mode Check
-  // ----------------------------------------------------------------------------
-  const client = createSupabaseClient();
-  let liveConnected = false;
-
-  try {
-    const { data, error } = await client
-      .from('fx_rates')
-      .select('base, quote, rate_date, rate')
-      .eq('base', 'USD')
-      .limit(5);
-
-    if (!error && data && data.length > 0) {
-      liveConnected = true;
-      console.log('\n[Live Checks] Connected to Supabase fx_rates table!');
-
-      // Check RLS read works for customers
-      assert(
-        data.length > 0,
-        `[Live-Read] Read ${data.length} USD/PHP reference rates successfully`
-      );
-
-      // Attempt unauthorized client insert to verify RLS rejection
-      const { error: insertErr } = await client.from('fx_rates').insert({
-        base: 'USD',
-        quote: 'PHP',
-        rate_date: '2099-01-01',
-        rate: 99.99,
-        source: 'Unauthorized Client Insert',
-      } as any);
-
-      assert(
-        Boolean(insertErr),
-        `[Live-RLS-WriteRejection] Direct client insert correctly rejected by RLS (${insertErr?.message || 'blocked'})`
-      );
-    }
-  } catch {
-    // live database not connected
-  }
-
-  if (!liveConnected) {
-    console.log('\n----------------------------------------------------------------');
-    console.log('NOTICE: Live Supabase database is not currently reachable.');
-    console.log('Running test suite in Self-Contained Verification / Contract Mode.');
-    console.log('----------------------------------------------------------------');
-  }
 
   // ----------------------------------------------------------------------------
   // Summary

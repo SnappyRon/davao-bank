@@ -94,9 +94,7 @@ export default async function AdminDashboardPage() {
     {
       key: 'type',
       header: 'Type',
-      render: (t: any) => (
-        <span style={{ fontWeight: 700, textTransform: 'capitalize' }}>{t.type}</span>
-      ),
+      render: (t: any) => <span className={styles.txType}>{t.type}</span>,
     },
     {
       key: 'status',

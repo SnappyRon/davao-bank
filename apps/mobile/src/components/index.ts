@@ -16,3 +16,4 @@ export * from './Skeleton';
 export * from './Toast';
 export * from './Logo';
 export * from './CurrencyWatchCard';
+export * from './PasswordConfirmationModal';

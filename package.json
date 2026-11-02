@@ -25,12 +25,14 @@
     "test:extras": "node --env-file=.env --import tsx scripts/test-phase5-extras.ts",
     "test:schedules": "node --env-file=.env --import tsx scripts/test-phase5-schedules.ts",
     "test:qr": "node --env-file=.env --import tsx scripts/test-phase5-qr-requests.ts",
-    "test:fx": "node --env-file=.env --import tsx scripts/test-phase5-fx.ts"
+    "test:fx": "node --env-file=.env --import tsx scripts/test-phase5-fx.ts",
+    "test:db": "node scripts/review/pglite-behavior.mjs"
   },
   "engines": {
     "node": ">=20.0.0"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.12",
     "@eslint/js": "^9.21.0",
     "eslint": "^9.21.0",
     "eslint-config-prettier": "^10.0.1",

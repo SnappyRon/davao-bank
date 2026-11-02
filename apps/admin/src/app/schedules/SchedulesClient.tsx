@@ -2,17 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import {
-  CalendarClock,
-  Play,
-  Eye,
-  Ban,
-  CheckCircle2,
-  XCircle,
-  Clock,
-  Send,
-  Zap,
-} from 'lucide-react';
+import { Play, Eye, Ban } from 'lucide-react';
 import {
   formatCentavosToPHP,
   type ScheduledPaymentKind,
@@ -25,51 +15,16 @@ import {
   FilterBar,
   Input,
   Select,
-  StatusBadge,
   Badge,
   Button,
-  Drawer,
   ConfirmDialog,
-  Card,
   EmptyState,
 } from '@/components/ui';
+import type { AdminScheduleRow, AdminScheduleRunItem } from './types';
+import { ScheduleRunsDrawer } from './ScheduleRunsDrawer';
+import styles from './Schedules.module.css';
 
-export interface AdminScheduleRunItem {
-  id: string;
-  schedule_id: string;
-  run_date: string;
-  status: 'completed' | 'failed';
-  transaction_id: string | null;
-  failure_reason: string | null;
-  created_at: string;
-}
-
-export interface AdminScheduleRow {
-  id: string;
-  owner_id: string;
-  owner_name: string;
-  owner_phone: string | null;
-  from_account: string;
-  from_account_number: string;
-  kind: ScheduledPaymentKind;
-  to_account: string | null;
-  to_account_number: string | null;
-  biller_id: string | null;
-  biller_name: string | null;
-  biller_reference: string | null;
-  amount: number;
-  note: string | null;
-  frequency: ScheduledPaymentFrequency;
-  start_date: string;
-  end_date: string | null;
-  max_runs: number | null;
-  runs_done: number;
-  next_run_date: string;
-  status: ScheduledPaymentStatus;
-  created_at: string;
-  updated_at: string;
-  runs: AdminScheduleRunItem[];
-}
+export type { AdminScheduleRow, AdminScheduleRunItem };
 
 interface SchedulesClientProps {
   initialSchedules: AdminScheduleRow[];
@@ -153,7 +108,7 @@ export function SchedulesClient({ initialSchedules }: SchedulesClientProps) {
       key: 'kind',
       header: 'Kind',
       render: (s: AdminScheduleRow) => (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <div className={styles.kindCell}>
           {s.kind === 'bill' ? (
             <Badge label="Bill" variant="warning" />
           ) : (
@@ -167,16 +122,8 @@ export function SchedulesClient({ initialSchedules }: SchedulesClientProps) {
       header: 'Customer',
       render: (s: AdminScheduleRow) => (
         <div>
-          <div style={{ fontWeight: 600 }}>{s.owner_name}</div>
-          <div
-            style={{
-              fontSize: '0.75rem',
-              color: 'var(--color-text-secondary)',
-              fontFamily: 'monospace',
-            }}
-          >
-            From: {s.from_account_number}
-          </div>
+          <div className={styles.ownerName}>{s.owner_name}</div>
+          <div className={styles.ownerAccount}>From: {s.from_account_number}</div>
         </div>
       ),
     },
@@ -187,23 +134,13 @@ export function SchedulesClient({ initialSchedules }: SchedulesClientProps) {
         <div>
           {s.kind === 'bill' ? (
             <>
-              <div style={{ fontWeight: 600 }}>{s.biller_name}</div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>
-                Ref: {s.biller_reference}
-              </div>
+              <div className={styles.destTitle}>{s.biller_name}</div>
+              <div className={styles.destSub}>Ref: {s.biller_reference}</div>
             </>
           ) : (
             <>
-              <div style={{ fontWeight: 600 }}>Account Transfer</div>
-              <div
-                style={{
-                  fontSize: '0.75rem',
-                  color: 'var(--color-text-secondary)',
-                  fontFamily: 'monospace',
-                }}
-              >
-                To: {s.to_account_number || '—'}
-              </div>
+              <div className={styles.destTitle}>Account Transfer</div>
+              <div className={styles.destMono}>To: {s.to_account_number || '—'}</div>
             </>
           )}
         </div>
@@ -214,7 +151,7 @@ export function SchedulesClient({ initialSchedules }: SchedulesClientProps) {
       header: 'Amount',
       align: 'right' as const,
       render: (s: AdminScheduleRow) => (
-        <span style={{ fontWeight: 700 }} className="tabular-nums">
+        <span className={`${styles.amountText} tabular-nums`}>
           {formatCentavosToPHP(s.amount)}
         </span>
       ),
@@ -224,10 +161,8 @@ export function SchedulesClient({ initialSchedules }: SchedulesClientProps) {
       header: 'Schedule / Runs',
       render: (s: AdminScheduleRow) => (
         <div>
-          <div style={{ fontWeight: 600, textTransform: 'capitalize' }}>
-            {s.frequency}
-          </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>
+          <div className={styles.freqTitle}>{s.frequency}</div>
+          <div className={styles.freqSub}>
             Next: {s.status === 'active' ? s.next_run_date : '—'} &bull; Runs:{' '}
             {s.runs_done}
             {s.max_runs ? ` / ${s.max_runs}` : ''}
@@ -250,7 +185,7 @@ export function SchedulesClient({ initialSchedules }: SchedulesClientProps) {
       header: 'Actions',
       align: 'right' as const,
       render: (s: AdminScheduleRow) => (
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+        <div className={styles.actionsCell}>
           <Button
             size="sm"
             variant="ghost"
@@ -279,18 +214,9 @@ export function SchedulesClient({ initialSchedules }: SchedulesClientProps) {
   return (
     <div>
       {/* Top action banner / run button */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '1rem',
-          flexWrap: 'wrap',
-          gap: '1rem',
-        }}
-      >
+      <div className={styles.topBanner}>
         <div>
-          <span style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>
+          <span className={styles.bannerCount}>
             Total scheduled rules: <strong>{initialSchedules.length}</strong>
           </span>
         </div>
@@ -307,36 +233,12 @@ export function SchedulesClient({ initialSchedules }: SchedulesClientProps) {
 
       {executorNotice && (
         <div
-          style={{
-            padding: '0.75rem 1rem',
-            marginBottom: '1.25rem',
-            borderRadius: 'var(--radius-md)',
-            backgroundColor: executorNotice.startsWith('Error')
-              ? 'var(--color-error-bg, #fde8e8)'
-              : 'var(--color-success-bg, #e6f9ed)',
-            border: `1px solid ${
-              executorNotice.startsWith('Error')
-                ? 'var(--color-error-border, #f98080)'
-                : 'var(--color-success-border, #31c48d)'
-            }`,
-            color: 'var(--color-ink)',
-            fontSize: '0.875rem',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}
+          className={`${styles.noticeBox} ${
+            executorNotice.startsWith('Error') ? styles.noticeError : styles.noticeSuccess
+          }`}
         >
           <span>{executorNotice}</span>
-          <button
-            onClick={() => setExecutorNotice(null)}
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              fontWeight: 700,
-              marginLeft: '1rem',
-            }}
-          >
+          <button onClick={() => setExecutorNotice(null)} className={styles.noticeClose}>
             &times;
           </button>
         </div>
@@ -344,7 +246,7 @@ export function SchedulesClient({ initialSchedules }: SchedulesClientProps) {
 
       {/* Filter Bar */}
       <FilterBar>
-        <div style={{ flex: 1, minWidth: '220px' }}>
+        <div className={styles.filterSearch}>
           <Input
             placeholder="Search by customer, account, biller, reference..."
             value={searchTerm}
@@ -399,297 +301,11 @@ export function SchedulesClient({ initialSchedules }: SchedulesClientProps) {
       />
 
       {/* Detail Drawer with Run History */}
-      <Drawer
-        isOpen={Boolean(selectedSchedule)}
+      <ScheduleRunsDrawer
+        schedule={selectedSchedule}
         onClose={() => setSelectedSchedule(null)}
-        title={
-          selectedSchedule?.kind === 'bill'
-            ? `Bill Schedule: ${selectedSchedule?.biller_name}`
-            : 'Scheduled Transfer Details'
-        }
-      >
-        {selectedSchedule && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-            <Card title="Instruction Parameters">
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: '1fr 1fr',
-                  gap: '0.75rem',
-                  fontSize: '0.85rem',
-                }}
-              >
-                <div>
-                  <span
-                    style={{
-                      color: 'var(--color-text-secondary)',
-                      display: 'block',
-                      fontSize: '0.75rem',
-                    }}
-                  >
-                    CUSTOMER
-                  </span>
-                  <strong>{selectedSchedule.owner_name}</strong>
-                  {selectedSchedule.owner_phone ? (
-                    <div
-                      style={{
-                        fontSize: '0.75rem',
-                        color: 'var(--color-text-secondary)',
-                      }}
-                    >
-                      {selectedSchedule.owner_phone}
-                    </div>
-                  ) : null}
-                </div>
-
-                <div>
-                  <span
-                    style={{
-                      color: 'var(--color-text-secondary)',
-                      display: 'block',
-                      fontSize: '0.75rem',
-                    }}
-                  >
-                    AMOUNT
-                  </span>
-                  <strong style={{ fontSize: '1rem', color: 'var(--color-primary)' }}>
-                    {formatCentavosToPHP(selectedSchedule.amount)}
-                  </strong>
-                </div>
-
-                <div>
-                  <span
-                    style={{
-                      color: 'var(--color-text-secondary)',
-                      display: 'block',
-                      fontSize: '0.75rem',
-                    }}
-                  >
-                    FROM ACCOUNT
-                  </span>
-                  <span style={{ fontFamily: 'monospace' }}>
-                    {selectedSchedule.from_account_number}
-                  </span>
-                </div>
-
-                <div>
-                  <span
-                    style={{
-                      color: 'var(--color-text-secondary)',
-                      display: 'block',
-                      fontSize: '0.75rem',
-                    }}
-                  >
-                    DESTINATION
-                  </span>
-                  {selectedSchedule.kind === 'bill' ? (
-                    <span>
-                      {selectedSchedule.biller_name} &bull; Ref:{' '}
-                      {selectedSchedule.biller_reference}
-                    </span>
-                  ) : (
-                    <span style={{ fontFamily: 'monospace' }}>
-                      {selectedSchedule.to_account_number || '—'}
-                    </span>
-                  )}
-                </div>
-
-                <div>
-                  <span
-                    style={{
-                      color: 'var(--color-text-secondary)',
-                      display: 'block',
-                      fontSize: '0.75rem',
-                    }}
-                  >
-                    RECURRENCE
-                  </span>
-                  <span style={{ textTransform: 'capitalize', fontWeight: 600 }}>
-                    {selectedSchedule.frequency}
-                  </span>
-                  <span
-                    style={{ color: 'var(--color-text-secondary)', fontSize: '0.75rem' }}
-                  >
-                    {' '}
-                    (Runs: {selectedSchedule.runs_done}
-                    {selectedSchedule.max_runs ? ` / ${selectedSchedule.max_runs}` : ''})
-                  </span>
-                </div>
-
-                <div>
-                  <span
-                    style={{
-                      color: 'var(--color-text-secondary)',
-                      display: 'block',
-                      fontSize: '0.75rem',
-                    }}
-                  >
-                    NEXT RUN DATE
-                  </span>
-                  <strong>
-                    {selectedSchedule.status === 'active'
-                      ? selectedSchedule.next_run_date
-                      : 'Completed / Cancelled'}
-                  </strong>
-                </div>
-
-                <div>
-                  <span
-                    style={{
-                      color: 'var(--color-text-secondary)',
-                      display: 'block',
-                      fontSize: '0.75rem',
-                    }}
-                  >
-                    STATUS
-                  </span>
-                  <span style={{ textTransform: 'capitalize', fontWeight: 700 }}>
-                    {selectedSchedule.status}
-                  </span>
-                </div>
-
-                <div>
-                  <span
-                    style={{
-                      color: 'var(--color-text-secondary)',
-                      display: 'block',
-                      fontSize: '0.75rem',
-                    }}
-                  >
-                    CREATED ON
-                  </span>
-                  <span>
-                    {new Date(selectedSchedule.created_at).toLocaleDateString()}
-                  </span>
-                </div>
-              </div>
-
-              {selectedSchedule.note && (
-                <div
-                  style={{
-                    marginTop: '0.75rem',
-                    paddingTop: '0.75rem',
-                    borderTop: '1px solid var(--color-border)',
-                    fontSize: '0.85rem',
-                  }}
-                >
-                  <span
-                    style={{
-                      color: 'var(--color-text-secondary)',
-                      display: 'block',
-                      fontSize: '0.75rem',
-                    }}
-                  >
-                    NOTE
-                  </span>
-                  <span>{selectedSchedule.note}</span>
-                </div>
-              )}
-            </Card>
-
-            {/* Run History List */}
-            <Card title={`Execution Runs (${selectedSchedule.runs.length})`}>
-              {selectedSchedule.runs.length === 0 ? (
-                <EmptyState
-                  title="No execution runs recorded yet"
-                  description="When this scheduled instruction triggers, each execution attempt will appear here."
-                />
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  {selectedSchedule.runs.map((run) => (
-                    <div
-                      key={run.id}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        padding: '0.625rem 0.75rem',
-                        borderRadius: 'var(--radius-sm)',
-                        backgroundColor:
-                          run.status === 'completed'
-                            ? 'rgba(46, 125, 50, 0.05)'
-                            : 'rgba(211, 47, 47, 0.05)',
-                        border: `1px solid ${
-                          run.status === 'completed'
-                            ? 'rgba(46, 125, 50, 0.2)'
-                            : 'rgba(211, 47, 47, 0.2)'
-                        }`,
-                      }}
-                    >
-                      <div
-                        style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-                      >
-                        {run.status === 'completed' ? (
-                          <CheckCircle2 size={16} color="var(--color-success, #2e7d32)" />
-                        ) : (
-                          <XCircle size={16} color="var(--color-error, #d32f2f)" />
-                        )}
-                        <div>
-                          <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>
-                            Run Date: {run.run_date}
-                          </div>
-                          {run.transaction_id ? (
-                            <div
-                              style={{
-                                fontSize: '0.72rem',
-                                color: 'var(--color-text-secondary)',
-                                fontFamily: 'monospace',
-                              }}
-                            >
-                              Tx: {run.transaction_id}
-                            </div>
-                          ) : null}
-                          {run.failure_reason ? (
-                            <div
-                              style={{
-                                fontSize: '0.75rem',
-                                color: 'var(--color-error, #d32f2f)',
-                              }}
-                            >
-                              Failed: {run.failure_reason}
-                            </div>
-                          ) : null}
-                        </div>
-                      </div>
-
-                      <div style={{ textAlign: 'right' }}>
-                        <Badge
-                          label={run.status}
-                          variant={run.status === 'completed' ? 'success' : 'danger'}
-                        />
-                        <div
-                          style={{
-                            fontSize: '0.7rem',
-                            color: 'var(--color-text-secondary)',
-                            marginTop: '2px',
-                          }}
-                        >
-                          {new Date(run.created_at).toLocaleTimeString([], {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </Card>
-
-            {selectedSchedule.status === 'active' && (
-              <Button
-                variant="destructive"
-                icon={<Ban size={16} />}
-                onClick={() => {
-                  setScheduleToCancel(selectedSchedule);
-                }}
-              >
-                Cancel This Scheduled Payment
-              </Button>
-            )}
-          </div>
-        )}
-      </Drawer>
+        onCancelClick={(s) => setScheduleToCancel(s)}
+      />
 
       {/* Cancel Confirmation Dialog with Mandatory Reason */}
       <ConfirmDialog

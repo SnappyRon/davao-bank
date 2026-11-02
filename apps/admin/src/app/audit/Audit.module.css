@@ -1,0 +1,82 @@
+.actionText {
+  font-weight: 700;
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+}
+
+.monoMutedSmall {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
+.entityText {
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.timestamp {
+  color: var(--color-text-secondary);
+}
+
+.filterSearch {
+  flex: 1;
+  min-width: 240px;
+}
+
+.filterSelectEntity {
+  width: 180px;
+}
+
+.filterSelectRole {
+  width: 140px;
+}
+
+.drawerStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.metaGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-sm);
+  font-size: 0.875rem;
+}
+
+.metaLabel {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.metaMono {
+  font-family: var(--font-mono);
+}
+
+.metaRole {
+  text-transform: uppercase;
+}
+
+.jsonHeader {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  margin-bottom: var(--space-xs);
+  color: var(--color-text-secondary);
+}
+
+.jsonPre {
+  background-color: var(--color-surface-subtle);
+  color: var(--color-ink);
+  border: 1px solid var(--color-border);
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  overflow-x: auto;
+  max-height: 360px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

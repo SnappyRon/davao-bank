@@ -103,7 +103,7 @@ export default function AdminLoginPage() {
             loading={loading}
             icon={<LogIn size={18} />}
             fullWidth
-            style={{ marginTop: 'var(--space-sm)' }}
+            className={styles.submitBtn}
           >
             Sign In to Staff Console
           </Button>

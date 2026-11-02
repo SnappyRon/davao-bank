@@ -3,8 +3,8 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { colors } from '@davao-bank/shared';
 import { createAdminBrowserClient } from '@/lib/supabase-browser';
+import styles from './AdminNav.module.css';
 
 interface AdminNavProps {
   adminEmail?: string | null;
@@ -33,58 +33,18 @@ export function AdminNav({ adminEmail, adminName }: AdminNavProps) {
   ];
 
   return (
-    <header
-      style={{
-        backgroundColor: colors.primary,
-        color: colors.textInverse,
-        padding: '0.875rem 2rem',
-        boxShadow: '0 2px 8px rgba(106, 27, 122, 0.25)',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        gap: '1rem',
-      }}
-    >
+    <header className={styles.header}>
       {/* Brand & Navigation Links */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
-        <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <div
-            style={{
-              width: '36px',
-              height: '36px',
-              borderRadius: '8px',
-              backgroundColor: colors.accent,
-              color: colors.textPrimary,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontWeight: 800,
-              fontSize: '1rem',
-              letterSpacing: '0.5px',
-            }}
-          >
-            DB
-          </div>
+      <div className={styles.brandGroup}>
+        <Link href="/" className={styles.brandLink}>
+          <div className={styles.brandBadge}>DB</div>
           <div>
-            <div style={{ fontWeight: 800, fontSize: '1.05rem', lineHeight: 1.2 }}>
-              Davao Bank
-            </div>
-            <div
-              style={{
-                fontSize: '0.72rem',
-                opacity: 0.85,
-                letterSpacing: '0.5px',
-                textTransform: 'uppercase',
-                fontWeight: 600,
-              }}
-            >
-              Staff Portal
-            </div>
+            <div className={styles.brandTitle}>Davao Bank</div>
+            <div className={styles.brandSubtitle}>Staff Portal</div>
           </div>
         </Link>
 
-        <nav style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <nav className={styles.nav}>
           {navItems.map((item) => {
             const isActive =
               item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
@@ -92,18 +52,7 @@ export function AdminNav({ adminEmail, adminName }: AdminNavProps) {
               <Link
                 key={item.href}
                 href={item.href}
-                style={{
-                  padding: '0.5rem 0.875rem',
-                  borderRadius: '6px',
-                  fontSize: '0.875rem',
-                  fontWeight: isActive ? 700 : 500,
-                  backgroundColor: isActive ? 'rgba(255, 255, 255, 0.18)' : 'transparent',
-                  color: colors.textInverse,
-                  transition: 'background-color 0.15s ease',
-                  borderBottom: isActive
-                    ? `2px solid ${colors.accent}`
-                    : '2px solid transparent',
-                }}
+                className={isActive ? styles.navLinkActive : styles.navLink}
               >
                 {item.label}
               </Link>
@@ -113,36 +62,15 @@ export function AdminNav({ adminEmail, adminName }: AdminNavProps) {
       </div>
 
       {/* Staff User & Sign Out */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-        <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: '0.85rem', fontWeight: 700 }}>
-            {adminName || 'Bank Administrator'}
-          </div>
-          <div style={{ fontSize: '0.72rem', opacity: 0.8 }}>
+      <div className={styles.userGroup}>
+        <div className={styles.userInfo}>
+          <div className={styles.userName}>{adminName || 'Bank Administrator'}</div>
+          <div className={styles.userEmail}>
             {adminEmail || 'admin@davaobank.ph'} &bull; Operations
           </div>
         </div>
 
-        <button
-          onClick={handleSignOut}
-          style={{
-            backgroundColor: 'rgba(255, 255, 255, 0.12)',
-            border: '1px solid rgba(255, 255, 255, 0.25)',
-            color: colors.textInverse,
-            padding: '0.45rem 0.875rem',
-            borderRadius: '6px',
-            fontSize: '0.8rem',
-            fontWeight: 600,
-            cursor: 'pointer',
-            transition: 'background-color 0.15s ease',
-          }}
-          onMouseEnter={(e) =>
-            (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.22)')
-          }
-          onMouseLeave={(e) =>
-            (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.12)')
-          }
-        >
+        <button onClick={handleSignOut} className={styles.signOutBtn}>
           Sign Out
         </button>
       </div>

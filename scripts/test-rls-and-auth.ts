@@ -68,6 +68,7 @@ async function runTests() {
     auth: { persistSession: false },
   });
 
+  const host = new URL(SUPABASE_URL).host;
   let isConnected = false;
   try {
     const { data: hcData, error: hcError } = await anonClient
@@ -78,21 +79,16 @@ async function runTests() {
 
     if (!hcError && hcData?.status === 'ok') {
       isConnected = true;
-      console.log(`✓ Successfully connected to live Supabase backend: ${SUPABASE_URL}\n`);
+      console.log(`Database host: ${host}`);
+      console.log('✓ Connected to live database\n');
     }
   } catch {
     isConnected = false;
   }
 
   if (!isConnected) {
-    console.log('----------------------------------------------------------------');
-    console.log('NOTICE: Live Supabase database tables are not currently reachable at:');
-    console.log(`URL: ${SUPABASE_URL}`);
-    console.log('Running test suite in Self-Contained Verification / Contract Mode.');
-    console.log('----------------------------------------------------------------\n');
-    runContractValidations();
-    printSummary();
-    return;
+    console.error(`NOT VERIFIED — database unreachable (${host})`);
+    process.exit(1);
   }
 
   // 1. Anon Client Checks
@@ -351,6 +347,8 @@ async function runTests() {
     );
   }
 
+  // Run source-file checks in addition to live tests
+  runContractValidations();
   printSummary();
 }
 

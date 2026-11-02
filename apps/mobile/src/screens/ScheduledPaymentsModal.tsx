@@ -44,7 +44,7 @@ export function ScheduledPaymentsModal({
   onClose,
   onRefresh,
 }: ScheduledPaymentsModalProps) {
-  const { hideBalance } = useSettings();
+  const { hideBalance, confirmBiometricPayment } = useSettings();
 
   const [schedules, setSchedules] = useState<ScheduledPayment[]>([]);
   const [selectedSchedule, setSelectedSchedule] = useState<ScheduledPayment | null>(null);
@@ -111,6 +111,12 @@ export function ScheduledPaymentsModal({
           text: 'Cancel Payment',
           style: 'destructive',
           onPress: async () => {
+            const authRes = await confirmBiometricPayment({
+              title: 'Cancel Scheduled Payment',
+              message: 'Confirm your identity to cancel this recurring payment schedule.',
+            });
+            if (!authRes.success) return;
+
             setActionLoading(true);
             try {
               const { error } = await supabase.rpc('cancel_scheduled_payment', {

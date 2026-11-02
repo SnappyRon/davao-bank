@@ -198,9 +198,16 @@ Verifies:
 - Atomic transaction reversal, compensating ledger entries, status transition to `'reversed'`, and double-reversal rejection
 - Post-operation system-wide ledger reconciliation: for every account, balance equals ledger sum; all transfers and reversals remain strictly balanced
 
-### 6. Run Phase 5 Test Suites
+### 6. Run Test Suites
 
 ```bash
+# Offline integration suite (PGlite in-memory engine with Supabase stand-ins)
+npm run test:db         # 47 behavior checks: money engine, schedules, bills, requests, FX, RLS
+
+# Live database test suites (require reachable Supabase instance)
+npm run test:rls        # Identity & RLS security policy tests
+npm run test:money      # Phase 3 Money logic, concurrency, idempotency & reconciliation
+npm run test:admin      # Phase 4 Admin management, adjustments & reversals
 npm run test:extras     # Stage B: Saved recipients, statements, hide balance, biometrics
 npm run test:schedules  # Stage C: Scheduled & recurring payments, simulated bill pay
 npm run test:qr         # Stage D: QR Send & Request Money
@@ -209,7 +216,34 @@ npm run test:fx         # Stage E: FX Reference Rates & Frankfurter Integration
 
 ---
 
-## 6. FX Reference Rates & External Data Integration (§E.1)
+## 6. Scheduled Jobs & Background Automation
+
+Davao Bank relies on three automated background cron jobs:
+
+1. `davao-run-schedules`: Runs hourly (`0 * * * *`) executing due scheduled payments via `run_due_scheduled_payments()`.
+2. `davao-expire-requests`: Runs hourly (`15 * * * *`) expiring stale 7-day payment requests via `expire_due_payment_requests()`.
+3. `davao-fx-sync`: Runs daily at 04:00 UTC (`0 4 * * *`) syncing ECB reference rates via `pg_net` POST to the `fx-sync` Supabase Edge Function.
+
+### Setting Up pg_cron & Registering Jobs
+
+1. Enable the `pg_cron` and `pg_net` extensions in your Supabase project (Project Settings → Database → Extensions).
+2. Deploy the FX Sync Edge Function:
+   ```bash
+   supabase functions deploy fx-sync
+   ```
+3. Set the FX sync secret in Supabase Secrets / Vault:
+   ```bash
+   supabase secrets set FX_SYNC_SECRET=your-secure-shared-secret
+   ```
+4. Run the idempotent ops function `register_cron_jobs()` from the SQL Editor or via database administrator:
+   ```sql
+   select public.register_cron_jobs();
+   ```
+   This safely (re)registers all 3 cron schedules with error isolation and safe unscheduling.
+
+---
+
+## 7. FX Reference Rates & External Data Integration (§E.1)
 
 ### External Source: Frankfurter (European Central Bank Reference Rates)
 
@@ -236,7 +270,7 @@ npm run test:fx         # Stage E: FX Reference Rates & Frankfurter Integration
 
 ---
 
-## 7. Scope Boundaries Maintained
+## 8. Scope Boundaries Maintained
 
 - **In Scope (Phase 4 Complete):**
   - Server-side admin functions (`admin_set_user_status`, `admin_open_account`, `admin_set_account_status`, `admin_adjust_balance`, `admin_reverse_transaction`).

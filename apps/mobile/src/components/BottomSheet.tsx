@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { X } from 'lucide-react-native';
 import { colors, radius, spacing } from '@davao-bank/shared';
+import { useReducedMotion } from '../hooks/useReducedMotion';
 import { Text } from './Text';
 
 export interface BottomSheetProps {
@@ -28,8 +29,15 @@ export function BottomSheet({
   children,
   style,
 }: BottomSheetProps) {
+  const reduceMotion = useReducedMotion();
+
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType={reduceMotion ? 'none' : 'slide'}
+      onRequestClose={onClose}
+    >
       <TouchableWithoutFeedback onPress={onClose}>
         <View style={styles.backdrop}>
           <TouchableWithoutFeedback>

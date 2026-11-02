@@ -1,0 +1,119 @@
+.userName {
+  font-weight: 700;
+}
+
+.userId {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+}
+
+.userPhone {
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+}
+
+.holdingsCell {
+  text-align: right;
+}
+
+.holdingsAmount {
+  font-weight: 700;
+}
+
+.holdingsCount {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.actionsCell {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.filterSearch {
+  flex: 1;
+  min-width: 240px;
+}
+
+.filterSelect {
+  width: 160px;
+}
+
+.drawerStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.metaStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.metaLabel {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+}
+
+.metaMono {
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+}
+
+.statusWrapper {
+  margin-top: 4px;
+}
+
+.sectionTitle {
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: var(--space-sm);
+}
+
+.emptyText {
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+}
+
+.accountList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.accountCardRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.accountType {
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+  text-transform: capitalize;
+}
+
+.accountBalance {
+  font-weight: 800;
+  color: var(--color-primary);
+}
+
+.modalStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-base);
+}
+
+.modalDesc {
+  font-size: 0.9375rem;
+  color: var(--color-text-secondary);
+}
+
+.modalError {
+  color: var(--color-red-text);
+  font-size: 0.875rem;
+}

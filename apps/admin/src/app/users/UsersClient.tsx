@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Plus, ShieldAlert, ShieldCheck, Eye } from 'lucide-react';
+import { Eye } from 'lucide-react';
 import {
   formatCentavosToPHP,
   type AdminUserItem,
@@ -13,16 +13,17 @@ import {
 import { setUserStatusAction, openAccountAction } from '../actions';
 import {
   Table,
-  FilterBar,
-  Input,
-  Select,
-  StatusBadge,
-  Badge,
   Button,
+  Badge,
+  StatusBadge,
   Drawer,
   ConfirmDialog,
   Card,
+  Input,
+  Select,
+  FilterBar,
 } from '@/components/ui';
+import styles from './Users.module.css';
 
 interface UsersClientProps {
   initialUsers: AdminUserItem[];
@@ -87,7 +88,7 @@ export function UsersClient({ initialUsers, allAccounts }: UsersClientProps) {
       setOpenAccModalUser(null);
       router.refresh();
     } else {
-      setOpenAccError(res.error || 'Failed to open account');
+      setOpenAccError(res.error || 'Account creation failed');
     }
   };
 
@@ -100,16 +101,8 @@ export function UsersClient({ initialUsers, allAccounts }: UsersClientProps) {
       header: 'Full Name / ID',
       render: (u: AdminUserItem) => (
         <div>
-          <div style={{ fontWeight: 700 }}>{u.full_name || 'Unnamed User'}</div>
-          <div
-            style={{
-              fontSize: '0.75rem',
-              color: 'var(--color-text-muted)',
-              fontFamily: 'var(--font-mono)',
-            }}
-          >
-            {u.id.substring(0, 8)}...
-          </div>
+          <div className={styles.userName}>{u.full_name || 'Unnamed User'}</div>
+          <div className={styles.userId}>{u.id.substring(0, 8)}...</div>
         </div>
       ),
     },
@@ -119,11 +112,7 @@ export function UsersClient({ initialUsers, allAccounts }: UsersClientProps) {
       render: (u: AdminUserItem) => (
         <div>
           <div>{u.email}</div>
-          {u.phone ? (
-            <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)' }}>
-              {u.phone}
-            </div>
-          ) : null}
+          {u.phone ? <div className={styles.userPhone}>{u.phone}</div> : null}
         </div>
       ),
     },
@@ -147,11 +136,11 @@ export function UsersClient({ initialUsers, allAccounts }: UsersClientProps) {
         const accs = userAccounts(u.id);
         const total = accs.reduce((sum, a) => sum + a.balance, 0);
         return (
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontWeight: 700 }} className="tabular-nums">
+          <div className={styles.holdingsCell}>
+            <div className={`${styles.holdingsAmount} tabular-nums`}>
               {formatCentavosToPHP(total)}
             </div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+            <div className={styles.holdingsCount}>
               {accs.length} account{accs.length === 1 ? '' : 's'}
             </div>
           </div>
@@ -163,10 +152,7 @@ export function UsersClient({ initialUsers, allAccounts }: UsersClientProps) {
       header: 'Actions',
       align: 'right' as const,
       render: (u: AdminUserItem) => (
-        <div
-          style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}
-          onClick={(e) => e.stopPropagation()}
-        >
+        <div className={styles.actionsCell} onClick={(e) => e.stopPropagation()}>
           <Button
             size="sm"
             variant="ghost"
@@ -213,7 +199,7 @@ export function UsersClient({ initialUsers, allAccounts }: UsersClientProps) {
   return (
     <>
       <FilterBar>
-        <div style={{ flex: 1, minWidth: 240 }}>
+        <div className={styles.filterSearch}>
           <Input
             placeholder="Search by name, email, phone, or ID..."
             value={searchTerm}
@@ -221,7 +207,7 @@ export function UsersClient({ initialUsers, allAccounts }: UsersClientProps) {
           />
         </div>
 
-        <div style={{ width: 160 }}>
+        <div className={styles.filterSelect}>
           <Select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as any)}
@@ -233,7 +219,7 @@ export function UsersClient({ initialUsers, allAccounts }: UsersClientProps) {
           />
         </div>
 
-        <div style={{ width: 160 }}>
+        <div className={styles.filterSelect}>
           <Select
             value={roleFilter}
             onChange={(e) => setRoleFilter(e.target.value as any)}
@@ -260,54 +246,20 @@ export function UsersClient({ initialUsers, allAccounts }: UsersClientProps) {
         title={selectedUserDetail?.full_name || 'Customer Details'}
       >
         {selectedUserDetail && (
-          <div
-            style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)' }}
-          >
+          <div className={styles.drawerStack}>
             <Card variant="subtle">
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 'var(--space-sm)',
-                }}
-              >
+              <div className={styles.metaStack}>
                 <div>
-                  <div
-                    style={{
-                      fontSize: '0.75rem',
-                      color: 'var(--color-text-secondary)',
-                      textTransform: 'uppercase',
-                    }}
-                  >
-                    User ID
-                  </div>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.875rem' }}>
-                    {selectedUserDetail.id}
-                  </div>
+                  <div className={styles.metaLabel}>User ID</div>
+                  <div className={styles.metaMono}>{selectedUserDetail.id}</div>
                 </div>
                 <div>
-                  <div
-                    style={{
-                      fontSize: '0.75rem',
-                      color: 'var(--color-text-secondary)',
-                      textTransform: 'uppercase',
-                    }}
-                  >
-                    Email
-                  </div>
+                  <div className={styles.metaLabel}>Email</div>
                   <div>{selectedUserDetail.email}</div>
                 </div>
                 <div>
-                  <div
-                    style={{
-                      fontSize: '0.75rem',
-                      color: 'var(--color-text-secondary)',
-                      textTransform: 'uppercase',
-                    }}
-                  >
-                    Status
-                  </div>
-                  <div style={{ marginTop: 4 }}>
+                  <div className={styles.metaLabel}>Status</div>
+                  <div className={styles.statusWrapper}>
                     <StatusBadge status={selectedUserDetail.status} />
                   </div>
                 </div>
@@ -315,55 +267,24 @@ export function UsersClient({ initialUsers, allAccounts }: UsersClientProps) {
             </Card>
 
             <div>
-              <h3
-                style={{
-                  fontSize: '1rem',
-                  fontWeight: 700,
-                  marginBottom: 'var(--space-sm)',
-                }}
-              >
-                Accounts ({drawerAccounts.length})
-              </h3>
+              <h3 className={styles.sectionTitle}>Accounts ({drawerAccounts.length})</h3>
               {drawerAccounts.length === 0 ? (
-                <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>
-                  No accounts provisioned.
-                </p>
+                <p className={styles.emptyText}>No accounts provisioned.</p>
               ) : (
-                <div
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 'var(--space-sm)',
-                  }}
-                >
+                <div className={styles.accountList}>
                   {drawerAccounts.map((acc) => (
                     <Card key={acc.account_id} variant="subtle">
-                      <div
-                        style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                        }}
-                      >
+                      <div className={styles.accountCardRow}>
                         <div>
-                          <div style={{ fontWeight: 700 }} className="tabular-nums">
+                          <div className="tabular-nums font-bold">
                             {acc.account_number}
                           </div>
-                          <div
-                            style={{
-                              fontSize: '0.8125rem',
-                              color: 'var(--color-text-secondary)',
-                              textTransform: 'capitalize',
-                            }}
-                          >
+                          <div className={styles.accountType}>
                             {acc.type} · {acc.currency}
                           </div>
                         </div>
-                        <div style={{ textAlign: 'right' }}>
-                          <div
-                            style={{ fontWeight: 800, color: 'var(--color-primary)' }}
-                            className="tabular-nums"
-                          >
+                        <div className={styles.holdingsCell}>
+                          <div className={`${styles.accountBalance} tabular-nums`}>
                             {formatCentavosToPHP(acc.balance)}
                           </div>
                           <StatusBadge status={acc.status} />
@@ -413,10 +334,8 @@ export function UsersClient({ initialUsers, allAccounts }: UsersClientProps) {
             </>
           }
         >
-          <div
-            style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-base)' }}
-          >
-            <p style={{ fontSize: '0.9375rem', color: 'var(--color-text-secondary)' }}>
+          <div className={styles.modalStack}>
+            <p className={styles.modalDesc}>
               Provision a new simulated ledger account for{' '}
               <strong>{openAccModalUser.full_name || openAccModalUser.email}</strong>.
             </p>
@@ -431,11 +350,7 @@ export function UsersClient({ initialUsers, allAccounts }: UsersClientProps) {
               ]}
             />
 
-            {openAccError ? (
-              <p style={{ color: 'var(--color-red-text)', fontSize: '0.875rem' }}>
-                {openAccError}
-              </p>
-            ) : null}
+            {openAccError ? <p className={styles.modalError}>{openAccError}</p> : null}
           </div>
         </Drawer>
       )}

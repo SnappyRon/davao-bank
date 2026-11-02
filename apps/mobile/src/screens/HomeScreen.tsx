@@ -10,9 +10,6 @@ import {
   Send,
   PlusCircle,
   MinusCircle,
-  Eye,
-  EyeOff,
-  ChevronDown,
   ChevronRight,
   ShieldCheck,
   Zap,
@@ -24,7 +21,6 @@ import {
   colors,
   spacing,
   radius,
-  formatCentavosToPHP,
   fetchUserProfile,
   fetchAccountBalances,
   fetchTransactionHistory,
@@ -33,7 +29,6 @@ import {
   type AccountBalance,
   type TransactionHistoryItem,
   type HealthCheck,
-  type MoneyOperationResult,
   type ScheduledPayment,
 } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
@@ -41,15 +36,9 @@ import { useSettings } from '../context/SettingsContext';
 import {
   Screen,
   Text,
-  Card,
   ActionTile,
   ActionTileGrid,
-  AmountText,
-  TransactionRow,
-  EmptyState,
-  Skeleton,
   Logo,
-  Badge,
   CurrencyWatchCard,
 } from '../components';
 import { TransferModal } from './TransferModal';
@@ -62,6 +51,9 @@ import { ScheduledPaymentsModal } from './ScheduledPaymentsModal';
 import { QRHubModal } from './QRHubModal';
 import { PaymentRequestsModal } from './PaymentRequestsModal';
 import { FXRatesModal } from './FXRatesModal';
+import { HomeBalanceCard } from './home/HomeBalanceCard';
+import { HomeUpcomingPayments } from './home/HomeUpcomingPayments';
+import { HomeRecentActivity } from './home/HomeRecentActivity';
 
 interface HomeScreenProps {
   onNavigateToActivity?: () => void;
@@ -121,7 +113,6 @@ export function HomeScreen({
         if (accountsRes.data) setAccounts(accountsRes.data);
         if (txRes.data) setTransactions(txRes.data);
 
-        // Load pending payment requests count
         try {
           const { count } = await supabase
             .from('payment_requests')
@@ -134,7 +125,6 @@ export function HomeScreen({
         }
       }
 
-      // Load upcoming scheduled payments
       try {
         const { data: schedData } = await supabase
           .from('scheduled_payments')
@@ -174,9 +164,6 @@ export function HomeScreen({
     if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
     return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
   };
-
-  const currentAccount = accounts[selectedAccountIndex] || accounts[0];
-  const totalBalance = accounts.reduce((acc, a) => acc + a.balance, 0);
 
   const switchAccount = () => {
     if (accounts.length > 1) {
@@ -227,58 +214,14 @@ export function HomeScreen({
         </View>
 
         {/* Hero Balance Card */}
-        {loading ? (
-          <Skeleton width="100%" height={160} style={styles.cardSkeleton} />
-        ) : (
-          <View style={styles.balanceCard}>
-            <View style={styles.balanceHeader}>
-              <TouchableOpacity
-                style={styles.accountPill}
-                activeOpacity={accounts.length > 1 ? 0.7 : 1}
-                onPress={switchAccount}
-              >
-                <Text variant="caption" color={colors.textInverse}>
-                  Savings · {currentAccount?.account_number || '•••• ••••'}
-                </Text>
-                {accounts.length > 1 ? (
-                  <ChevronDown size={14} color={colors.textInverse} />
-                ) : null}
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={toggleHideBalance}
-                style={styles.eyeButton}
-                activeOpacity={0.7}
-                accessibilityLabel={
-                  hideBalance ? 'Balance hidden. Double tap to reveal' : 'Hide balance'
-                }
-              >
-                {hideBalance ? (
-                  <EyeOff size={20} color={colors.textInverse} />
-                ) : (
-                  <Eye size={20} color={colors.textInverse} />
-                )}
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.balanceAmountContainer}>
-              <Text
-                variant="caption"
-                color={colors.primaryTint}
-                style={styles.balanceSubtext}
-              >
-                Total Available Balance
-              </Text>
-              <AmountText
-                amountCentavos={totalBalance}
-                hidden={hideBalance}
-                variant="display"
-                color={colors.textInverse}
-                showSign={false}
-              />
-            </View>
-          </View>
-        )}
+        <HomeBalanceCard
+          loading={loading}
+          accounts={accounts}
+          selectedAccountIndex={selectedAccountIndex}
+          hideBalance={hideBalance}
+          onSwitchAccount={switchAccount}
+          onToggleHideBalance={toggleHideBalance}
+        />
 
         {/* Pending Payment Requests Banner */}
         {pendingRequestsCount > 0 && (
@@ -352,97 +295,21 @@ export function HomeScreen({
         <CurrencyWatchCard onPress={() => setIsFXOpen(true)} />
 
         {/* Upcoming Payments Strip */}
-        {upcomingSchedules.length > 0 && (
-          <View>
-            <View style={styles.sectionHeader}>
-              <Text variant="h2">Upcoming Payments</Text>
-              <TouchableOpacity
-                onPress={() => setIsScheduledOpen(true)}
-                style={styles.seeAllButton}
-                activeOpacity={0.7}
-              >
-                <Text variant="bodyStrong" color={colors.primary}>
-                  See all
-                </Text>
-                <ChevronRight size={16} color={colors.primary} />
-              </TouchableOpacity>
-            </View>
-            {upcomingSchedules.map((sched) => (
-              <TouchableOpacity
-                key={sched.id}
-                style={styles.upcomingCard}
-                onPress={() => setIsScheduledOpen(true)}
-                activeOpacity={0.7}
-              >
-                <View style={styles.upcomingIconCircle}>
-                  {sched.kind === 'bill' ? (
-                    <Zap size={18} color={colors.yellow} />
-                  ) : (
-                    <Send size={18} color={colors.blue} />
-                  )}
-                </View>
-                <View style={styles.upcomingInfo}>
-                  <Text variant="bodyStrong">
-                    {sched.note || (sched.kind === 'bill' ? 'Bill Payment' : 'Transfer')}
-                  </Text>
-                  <Text variant="caption" color={colors.textSecondary}>
-                    {sched.next_run_date} · {sched.frequency}
-                  </Text>
-                </View>
-                <AmountText
-                  amountCentavos={sched.amount}
-                  variant="bodyStrong"
-                  color={colors.ink}
-                  showSign={false}
-                />
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
+        <HomeUpcomingPayments
+          schedules={upcomingSchedules}
+          onOpenSchedules={() => setIsScheduledOpen(true)}
+        />
 
         {/* Recent Activity Section */}
-        <View style={styles.sectionHeader}>
-          <Text variant="h2">Recent Activity</Text>
-          {transactions.length > 0 && onNavigateToActivity ? (
-            <TouchableOpacity
-              onPress={onNavigateToActivity}
-              style={styles.seeAllButton}
-              activeOpacity={0.7}
-            >
-              <Text variant="bodyStrong" color={colors.primary}>
-                See all
-              </Text>
-              <ChevronRight size={16} color={colors.primary} />
-            </TouchableOpacity>
-          ) : null}
-        </View>
+        <HomeRecentActivity
+          loading={loading}
+          transactions={transactions}
+          hideBalance={hideBalance}
+          onNavigateToActivity={onNavigateToActivity}
+          onSelectTransaction={setSelectedTx}
+        />
 
-        {loading ? (
-          <View style={styles.activitySkeletonContainer}>
-            <Skeleton width="100%" height={68} style={styles.txSkeleton} />
-            <Skeleton width="100%" height={68} style={styles.txSkeleton} />
-            <Skeleton width="100%" height={68} style={styles.txSkeleton} />
-          </View>
-        ) : transactions.length === 0 ? (
-          <EmptyState
-            title="No activity yet"
-            description="Your recent deposits, transfers, and withdrawals will appear here."
-            style={styles.emptyActivity}
-          />
-        ) : (
-          <View style={styles.txList}>
-            {transactions.slice(0, 5).map((item) => (
-              <TransactionRow
-                key={item.ledger_entry_id || item.transaction_id}
-                transaction={item}
-                hideBalance={hideBalance}
-                onPress={() => setSelectedTx(item)}
-              />
-            ))}
-          </View>
-        )}
-
-        {/* Dev Diagnostics (Only rendered when __DEV__ is true) */}
+        {/* Dev Diagnostics */}
         {__DEV__ && health ? (
           <View style={styles.devCard}>
             <View style={styles.devHeader}>
@@ -558,11 +425,10 @@ export function HomeScreen({
 
 const styles = StyleSheet.create({
   screen: {
-    backgroundColor: colors.canvas,
+    backgroundColor: colors.background,
   },
   container: {
-    padding: spacing.screenSide,
-    paddingTop: spacing.base,
+    padding: spacing.base,
     paddingBottom: spacing['4xl'],
   },
   topBar: {
@@ -577,11 +443,11 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   greetingTextContainer: {
-    marginLeft: spacing.xs,
+    gap: 1,
   },
   avatarButton: {
-    width: 44,
-    height: 44,
+    width: 40,
+    height: 40,
     borderRadius: radius.pill,
     backgroundColor: colors.primaryTint,
     alignItems: 'center',
@@ -589,114 +455,36 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: colors.primary,
   },
-  cardSkeleton: {
+  requestsBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: colors.primaryTint,
+    borderWidth: 1,
+    borderColor: colors.primary,
     borderRadius: radius.lg,
+    padding: spacing.base,
     marginBottom: spacing.base,
   },
-  balanceCard: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.lg,
-    padding: spacing.xl,
-    marginBottom: spacing.xs,
-  },
-  balanceHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  accountPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    backgroundColor: colors.primaryPressed,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 6,
+  requestsIconBox: {
+    width: 36,
+    height: 36,
     borderRadius: radius.pill,
-  },
-  eyeButton: {
-    padding: spacing.xs,
-  },
-  balanceAmountContainer: {
-    marginTop: spacing.xl,
-  },
-  balanceSubtext: {
-    marginBottom: 4,
-    letterSpacing: 0.5,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    backgroundColor: colors.surface,
     alignItems: 'center',
-    marginTop: spacing.xl,
-    marginBottom: spacing.md,
-  },
-  seeAllButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-  },
-  activitySkeletonContainer: {
-    gap: spacing.sm,
-  },
-  txSkeleton: {
-    borderRadius: radius.md,
-  },
-  emptyActivity: {
-    marginTop: spacing.md,
-  },
-  txList: {
-    gap: spacing.sm,
+    justifyContent: 'center',
   },
   devCard: {
     marginTop: spacing.xl,
     padding: spacing.sm,
     backgroundColor: colors.surfaceSubtle,
     borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   devHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-  },
-  upcomingCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: spacing.md,
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: spacing.sm,
-  },
-  upcomingIconCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: radius.pill,
-    backgroundColor: colors.surfaceSubtle,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: spacing.md,
-  },
-  upcomingInfo: {
-    flex: 1,
-  },
-  requestsBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: spacing.md,
-    backgroundColor: colors.surfaceSubtle,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.primaryTint,
-    marginBottom: spacing.base,
-    gap: spacing.md,
-  },
-  requestsIconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: radius.pill,
-    backgroundColor: 'rgba(106, 27, 122, 0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });

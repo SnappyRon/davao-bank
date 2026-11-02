@@ -30,13 +30,8 @@ export function Toast({ message, type = 'info', onClose }: ToastProps) {
         {onClose ? (
           <button
             onClick={onClose}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: 'inherit',
-              cursor: 'pointer',
-              padding: 0,
-            }}
+            className={styles.closeButton}
+            aria-label="Close notification"
           >
             <X size={16} />
           </button>

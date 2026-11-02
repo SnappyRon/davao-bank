@@ -12,17 +12,18 @@ import {
 import { reverseTransactionAction } from '../actions';
 import {
   Table,
-  FilterBar,
-  Input,
-  Select,
+  Button,
   StatusBadge,
   Badge,
-  Button,
   Drawer,
   ConfirmDialog,
   Card,
+  Input,
+  Select,
+  FilterBar,
   EmptyState,
 } from '@/components/ui';
+import styles from './Transactions.module.css';
 
 export interface AdminTransactionRow {
   id: string;
@@ -72,7 +73,7 @@ export function TransactionsClient({
   const [reversalTx, setReversalTx] = useState<AdminTransactionRow | null>(null);
   const [reversalIdempotencyKey, setReversalIdempotencyKey] = useState<string>('');
 
-  // Detail Drawer State
+  // Detail Drawer state
   const [selectedTxDetail, setSelectedTxDetail] = useState<AdminTransactionRow | null>(
     null
   );
@@ -104,12 +105,13 @@ export function TransactionsClient({
     }
   };
 
+  // Filter transactions
   const filteredTransactions = initialTransactions.filter((tx) => {
+    const term = searchTerm.toLowerCase();
     const matchesSearch =
-      tx.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (tx.reference || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (tx.idempotency_key || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      tx.accounts_involved.some((acc) => acc.includes(searchTerm));
+      tx.id.toLowerCase().includes(term) ||
+      (tx.reference && tx.reference.toLowerCase().includes(term)) ||
+      tx.accounts_involved.some((acc: string) => acc.toLowerCase().includes(term));
 
     const matchesType = typeFilter === 'all' || tx.type === typeFilter;
     const matchesStatus = statusFilter === 'all' || tx.status === statusFilter;
@@ -122,7 +124,7 @@ export function TransactionsClient({
       key: 'type',
       header: 'Type',
       render: (tx: AdminTransactionRow) => (
-        <span style={{ fontWeight: 700, textTransform: 'capitalize' }}>{tx.type}</span>
+        <span className={styles.txType}>{tx.type}</span>
       ),
     },
     {
@@ -134,7 +136,7 @@ export function TransactionsClient({
       key: 'accounts',
       header: 'Accounts Involved',
       render: (tx: AdminTransactionRow) => (
-        <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }}>
+        <div className={styles.monoText}>
           {tx.accounts_involved.length > 0 ? tx.accounts_involved.join(' ↔ ') : '—'}
         </div>
       ),
@@ -143,9 +145,7 @@ export function TransactionsClient({
       key: 'reference',
       header: 'Reference',
       render: (tx: AdminTransactionRow) => (
-        <span style={{ color: 'var(--color-text-secondary)' }}>
-          {tx.reference || '—'}
-        </span>
+        <span className={styles.secondaryText}>{tx.reference || '—'}</span>
       ),
     },
     {
@@ -153,7 +153,7 @@ export function TransactionsClient({
       header: 'Amount',
       align: 'right' as const,
       render: (tx: AdminTransactionRow) => (
-        <span style={{ fontWeight: 800 }} className="tabular-nums">
+        <span className={`${styles.amountBold} tabular-nums`}>
           {formatCentavosToPHP(tx.amount)}
         </span>
       ),
@@ -163,7 +163,7 @@ export function TransactionsClient({
       header: 'Timestamp',
       align: 'right' as const,
       render: (tx: AdminTransactionRow) => (
-        <span className="tabular-nums" style={{ color: 'var(--color-text-muted)' }}>
+        <span className={`${styles.mutedTabular} tabular-nums`}>
           {new Date(tx.created_at).toLocaleDateString('en-US', {
             month: 'short',
             day: 'numeric',
@@ -178,10 +178,7 @@ export function TransactionsClient({
       header: 'Actions',
       align: 'right' as const,
       render: (tx: AdminTransactionRow) => (
-        <div
-          style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}
-          onClick={(e) => e.stopPropagation()}
-        >
+        <div className={styles.actionsCell} onClick={(e) => e.stopPropagation()}>
           <Button
             size="sm"
             variant="ghost"
@@ -211,25 +208,21 @@ export function TransactionsClient({
       key: 'id',
       header: 'Request ID',
       render: (r: AdminPaymentRequestRow) => (
-        <span style={{ fontFamily: 'monospace', fontSize: '0.8125rem' }}>
-          {r.id.slice(0, 8)}...
-        </span>
+        <span className={styles.monoText}>{r.id.slice(0, 8)}...</span>
       ),
     },
     {
       key: 'requester',
       header: 'Requester Account',
       render: (r: AdminPaymentRequestRow) => (
-        <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>
-          {r.requester_account_number}
-        </span>
+        <span className={styles.monoSemibold}>{r.requester_account_number}</span>
       ),
     },
     {
       key: 'payer',
       header: 'Payer Account',
       render: (r: AdminPaymentRequestRow) => (
-        <span style={{ fontFamily: 'monospace' }}>{r.payer_account_number}</span>
+        <span className={styles.monoText}>{r.payer_account_number}</span>
       ),
     },
     {
@@ -237,7 +230,7 @@ export function TransactionsClient({
       header: 'Amount',
       align: 'right' as const,
       render: (r: AdminPaymentRequestRow) => (
-        <span style={{ fontWeight: 700 }} className="tabular-nums">
+        <span className={`${styles.amountBold700} tabular-nums`}>
           {formatCentavosToPHP(r.amount)}
         </span>
       ),
@@ -246,9 +239,7 @@ export function TransactionsClient({
       key: 'note',
       header: 'Note',
       render: (r: AdminPaymentRequestRow) => (
-        <span style={{ color: 'var(--color-text-secondary)', fontSize: '0.85rem' }}>
-          {r.note || '—'}
-        </span>
+        <span className={styles.secondaryNote}>{r.note || '—'}</span>
       ),
     },
     {
@@ -265,7 +256,7 @@ export function TransactionsClient({
       key: 'created_at',
       header: 'Created',
       render: (r: AdminPaymentRequestRow) => (
-        <span style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)' }}>
+        <span className={styles.secondarySmall}>
           {new Date(r.created_at).toLocaleDateString()}
         </span>
       ),
@@ -287,7 +278,7 @@ export function TransactionsClient({
   return (
     <>
       {/* Tab Switcher: Transactions vs Payment Requests */}
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem' }}>
+      <div className={styles.tabGroup}>
         <Button
           variant={activeTab === 'transactions' ? 'primary' : 'secondary'}
           size="sm"
@@ -307,7 +298,7 @@ export function TransactionsClient({
       {activeTab === 'transactions' ? (
         <>
           <FilterBar>
-            <div style={{ flex: 1, minWidth: 240 }}>
+            <div className={styles.filterSearch}>
               <Input
                 placeholder="Search by transaction ID, reference, or account..."
                 value={searchTerm}
@@ -315,7 +306,7 @@ export function TransactionsClient({
               />
             </div>
 
-            <div style={{ width: 160 }}>
+            <div className={styles.filterSelect}>
               <Select
                 value={typeFilter}
                 onChange={(e) => setTypeFilter(e.target.value as any)}
@@ -330,7 +321,7 @@ export function TransactionsClient({
               />
             </div>
 
-            <div style={{ width: 160 }}>
+            <div className={styles.filterSelect}>
               <Select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value as any)}
@@ -355,7 +346,7 @@ export function TransactionsClient({
       ) : (
         <>
           <FilterBar>
-            <div style={{ flex: 1, minWidth: 240 }}>
+            <div className={styles.filterSearch}>
               <Input
                 placeholder="Search by request ID, account, note..."
                 value={searchTerm}
@@ -363,7 +354,7 @@ export function TransactionsClient({
               />
             </div>
 
-            <div style={{ width: 160 }}>
+            <div className={styles.filterSelect}>
               <Select
                 value={requestStatusFilter}
                 onChange={(e) => setRequestStatusFilter(e.target.value)}
@@ -400,82 +391,40 @@ export function TransactionsClient({
         title="Transaction Ledger Envelope"
       >
         {selectedTxDetail && (
-          <div
-            style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)' }}
-          >
+          <div className={styles.drawerStack}>
             <Card variant="subtle">
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 'var(--space-sm)',
-                }}
-              >
+              <div className={styles.metaStack}>
                 <div>
-                  <div
-                    style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}
-                  >
-                    AMOUNT
-                  </div>
-                  <div
-                    style={{
-                      fontSize: '1.75rem',
-                      fontWeight: 800,
-                      color: 'var(--color-primary)',
-                    }}
-                    className="tabular-nums"
-                  >
+                  <div className={styles.metaLabel}>AMOUNT</div>
+                  <div className={`${styles.amountHeader} tabular-nums`}>
                     {formatCentavosToPHP(selectedTxDetail.amount)}
                   </div>
                 </div>
 
                 <div>
-                  <div
-                    style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}
-                  >
-                    STATUS
-                  </div>
-                  <div style={{ marginTop: 4 }}>
+                  <div className={styles.metaLabel}>STATUS</div>
+                  <div className={styles.statusWrapper}>
                     <StatusBadge status={selectedTxDetail.status} />
                   </div>
                 </div>
 
                 <div>
-                  <div
-                    style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}
-                  >
-                    TRANSACTION UUID
-                  </div>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }}>
-                    {selectedTxDetail.id}
-                  </div>
+                  <div className={styles.metaLabel}>TRANSACTION UUID</div>
+                  <div className={styles.monoText}>{selectedTxDetail.id}</div>
                 </div>
 
                 {selectedTxDetail.idempotency_key ? (
                   <div>
-                    <div
-                      style={{
-                        fontSize: '0.75rem',
-                        color: 'var(--color-text-secondary)',
-                      }}
-                    >
-                      IDEMPOTENCY KEY
-                    </div>
-                    <div
-                      style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }}
-                    >
+                    <div className={styles.metaLabel}>IDEMPOTENCY KEY</div>
+                    <div className={styles.monoText}>
                       {selectedTxDetail.idempotency_key}
                     </div>
                   </div>
                 ) : null}
 
                 <div>
-                  <div
-                    style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}
-                  >
-                    ACCOUNTS INVOLVED
-                  </div>
-                  <div style={{ fontWeight: 600 }} className="tabular-nums">
+                  <div className={styles.metaLabel}>ACCOUNTS INVOLVED</div>
+                  <div className={`${styles.accountList} tabular-nums`}>
                     {selectedTxDetail.accounts_involved.join(', ')}
                   </div>
                 </div>

@@ -83,6 +83,7 @@ async function runTestSuite() {
     auth: { persistSession: false },
   });
 
+  const host = new URL(SUPABASE_URL).host;
   let isConnected = false;
   try {
     const { data: hc, error: hcErr } = await anonClient
@@ -92,26 +93,21 @@ async function runTestSuite() {
       .maybeSingle();
     if (!hcErr && hc?.status === 'ok') {
       isConnected = true;
-      console.log(`✓ Successfully connected to live Supabase backend: ${SUPABASE_URL}\n`);
+      console.log(`Database host: ${host}`);
+      console.log('✓ Connected to live database\n');
     }
   } catch {
     isConnected = false;
   }
 
   if (!isConnected) {
-    console.log('----------------------------------------------------------------');
-    console.log('NOTICE: Live Supabase database is not currently reachable at:');
-    console.log(`URL: ${SUPABASE_URL}`);
-    console.log('Running test suite in Self-Contained Verification / Contract Mode.');
-    console.log('----------------------------------------------------------------\n');
-    runContractValidations();
-    printSummary();
-    return;
+    console.error(`NOT VERIFIED — database unreachable (${host})`);
+    process.exit(1);
   }
 
   if (!adminClient) {
     console.error('Cannot run live database test suite without SERVICE_ROLE_KEY.');
-    return;
+    process.exit(1);
   }
 
   try {
@@ -650,6 +646,8 @@ async function runTestSuite() {
       `All transfers and reversals remain strictly balanced: Credits (₱${(credits / 100).toFixed(2)}) == Debits (₱${(debits / 100).toFixed(2)})`
     );
 
+    // Run source-file checks in addition to live tests
+    runContractValidations();
     printSummary();
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);

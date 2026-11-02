@@ -3,32 +3,27 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
+  AccountBalance,
+  AdminUserItem,
   formatCentavosToPHP,
   phpToCentavos,
   generateIdempotencyKey,
-  type AccountBalance,
-  type AccountStatus,
-  type AccountType,
-  type LedgerDirection,
-  type AdminUserItem,
+  AccountStatus,
+  LedgerDirection,
 } from '@davao-bank/shared';
-import {
-  setAccountStatusAction,
-  adjustBalanceAction,
-  openAccountAction,
-} from '../actions';
+import { setAccountStatusAction, adjustBalanceAction } from '../actions';
 import {
   Table,
-  FilterBar,
-  Input,
-  Select,
-  StatusBadge,
-  Badge,
   Button,
+  StatusBadge,
   Drawer,
   ConfirmDialog,
   Card,
+  Input,
+  Select,
+  FilterBar,
 } from '@/components/ui';
+import styles from './Accounts.module.css';
 
 interface AccountsClientProps {
   initialAccounts: AccountBalance[];
@@ -38,49 +33,49 @@ interface AccountsClientProps {
 export function AccountsClient({ initialAccounts, allUsers }: AccountsClientProps) {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<
-    'all' | 'active' | 'frozen' | 'closed'
-  >('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | AccountStatus>('all');
   const [typeFilter, setTypeFilter] = useState<'all' | 'savings' | 'checking'>('all');
 
-  // Status Change State
+  // Modal / Drawer state
+  const [selectedDetailAccount, setSelectedDetailAccount] =
+    useState<AccountBalance | null>(null);
   const [statusModalAccount, setStatusModalAccount] = useState<AccountBalance | null>(
     null
   );
   const [targetStatus, setTargetStatus] = useState<AccountStatus>('frozen');
 
-  // Balance Adjustment State
+  // Adjustment Modal
   const [adjustModalAccount, setAdjustModalAccount] = useState<AccountBalance | null>(
     null
   );
   const [adjustDirection, setAdjustDirection] = useState<LedgerDirection>('credit');
   const [adjustAmountStr, setAdjustAmountStr] = useState('');
   const [adjustIdempotencyKey, setAdjustIdempotencyKey] = useState('');
+  const [isAdjusting, setIsAdjusting] = useState(false);
 
-  // Selected Detail Drawer
-  const [selectedDetailAccount, setSelectedDetailAccount] =
-    useState<AccountBalance | null>(null);
-
+  // User Map for fast lookup
   const userMap: Record<string, AdminUserItem> = {};
   allUsers.forEach((u) => {
     userMap[u.id] = u;
   });
 
-  const filteredAccounts = initialAccounts.filter((acc) => {
-    const owner = userMap[acc.user_id];
-    const ownerName = owner?.full_name || owner?.email || '';
+  // Filter accounts
+  const filteredAccounts = initialAccounts.filter((a) => {
+    const term = searchTerm.toLowerCase();
+    const owner = userMap[a.user_id];
+    const matchSearch =
+      a.account_number.toLowerCase().includes(term) ||
+      a.account_id.toLowerCase().includes(term) ||
+      owner?.full_name?.toLowerCase().includes(term) ||
+      owner?.email.toLowerCase().includes(term);
 
-    const matchesSearch =
-      acc.account_number.includes(searchTerm) ||
-      ownerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      acc.account_id.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchStatus = statusFilter === 'all' || a.status === statusFilter;
+    const matchType = typeFilter === 'all' || a.type === typeFilter;
 
-    const matchesStatus = statusFilter === 'all' || acc.status === statusFilter;
-    const matchesType = typeFilter === 'all' || acc.type === typeFilter;
-
-    return matchesSearch && matchesStatus && matchesType;
+    return matchSearch && matchStatus && matchType;
   });
 
+  // Status Change
   const handleConfirmStatusChange = async (reason: string) => {
     if (!statusModalAccount) return;
     const res = await setAccountStatusAction(
@@ -97,8 +92,9 @@ export function AccountsClient({ initialAccounts, allUsers }: AccountsClientProp
     }
   };
 
-  const openAdjustModal = (acc: AccountBalance) => {
-    setAdjustModalAccount(acc);
+  // Balance Adjustment
+  const openAdjustModal = (a: AccountBalance) => {
+    setAdjustModalAccount(a);
     setAdjustDirection('credit');
     setAdjustAmountStr('');
     setAdjustIdempotencyKey(generateIdempotencyKey('admin_adj'));
@@ -106,26 +102,33 @@ export function AccountsClient({ initialAccounts, allUsers }: AccountsClientProp
 
   const closeAdjustModal = () => {
     setAdjustModalAccount(null);
+    setAdjustAmountStr('');
     setAdjustIdempotencyKey('');
   };
 
-  const handleConfirmAdjustment = async (reason: string) => {
-    if (!adjustModalAccount) return;
-    const centavos = phpToCentavos(adjustAmountStr);
-    if (centavos <= 0) {
-      throw new Error('Adjustment amount must be greater than ₱0.00');
-    }
+  const adjustmentCentavos = phpToCentavos(adjustAmountStr);
+  const projectedBalance = adjustModalAccount
+    ? adjustDirection === 'credit'
+      ? adjustModalAccount.balance + adjustmentCentavos
+      : adjustModalAccount.balance - adjustmentCentavos
+    : 0;
+
+  const handleExecuteAdjustment = async (reason: string) => {
+    if (!adjustModalAccount || adjustmentCentavos <= 0) return;
+    setIsAdjusting(true);
 
     const res = await adjustBalanceAction(
       adjustModalAccount.account_id,
-      centavos,
+      adjustmentCentavos,
       adjustDirection,
       reason,
       adjustIdempotencyKey
     );
 
+    setIsAdjusting(false);
+
     if (res.success) {
-      setAdjustModalAccount(null);
+      closeAdjustModal();
       router.refresh();
     } else {
       throw new Error(res.error || 'Balance adjustment failed');
@@ -138,16 +141,8 @@ export function AccountsClient({ initialAccounts, allUsers }: AccountsClientProp
       header: 'Account Number',
       render: (a: AccountBalance) => (
         <div>
-          <div style={{ fontWeight: 700 }} className="tabular-nums">
-            {a.account_number}
-          </div>
-          <div
-            style={{
-              fontSize: '0.75rem',
-              color: 'var(--color-text-secondary)',
-              textTransform: 'capitalize',
-            }}
-          >
+          <div className={`${styles.accountNum} tabular-nums`}>{a.account_number}</div>
+          <div className={styles.accountMeta}>
             {a.type} · {a.currency}
           </div>
         </div>
@@ -160,10 +155,10 @@ export function AccountsClient({ initialAccounts, allUsers }: AccountsClientProp
         const owner = userMap[a.user_id];
         return (
           <div>
-            <div style={{ fontWeight: 600 }}>
+            <div className={styles.ownerName}>
               {owner?.full_name || 'System / Unnamed'}
             </div>
-            <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)' }}>
+            <div className={styles.ownerEmail}>
               {owner?.email || a.user_id.substring(0, 8)}
             </div>
           </div>
@@ -180,16 +175,11 @@ export function AccountsClient({ initialAccounts, allUsers }: AccountsClientProp
       header: 'Authoritative Balance',
       align: 'right' as const,
       render: (a: AccountBalance) => (
-        <div style={{ textAlign: 'right' }}>
-          <div
-            style={{ fontWeight: 800, color: 'var(--color-primary)' }}
-            className="tabular-nums"
-          >
+        <div className={styles.balanceCell}>
+          <div className={`${styles.balanceAmount} tabular-nums`}>
             {formatCentavosToPHP(a.balance)}
           </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-            {a.ledger_entry_count} entries
-          </div>
+          <div className={styles.balanceMeta}>{a.ledger_entry_count} entries</div>
         </div>
       ),
     },
@@ -198,10 +188,7 @@ export function AccountsClient({ initialAccounts, allUsers }: AccountsClientProp
       header: 'Actions',
       align: 'right' as const,
       render: (a: AccountBalance) => (
-        <div
-          style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}
-          onClick={(e) => e.stopPropagation()}
-        >
+        <div className={styles.actionsCell} onClick={(e) => e.stopPropagation()}>
           <Button size="sm" variant="secondary" onClick={() => openAdjustModal(a)}>
             Adjust Balance
           </Button>
@@ -220,7 +207,7 @@ export function AccountsClient({ initialAccounts, allUsers }: AccountsClientProp
           ) : a.status === 'frozen' ? (
             <Button
               size="sm"
-              variant="primary"
+              variant="secondary"
               onClick={() => {
                 setStatusModalAccount(a);
                 setTargetStatus('active');
@@ -229,30 +216,36 @@ export function AccountsClient({ initialAccounts, allUsers }: AccountsClientProp
               Unfreeze
             </Button>
           ) : null}
+
+          {a.status !== 'closed' && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setStatusModalAccount(a);
+                setTargetStatus('closed');
+              }}
+            >
+              Close
+            </Button>
+          )}
         </div>
       ),
     },
   ];
 
-  const adjustmentCentavos = phpToCentavos(adjustAmountStr);
-  const projectedBalance = adjustModalAccount
-    ? adjustDirection === 'credit'
-      ? adjustModalAccount.balance + adjustmentCentavos
-      : adjustModalAccount.balance - adjustmentCentavos
-    : 0;
-
   return (
     <>
       <FilterBar>
-        <div style={{ flex: 1, minWidth: 240 }}>
+        <div className={styles.filterSearch}>
           <Input
-            placeholder="Search by account number, owner name, or UUID..."
+            placeholder="Search by account number, UUID, or owner name/email..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
 
-        <div style={{ width: 160 }}>
+        <div className={styles.filterSelect}>
           <Select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as any)}
@@ -265,14 +258,14 @@ export function AccountsClient({ initialAccounts, allUsers }: AccountsClientProp
           />
         </div>
 
-        <div style={{ width: 160 }}>
+        <div className={styles.filterSelect}>
           <Select
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value as any)}
             options={[
               { value: 'all', label: 'All Types' },
-              { value: 'savings', label: 'Savings' },
-              { value: 'checking', label: 'Checking' },
+              { value: 'savings', label: 'Savings Only' },
+              { value: 'checking', label: 'Checking Only' },
             ]}
           />
         </div>
@@ -285,96 +278,44 @@ export function AccountsClient({ initialAccounts, allUsers }: AccountsClientProp
         onRowClick={(a) => setSelectedDetailAccount(a)}
       />
 
-      {/* Account Detail Drawer */}
+      {/* Account Details Drawer */}
       <Drawer
         isOpen={Boolean(selectedDetailAccount)}
         onClose={() => setSelectedDetailAccount(null)}
         title={`Account ${selectedDetailAccount?.account_number || ''}`}
       >
         {selectedDetailAccount && (
-          <div
-            style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)' }}
-          >
+          <div className={styles.drawerStack}>
             <Card variant="subtle">
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 'var(--space-sm)',
-                }}
-              >
+              <div className={styles.metaStack}>
                 <div>
-                  <div
-                    style={{
-                      fontSize: '0.75rem',
-                      color: 'var(--color-text-secondary)',
-                      textTransform: 'uppercase',
-                    }}
-                  >
-                    Available Balance
-                  </div>
-                  <div
-                    style={{
-                      fontSize: '1.5rem',
-                      fontWeight: 800,
-                      color: 'var(--color-primary)',
-                    }}
-                    className="tabular-nums"
-                  >
+                  <div className={styles.metaLabel}>Available Balance</div>
+                  <div className={`${styles.balanceLarge} tabular-nums`}>
                     {formatCentavosToPHP(selectedDetailAccount.balance)}
                   </div>
                 </div>
 
                 <div>
-                  <div
-                    style={{
-                      fontSize: '0.75rem',
-                      color: 'var(--color-text-secondary)',
-                      textTransform: 'uppercase',
-                    }}
-                  >
-                    Status
-                  </div>
-                  <div style={{ marginTop: 4 }}>
+                  <div className={styles.metaLabel}>Status</div>
+                  <div className={styles.statusWrapper}>
                     <StatusBadge status={selectedDetailAccount.status} />
                   </div>
                 </div>
 
                 <div>
-                  <div
-                    style={{
-                      fontSize: '0.75rem',
-                      color: 'var(--color-text-secondary)',
-                      textTransform: 'uppercase',
-                    }}
-                  >
-                    Account ID
-                  </div>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }}>
+                  <div className={styles.metaLabel}>Account ID</div>
+                  <div className={styles.metaMono}>
                     {selectedDetailAccount.account_id}
                   </div>
                 </div>
 
                 <div>
-                  <div
-                    style={{
-                      fontSize: '0.75rem',
-                      color: 'var(--color-text-secondary)',
-                      textTransform: 'uppercase',
-                    }}
-                  >
-                    Owner
-                  </div>
-                  <div style={{ fontWeight: 600 }}>
+                  <div className={styles.metaLabel}>Owner</div>
+                  <div className={styles.metaText}>
                     {userMap[selectedDetailAccount.user_id]?.full_name ||
                       'System / Unnamed'}
                   </div>
-                  <div
-                    style={{
-                      fontSize: '0.8125rem',
-                      color: 'var(--color-text-secondary)',
-                    }}
-                  >
+                  <div className={styles.ownerEmail}>
                     {userMap[selectedDetailAccount.user_id]?.email || ''}
                   </div>
                 </div>
@@ -409,34 +350,18 @@ export function AccountsClient({ initialAccounts, allUsers }: AccountsClientProp
           onClose={closeAdjustModal}
           title="Adjust Account Balance"
         >
-          <div
-            style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-base)' }}
-          >
+          <div className={styles.modalStack}>
             <Card variant="subtle">
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                }}
-              >
+              <div className={styles.modalCardRow}>
                 <div>
-                  <div
-                    style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}
-                  >
-                    ACCOUNT
-                  </div>
-                  <div style={{ fontWeight: 700 }} className="tabular-nums">
+                  <div className={styles.modalSubtext}>ACCOUNT</div>
+                  <div className={`${styles.boldNum} tabular-nums`}>
                     {adjustModalAccount.account_number}
                   </div>
                 </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div
-                    style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}
-                  >
-                    CURRENT BALANCE
-                  </div>
-                  <div style={{ fontWeight: 700 }} className="tabular-nums">
+                <div className={styles.modalRightCol}>
+                  <div className={styles.modalSubtext}>CURRENT BALANCE</div>
+                  <div className={`${styles.boldNum} tabular-nums`}>
                     {formatCentavosToPHP(adjustModalAccount.balance)}
                   </div>
                 </div>
@@ -461,25 +386,9 @@ export function AccountsClient({ initialAccounts, allUsers }: AccountsClientProp
             />
 
             {adjustmentCentavos > 0 && (
-              <div
-                style={{
-                  backgroundColor: 'var(--color-surface-subtle)',
-                  padding: 'var(--space-md)',
-                  borderRadius: 'var(--radius-md)',
-                  borderLeft: '4px solid var(--color-primary)',
-                  fontSize: '0.875rem',
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: '0.75rem',
-                    fontWeight: 700,
-                    color: 'var(--color-text-secondary)',
-                  }}
-                >
-                  EXACT LEDGER EFFECT
-                </div>
-                <div style={{ fontWeight: 700, marginTop: 4 }} className="tabular-nums">
+              <div className={styles.ledgerEffectBox}>
+                <div className={styles.ledgerEffectLabel}>EXACT LEDGER EFFECT</div>
+                <div className={`${styles.previewAmount} tabular-nums`}>
                   {adjustDirection.toUpperCase()}{' '}
                   {formatCentavosToPHP(adjustmentCentavos)} on{' '}
                   {adjustModalAccount.account_number} → New balance:{' '}
@@ -491,25 +400,23 @@ export function AccountsClient({ initialAccounts, allUsers }: AccountsClientProp
             <Button
               onClick={() => {
                 if (adjustmentCentavos <= 0) return;
-                // Open confirmation prompt
-                const effect = `${adjustDirection.toUpperCase()} ${formatCentavosToPHP(adjustmentCentavos)} on ${adjustModalAccount.account_number} → New balance: ${formatCentavosToPHP(projectedBalance)}`;
-                const proceed = window.confirm(`Confirm Ledger Adjustment?\n\n${effect}`);
-                if (proceed) {
-                  const reasonPrompt = window.prompt(
-                    'Enter mandatory reason for balance adjustment:'
-                  );
-                  if (reasonPrompt && reasonPrompt.trim()) {
-                    handleConfirmAdjustment(reasonPrompt.trim()).catch((err) =>
-                      alert(err.message)
-                    );
-                  }
+                const reasonPrompt = window.prompt(
+                  'Enter mandatory reason for balance adjustment:'
+                );
+                if (reasonPrompt && reasonPrompt.trim().length > 0) {
+                  handleExecuteAdjustment(reasonPrompt.trim()).catch((err) => {
+                    alert(`Adjustment failed: ${err.message}`);
+                  });
+                } else if (reasonPrompt !== null) {
+                  alert('Adjustment cancelled: reason is required.');
                 }
               }}
-              disabled={adjustmentCentavos <= 0}
               variant="primary"
+              disabled={adjustmentCentavos <= 0 || isAdjusting}
+              loading={isAdjusting}
               fullWidth
             >
-              Apply Adjustment
+              Execute Adjustment
             </Button>
           </div>
         </Drawer>

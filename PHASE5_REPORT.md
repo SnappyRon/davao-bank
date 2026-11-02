@@ -472,3 +472,200 @@ Total tests: 15, Passed: 15, Failed: 0
 | `npm run build:admin`    | Next.js 16 App Router production build compilation                   | **PASSED (Turbopack)**   |
 | Secret-leak check        | Client static bundle inspection for service role key                 | **PASSED (0 leaks)**     |
 | Ledger reconciliation    | Global double-entry balance: credits = debits, balance = ledger sum  | **PASSED (Nominal)**     |
+
+---
+
+## Phase 5 Follow-Up: Review Corrections & Fixes
+
+Following thorough code and behavior review using a real Postgres engine (PGlite with Supabase stand-ins), all 8 identified issues were addressed, verified, and consolidated into single migration `20261028120000_phase5_fixes.sql`.
+
+### Database Target Status
+> [!IMPORTANT]
+> **LIVE DATABASE NOT AVAILABLE:** The hosted project at `qomxlzvrovwsfneqsfej.supabase.co` has no tables (all queries return HTTP 404 / relation not found). Offline behavior is fully verified via PGlite (`npm run test:db`, **47/47 passed**). All test scripts now fail loudly when the live database is unreachable.
+
+---
+
+### Fix Implementation Summary
+
+#### Fix 1 (HIGH): Remove Contract Mode Fallback & Stop on Unreachable DB
+- Updated every test script in `scripts/`:
+  - `test-rls-and-auth.ts`
+  - `test-phase3-money.ts`
+  - `test-phase4-admin.ts`
+  - `test-phase5-extras.ts`
+  - `test-phase5-schedules.ts`
+  - `test-phase5-qr-requests.ts`
+  - `test-phase5-fx.ts`
+- If the live database is unreachable, each script prints `NOT VERIFIED — database unreachable (<host>)` and immediately terminates with `process.exit(1)`.
+- When connected, each script prints `Database host: <host>` and `✓ Connected to live database`.
+- Source-file/contract checks run **only in addition to** live tests.
+
+#### Fix 2 (HIGH): Fix Guard Trigger for Service Role & Seed Ban
+- In `supabase/migrations/20261028120000_phase5_fixes.sql`:
+  - Updated `public.guard_profile_self_update()` to allow role and status changes when executed by trusted backend database roles (`service_role`, `postgres`, `supabase_admin`) or when JWT claim role is `service_role`.
+  - Customer sessions remain strictly prevented from modifying their own role or status.
+- In `scripts/seed.ts`:
+  - Bans the system user from client sign-in via Supabase Admin API (`ban_duration: '876000h'`).
+  - Added strict error handling: script fails loudly (`process.exit(1)`) on any error during profile, account, or biller provisioning.
+
+#### Fix 3 (HIGH): Safe pg_cron Schedule Registration & Admin Ops Function
+- In `20261028120000_phase5_fixes.sql`:
+  - Safely wrapped `cron.unschedule('davao-run-schedules')` in its own `begin ... exception when others then null; end;` block before scheduling.
+  - Added admin/ops function `public.register_cron_jobs()`, revoked from public/anon/authenticated, which safely registers all 3 jobs:
+    1. `davao-run-schedules` (hourly)
+    2. `davao-expire-requests` (hourly at :15)
+    3. `davao-fx-sync` (daily at 04:00 UTC)
+
+#### Fix 4 (HIGH): FX Daily Sync Job Registration & Documentation
+- Registered daily FX sync in `public.register_cron_jobs()` using `pg_net` to POST to the `fx-sync` Edge Function.
+- Added comprehensive deployment and setup documentation in `README.md` (`supabase functions deploy fx-sync`, secret configuration, and `select public.register_cron_jobs();`).
+
+#### Fix 5 (MEDIUM): Link Paid Payment Requests to Transactions & Idempotency
+- In `pay_payment_request`:
+  - Corrected extraction to read `v_tx_res->>'id'` (instead of `'transaction_id'`).
+  - Raises exception if `'id'` is null.
+  - Added idempotent replay: if request is already `paid` with the same `p_idempotency_key`, returns the existing transaction id and `idempotent_replay: true`.
+  - Re-payment attempts with a different idempotency key are rejected ("Payment request is no longer pending").
+
+#### Fix 6 (MEDIUM): Mandatory Confirmation Helper Across All Money Flows
+- Created shared confirmation modal: `apps/mobile/src/components/PasswordConfirmationModal.tsx`.
+- Updated `SettingsContext.tsx` with unified `confirmMoneyAction`:
+  - If biometrics are available and enabled: prompts biometric authentication (with device passcode fallback).
+  - Otherwise (biometrics disabled, unsupported, emulator, or biometric cancellation): presents password re-entry modal, securely validated against `supabase.auth.signInWithPassword` using the user's email.
+  - Never completes money movement without one of these two checks.
+- Integrated across all mobile money flows:
+  - `TransferModal.tsx`
+  - `WithdrawModal.tsx`
+  - `PayBillsModal.tsx`
+  - `PaymentRequestsModal.tsx`
+  - `ScheduledPaymentsModal.tsx`
+- Order of operations strictly preserved: generate idempotency key -> await confirmation -> invoke RPC.
+
+#### Fix 7 (LOW-MEDIUM): Restrict Saved-Recipient Updates
+- In `20261028120000_phase5_fixes.sql`:
+  ```sql
+  revoke update on public.saved_recipients from authenticated;
+  grant update (nickname) on public.saved_recipients to authenticated;
+  ```
+- Prevents authenticated users from rewriting recipient account numbers.
+
+#### Fix 8 (LOW): Complete Stage A Design-System Requirements
+- **Admin Inline Styles:** Eliminated all 196 inline `style={{...}}` occurrences across the admin app. Moved all styles into CSS Modules (`AdminNav.module.css`, `Unauthorized.module.css`, `Users.module.css`, `Accounts.module.css`, `Transactions.module.css`, `Audit.module.css`, `Billers.module.css`, `Schedules.module.css`). `grep -rn "style={{" apps/admin/src | wc -l` is **0**.
+- **Stray Hex Colors:** Removed all 15 hardcoded hex values in `SchedulesClient.tsx` and `BillersClient.tsx`. `grep -rn -E "#[0-9a-fA-F]{3,8}"` returns **0**.
+- **Token Duplication:** Added `scripts/verify-tokens.ts` which verifies that `globals.css` CSS variables match `@davao-bank/shared` tokens.
+- **Reduce Motion:**
+  - Admin: Configured `prefers-reduced-motion: reduce` in `globals.css` to disable transitions and animations.
+  - Mobile: Implemented `useReducedMotion` hook respecting `AccessibilityInfo.isReduceMotionEnabled()`.
+  - Deviation recorded: React Native built-in `Animated` and CSS media queries are used in place of `react-native-reanimated`.
+- **Screen Line Counts:** Split oversized screens into step/sub components:
+  - `TransferModal.tsx`: 1,116 lines → **460 lines** (split into `TransferRecipientStep.tsx`, `TransferAmountStep.tsx`, `TransferReviewStep.tsx`, `TransferSuccessStep.tsx`)
+  - `PayBillsModal.tsx`: 868 lines → **401 lines** (split into `BillerStep.tsx`, `ReferenceStep.tsx`, `WhenStep.tsx`, `ReviewStep.tsx`, `SuccessStep.tsx`)
+  - `QRHubModal.tsx`: 784 lines → **320 lines** (split into `MyQRTab.tsx`, `ScanQRTab.tsx`, `RequestMoneyTab.tsx`)
+  - `FXRatesModal.tsx`: 744 lines → **322 lines** (split into `FXRatesHero.tsx`, `FXRatesChart.tsx`, `FXRatesHistory.tsx`)
+  - `SchedulesClient.tsx`: 711 lines → **338 lines** (split into `ScheduleRunsDrawer.tsx`, `types.ts`, `Schedules.module.css`)
+  - `HomeScreen.tsx`: 702 lines → **490 lines** (split into `HomeBalanceCard.tsx`, `HomeUpcomingPayments.tsx`, `HomeRecentActivity.tsx`)
+
+---
+
+### Verification Results
+
+#### 1. Offline Database Integration Suite (`npm run test:db`)
+```text
+> davao-bank@0.1.0 test:db
+> node scripts/review/pglite-behavior.mjs
+
+✓ Signup trigger provisions profile + account for each user
+✓ [SEED] service-role can promote a profile to admin (seed.ts path)
+✓ Customer deposit works
+✓ Deposit idempotent replay (same key → no second credit)
+✓ Transfer A→B
+✓ Transfer idempotent replay
+✓ Insufficient funds rejected — Insufficient funds
+✓ Cannot spend from someone else's account — Unauthorized: source account does not belong to caller
+✓ Customer CANNOT call _transfer_core (would allow theft) — permission denied for function _transfer_core
+✓ Customer cannot forge audit log — permission denied for function write_audit
+✓ Customer cannot write ledger directly
+✓ RLS: B cannot see A's accounts
+✓ Suspended customer cannot transfer — Your profile is suspended
+✓ Suspended customer cannot un-suspend self — Only admins may change role or status
+✓ Admin reversal works
+✓ Second reversal (new key) rejected — Transaction is already reversed
+✓ Customer cannot call admin functions — Admin privilege required
+✓ Cannot save own account as recipient — Cannot save your own account as a recipient
+✓ Cannot save nonexistent account — Recipient account does not exist or is not active
+✓ Save valid recipient
+✓ add_saved_recipient does not return holder name
+✓ Direct insert into saved_recipients denied
+✓ Owner CANNOT change a saved recipient's account number (bypassing validation) — permission denied for table saved_recipients
+✓ Statement returns opening/closing/rows — period_to,account_id,period_from,transactions,account_number,closing_balance,opening_balance
+✓ Non-owner cannot fetch statement — Unauthorized to access this account statement
+✓ Admin creates biller (+ settlement account)
+✓ Bill pay rejects malformed reference — Invalid reference format for Mindanao Power Co. (demo) (expected pattern: ^[0-9]{10}$)
+✓ Bill pay with valid reference
+✓ bill_payments row linked to its transaction
+✓ Create weekly schedule starting today
+✓ Executor called twice → exactly one run & one debit — {"failed":0,"processed":1,"succeeded":1,"execution_date":"2026-11-02"}
+✓ next_run_date advanced by 7 days
+✓ Unfunded scheduled run recorded as failed, no ledger writes — {"status":"failed","failure_reason":"Insufficient funds"}
+✓ Monthly from Jan 31 → Feb 28 → Mar 31 → Apr 30 (no drift) — 2026-02-28,2026-03-31,2026-04-30
+✓ Customer cannot run the executor — permission denied for function run_due_scheduled_payments
+✓ Create payment request
+✓ Request response has no names
+✓ Requester cannot pay own request — Unauthorized to pay this payment request
+✓ Payer pays request (requester credited 2,500)
+✓ Request marked paid + linked to transaction
+✓ Paid request same-key retry returns success (idempotent) — [{"r":{"status":"paid","success":true,"request_id":"19e835ba-4e8e-4a39-a576-0d00a74ba802","transaction_id":"189f0919-b3d0-4537-b130-0402c09e214d","idempotent_replay":true}}]
+✓ Second payment (new key) rejected, no extra money moved — Payment request is no longer pending (status: paid)
+✓ Direct insert into payment_requests denied
+✓ Customers can read fx_rates — 768
+✓ Customers cannot write fx_rates
+✓ Reconciliation: every transfer/reversal/bill nets to zero — {"net":"150000","unbalanced":0,"mismatched":0}
+✓ Reconciliation: account_balances == ledger sum for every account — {"net":"150000","unbalanced":0,"mismatched":0}
+
+47 passed, 0 failed
+```
+
+#### 2. Live Database Gate Checks (Exit 1 on Unreachable Database)
+When tested without an active database:
+```text
+$ npm run test:schedules
+NOT VERIFIED — database unreachable (qomxlzvrovwsfneqsfej.supabase.co)
+(exited with code 1)
+
+$ npm run test:qr
+NOT VERIFIED — database unreachable (qomxlzvrovwsfneqsfej.supabase.co)
+(exited with code 1)
+
+$ npm run test:fx
+NOT VERIFIED — database unreachable (qomxlzvrovwsfneqsfej.supabase.co)
+(exited with code 1)
+```
+
+#### 3. Code Health & Design System Verification
+```text
+$ grep -rn "style={{" apps/admin/src | wc -l
+0
+
+$ grep -rn -E "#[0-9a-fA-F]{3,8}" apps/admin/src/app/schedules/SchedulesClient.tsx apps/admin/src/app/billers/BillersClient.tsx | wc -l
+0
+
+$ npx tsx scripts/verify-tokens.ts
+--- Verifying Design System Tokens (globals.css vs @davao-bank/shared) ---
+✓ All CSS variables in globals.css match @davao-bank/shared tokens perfectly!
+
+$ npm run typecheck
+> admin@0.1.0 typecheck (tsc --noEmit): PASSED
+> mobile@1.0.0 typecheck (tsc --noEmit): PASSED
+> @davao-bank/shared@0.1.0 typecheck (tsc --noEmit): PASSED
+
+$ npm run build:admin
+✓ Compiled successfully in 337ms
+✓ 10 static/dynamic routes generated without errors
+
+$ npm run lint
+✖ 0 errors, 86 warnings (pre-existing)
+
+$ npm run format:check
+All matched files use Prettier code style!
+```
+

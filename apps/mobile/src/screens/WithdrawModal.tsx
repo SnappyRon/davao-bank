@@ -96,58 +96,21 @@ export function WithdrawModal({
 
     const centavos = phpToCentavos(amountStr);
 
-    // 1. Biometric confirmation (§B.4)
-    const bioResult = await confirmBiometricPayment(
-      `Confirm cash-out of ${formatCentavosToPHP(centavos)} from account ${selectedAccount.account_number}`
-    );
+    // 1. Biometric / Password confirmation (§B.4, Fix 6)
+    const bioResult = await confirmBiometricPayment({
+      title: 'Authorize Cash-Out',
+      message: `Confirm cash-out of ${formatCentavosToPHP(centavos)} from account ${selectedAccount.account_number}`,
+    });
 
-    if (bioResult.cancelled) {
+    if (!bioResult.success) {
       setLoading(false);
-      setErrorMessage(
-        'Cash-out authorization was cancelled. You can retry whenever ready.'
-      );
-      return;
-    }
-
-    if (bioResult.requiresPasswordFallback) {
-      Alert.prompt(
-        'Security Verification',
-        'Please enter your account password to authorize this cash-out:',
-        [
-          {
-            text: 'Cancel',
-            style: 'cancel',
-            onPress: () => {
-              setLoading(false);
-              setErrorMessage('Cash-out authorization was cancelled.');
-            },
-          },
-          {
-            text: 'Authorize',
-            onPress: async (pwd?: string) => {
-              const {
-                data: { user },
-              } = await supabase.auth.getUser();
-              if (!user?.email || !pwd) {
-                setLoading(false);
-                setErrorMessage('Password is required to authorize cash-out.');
-                return;
-              }
-              const { error: authErr } = await supabase.auth.signInWithPassword({
-                email: user.email,
-                password: pwd,
-              });
-              if (authErr) {
-                setLoading(false);
-                setErrorMessage('Incorrect password. Cash-out rejected.');
-                return;
-              }
-              await executeServerWithdraw(centavos);
-            },
-          },
-        ],
-        'secure-text'
-      );
+      if (bioResult.cancelled) {
+        setErrorMessage(
+          'Cash-out authorization was cancelled. You can retry whenever ready.'
+        );
+      } else {
+        setErrorMessage(bioResult.error || 'Authorization failed.');
+      }
       return;
     }
 

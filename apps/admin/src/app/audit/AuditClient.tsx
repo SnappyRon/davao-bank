@@ -1,39 +1,45 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Eye, Code } from 'lucide-react';
-import { type AuditLog } from '@davao-bank/shared';
+import { Code } from 'lucide-react';
+import { AuditLog } from '@davao-bank/shared';
 import {
   Table,
-  FilterBar,
-  Input,
-  Select,
-  Badge,
   Button,
+  Badge,
   Drawer,
   Card,
+  Input,
+  Select,
+  FilterBar,
 } from '@/components/ui';
+import styles from './Audit.module.css';
 
 interface AuditClientProps {
   initialLogs: AuditLog[];
 }
 
 export function AuditClient({ initialLogs }: AuditClientProps) {
+  const [logs] = useState<AuditLog[]>(initialLogs);
   const [searchTerm, setSearchTerm] = useState('');
-  const [actionFilter, setActionFilter] = useState('all');
-  const [roleFilter, setRoleFilter] = useState('all');
+  const [actionFilter, setActionFilter] = useState<string>('all');
+  const [roleFilter, setRoleFilter] = useState<string>('all');
+
+  // Selected JSON payload drawer
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
 
-  const distinctActions = Array.from(new Set(initialLogs.map((l) => l.action))).sort();
+  // Derive distinct actions
+  const distinctActions = Array.from(new Set(logs.map((l) => l.action))).sort();
 
-  const filteredLogs = initialLogs.filter((log) => {
-    const metaStr = log.metadata ? JSON.stringify(log.metadata).toLowerCase() : '';
+  // Filter logs
+  const filteredLogs = logs.filter((log) => {
+    const term = searchTerm.toLowerCase();
     const matchesSearch =
-      log.action.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (log.entity || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (log.entity_id || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (log.actor_id || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      metaStr.includes(searchTerm.toLowerCase());
+      log.action.toLowerCase().includes(term) ||
+      (log.entity && log.entity.toLowerCase().includes(term)) ||
+      (log.entity_id && log.entity_id.toLowerCase().includes(term)) ||
+      (log.actor_id && log.actor_id.toLowerCase().includes(term)) ||
+      (log.metadata && JSON.stringify(log.metadata).toLowerCase().includes(term));
 
     const matchesAction = actionFilter === 'all' || log.action === actionFilter;
     const matchesRole =
@@ -46,17 +52,7 @@ export function AuditClient({ initialLogs }: AuditClientProps) {
     {
       key: 'action',
       header: 'Action',
-      render: (log: AuditLog) => (
-        <span
-          style={{
-            fontWeight: 700,
-            fontFamily: 'var(--font-mono)',
-            fontSize: '0.8125rem',
-          }}
-        >
-          {log.action}
-        </span>
-      ),
+      render: (log: AuditLog) => <span className={styles.actionText}>{log.action}</span>,
     },
     {
       key: 'actor',
@@ -68,16 +64,7 @@ export function AuditClient({ initialLogs }: AuditClientProps) {
             variant={log.actor_role === 'admin' ? 'info' : 'neutral'}
           />
           {log.actor_id ? (
-            <div
-              style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: '0.75rem',
-                color: 'var(--color-text-muted)',
-                marginTop: 2,
-              }}
-            >
-              {log.actor_id.substring(0, 8)}...
-            </div>
+            <div className={styles.monoMutedSmall}>{log.actor_id.substring(0, 8)}...</div>
           ) : null}
         </div>
       ),
@@ -87,17 +74,9 @@ export function AuditClient({ initialLogs }: AuditClientProps) {
       header: 'Entity / Target',
       render: (log: AuditLog) => (
         <div>
-          <div style={{ fontWeight: 600, textTransform: 'capitalize' }}>
-            {log.entity || 'General'}
-          </div>
+          <div className={styles.entityText}>{log.entity || 'General'}</div>
           {log.entity_id ? (
-            <div
-              style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: '0.75rem',
-                color: 'var(--color-text-muted)',
-              }}
-            >
+            <div className={styles.monoMutedSmall}>
               {log.entity_id.substring(0, 8)}...
             </div>
           ) : null}
@@ -109,7 +88,7 @@ export function AuditClient({ initialLogs }: AuditClientProps) {
       header: 'Timestamp',
       align: 'right' as const,
       render: (log: AuditLog) => (
-        <span className="tabular-nums" style={{ color: 'var(--color-text-secondary)' }}>
+        <span className={`${styles.timestamp} tabular-nums`}>
           {new Date(log.created_at).toLocaleDateString('en-US', {
             month: 'short',
             day: 'numeric',
@@ -140,7 +119,7 @@ export function AuditClient({ initialLogs }: AuditClientProps) {
   return (
     <>
       <FilterBar>
-        <div style={{ flex: 1, minWidth: 240 }}>
+        <div className={styles.filterSearch}>
           <Input
             placeholder="Search action, actor, entity ID, metadata..."
             value={searchTerm}
@@ -148,7 +127,7 @@ export function AuditClient({ initialLogs }: AuditClientProps) {
           />
         </div>
 
-        <div style={{ width: 180 }}>
+        <div className={styles.filterSelectEntity}>
           <Select
             value={actionFilter}
             onChange={(e) => setActionFilter(e.target.value)}
@@ -159,7 +138,7 @@ export function AuditClient({ initialLogs }: AuditClientProps) {
           />
         </div>
 
-        <div style={{ width: 140 }}>
+        <div className={styles.filterSelectRole}>
           <Select
             value={roleFilter}
             onChange={(e) => setRoleFilter(e.target.value)}
@@ -187,44 +166,23 @@ export function AuditClient({ initialLogs }: AuditClientProps) {
         title="Audit Log Payload"
       >
         {selectedLog && (
-          <div
-            style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}
-          >
+          <div className={styles.drawerStack}>
             <Card variant="subtle">
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: '1fr 1fr',
-                  gap: 'var(--space-sm)',
-                  fontSize: '0.875rem',
-                }}
-              >
+              <div className={styles.metaGrid}>
                 <div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                    ACTION
-                  </div>
-                  <strong style={{ fontFamily: 'var(--font-mono)' }}>
-                    {selectedLog.action}
-                  </strong>
+                  <div className={styles.metaLabel}>ACTION</div>
+                  <strong className={styles.metaMono}>{selectedLog.action}</strong>
                 </div>
                 <div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                    ACTOR ROLE
-                  </div>
-                  <strong style={{ textTransform: 'uppercase' }}>
-                    {selectedLog.actor_role}
-                  </strong>
+                  <div className={styles.metaLabel}>ACTOR ROLE</div>
+                  <strong className={styles.metaRole}>{selectedLog.actor_role}</strong>
                 </div>
                 <div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                    ENTITY
-                  </div>
+                  <div className={styles.metaLabel}>ENTITY</div>
                   <strong>{selectedLog.entity}</strong>
                 </div>
                 <div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                    TIMESTAMP
-                  </div>
+                  <div className={styles.metaLabel}>TIMESTAMP</div>
                   <span className="tabular-nums">
                     {new Date(selectedLog.created_at).toLocaleString()}
                   </span>
@@ -233,32 +191,8 @@ export function AuditClient({ initialLogs }: AuditClientProps) {
             </Card>
 
             <div>
-              <div
-                style={{
-                  fontSize: '0.75rem',
-                  fontWeight: 700,
-                  textTransform: 'uppercase',
-                  marginBottom: 'var(--space-xs)',
-                  color: 'var(--color-text-secondary)',
-                }}
-              >
-                Immutable Metadata JSON:
-              </div>
-              <pre
-                style={{
-                  backgroundColor: 'var(--color-surface-subtle)',
-                  color: 'var(--color-ink)',
-                  border: '1px solid var(--color-border)',
-                  padding: 'var(--space-md)',
-                  borderRadius: 'var(--radius-md)',
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: '0.8125rem',
-                  overflowX: 'auto',
-                  maxHeight: '360px',
-                  whiteSpace: 'pre-wrap',
-                  wordBreak: 'break-word',
-                }}
-              >
+              <div className={styles.jsonHeader}>Immutable Metadata JSON:</div>
+              <pre className={styles.jsonPre}>
                 {selectedLog.metadata
                   ? JSON.stringify(selectedLog.metadata, null, 2)
                   : '// No additional metadata payload'}

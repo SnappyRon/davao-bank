@@ -6,13 +6,31 @@
 
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
+import { createClient } from '@supabase/supabase-js';
 import {
   generateDavaoBankQRPayload,
   parseDavaoBankQRPayload,
   MAX_QR_AMOUNT_CENTAVOS,
   MAX_QR_NOTE_LENGTH,
 } from '../packages/shared/src/utils/qr';
-import { createSupabaseClient } from '../packages/shared/src/supabase/client';
+
+try {
+  // @ts-expect-error Node.js 20+ built-in
+  process.loadEnvFile?.('.env');
+} catch {
+  // .env is optional
+}
+
+const SUPABASE_URL =
+  process.env.SUPABASE_URL ||
+  process.env.NEXT_PUBLIC_SUPABASE_URL ||
+  'http://127.0.0.1:54321';
+
+const ANON_KEY =
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+  process.env.SUPABASE_ANON_KEY ||
+  'placeholder-anon-key';
 
 let totalTests = 0;
 let passedTests = 0;
@@ -35,12 +53,154 @@ async function runStageDTests() {
   console.log('QR Code Standard, Payment Requests, Run-Once & Privacy Guards');
   console.log('================================================================\n');
 
-  // ----------------------------------------------------------------------------
-  // SECTION 1: QR Payload Unit Tests (§D.1)
-  // ----------------------------------------------------------------------------
-  console.log('[Unit Tests] Validating Davao Bank QR Format and Strict Parsing...');
+  // Check live database connectivity
+  const host = new URL(SUPABASE_URL).host;
+  const anonClient = createClient(SUPABASE_URL, ANON_KEY, {
+    auth: { persistSession: false },
+  });
 
-  // 1.1 Valid QR generation and parsing
+  let liveConnected = false;
+  try {
+    const { error: hcErr } = await anonClient
+      .from('payment_requests')
+      .select('id')
+      .limit(1);
+    if (!hcErr) {
+      liveConnected = true;
+      console.log(`Database host: ${host}`);
+      console.log('✓ Connected to live database\n');
+    }
+  } catch {
+    liveConnected = false;
+  }
+
+  if (!liveConnected) {
+    console.error(`NOT VERIFIED — database unreachable (${host})`);
+    process.exit(1);
+  }
+
+  // ----------------------------------------------------------------------------
+  // SECTION 1: Live Verification Checks
+  // ----------------------------------------------------------------------------
+  console.log('[Live Checks] Authenticating Customer 1 & Customer 2...');
+  const cust1 = createClient(SUPABASE_URL, ANON_KEY);
+  const { data: auth1, error: a1Err } = await cust1.auth.signInWithPassword({
+    email: 'customer1@davaobank.ph',
+    password: 'Password123!',
+  });
+
+  const cust2 = createClient(SUPABASE_URL, ANON_KEY);
+  const { data: auth2, error: a2Err } = await cust2.auth.signInWithPassword({
+    email: 'customer2@davaobank.ph',
+    password: 'Password123!',
+  });
+
+  assert(!a1Err && Boolean(auth1?.user), '[Live-Auth] Customer 1 signed in');
+  assert(!a2Err && Boolean(auth2?.user), '[Live-Auth] Customer 2 signed in');
+
+  if (auth1?.user && auth2?.user) {
+    const { data: c1Accounts } = await cust1
+      .from('accounts')
+      .select('id, account_number')
+      .limit(1);
+    const { data: c2Accounts } = await cust2
+      .from('accounts')
+      .select('id, account_number')
+      .limit(1);
+
+    const c1Acc = c1Accounts?.[0];
+    const c2Acc = c2Accounts?.[0];
+
+    assert(Boolean(c1Acc && c2Acc), '[Live-Accounts] Retrieved test customer accounts');
+
+    if (c1Acc && c2Acc) {
+      // 1. Create payment request
+      const { data: createData, error: createErr } = await cust1.rpc(
+        'create_payment_request',
+        {
+          p_amount: 250000,
+          p_requester_account_id: c1Acc.id,
+          p_note: 'Durian split',
+          p_payer_account_number: c2Acc.account_number,
+        }
+      );
+
+      assert(
+        !createErr && Boolean(createData?.id),
+        `[Live-CreateRequest] Payment request created successfully (${createData?.id})`
+      );
+
+      const reqId = createData?.id;
+
+      // 2. Requester cannot pay own request
+      const { error: ownPayErr } = await cust1.rpc('pay_payment_request', {
+        p_request_id: reqId,
+        p_payer_account_id: c1Acc.id,
+        p_idempotency_key: crypto.randomUUID(),
+      });
+      assert(Boolean(ownPayErr), '[Live-Guard] Requester cannot pay own payment request');
+
+      // 3. Payer pays request with idempotency key
+      const payIdempotencyKey = crypto.randomUUID();
+      const { data: payData, error: payErr } = await cust2.rpc('pay_payment_request', {
+        p_request_id: reqId,
+        p_payer_account_id: c2Acc.id,
+        p_idempotency_key: payIdempotencyKey,
+      });
+
+      assert(
+        !payErr && payData?.success === true && Boolean(payData?.transaction_id),
+        `[Live-PayRequest] Payer paid request with linked transaction_id (${payData?.transaction_id})`
+      );
+
+      // 4. Idempotent retry on same key succeeds
+      const { data: retryData, error: retryErr } = await cust2.rpc(
+        'pay_payment_request',
+        {
+          p_request_id: reqId,
+          p_payer_account_id: c2Acc.id,
+          p_idempotency_key: payIdempotencyKey,
+        }
+      );
+      assert(
+        !retryErr &&
+          retryData?.success === true &&
+          retryData?.idempotent_replay === true &&
+          retryData?.transaction_id === payData?.transaction_id,
+        '[Live-Idempotency] Same idempotency key replay returns existing transaction_id'
+      );
+
+      // 5. Second payment on different key rejected
+      const { error: secondPayErr } = await cust2.rpc('pay_payment_request', {
+        p_request_id: reqId,
+        p_payer_account_id: c2Acc.id,
+        p_idempotency_key: crypto.randomUUID(),
+      });
+      assert(
+        Boolean(secondPayErr),
+        '[Live-RunOnce] Re-paying already paid request with new key rejected'
+      );
+
+      // 6. Direct client insert rejected by RLS
+      const { error: directInsertErr } = await cust1.from('payment_requests').insert({
+        requester_id: auth1.user.id,
+        requester_account_id: c1Acc.id,
+        amount: 10000,
+        status: 'pending',
+      } as any);
+      assert(
+        Boolean(directInsertErr),
+        '[Live-RLS-Insert] Direct insert into payment_requests denied by RLS'
+      );
+    }
+  }
+
+  // ----------------------------------------------------------------------------
+  // SECTION 2: QR Payload Unit Tests (§D.1)
+  // ----------------------------------------------------------------------------
+  console.log('\n[Unit Tests] Validating Davao Bank QR Format and Strict Parsing...');
+
+  // 2.1 Valid QR generation and parsing
   const validAcct = '1012345678';
   const validAmt = 250000; // PHP 2,500.00
   const validNote = 'Durian feast split';
@@ -65,7 +225,7 @@ async function runStageDTests() {
     '[QR-Parse-Valid] Correctly extracts account number, centavos amount, and note'
   );
 
-  // 1.2 Minimal QR (account number only, no amount or note)
+  // 2.2 Minimal QR (account number only, no amount or note)
   const minimalUri = generateDavaoBankQRPayload({ accountNumber: validAcct });
   const parsedMinimal = parseDavaoBankQRPayload(minimalUri);
   assert(
@@ -76,7 +236,7 @@ async function runStageDTests() {
     '[QR-Parse-Minimal] Handles minimal QR payload with account number only'
   );
 
-  // 1.3 Rejection of foreign / other schemes
+  // 2.3 Rejection of foreign / other schemes
   const foreignSchemes = [
     'https://example.com/pay?acct=1012345678',
     'gcash://pay?acct=1012345678',
@@ -98,7 +258,7 @@ async function runStageDTests() {
     '[QR-Reject-Foreign] Rejects non-davaobank schemes with exact copy: "This isn\'t a Davao Bank QR code"'
   );
 
-  // 1.4 Rejection of malformed version
+  // 2.4 Rejection of malformed version
   const badVersionUri = 'davaobank://pay?v=2&acct=1012345678';
   const resBadVer = parseDavaoBankQRPayload(badVersionUri);
   assert(
@@ -106,12 +266,12 @@ async function runStageDTests() {
     '[QR-Reject-Version] Rejects unrecognized version number (v=2)'
   );
 
-  // 1.5 Rejection of malformed account numbers
+  // 2.5 Rejection of malformed account numbers
   const badAccounts = [
-    'davaobank://pay?v=1&acct=12345', // 5 digits
-    'davaobank://pay?v=1&acct=101234567899', // 12 digits
-    'davaobank://pay?v=1&acct=101234567A', // alphanumeric
-    'davaobank://pay?v=1', // missing acct
+    'davaobank://pay?v=1&acct=12345',
+    'davaobank://pay?v=1&acct=101234567899',
+    'davaobank://pay?v=1&acct=101234567A',
+    'davaobank://pay?v=1',
   ];
   let badAccountsRejected = true;
   for (const uri of badAccounts) {
@@ -126,12 +286,12 @@ async function runStageDTests() {
     '[QR-Reject-Account] Strictly requires exactly 10 numeric digits for account number'
   );
 
-  // 1.6 Rejection of invalid, negative, zero, float, or over-limit amounts
+  // 2.6 Rejection of invalid, negative, zero, float, or over-limit amounts
   const badAmounts = [
     'davaobank://pay?v=1&acct=1012345678&amt=-500',
     'davaobank://pay?v=1&acct=1012345678&amt=0',
     'davaobank://pay?v=1&acct=1012345678&amt=100.50',
-    `davaobank://pay?v=1&acct=1012345678&amt=${MAX_QR_AMOUNT_CENTAVOS + 100}`, // exceeds 500k PHP cap
+    `davaobank://pay?v=1&acct=1012345678&amt=${MAX_QR_AMOUNT_CENTAVOS + 100}`,
   ];
   let badAmountsRejected = true;
   for (const uri of badAmounts) {
@@ -146,7 +306,7 @@ async function runStageDTests() {
     '[QR-Reject-Amount] Rejects negative, zero, float, or excessive amounts exceeding transfer cap'
   );
 
-  // 1.7 Note length boundary check (max 60 chars)
+  // 2.7 Note length boundary check (max 60 chars)
   const longNote = 'A'.repeat(MAX_QR_NOTE_LENGTH + 1);
   const badNoteUri = `davaobank://pay?v=1&acct=1012345678&note=${longNote}`;
   const resLongNote = parseDavaoBankQRPayload(badNoteUri);
@@ -156,7 +316,7 @@ async function runStageDTests() {
   );
 
   // ----------------------------------------------------------------------------
-  // SECTION 2: SQL Migration & Contract Checks (§D.3)
+  // SECTION 3: SQL Migration & Contract Checks (§D.3)
   // ----------------------------------------------------------------------------
   console.log(
     '\n[Contract Checks] Verifying Phase 5 Stage D SQL Migrations & Code Invariants...'
@@ -173,7 +333,7 @@ async function runStageDTests() {
 
   const migrationSql = fs.readFileSync(migrationPath, 'utf8');
 
-  // 2.1 Schema validation
+  // 3.1 Schema validation
   assert(
     migrationSql.includes('create table if not exists public.payment_requests') &&
       migrationSql.includes(
@@ -185,7 +345,7 @@ async function runStageDTests() {
     '[Schema-RequestsTable] payment_requests table defined with status states and 7-day default expiration'
   );
 
-  // 2.2 RLS validation
+  // 3.2 RLS validation
   assert(
     migrationSql.includes(
       'alter table public.payment_requests enable row level security;'
@@ -197,7 +357,7 @@ async function runStageDTests() {
     '[RLS-NoDirectWrites] payment_requests read scoped to requester, payer, and admin; client direct writes strictly omitted'
   );
 
-  // 2.3 Creation guards (rate limiting & self-request prevention)
+  // 3.3 Creation guards
   assert(
     migrationSql.includes('Cannot request money from your own account') &&
       migrationSql.includes(
@@ -208,7 +368,7 @@ async function runStageDTests() {
     '[Func-CreateGuards] create_payment_request rejects self-requests, enforces active profile/account, and caps at 10/day'
   );
 
-  // 2.4 Atomic payment & run-once lock
+  // 3.4 Atomic payment & run-once lock
   assert(
     migrationSql.includes('for update') &&
       migrationSql.includes("v_req.status <> 'pending'") &&
@@ -217,7 +377,7 @@ async function runStageDTests() {
     '[Func-PayRunOnce] pay_payment_request locks row FOR UPDATE, prevents re-paying, and updates status in same atomic transaction'
   );
 
-  // 2.5 Privacy protection: no counterparty names in audits or notifications
+  // 3.5 Privacy protection
   assert(
     migrationSql.includes("'payer_account', v_clean_payer_acc_num") &&
       migrationSql.includes("'requester_account', v_req_acc.account_number") &&
@@ -226,40 +386,13 @@ async function runStageDTests() {
     '[Privacy-NoNameLeak] Payment request notifications and audits reference only account numbers, never leaking customer names'
   );
 
-  // 2.6 Revocation of internal batch jobs
+  // 3.6 Revocation of internal batch jobs
   assert(
     migrationSql.includes(
       'revoke all on function public.expire_due_payment_requests() from public, anon, authenticated;'
     ),
     '[Security-RevokeBatch] expire_due_payment_requests is strictly revoked from public, anon, and authenticated clients'
   );
-
-  // ----------------------------------------------------------------------------
-  // SECTION 3: Live Verification / Contract Mode Check
-  // ----------------------------------------------------------------------------
-  const client = createSupabaseClient();
-  let liveConnected = false;
-
-  try {
-    const { error } = await client.from('payment_requests').select('id').limit(1);
-    if (!error) {
-      liveConnected = true;
-      console.log(
-        '\n[Live Checks] Connected to Supabase — executing live authorization checks...'
-      );
-      // Additional live checks if reachable
-    }
-  } catch {
-    // live database not connected
-  }
-
-  if (!liveConnected) {
-    console.log('\n----------------------------------------------------------------');
-    console.log('NOTICE: Live Supabase database is not currently reachable at:');
-    console.log(`URL: ${process.env.SUPABASE_URL || 'configured url'}`);
-    console.log('Running test suite in Self-Contained Verification / Contract Mode.');
-    console.log('----------------------------------------------------------------');
-  }
 
   // ----------------------------------------------------------------------------
   // Summary

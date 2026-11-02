@@ -93,12 +93,24 @@ async function seed() {
 
       if (createError) {
         console.error(`Failed to create user ${userConfig.email}:`, createError.message);
-        continue;
+        process.exit(1);
       }
       userId = newUser.user.id;
       console.log(`Created auth user: ${userId}`);
     } else {
       console.log(`Existing auth user found: ${userId}`);
+    }
+
+    // Fix 2: Ban the system user from signing in through Auth API (ban_duration: 876000h)
+    if (userConfig.role === 'system') {
+      const { error: banError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+        ban_duration: '876000h',
+      });
+      if (banError) {
+        console.error(`Failed to set ban duration for system user:`, banError.message);
+        process.exit(1);
+      }
+      console.log(`Banned system user from interactive login (ban_duration: 876000h)`);
     }
 
     // 2. Ensure profile exists and role is correct
@@ -112,6 +124,7 @@ async function seed() {
 
     if (profileError) {
       console.error(`Profile error for ${userConfig.email}:`, profileError.message);
+      process.exit(1);
     } else {
       console.log(`Profile updated with role: ${userConfig.role}`);
     }
@@ -140,6 +153,7 @@ async function seed() {
 
       if (accError) {
         console.error(`Account creation error:`, accError.message);
+        process.exit(1);
       } else {
         accountId = newAcc.id;
         console.log(`Created savings account: ${randomAcc}`);
@@ -171,6 +185,7 @@ async function seed() {
 
         if (txError) {
           console.error(`Transaction insert error:`, txError.message);
+          process.exit(1);
         } else if (tx) {
           const { error: leError } = await supabaseAdmin.from('ledger_entries').insert({
             account_id: accountId,
@@ -181,6 +196,7 @@ async function seed() {
 
           if (leError) {
             console.error(`Ledger entry error:`, leError.message);
+            process.exit(1);
           } else {
             console.log(
               `Deposited initial balance of PHP ${(userConfig.initialBalanceCentavos / 100).toLocaleString()}`
@@ -199,83 +215,87 @@ async function seed() {
     .eq('role', 'system')
     .maybeSingle();
 
-  if (systemProfile) {
-    const DEMO_BILLERS = [
-      {
-        name: 'Mindanao Power Co. (demo)',
-        category: 'electricity',
-        referenceLabel: 'Customer Account No.',
-        referencePattern: '^[0-9]{10}$',
-      },
-      {
-        name: 'Bayanihan Water (demo)',
-        category: 'water',
-        referenceLabel: 'Meter Account No.',
-        referencePattern: '^[0-9]{8}$',
-      },
-      {
-        name: 'Apo Fiber Internet (demo)',
-        category: 'internet',
-        referenceLabel: 'Subscriber No.',
-        referencePattern: '^[0-9]{10}$',
-      },
-      {
-        name: 'Durian City Mobile (demo)',
-        category: 'mobile',
-        referenceLabel: 'Mobile Number',
-        referencePattern: '^09[0-9]{9}$',
-      },
-    ];
+  if (!systemProfile) {
+    console.error('Fatal: System profile not found after user seeding.');
+    process.exit(1);
+  }
 
-    for (const biller of DEMO_BILLERS) {
-      const { data: existingBiller } = await supabaseAdmin
-        .from('billers')
-        .select('id, name')
-        .eq('name', biller.name)
-        .maybeSingle();
+  const DEMO_BILLERS = [
+    {
+      name: 'Mindanao Power Co. (demo)',
+      category: 'electricity',
+      referenceLabel: 'Customer Account No.',
+      referencePattern: '^[0-9]{10}$',
+    },
+    {
+      name: 'Bayanihan Water (demo)',
+      category: 'water',
+      referenceLabel: 'Meter Account No.',
+      referencePattern: '^[0-9]{8}$',
+    },
+    {
+      name: 'Apo Fiber Internet (demo)',
+      category: 'internet',
+      referenceLabel: 'Subscriber No.',
+      referencePattern: '^[0-9]{10}$',
+    },
+    {
+      name: 'Durian City Mobile (demo)',
+      category: 'mobile',
+      referenceLabel: 'Mobile Number',
+      referencePattern: '^09[0-9]{9}$',
+    },
+  ];
 
-      if (!existingBiller) {
-        // Create settlement account for biller
-        const randomAcc = '10' + Math.floor(10000000 + Math.random() * 90000000);
-        const { data: newAcc, error: accErr } = await supabaseAdmin
-          .from('accounts')
-          .insert({
-            user_id: systemProfile.id,
-            account_number: randomAcc,
-            type: 'checking',
-            currency: 'PHP',
-            status: 'active',
-          })
-          .select('id')
-          .single();
+  for (const biller of DEMO_BILLERS) {
+    const { data: existingBiller } = await supabaseAdmin
+      .from('billers')
+      .select('id, name')
+      .eq('name', biller.name)
+      .maybeSingle();
 
-        if (accErr || !newAcc) {
-          console.error(
-            `Failed to create settlement account for ${biller.name}:`,
-            accErr?.message
-          );
-          continue;
-        }
+    if (!existingBiller) {
+      // Create settlement account for biller
+      const randomAcc = '10' + Math.floor(10000000 + Math.random() * 90000000);
+      const { data: newAcc, error: accErr } = await supabaseAdmin
+        .from('accounts')
+        .insert({
+          user_id: systemProfile.id,
+          account_number: randomAcc,
+          type: 'checking',
+          currency: 'PHP',
+          status: 'active',
+        })
+        .select('id')
+        .single();
 
-        const { error: billerErr } = await supabaseAdmin.from('billers').insert({
-          name: biller.name,
-          category: biller.category,
-          account_id: newAcc.id,
-          reference_label: biller.referenceLabel,
-          reference_pattern: biller.referencePattern,
-          is_active: true,
-        });
-
-        if (billerErr) {
-          console.error(`Failed to insert biller ${biller.name}:`, billerErr.message);
-        } else {
-          console.log(
-            `✓ Seeded biller: ${biller.name} (${biller.category}) -> Acct: ${randomAcc}`
-          );
-        }
-      } else {
-        console.log(`Existing biller found: ${biller.name}`);
+      if (accErr || !newAcc) {
+        console.error(
+          `Failed to create settlement account for ${biller.name}:`,
+          accErr?.message
+        );
+        process.exit(1);
       }
+
+      const { error: billerErr } = await supabaseAdmin.from('billers').insert({
+        name: biller.name,
+        category: biller.category,
+        account_id: newAcc.id,
+        reference_label: biller.referenceLabel,
+        reference_pattern: biller.referencePattern,
+        is_active: true,
+      });
+
+      if (billerErr) {
+        console.error(`Failed to insert biller ${biller.name}:`, billerErr.message);
+        process.exit(1);
+      } else {
+        console.log(
+          `✓ Seeded biller: ${biller.name} (${biller.category}) -> Acct: ${randomAcc}`
+        );
+      }
+    } else {
+      console.log(`Existing biller found: ${biller.name}`);
     }
   }
 

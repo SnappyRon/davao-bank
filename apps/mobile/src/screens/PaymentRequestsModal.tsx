@@ -108,17 +108,20 @@ export function PaymentRequestsModal({
       return;
     }
 
-    // Biometric authorization gate
-    const authenticated = await confirmBiometricPayment(
-      `Pay PHP ${(req.amount / 100).toFixed(2)} to account`
-    );
-    if (!authenticated) return;
+    // Generate idempotency key once before confirmation
+    const key = generateIdempotencyKey('pay_req');
+
+    // Biometric / Password authorization gate (§Fix 6)
+    const authenticated = await confirmBiometricPayment({
+      title: 'Authorize Payment Request',
+      message: `Confirm payment of ₱${(req.amount / 100).toFixed(2)} to account ${req.requester_account}`,
+    });
+    if (!authenticated.success) return;
 
     setActionLoadingId(req.id);
     setStatusMessage(null);
 
     try {
-      const key = generateIdempotencyKey('pay_req');
       const { error } = await supabase.rpc('pay_payment_request', {
         p_request_id: req.id,
         p_from_account: sourceAcc.account_id,

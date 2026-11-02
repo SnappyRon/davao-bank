@@ -77,3 +77,7 @@
   text-align: center;
   line-height: 1.4;
 }
+
+.submitBtn {
+  margin-top: var(--space-sm);
+}

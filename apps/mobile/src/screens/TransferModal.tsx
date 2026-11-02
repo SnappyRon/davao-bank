@@ -1,17 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
-import {
-  CheckCircle2,
-  AlertCircle,
-  CreditCard,
-  Send,
-  Users,
-  BookmarkCheck,
-  UserCheck,
-  Calendar,
-  Clock,
-  Repeat,
-} from 'lucide-react-native';
+import { StyleSheet, ScrollView } from 'react-native';
+import { AlertCircle } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import {
   colors,
@@ -28,16 +17,14 @@ import {
 } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
 import { useSettings } from '../context/SettingsContext';
+import { BottomSheet, Text, Card } from '../components';
 import {
-  BottomSheet,
-  Text,
-  TextField,
-  AmountInput,
-  Button,
-  Card,
-  AmountText,
-  Chip,
-} from '../components';
+  TransferRecipientStep,
+  type RecipientTab,
+} from './transfer/TransferRecipientStep';
+import { TransferAmountStep, type TransferTiming } from './transfer/TransferAmountStep';
+import { TransferReviewStep } from './transfer/TransferReviewStep';
+import { TransferSuccessStep } from './transfer/TransferSuccessStep';
 
 interface TransferModalProps {
   visible: boolean;
@@ -51,7 +38,6 @@ interface TransferModalProps {
 }
 
 type TransferStep = 'recipient' | 'amount' | 'review' | 'success';
-type RecipientTab = 'saved' | 'my_accounts' | 'new';
 
 export function TransferModal({
   visible,
@@ -67,9 +53,7 @@ export function TransferModal({
 
   const [step, setStep] = useState<TransferStep>('recipient');
   const [recipientTab, setRecipientTab] = useState<RecipientTab>('saved');
-  const [selectedAccountId, setSelectedAccountId] = useState<string>(
-    accounts[0]?.account_id || ''
-  );
+  const [selectedAccountId] = useState<string>(accounts[0]?.account_id || '');
   const [recipientAccountNumber, setRecipientAccountNumber] = useState('');
   const [recipientNickname, setRecipientNickname] = useState('');
   const [amountStr, setAmountStr] = useState('');
@@ -83,7 +67,6 @@ export function TransferModal({
   const [savedRecipients, setSavedRecipients] = useState<SavedRecipient[]>([]);
 
   // Timing & Scheduling (§C.4)
-  type TransferTiming = 'now' | 'later' | 'recurring';
   const [timing, setTiming] = useState<TransferTiming>('now');
   const [scheduledDate, setScheduledDate] = useState(() => {
     const d = new Date();
@@ -203,7 +186,6 @@ export function TransferModal({
       return;
     }
 
-    // Generate idempotency key once per attempt
     if (!idempotencyKey) {
       setIdempotencyKey(generateIdempotencyKey('transfer'));
     }
@@ -217,67 +199,25 @@ export function TransferModal({
 
     const centavos = phpToCentavos(amountStr);
 
-    // 1. Biometric confirmation before money moves (§B.4)
     const bioMessage =
       timing === 'now'
-        ? `Confirm transfer of ${formatCentavosToPHP(centavos)} to ${recipientAccountNumber}`
-        : `Confirm scheduling transfer of ${formatCentavosToPHP(centavos)} to ${recipientAccountNumber}`;
+        ? `Confirm transfer of ${formatCentavosToPHP(centavos)} to account ${recipientAccountNumber}`
+        : `Confirm scheduling transfer of ${formatCentavosToPHP(centavos)} to account ${recipientAccountNumber}`;
 
-    const bioResult = await confirmBiometricPayment(bioMessage);
+    const bioResult = await confirmBiometricPayment({
+      title: timing === 'now' ? 'Authorize Transfer' : 'Authorize Scheduled Transfer',
+      message: bioMessage,
+    });
 
-    if (bioResult.cancelled) {
+    if (!bioResult.success) {
       setLoading(false);
-      setErrorMessage(
-        'Transfer authorization was cancelled. You can retry whenever ready.'
-      );
-      return;
-    }
-
-    if (bioResult.requiresPasswordFallback) {
-      // Fallback: prompt for password
-      Alert.prompt(
-        'Security Verification',
-        'Please enter your account password to authorize this transfer:',
-        [
-          {
-            text: 'Cancel',
-            style: 'cancel',
-            onPress: () => {
-              setLoading(false);
-              setErrorMessage('Transfer authorization was cancelled.');
-            },
-          },
-          {
-            text: 'Authorize',
-            onPress: async (pwd?: string) => {
-              const {
-                data: { user },
-              } = await supabase.auth.getUser();
-              if (!user?.email || !pwd) {
-                setLoading(false);
-                setErrorMessage('Password is required to authorize transfer.');
-                return;
-              }
-              const { error: authErr } = await supabase.auth.signInWithPassword({
-                email: user.email,
-                password: pwd,
-              });
-              if (authErr) {
-                setLoading(false);
-                setErrorMessage('Incorrect password. Transfer rejected.');
-                return;
-              }
-              // Proceed with transfer
-              if (timing === 'now') {
-                await executeServerTransfer(centavos);
-              } else {
-                await executeScheduledTransfer(centavos);
-              }
-            },
-          },
-        ],
-        'secure-text'
-      );
+      if (bioResult.cancelled) {
+        setErrorMessage(
+          'Transfer authorization was cancelled. You can retry whenever ready.'
+        );
+      } else {
+        setErrorMessage(bioResult.error || 'Transfer authorization failed.');
+      }
       return;
     }
 
@@ -323,14 +263,14 @@ export function TransferModal({
         try {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         } catch {
-          // Haptics unavailable on simulator/web
+          // Ignored
         }
         setErrorMessage(schedErr.message);
       } else {
         try {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         } catch {
-          // Haptics unavailable on simulator/web
+          // Ignored
         }
         setIsScheduledSuccess(true);
         setStep('success');
@@ -368,7 +308,6 @@ export function TransferModal({
         // Ignored
       }
 
-      // If user checked "Save this recipient", automatically call add_saved_recipient
       if (shouldSaveRecipient && saveNickname.trim()) {
         try {
           await supabase.rpc('add_saved_recipient', {
@@ -417,533 +356,85 @@ export function TransferModal({
 
         {/* STEP 1: RECIPIENT */}
         {step === 'recipient' && (
-          <View style={styles.stepContainer}>
-            {/* Recipient Source Tabs: Saved, My Accounts, New */}
-            <View style={styles.tabGrid}>
-              <Chip
-                label="Saved"
-                selected={recipientTab === 'saved'}
-                onPress={() => setRecipientTab('saved')}
-              />
-              {otherAccounts.length > 0 && (
-                <Chip
-                  label="My Accounts"
-                  selected={recipientTab === 'my_accounts'}
-                  onPress={() => setRecipientTab('my_accounts')}
-                />
-              )}
-              <Chip
-                label="New Account"
-                selected={recipientTab === 'new'}
-                onPress={() => setRecipientTab('new')}
-              />
-            </View>
-
-            {recipientTab === 'saved' && (
-              <View style={styles.tabContent}>
-                {savedRecipients.length === 0 ? (
-                  <Card variant="subtle" style={styles.emptyCard}>
-                    <Text variant="caption" color={colors.textSecondary} align="center">
-                      No saved recipients yet. Enter a new account number below.
-                    </Text>
-                    <Button
-                      title="Enter New Account"
-                      variant="ghost"
-                      onPress={() => setRecipientTab('new')}
-                    />
-                  </Card>
-                ) : (
-                  <View style={styles.recipientList}>
-                    {savedRecipients.map((rec) => (
-                      <Card
-                        key={rec.id}
-                        variant="elevated"
-                        style={styles.recipientItem}
-                        onPress={() => handleSelectSavedRecipient(rec)}
-                      >
-                        <View style={styles.recipientIconCircle}>
-                          <Users size={16} color={colors.primary} />
-                        </View>
-                        <View style={styles.recipientInfo}>
-                          <Text variant="bodyStrong" color={colors.ink}>
-                            {rec.nickname}
-                          </Text>
-                          <Text
-                            variant="caption"
-                            color={colors.textSecondary}
-                            tabularNums
-                          >
-                            {rec.account_number}
-                          </Text>
-                        </View>
-                      </Card>
-                    ))}
-                  </View>
-                )}
-              </View>
-            )}
-
-            {recipientTab === 'my_accounts' && (
-              <View style={styles.tabContent}>
-                <Text variant="caption" color={colors.textSecondary}>
-                  Own-account shortcut — transfer funds between your Davao Bank accounts:
-                </Text>
-                <View style={styles.recipientList}>
-                  {otherAccounts.map((acc) => (
-                    <Card
-                      key={acc.account_id}
-                      variant="elevated"
-                      style={styles.recipientItem}
-                      onPress={() => handleSelectOwnAccount(acc)}
-                    >
-                      <View style={styles.recipientIconCircle}>
-                        <UserCheck size={16} color={colors.primary} />
-                      </View>
-                      <View style={styles.recipientInfo}>
-                        <Text variant="bodyStrong" color={colors.ink}>
-                          {acc.type.toUpperCase()} ACCOUNT
-                        </Text>
-                        <Text variant="caption" color={colors.textSecondary} tabularNums>
-                          {acc.account_number} · Available:{' '}
-                          {formatCentavosToPHP(acc.balance)}
-                        </Text>
-                      </View>
-                    </Card>
-                  ))}
-                </View>
-              </View>
-            )}
-
-            {recipientTab === 'new' && (
-              <View style={styles.tabContent}>
-                <TextField
-                  label="Recipient Account Number"
-                  value={recipientAccountNumber}
-                  onChangeText={(val) => {
-                    setRecipientAccountNumber(val);
-                    setRecipientNickname('');
-                  }}
-                  placeholder="e.g. 1020441785"
-                  keyboardType="number-pad"
-                  maxLength={10}
-                />
-
-                <TouchableOpacity
-                  style={styles.checkboxRow}
-                  activeOpacity={0.7}
-                  onPress={() => setShouldSaveRecipient((prev) => !prev)}
-                >
-                  <View
-                    style={[
-                      styles.checkboxBox,
-                      shouldSaveRecipient && styles.checkboxBoxChecked,
-                    ]}
-                  >
-                    {shouldSaveRecipient && (
-                      <BookmarkCheck size={14} color={colors.textInverse} />
-                    )}
-                  </View>
-                  <Text variant="body" color={colors.ink}>
-                    Save this recipient for future transfers
-                  </Text>
-                </TouchableOpacity>
-
-                {shouldSaveRecipient && (
-                  <TextField
-                    label="Recipient Nickname"
-                    value={saveNickname}
-                    onChangeText={setSaveNickname}
-                    placeholder="e.g. Davao Landlord, Sister"
-                    maxLength={40}
-                  />
-                )}
-              </View>
-            )}
-
-            {/* Source Account Info */}
-            <View style={styles.sourceSelector}>
-              <Text
-                variant="label"
-                color={colors.textSecondary}
-                style={styles.fieldLabel}
-              >
-                From Account
-              </Text>
-              <Card variant="subtle" style={styles.accountCard}>
-                <CreditCard size={20} color={colors.primary} />
-                <View style={styles.accountInfo}>
-                  <Text variant="bodyStrong" tabularNums color={colors.ink}>
-                    {selectedAccount?.account_number} ({selectedAccount?.type})
-                  </Text>
-                  <View style={styles.balanceRow}>
-                    <Text variant="caption" color={colors.textSecondary}>
-                      Available:{' '}
-                    </Text>
-                    <AmountText
-                      amountCentavos={selectedAccount?.balance || 0}
-                      hidden={hideBalance}
-                      variant="caption"
-                      color={colors.primary}
-                    />
-                  </View>
-                </View>
-              </Card>
-            </View>
-
-            {recipientTab === 'new' && (
-              <Button
-                title="Continue"
-                onPress={handleNextFromRecipient}
-                style={styles.actionButton}
-              />
-            )}
-
-            {onRequestMoneyPress && (
-              <TouchableOpacity
-                onPress={onRequestMoneyPress}
-                style={{
-                  marginTop: spacing.sm,
-                  alignItems: 'center',
-                  padding: spacing.xs,
-                }}
-                activeOpacity={0.7}
-              >
-                <Text
-                  variant="caption"
-                  color={colors.primary}
-                  style={{ fontWeight: '700' }}
-                >
-                  Need to receive funds? Request money instead &rarr;
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
+          <TransferRecipientStep
+            recipientTab={recipientTab}
+            onTabChange={setRecipientTab}
+            savedRecipients={savedRecipients}
+            otherAccounts={otherAccounts}
+            selectedAccount={selectedAccount}
+            recipientAccountNumber={recipientAccountNumber}
+            onRecipientAccountChange={(val) => {
+              setRecipientAccountNumber(val);
+              setRecipientNickname('');
+            }}
+            shouldSaveRecipient={shouldSaveRecipient}
+            onShouldSaveChange={setShouldSaveRecipient}
+            saveNickname={saveNickname}
+            onSaveNicknameChange={setSaveNickname}
+            hideBalance={hideBalance}
+            onSelectSaved={handleSelectSavedRecipient}
+            onSelectOwn={handleSelectOwnAccount}
+            onContinue={handleNextFromRecipient}
+            onRequestMoneyPress={onRequestMoneyPress}
+          />
         )}
 
         {/* STEP 2: AMOUNT */}
         {step === 'amount' && (
-          <View style={styles.stepContainer}>
-            <AmountInput
-              label="Amount to Transfer"
-              value={amountStr}
-              onChangeText={setAmountStr}
-              presetAmounts={[100, 500, 1000, 5000]}
-              helperText={`Available: ${hideBalance ? '₱••••••' : formatCentavosToPHP(selectedAccount?.balance || 0)}`}
-            />
-
-            <TextField
-              label="Note / Reference (Optional)"
-              value={reference}
-              onChangeText={setReference}
-              placeholder="e.g. Rent, Groceries"
-              maxLength={60}
-            />
-
-            {/* Timing Selector (§C.4) */}
-            <View style={styles.timingSection}>
-              <Text
-                variant="label"
-                color={colors.textSecondary}
-                style={styles.timingLabel}
-              >
-                When to send
-              </Text>
-              <View style={styles.chipRow}>
-                <Chip
-                  label="Now"
-                  selected={timing === 'now'}
-                  onPress={() => setTiming('now')}
-                />
-                <Chip
-                  label="Later"
-                  selected={timing === 'later'}
-                  onPress={() => setTiming('later')}
-                />
-                <Chip
-                  label="Recurring"
-                  selected={timing === 'recurring'}
-                  onPress={() => setTiming('recurring')}
-                />
-              </View>
-            </View>
-
-            {timing !== 'now' && (
-              <TextField
-                label={timing === 'recurring' ? 'Start Date' : 'Scheduled Date'}
-                value={scheduledDate}
-                onChangeText={setScheduledDate}
-                placeholder="YYYY-MM-DD"
-                maxLength={10}
-              />
-            )}
-
-            {timing === 'recurring' && (
-              <View style={styles.recurringFields}>
-                <View style={styles.chipRow}>
-                  <Chip
-                    label="Weekly"
-                    selected={frequency === 'weekly'}
-                    onPress={() => setFrequency('weekly')}
-                  />
-                  <Chip
-                    label="Monthly"
-                    selected={frequency === 'monthly'}
-                    onPress={() => setFrequency('monthly')}
-                  />
-                </View>
-                <TextField
-                  label="Max Runs (optional)"
-                  value={maxRunsStr}
-                  onChangeText={setMaxRunsStr}
-                  placeholder="e.g. 12"
-                  maxLength={3}
-                />
-              </View>
-            )}
-
-            <View style={styles.navRow}>
-              <Button
-                title="Back"
-                variant="ghost"
-                onPress={() => setStep('recipient')}
-                style={styles.backButton}
-              />
-              <Button
-                title="Review"
-                onPress={handleNextFromAmount}
-                style={styles.forwardButton}
-              />
-            </View>
-          </View>
+          <TransferAmountStep
+            amountStr={amountStr}
+            onAmountChange={setAmountStr}
+            reference={reference}
+            onReferenceChange={setReference}
+            selectedAccount={selectedAccount}
+            hideBalance={hideBalance}
+            timing={timing}
+            onTimingChange={setTiming}
+            scheduledDate={scheduledDate}
+            onScheduledDateChange={setScheduledDate}
+            frequency={frequency}
+            onFrequencyChange={setFrequency}
+            maxRunsStr={maxRunsStr}
+            onMaxRunsChange={setMaxRunsStr}
+            onBack={() => setStep('recipient')}
+            onReview={handleNextFromAmount}
+          />
         )}
 
         {/* STEP 3: REVIEW */}
         {step === 'review' && (
-          <View style={styles.stepContainer}>
-            <Card variant="subtle" style={styles.reviewCard}>
-              <View style={styles.reviewHeader}>
-                <Text variant="caption" color={colors.textMuted}>
-                  TOTAL AMOUNT
-                </Text>
-                <AmountText
-                  amountCentavos={centavosAmount}
-                  direction="outgoing"
-                  variant="display"
-                />
-              </View>
-
-              <View style={styles.reviewRow}>
-                <Text variant="body" color={colors.textSecondary}>
-                  From
-                </Text>
-                <Text variant="bodyStrong" tabularNums color={colors.ink}>
-                  {selectedAccount?.account_number}
-                </Text>
-              </View>
-
-              <View style={styles.reviewRow}>
-                <Text variant="body" color={colors.textSecondary}>
-                  To
-                </Text>
-                <Text variant="bodyStrong" tabularNums color={colors.ink}>
-                  {recipientNickname
-                    ? `${recipientNickname} (${recipientAccountNumber})`
-                    : recipientAccountNumber}
-                </Text>
-              </View>
-
-              {reference ? (
-                <View style={styles.reviewRow}>
-                  <Text variant="body" color={colors.textSecondary}>
-                    Note
-                  </Text>
-                  <Text variant="bodyStrong" color={colors.ink}>
-                    {reference}
-                  </Text>
-                </View>
-              ) : null}
-
-              {/* Timing info (§C.4) */}
-              {timing !== 'now' && (
-                <View style={styles.reviewRow}>
-                  <Text variant="body" color={colors.textSecondary}>
-                    {timing === 'recurring' ? 'Starts' : 'Scheduled'}
-                  </Text>
-                  <Text variant="bodyStrong" color={colors.ink}>
-                    {scheduledDate}
-                  </Text>
-                </View>
-              )}
-              {timing === 'recurring' && (
-                <View style={styles.reviewRow}>
-                  <Text variant="body" color={colors.textSecondary}>
-                    Frequency
-                  </Text>
-                  <Text variant="bodyStrong" color={colors.ink}>
-                    {frequency.charAt(0).toUpperCase() + frequency.slice(1)}
-                    {maxRunsStr ? ` · ${maxRunsStr} runs` : ''}
-                  </Text>
-                </View>
-              )}
-
-              {timing === 'now' && (
-                <View style={styles.reviewRow}>
-                  <Text variant="body" color={colors.textSecondary}>
-                    Projected Balance
-                  </Text>
-                  <AmountText
-                    amountCentavos={(selectedAccount?.balance || 0) - centavosAmount}
-                    hidden={hideBalance}
-                    variant="bodyStrong"
-                    color={colors.ink}
-                    showSign={false}
-                  />
-                </View>
-              )}
-            </Card>
-
-            <View style={styles.navRow}>
-              <Button
-                title="Back"
-                variant="ghost"
-                onPress={() => setStep('amount')}
-                style={styles.backButton}
-              />
-              <Button
-                title={
-                  timing === 'now'
-                    ? 'Authorize Transfer'
-                    : timing === 'recurring'
-                      ? 'Schedule Recurring'
-                      : 'Schedule Transfer'
-                }
-                onPress={handleConfirmTransfer}
-                loading={loading}
-                icon={
-                  timing === 'now' ? (
-                    <Send size={18} color={colors.textInverse} />
-                  ) : (
-                    <Calendar size={18} color={colors.textInverse} />
-                  )
-                }
-                style={styles.forwardButton}
-              />
-            </View>
-          </View>
+          <TransferReviewStep
+            centavosAmount={centavosAmount}
+            selectedAccount={selectedAccount}
+            recipientAccountNumber={recipientAccountNumber}
+            recipientNickname={recipientNickname}
+            reference={reference}
+            timing={timing}
+            scheduledDate={scheduledDate}
+            frequency={frequency}
+            maxRunsStr={maxRunsStr}
+            hideBalance={hideBalance}
+            loading={loading}
+            onBack={() => setStep('amount')}
+            onConfirm={handleConfirmTransfer}
+          />
         )}
 
-        {/* STEP 4: SUCCESS (instant transfer) */}
-        {step === 'success' && successResult && (
-          <View style={styles.stepContainer}>
-            <View style={styles.successIconBox}>
-              <CheckCircle2 size={54} color={colors.primary} />
-              <Text variant="h2" align="center" style={styles.successTitle}>
-                Transfer Sent
-              </Text>
-              <AmountText
-                amountCentavos={centavosAmount}
-                direction="outgoing"
-                variant="display"
-              />
-            </View>
-
-            <Card variant="subtle" style={styles.receiptCard}>
-              <View style={styles.receiptRow}>
-                <Text variant="caption" color={colors.textMuted}>
-                  Recipient
-                </Text>
-                <Text variant="bodyStrong" tabularNums color={colors.ink}>
-                  {recipientNickname
-                    ? `${recipientNickname} (${recipientAccountNumber})`
-                    : recipientAccountNumber}
-                </Text>
-              </View>
-              <View style={styles.receiptRow}>
-                <Text variant="caption" color={colors.textMuted}>
-                  Updated Balance
-                </Text>
-                <AmountText
-                  amountCentavos={(selectedAccount?.balance || 0) - centavosAmount}
-                  hidden={hideBalance}
-                  variant="bodyStrong"
-                  color={colors.ink}
-                  showSign={false}
-                />
-              </View>
-              <View style={styles.receiptRow}>
-                <Text variant="caption" color={colors.textMuted}>
-                  Transaction ID
-                </Text>
-                <Text variant="caption" color={colors.textMuted} style={styles.idText}>
-                  {successResult.id}
-                </Text>
-              </View>
-            </Card>
-
-            <Button
-              title="Done"
-              variant="secondary"
-              onPress={resetState}
-              style={styles.actionButton}
-            />
-          </View>
-        )}
-
-        {/* STEP 4: SUCCESS (scheduled transfer) */}
-        {step === 'success' && isScheduledSuccess && !successResult && (
-          <View style={styles.stepContainer}>
-            <View style={styles.successIconBox}>
-              <Calendar size={54} color={colors.primary} />
-              <Text variant="h2" align="center" style={styles.successTitle}>
-                {timing === 'recurring'
-                  ? 'Recurring Transfer Scheduled'
-                  : 'Transfer Scheduled'}
-              </Text>
-              <AmountText
-                amountCentavos={centavosAmount}
-                direction="outgoing"
-                variant="display"
-              />
-            </View>
-
-            <Card variant="subtle" style={styles.receiptCard}>
-              <View style={styles.receiptRow}>
-                <Text variant="caption" color={colors.textMuted}>
-                  Recipient
-                </Text>
-                <Text variant="bodyStrong" tabularNums color={colors.ink}>
-                  {recipientNickname
-                    ? `${recipientNickname} (${recipientAccountNumber})`
-                    : recipientAccountNumber}
-                </Text>
-              </View>
-              <View style={styles.receiptRow}>
-                <Text variant="caption" color={colors.textMuted}>
-                  {timing === 'recurring' ? 'Starting' : 'Scheduled for'}
-                </Text>
-                <Text variant="bodyStrong" color={colors.ink}>
-                  {scheduledDate}
-                </Text>
-              </View>
-              {timing === 'recurring' && (
-                <View style={styles.receiptRow}>
-                  <Text variant="caption" color={colors.textMuted}>
-                    Frequency
-                  </Text>
-                  <Text variant="bodyStrong" color={colors.ink}>
-                    {frequency.charAt(0).toUpperCase() + frequency.slice(1)}
-                  </Text>
-                </View>
-              )}
-            </Card>
-
-            <Button
-              title="Done"
-              variant="secondary"
-              onPress={resetState}
-              style={styles.actionButton}
-            />
-          </View>
+        {/* STEP 4: SUCCESS */}
+        {step === 'success' && (
+          <TransferSuccessStep
+            successResult={successResult}
+            isScheduledSuccess={isScheduledSuccess}
+            timing={timing}
+            scheduledDate={scheduledDate}
+            frequency={frequency}
+            centavosAmount={centavosAmount}
+            recipientNickname={recipientNickname}
+            recipientAccountNumber={recipientAccountNumber}
+            selectedAccountBalance={selectedAccount?.balance || 0}
+            hideBalance={hideBalance}
+            onDone={resetState}
+          />
         )}
       </ScrollView>
     </BottomSheet>
@@ -954,64 +445,6 @@ const styles = StyleSheet.create({
   container: {
     paddingBottom: spacing.xl,
     gap: spacing.base,
-  },
-  stepContainer: {
-    gap: spacing.base,
-  },
-  tabGrid: {
-    flexDirection: 'row',
-    gap: spacing.xs,
-    flexWrap: 'wrap',
-  },
-  tabContent: {
-    gap: spacing.sm,
-    marginTop: spacing.xs,
-  },
-  emptyCard: {
-    padding: spacing.md,
-    borderRadius: radius.md,
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  recipientList: {
-    gap: spacing.xs,
-  },
-  recipientItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: spacing.md,
-    borderRadius: radius.md,
-    gap: spacing.md,
-  },
-  recipientIconCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.primaryTint,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  recipientInfo: {
-    flex: 1,
-  },
-  checkboxRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginVertical: spacing.xs,
-  },
-  checkboxBox: {
-    width: 20,
-    height: 20,
-    borderRadius: 4,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkboxBoxChecked: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
   },
   errorCard: {
     flexDirection: 'row',
@@ -1024,93 +457,5 @@ const styles = StyleSheet.create({
   },
   errorText: {
     flex: 1,
-  },
-  sourceSelector: {
-    gap: spacing.xs,
-  },
-  fieldLabel: {
-    marginBottom: spacing.xs,
-  },
-  accountCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: spacing.md,
-    borderRadius: radius.md,
-    gap: spacing.md,
-  },
-  accountInfo: {
-    flex: 1,
-  },
-  balanceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  actionButton: {
-    marginTop: spacing.md,
-    width: '100%',
-  },
-  navRow: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    marginTop: spacing.md,
-  },
-  backButton: {
-    flex: 1,
-  },
-  forwardButton: {
-    flex: 2,
-  },
-  reviewCard: {
-    padding: spacing.base,
-    borderRadius: radius.lg,
-    gap: spacing.md,
-  },
-  reviewHeader: {
-    alignItems: 'center',
-    paddingBottom: spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-  },
-  reviewRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  successIconBox: {
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-    gap: spacing.xs,
-  },
-  successTitle: {
-    marginTop: spacing.xs,
-  },
-  receiptCard: {
-    padding: spacing.base,
-    borderRadius: radius.md,
-    gap: spacing.sm,
-  },
-  receiptRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  idText: {
-    fontFamily: 'monospace',
-    fontSize: 11,
-  },
-  timingSection: {
-    marginTop: spacing.sm,
-  },
-  timingLabel: {
-    marginBottom: spacing.xs,
-  },
-  chipRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    flexWrap: 'wrap',
-  },
-  recurringFields: {
-    gap: spacing.sm,
-    marginTop: spacing.xs,
   },
 });

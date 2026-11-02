@@ -121,17 +121,7 @@ export function MobileNavToggle({ onToggle }: { onToggle: () => void }) {
   return (
     <button
       onClick={onToggle}
-      style={{
-        background: 'none',
-        border: '1px solid var(--color-border)',
-        borderRadius: 'var(--radius-md)',
-        padding: '0.5rem',
-        cursor: 'pointer',
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        color: 'var(--color-ink)',
-      }}
+      className={styles.mobileToggle}
       aria-label="Toggle navigation menu"
     >
       <Menu size={20} />

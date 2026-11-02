@@ -2,31 +2,20 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import {
-  Plus,
-  Zap,
-  Droplets,
-  Wifi,
-  Smartphone,
-  HelpCircle,
-  CheckCircle2,
-  XCircle,
-  Power,
-  ShieldAlert,
-} from 'lucide-react';
-import { type BillerCategory } from '@davao-bank/shared';
-import { adminCreateBillerAction, adminSetBillerActiveAction } from '../actions';
+import { Zap, Droplets, Wifi, Smartphone, HelpCircle, Plus, Power } from 'lucide-react';
+import { BillerCategory } from '@davao-bank/shared';
+import { createAdminBrowserClient } from '@/lib/supabase-browser';
 import {
   Table,
-  FilterBar,
+  Button,
+  Badge,
+  Drawer,
   Input,
   Select,
-  Badge,
-  Button,
-  Drawer,
-  Card,
+  FilterBar,
   EmptyState,
 } from '@/components/ui';
+import styles from './Billers.module.css';
 
 export interface AdminBillerRow {
   id: string;
@@ -34,9 +23,8 @@ export interface AdminBillerRow {
   category: BillerCategory;
   account_id: string;
   account_number: string;
-  account_status: string;
-  reference_label: string;
   reference_pattern: string;
+  reference_label: string;
   is_active: boolean;
   created_at: string;
 }
@@ -51,78 +39,70 @@ export function BillersClient({ initialBillers }: BillersClientProps) {
   const [categoryFilter, setCategoryFilter] = useState<'all' | BillerCategory>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
 
-  // Create Biller Modal / Drawer State
+  // New Biller Drawer
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [createName, setCreateName] = useState('');
   const [createCategory, setCreateCategory] = useState<BillerCategory>('electricity');
-  const [createRefLabel, setCreateRefLabel] = useState('Account Number');
   const [createRefPattern, setCreateRefPattern] = useState('^[0-9]{10}$');
+  const [createRefLabel, setCreateRefLabel] = useState('Account Number');
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
-  // Status toggle state
+  // Toggle active status loading state
   const [togglingId, setTogglingId] = useState<string | null>(null);
-
-  const handleCreateBiller = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!createName.trim()) {
-      setCreateError('Biller name is required.');
-      return;
-    }
-    if (!createRefPattern.trim()) {
-      setCreateError('Validation regex pattern is required.');
-      return;
-    }
-
-    try {
-      // Validate that pattern is valid regex
-      new RegExp(createRefPattern.trim());
-    } catch {
-      setCreateError('Invalid regular expression pattern.');
-      return;
-    }
-
-    setCreating(true);
-    setCreateError(null);
-
-    try {
-      const res = await adminCreateBillerAction(
-        createName.trim(),
-        createCategory,
-        createRefLabel.trim(),
-        createRefPattern.trim()
-      );
-
-      if (res.success) {
-        setIsCreateOpen(false);
-        setCreateName('');
-        setCreateRefLabel('Account Number');
-        setCreateRefPattern('^[0-9]{10}$');
-        router.refresh();
-      } else {
-        setCreateError(res.error || 'Failed to create biller');
-      }
-    } catch (err: any) {
-      setCreateError(err?.message || 'Failed to create biller');
-    } finally {
-      setCreating(false);
-    }
-  };
 
   const handleToggleActive = async (biller: AdminBillerRow) => {
     setTogglingId(biller.id);
-    try {
-      const res = await adminSetBillerActiveAction(biller.id, !biller.is_active);
-      if (res.success) {
-        router.refresh();
-      } else {
-        alert(res.error || 'Failed to change biller status');
-      }
-    } catch (err: any) {
-      alert(err?.message || 'Failed to change biller status');
-    } finally {
-      setTogglingId(null);
+    const supabase = createAdminBrowserClient();
+    const { error } = await supabase
+      .from('billers')
+      .update({ is_active: !biller.is_active })
+      .eq('id', biller.id);
+
+    setTogglingId(null);
+
+    if (error) {
+      alert(`Failed to update biller: ${error.message}`);
+      return;
     }
+
+    router.refresh();
+  };
+
+  const handleCreateBiller = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCreating(true);
+    setCreateError(null);
+
+    // Validate regex before sending
+    try {
+      new RegExp(createRefPattern);
+    } catch (err: any) {
+      setCreateError(`Invalid regular expression: ${err.message}`);
+      setCreating(false);
+      return;
+    }
+
+    const supabase = createAdminBrowserClient();
+    const { error } = await supabase.rpc('admin_register_biller', {
+      p_name: createName.trim(),
+      p_category: createCategory,
+      p_reference_pattern: createRefPattern.trim(),
+      p_reference_label: createRefLabel.trim(),
+    });
+
+    setCreating(false);
+
+    if (error) {
+      setCreateError(error.message);
+      return;
+    }
+
+    setIsCreateOpen(false);
+    setCreateName('');
+    setCreateRefPattern('^[0-9]{10}$');
+    setCreateRefLabel('Account Number');
+    router.refresh();
   };
 
   const filteredBillers = initialBillers.filter((b) => {
@@ -144,15 +124,15 @@ export function BillersClient({ initialBillers }: BillersClientProps) {
   const getCategoryIcon = (category: BillerCategory) => {
     switch (category) {
       case 'electricity':
-        return <Zap size={14} color="#d97706" />;
+        return <Zap size={14} className={styles.iconElectricity} />;
       case 'water':
-        return <Droplets size={14} color="#0284c7" />;
+        return <Droplets size={14} className={styles.iconWater} />;
       case 'internet':
-        return <Wifi size={14} color="#7c3aed" />;
+        return <Wifi size={14} className={styles.iconInternet} />;
       case 'mobile':
-        return <Smartphone size={14} color="#059669" />;
+        return <Smartphone size={14} className={styles.iconMobile} />;
       default:
-        return <HelpCircle size={14} color="#6b7280" />;
+        return <HelpCircle size={14} className={styles.iconDefault} />;
     }
   };
 
@@ -162,8 +142,8 @@ export function BillersClient({ initialBillers }: BillersClientProps) {
       header: 'Biller Name',
       render: (b: AdminBillerRow) => (
         <div>
-          <div style={{ fontWeight: 700 }}>{b.name}</div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>
+          <div className={styles.billerName}>{b.name}</div>
+          <div className={styles.billerAdded}>
             Added: {new Date(b.created_at).toLocaleDateString()}
           </div>
         </div>
@@ -173,16 +153,7 @@ export function BillersClient({ initialBillers }: BillersClientProps) {
       key: 'category',
       header: 'Category',
       render: (b: AdminBillerRow) => (
-        <span
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px',
-            fontSize: '0.8125rem',
-            fontWeight: 600,
-            textTransform: 'capitalize',
-          }}
-        >
+        <span className={styles.categoryBadge}>
           {getCategoryIcon(b.category)}
           {b.category}
         </span>
@@ -193,14 +164,8 @@ export function BillersClient({ initialBillers }: BillersClientProps) {
       header: 'Settlement Account',
       render: (b: AdminBillerRow) => (
         <div>
-          <span
-            style={{ fontFamily: 'monospace', fontWeight: 600, fontSize: '0.875rem' }}
-          >
-            {b.account_number}
-          </span>
-          <div style={{ fontSize: '0.72rem', color: 'var(--color-text-secondary)' }}>
-            System checking account
-          </div>
+          <span className={styles.settlementAccount}>{b.account_number}</span>
+          <div className={styles.settlementSub}>System checking account</div>
         </div>
       ),
     },
@@ -209,20 +174,8 @@ export function BillersClient({ initialBillers }: BillersClientProps) {
       header: 'Reference Validation',
       render: (b: AdminBillerRow) => (
         <div>
-          <div style={{ fontWeight: 600, fontSize: '0.8125rem' }}>
-            {b.reference_label}
-          </div>
-          <code
-            style={{
-              fontSize: '0.72rem',
-              backgroundColor: 'rgba(0, 0, 0, 0.05)',
-              padding: '2px 6px',
-              borderRadius: '4px',
-              color: 'var(--color-text-secondary)',
-            }}
-          >
-            {b.reference_pattern}
-          </code>
+          <div className={styles.refLabel}>{b.reference_label}</div>
+          <code className={styles.refCode}>{b.reference_pattern}</code>
         </div>
       ),
     },
@@ -241,7 +194,7 @@ export function BillersClient({ initialBillers }: BillersClientProps) {
       header: 'Actions',
       align: 'right' as const,
       render: (b: AdminBillerRow) => (
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <div className={styles.actionsCell}>
           <Button
             size="sm"
             variant={b.is_active ? 'secondary' : 'primary'}
@@ -259,18 +212,9 @@ export function BillersClient({ initialBillers }: BillersClientProps) {
   return (
     <div>
       {/* Top Banner and Add Biller Button */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '1rem',
-          flexWrap: 'wrap',
-          gap: '1rem',
-        }}
-      >
+      <div className={styles.headerBanner}>
         <div>
-          <span style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>
+          <span className={styles.headerCount}>
             Configured Billers: <strong>{initialBillers.length}</strong> (
             {initialBillers.filter((b) => b.is_active).length} active)
           </span>
@@ -290,7 +234,7 @@ export function BillersClient({ initialBillers }: BillersClientProps) {
 
       {/* Filter Bar */}
       <FilterBar>
-        <div style={{ flex: 1, minWidth: '220px' }}>
+        <div className={styles.filterSearch}>
           <Input
             placeholder="Search by biller name, account, label..."
             value={searchTerm}
@@ -341,41 +285,16 @@ export function BillersClient({ initialBillers }: BillersClientProps) {
         onClose={() => setIsCreateOpen(false)}
         title="Register New Biller"
       >
-        <form
-          onSubmit={handleCreateBiller}
-          style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}
-        >
-          <p style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>
+        <form onSubmit={handleCreateBiller} className={styles.drawerForm}>
+          <p className={styles.drawerDesc}>
             Registering a biller will automatically provision an official Davao Bank
             settlement checking account under the secure system profile.
           </p>
 
-          {createError && (
-            <div
-              style={{
-                padding: '0.75rem',
-                borderRadius: 'var(--radius-sm)',
-                backgroundColor: 'var(--color-error-bg, #fde8e8)',
-                border: '1px solid var(--color-error-border, #f98080)',
-                color: 'var(--color-error, #d32f2f)',
-                fontSize: '0.85rem',
-              }}
-            >
-              {createError}
-            </div>
-          )}
+          {createError && <div className={styles.errorBox}>{createError}</div>}
 
           <div>
-            <label
-              style={{
-                display: 'block',
-                fontSize: '0.8125rem',
-                fontWeight: 600,
-                marginBottom: '0.375rem',
-              }}
-            >
-              Biller Name
-            </label>
+            <label className={styles.fieldLabel}>Biller Name</label>
             <Input
               placeholder="e.g. Davao Solar Cooperative (demo)"
               value={createName}
@@ -385,16 +304,7 @@ export function BillersClient({ initialBillers }: BillersClientProps) {
           </div>
 
           <div>
-            <label
-              style={{
-                display: 'block',
-                fontSize: '0.8125rem',
-                fontWeight: 600,
-                marginBottom: '0.375rem',
-              }}
-            >
-              Category
-            </label>
+            <label className={styles.fieldLabel}>Category</label>
             <Select
               value={createCategory}
               onChange={(e) => setCreateCategory(e.target.value as BillerCategory)}
@@ -409,14 +319,7 @@ export function BillersClient({ initialBillers }: BillersClientProps) {
           </div>
 
           <div>
-            <label
-              style={{
-                display: 'block',
-                fontSize: '0.8125rem',
-                fontWeight: 600,
-                marginBottom: '0.375rem',
-              }}
-            >
+            <label className={styles.fieldLabel}>
               Reference Label (shown to customer)
             </label>
             <Input
@@ -428,14 +331,7 @@ export function BillersClient({ initialBillers }: BillersClientProps) {
           </div>
 
           <div>
-            <label
-              style={{
-                display: 'block',
-                fontSize: '0.8125rem',
-                fontWeight: 600,
-                marginBottom: '0.375rem',
-              }}
-            >
+            <label className={styles.fieldLabel}>
               Reference Pattern (Regular Expression)
             </label>
             <Input
@@ -444,27 +340,16 @@ export function BillersClient({ initialBillers }: BillersClientProps) {
               onChange={(e) => setCreateRefPattern(e.target.value)}
               required
             />
-            <span
-              style={{
-                fontSize: '0.72rem',
-                color: 'var(--color-text-secondary)',
-                marginTop: '4px',
-                display: 'block',
-              }}
-            >
-              Must be valid regex. Example: <code>^[0-9]&#123;10&#125;$</code> for 10
-              digits.
+            <span className={styles.fieldHelp}>
+              Must be valid regex. Example:{' '}
+              <code>
+                ^[0-9]{'{'}10{'}'}$
+              </code>{' '}
+              for 10 digits.
             </span>
           </div>
 
-          <div
-            style={{
-              marginTop: '1rem',
-              display: 'flex',
-              gap: '0.75rem',
-              justifyContent: 'flex-end',
-            }}
-          >
+          <div className={styles.drawerActions}>
             <Button
               type="button"
               variant="secondary"

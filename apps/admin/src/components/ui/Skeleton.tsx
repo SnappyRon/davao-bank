@@ -16,15 +16,12 @@ export function Skeleton({
   className,
   style,
 }: SkeletonProps) {
-  return (
-    <div
-      className={`${styles.skeleton} ${className || ''}`}
-      style={{
-        width,
-        height,
-        borderRadius,
-        ...style,
-      }}
-    />
-  );
+  const customStyle: React.CSSProperties = {
+    width,
+    height,
+    borderRadius,
+    ...style,
+  };
+
+  return <div className={`${styles.skeleton} ${className || ''}`} style={customStyle} />;
 }
