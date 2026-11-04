@@ -1,0 +1,22 @@
+flowchart LR
+  AD(["Administrator"])
+  CR(["pg_cron scheduler"])
+  subgraph W["Staff admin console and backend jobs"]
+    direction TB
+    A1(["Sign in (admin role only)"])
+    A2(["View dashboard figures"])
+    A3(["Suspend or reactivate a user"])
+    A4(["Open, freeze or close an account"])
+    A5(["Adjust a balance with a reason"])
+    A6(["Reverse a transfer"])
+    A7(["Monitor transactions and requests"])
+    A8(["Run due schedules now, cancel a schedule"])
+    A9(["Create a biller"])
+    A10(["Review audit log, export CSV"])
+    X1(["Execute due scheduled payments"])
+    X2(["Expire old payment requests"])
+    X3(["Sync FX reference rates"])
+  end
+  AD --- A1 & A2 & A3 & A4 & A5
+  AD --- A6 & A7 & A8 & A9 & A10
+  CR --- X1 & X2 & X3

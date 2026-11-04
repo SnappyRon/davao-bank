@@ -65,7 +65,9 @@ export function Sidebar({ adminEmail, adminName }: SidebarProps) {
       <aside className={`${styles.sidebar} ${mobileOpen ? styles.mobileOpen : ''}`}>
         <div className={styles.brandHeader}>
           <Link href="/" className={styles.brandLogoRow}>
-            <div className={styles.logoPlaceholder}>DB</div>
+            <div className={styles.logoPlaceholder}>
+              <img src="/brand/davao-bank-mark.svg" alt="" width={34} height={34} />
+            </div>
             <div>
               <div className={styles.brandName}>Davao Bank</div>
               <div className={styles.consoleBadge}>STAFF CONSOLE</div>
@@ -108,8 +110,7 @@ export function Sidebar({ adminEmail, adminName }: SidebarProps) {
           </button>
 
           <p className={styles.creditText}>
-            Kadayawan logo used with permission of the Davao City Tourism Operations
-            Office.
+            Mt. Apo emblem: original artwork for Davao Bank, inspired by Kadayawan.
           </p>
         </div>
       </aside>

@@ -142,6 +142,55 @@ r=await cust(U.A,`insert into payment_requests(requester_id,requester_account,pa
 r=await cust(U.A,`select count(*)::int n from fx_rates`); ok('Customers can read fx_rates', one(r)===768, String(one(r)));
 r=await cust(U.A,`insert into fx_rates(base,quote,rate_date,rate,source) values('USD','PHP','2030-01-01',1,'x')`); ok('Customers cannot write fx_rates', !!r.err);
 
+// ---- Stage B: Function Grants & RLS Hardening
+const anonTransfer = await as('anon', null, `select transfer($1, $2, 1000, 'anon-key', 'hacked')`, [A.id, B.id]);
+ok('Anon RPC to transfer rejected with permission denied', !!anonTransfer.err && /permission denied/.test(anonTransfer.err), anonTransfer.err||'');
+
+const anonDeposit = await as('anon', null, `select deposit($1, 1000, 'anon-dep', 'hacked')`, [A.id]);
+ok('Anon RPC to deposit rejected with permission denied', !!anonDeposit.err && /permission denied/.test(anonDeposit.err), anonDeposit.err||'');
+
+const anonBillers = await as('anon', null, `select * from billers`);
+ok('Anon cannot read billers (RLS deny)', !anonBillers.err && (!anonBillers.rows || anonBillers.rows.length === 0));
+
+const anonFx = await as('anon', null, `select * from fx_rates`);
+ok('Anon cannot read fx_rates (RLS deny)', !anonFx.err && (!anonFx.rows || anonFx.rows.length === 0));
+
+// RLS Audit: 1. All public tables have RLS enabled
+const unsecureTables = await su(`
+  select c.relname
+  from pg_class c
+  join pg_namespace n on n.oid = c.relnamespace
+  where n.nspname = 'public' and c.relkind = 'r' and c.relrowsecurity = false
+`);
+ok('RLS Audit: all public tables enable row-level security', unsecureTables.length === 0, unsecureTables.map(t=>t.relname).join(','));
+
+// RLS Audit: 2. No policy uses literal true outside health_check
+const unsecurePolicies = await su(`
+  select c.relname as table_name, pol.polname as policy_name, pg_get_expr(pol.polqual, pol.polrelid) as qual
+  from pg_policy pol
+  join pg_class c on c.oid = pol.polrelid
+  join pg_namespace n on n.oid = c.relnamespace
+  where n.nspname = 'public'
+    and pg_get_expr(pol.polqual, pol.polrelid) = 'true'
+    and c.relname not in ('health_check')
+`);
+ok('RLS Audit: no policies use using (true) outside health_check', unsecurePolicies.length === 0, unsecurePolicies.map(p=>`${p.table_name}.${p.policy_name}`).join(','));
+
+// RLS Audit: 3. Neither fx_rates nor billers allow anon
+const leakedRoles = await su(`
+  select c.relname as table_name, pol.polname as policy_name
+  from pg_policy pol
+  join pg_class c on c.oid = pol.polrelid
+  join pg_namespace n on n.oid = c.relnamespace
+  where n.nspname = 'public'
+    and c.relname in ('billers', 'fx_rates')
+    and (
+      pol.polroles = '{0}'::oid[]
+      or exists (select 1 from pg_roles r where r.oid = any(pol.polroles) and r.rolname = 'anon')
+    )
+`);
+ok('RLS Audit: neither billers nor fx_rates allow anon reads', leakedRoles.length === 0, leakedRoles.map(p=>`${p.table_name}.${p.policy_name}`).join(','));
+
 // ---- Reconciliation
 const rec=await reconcile();
 ok('Reconciliation: every transfer/reversal/bill nets to zero', Number(rec.unbalanced)===0, JSON.stringify(rec));

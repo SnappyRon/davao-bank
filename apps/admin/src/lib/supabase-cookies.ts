@@ -34,7 +34,12 @@ export async function createAdminCookieServerClient() {
         setAll(cookiesToSet: CookieItem[]) {
           try {
             cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
+              cookieStore.set(name, value, {
+                ...options,
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'lax',
+              })
             );
           } catch {
             // Cannot set cookies from Server Components (handled by middleware)

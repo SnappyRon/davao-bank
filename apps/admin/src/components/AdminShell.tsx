@@ -1,8 +1,10 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Menu } from 'lucide-react';
 import { Sidebar } from './ui/Sidebar';
+import { ConfirmDialog } from './ui/ConfirmDialog';
+import { createAdminBrowserClient } from '../lib/supabase-browser';
 import styles from './AdminShell.module.css';
 
 interface AdminShellProps {
@@ -11,7 +13,61 @@ interface AdminShellProps {
   children: React.ReactNode;
 }
 
+const IDLE_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
+const WARNING_TIMEOUT_MS = 14 * 60 * 1000; // 14 minutes (1-minute warning)
+
 export function AdminShell({ adminEmail, adminName, children }: AdminShellProps) {
+  const [showWarning, setShowWarning] = useState(false);
+  const lastActiveRef = useRef<number>(Date.now());
+
+  const resetActivity = useCallback(() => {
+    lastActiveRef.current = Date.now();
+    setShowWarning(false);
+  }, []);
+
+  const handleSignOut = useCallback(async () => {
+    try {
+      const supabase = createAdminBrowserClient();
+      await supabase.auth.signOut();
+    } catch {
+      // Ignore cleanup errors
+    } finally {
+      window.location.href = '/login?reason=idle_timeout';
+    }
+  }, []);
+
+  useEffect(() => {
+    const events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'];
+    const handleUserActivity = () => {
+      // If warning is not active, bump activity timestamp
+      if (!showWarning) {
+        lastActiveRef.current = Date.now();
+      }
+    };
+
+    events.forEach((event) => {
+      window.addEventListener(event, handleUserActivity, { passive: true });
+    });
+
+    const interval = setInterval(() => {
+      const elapsed = Date.now() - lastActiveRef.current;
+      if (elapsed >= IDLE_TIMEOUT_MS) {
+        handleSignOut();
+      } else if (elapsed >= WARNING_TIMEOUT_MS) {
+        setShowWarning(true);
+      } else {
+        setShowWarning(false);
+      }
+    }, 5000);
+
+    return () => {
+      events.forEach((event) => {
+        window.removeEventListener(event, handleUserActivity);
+      });
+      clearInterval(interval);
+    };
+  }, [showWarning, handleSignOut]);
+
   return (
     <div className={styles.shell}>
       <Sidebar adminEmail={adminEmail} adminName={adminName} />
@@ -36,6 +92,17 @@ export function AdminShell({ adminEmail, adminName, children }: AdminShellProps)
 
         <main className={styles.mainContent}>{children}</main>
       </div>
+
+      <ConfirmDialog
+        isOpen={showWarning}
+        onClose={resetActivity}
+        onConfirm={resetActivity}
+        title="Session Inactivity Warning"
+        description="For security compliance, staff sessions expire after 15 minutes of inactivity. Your session will be closed in 1 minute."
+        confirmText="Stay Signed In"
+        variant="warning"
+        requireReason={false}
+      />
     </div>
   );
 }

@@ -133,6 +133,27 @@ async function runTests() {
     anonLedgerInsertError?.message
   );
 
+  // 1.5 Anon RPC to money function transfer is rejected with permission denied (Stage B)
+  const { error: anonRpcErr } = await anonClient.rpc('transfer', {
+    p_from_account: '11111111-1111-1111-1111-111111111111',
+    p_to_account: '22222222-2222-2222-2222-222222222222',
+    p_amount: 1000,
+    p_idempotency_key: 'anon-probe',
+    p_reference: 'anon hack',
+  } as any);
+  assert(
+    Boolean(anonRpcErr) && /permission denied/i.test(anonRpcErr?.message || ''),
+    'Anon RPC to transfer rejected with permission denied',
+    anonRpcErr?.message
+  );
+
+  // 1.6 Anon reading billers is blocked by RLS (Stage B)
+  const { data: anonBillers } = await anonClient.from('billers').select('*');
+  assert(
+    !anonBillers || anonBillers.length === 0,
+    'Anon cannot read billers table (returns 0 rows)'
+  );
+
   // 2. Customer A & Customer B Isolation Checks
   console.log('\n[2/4] Testing Customer A vs Customer B Data Isolation...');
   const customerAClient = createClient(SUPABASE_URL, ANON_KEY, {

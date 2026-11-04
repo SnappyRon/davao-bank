@@ -1,5 +1,11 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, StyleSheet, ActivityIndicator } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  ActivityIndicator,
+  AppState,
+  type AppStateStatus,
+} from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -57,6 +63,14 @@ export default function App() {
   const [authScreen, setAuthScreen] = useState<AuthScreenState>('login');
   const [targetEmail, setTargetEmail] = useState<string>('');
   const [unreadCount, setUnreadCount] = useState<number>(0);
+  const [isAppInactive, setIsAppInactive] = useState<boolean>(false);
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (nextState: AppStateStatus) => {
+      setIsAppInactive(nextState === 'inactive' || nextState === 'background');
+    });
+    return () => sub.remove();
+  }, []);
 
   const loadProfile = useCallback(async (userId: string) => {
     try {
@@ -275,6 +289,18 @@ export default function App() {
           </Tab.Screen>
         </Tab.Navigator>
       </NavigationContainer>
+
+      {isAppInactive && (
+        <View style={styles.privacyOverlay}>
+          <Logo size={64} />
+          <Text variant="title" style={styles.privacyTitle}>
+            Davao Bank
+          </Text>
+          <Text variant="caption" style={styles.privacySubtitle}>
+            Secured Banking Session
+          </Text>
+        </View>
+      )}
     </SettingsProvider>
   );
 }
@@ -291,6 +317,21 @@ const styles = StyleSheet.create({
   },
   splashLoader: {
     marginTop: spacing.xl,
+  },
+  privacyOverlay: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: colors.canvas,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 999999,
+  },
+  privacyTitle: {
+    marginTop: spacing.md,
+    color: colors.primary,
+  },
+  privacySubtitle: {
+    marginTop: spacing.xs,
+    color: colors.textSecondary,
   },
   tabBar: {
     backgroundColor: colors.surface,

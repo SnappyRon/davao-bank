@@ -1,7 +1,11 @@
 import React from 'react';
-import { View, StyleSheet, type ViewStyle } from 'react-native';
-import { colors, radius, spacing } from '@davao-bank/shared';
+import { Image, View, StyleSheet, type ViewStyle } from 'react-native';
+import { colors, spacing } from '@davao-bank/shared';
 import { Text } from './Text';
+
+// Davao Bank emblem: Mt. Apo over a woven Kadayawan band (source: packages/shared/assets/brand).
+// eslint-disable-next-line @typescript-eslint/no-require-imports -- React Native static image asset
+const mark = require('../../assets/brand/logo-mark.png');
 
 export interface LogoProps {
   variant?: 'mark' | 'horizontal';
@@ -10,23 +14,24 @@ export interface LogoProps {
 }
 
 export function Logo({ variant = 'mark', size = 40, style }: LogoProps) {
+  const emblem = (
+    <Image
+      source={mark}
+      style={{ width: size, height: size }}
+      resizeMode="contain"
+      accessibilityIgnoresInvertColors
+    />
+  );
+
   if (variant === 'horizontal') {
     return (
-      <View style={[styles.horizontalContainer, style]}>
-        <View
-          style={[
-            styles.placeholderMark,
-            { width: size, height: size, borderRadius: size * 0.28 },
-          ]}
-        >
-          <Text
-            variant="caption"
-            color={colors.ink}
-            style={[styles.placeholderText, { fontSize: size * 0.3 }]}
-          >
-            LOGO
-          </Text>
-        </View>
+      <View
+        style={[styles.horizontalContainer, style]}
+        accessible
+        accessibilityRole="image"
+        accessibilityLabel="Davao Bank"
+      >
+        {emblem}
         <Text
           variant="h2"
           color={colors.primary}
@@ -40,19 +45,12 @@ export function Logo({ variant = 'mark', size = 40, style }: LogoProps) {
 
   return (
     <View
-      style={[
-        styles.placeholderMark,
-        { width: size, height: size, borderRadius: size * 0.28 },
-        style,
-      ]}
+      style={style}
+      accessible
+      accessibilityRole="image"
+      accessibilityLabel="Davao Bank"
     >
-      <Text
-        variant="caption"
-        color={colors.ink}
-        style={[styles.placeholderText, { fontSize: size * 0.3 }]}
-      >
-        LOGO
-      </Text>
+      {emblem}
     </View>
   );
 }
@@ -62,17 +60,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-  },
-  placeholderMark: {
-    backgroundColor: colors.surfaceSubtle,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  placeholderText: {
-    fontWeight: '800',
-    letterSpacing: 0.5,
   },
   brandTitle: {
     fontWeight: '800',

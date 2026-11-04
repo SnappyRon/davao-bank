@@ -1,0 +1,20 @@
+erDiagram
+  PROFILES ||--o{ SAVED_RECIPIENTS : keeps
+  PROFILES ||--o{ SCHEDULED_PAYMENTS : creates
+  PROFILES ||--o{ PAYMENT_REQUESTS : "requests / pays"
+  BILLERS ||--|| ACCOUNTS : "settles into"
+  BILLERS ||--o{ BILL_PAYMENTS : receives
+  TRANSACTIONS ||--o| BILL_PAYMENTS : "detail"
+  ACCOUNTS ||--o{ SCHEDULED_PAYMENTS : "from / to"
+  BILLERS |o--o{ SCHEDULED_PAYMENTS : "bill target"
+  SCHEDULED_PAYMENTS ||--o{ SCHEDULED_PAYMENT_RUNS : "one run per date"
+  TRANSACTIONS |o--o| SCHEDULED_PAYMENT_RUNS : "result"
+  ACCOUNTS ||--o{ PAYMENT_REQUESTS : "credited to"
+  TRANSACTIONS |o--o| PAYMENT_REQUESTS : "settled by"
+  SAVED_RECIPIENTS { uuid id PK uuid owner_id FK text account_number "no FK" text nickname "1-40 chars" }
+  BILLERS { uuid id PK text name UK text category uuid account_id FK text reference_label text reference_pattern boolean is_active }
+  BILL_PAYMENTS { uuid id PK uuid transaction_id FK uuid biller_id FK uuid payer_account FK text biller_reference }
+  SCHEDULED_PAYMENTS { uuid id PK uuid owner_id FK uuid from_account FK text kind "transfer, bill" uuid to_account FK uuid biller_id FK bigint amount text frequency "once, weekly, monthly" date next_run_date int runs_done text status }
+  SCHEDULED_PAYMENT_RUNS { uuid id PK uuid schedule_id FK date run_date text status "completed, failed" uuid transaction_id FK text failure_reason }
+  PAYMENT_REQUESTS { uuid id PK uuid requester_id FK uuid requester_account FK text payer_account_number uuid payer_user_id FK bigint amount text status timestamptz expires_at }
+  FX_RATES { text base PK text quote PK date rate_date PK numeric rate text source }

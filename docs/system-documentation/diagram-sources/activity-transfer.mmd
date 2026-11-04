@@ -1,0 +1,19 @@
+flowchart TB
+  S(["Tap Transfer"]) --> R["Choose recipient"]
+  R --> V1{"Valid, not same<br/>account?"}
+  V1 -- No --> R
+  V1 -- Yes --> AM["Amount, note, timing"]
+  AM --> V2{"0 < amount<br/>≤ balance?"}
+  V2 -- No --> AM
+  V2 -- Yes --> K["Create idempotency key"] --> RV["Review"]
+  RV --> AU{"Biometric or<br/>password OK?"}
+  AU -- No --> RV
+  AU -- Yes --> T{"Timing?"}
+  T -- Now --> RPC["rpc transfer"]
+  T -- Later --> SCH["rpc create schedule"]
+  RPC --> ENG["_transfer_core: lock, check<br/>status, funds, limit, key"]
+  ENG --> OK{"Committed?"}
+  OK -- No --> E4["Error shown,<br/>no money moved"] -.-> RV
+  OK -- Yes --> W["Transaction, transfer, debit +<br/>credit, audit, notifications"]
+  W --> DONE(["Result screen"])
+  SCH --> DONE2(["Schedule saved"])

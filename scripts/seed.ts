@@ -29,6 +29,8 @@ const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
   },
 });
 
+const SEED_PASSWORD = process.env.SEED_PASSWORD || 'Password123!';
+
 interface SeedUserConfig {
   email: string;
   password: string;
@@ -41,13 +43,13 @@ interface SeedUserConfig {
 const SEED_USERS: SeedUserConfig[] = [
   {
     email: 'admin@davaobank.ph',
-    password: 'Password123!',
+    password: SEED_PASSWORD,
     fullName: 'Davao Bank Administrator',
     role: 'admin',
   },
   {
     email: 'customer1@davaobank.ph',
-    password: 'Password123!',
+    password: SEED_PASSWORD,
     fullName: 'Juan dela Cruz',
     phone: '+639171234567',
     role: 'customer',
@@ -55,7 +57,7 @@ const SEED_USERS: SeedUserConfig[] = [
   },
   {
     email: 'customer2@davaobank.ph',
-    password: 'Password123!',
+    password: SEED_PASSWORD,
     fullName: 'Maria Santos',
     phone: '+639189876543',
     role: 'customer',

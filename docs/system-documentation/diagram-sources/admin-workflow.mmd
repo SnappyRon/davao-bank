@@ -1,0 +1,17 @@
+flowchart TB
+  L(["Staff opens console"]) --> MW{"Session<br/>valid?"}
+  MW -- No --> LOGIN["/login"]
+  LOGIN --> RC{"role =<br/>admin?"}
+  MW -- Yes --> RC
+  RC -- No --> UN["/unauthorized"]
+  RC -- Yes --> DASH["Dashboard"]
+  DASH --> US["Users"] & AC["Accounts"] & TX["Transactions"]
+  DASH --> SC["Schedules"] & BI["Billers"] & AU["Audit log"]
+  US --> X1["Suspend · activate<br/>open account"]
+  AC --> X2["Freeze · close<br/>adjust balance"]
+  TX --> X3["Reverse transfer<br/>export CSV"]
+  SC --> X4["Run now<br/>cancel"]
+  BI --> X5["Create biller"]
+  X1 & X2 & X3 & X4 & X5 --> SA["Server action → admin RPC<br/>is_admin() · row locks"]
+  SA --> W["Data change + audit entry<br/>+ customer notification"]
+  W -.-> AU

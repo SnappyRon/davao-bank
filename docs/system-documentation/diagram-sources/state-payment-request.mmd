@@ -1,0 +1,11 @@
+stateDiagram-v2
+  direction TB
+  [*] --> pending : create (≤10/day, ≤₱500,000)
+  pending --> paid : payer pays
+  pending --> declined : payer declines
+  pending --> cancelled : requester cancels
+  pending --> expired : after 7 days
+  paid --> [*]
+  declined --> [*]
+  cancelled --> [*]
+  expired --> [*]

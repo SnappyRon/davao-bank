@@ -1,0 +1,24 @@
+sequenceDiagram
+  autonumber
+  actor U as Customer
+  participant APP as Mobile app
+  participant SET as SettingsContext
+  participant API as Supabase PostgREST
+  participant FN as transfer / _transfer_core
+  participant DB as Tables
+  U->>APP: Recipient, amount, note
+  APP->>APP: Validate, create<br/>idempotency key
+  APP->>SET: confirmMoneyAction()
+  SET-->>U: Face ID or password
+  U-->>SET: Confirm
+  SET-->>APP: success
+  APP->>API: rpc transfer (user JWT)
+  API->>FN: run as SECURITY DEFINER
+  FN->>DB: Check key (replay?)
+  FN->>DB: Lock both accounts<br/>FOR UPDATE, fixed order
+  FN->>DB: Balance from ledger,<br/>check funds and limits
+  FN->>DB: Insert transaction, transfer,<br/>debit and credit entries
+  FN->>DB: Audit entry, 2 notifications
+  FN-->>API: transaction JSON
+  API-->>APP: 200 OK
+  APP-->>U: Result screen

@@ -69,13 +69,13 @@ async function runStageETests() {
 
   let liveConnected = false;
   try {
-    const { data, error } = await anonClient
-      .from('fx_rates')
-      .select('base, quote, rate_date, rate')
-      .eq('base', 'USD')
-      .limit(5);
+    const { data: hc, error: hcErr } = await anonClient
+      .from('health_check')
+      .select('status')
+      .limit(1)
+      .maybeSingle();
 
-    if (!error && data && data.length > 0) {
+    if (!hcErr && hc?.status === 'ok') {
       liveConnected = true;
       console.log(`Database host: ${host}`);
       console.log('✓ Connected to live database\n');
@@ -152,6 +152,17 @@ async function runStageETests() {
   assert(
     Boolean(updateErr),
     `[Live-RLS-UpdateRejection] Direct client update correctly rejected by RLS (${updateErr?.message || 'blocked'})`
+  );
+
+  // Attempt unauthenticated anon read on fx_rates to verify RLS blocks anon (Stage B)
+  const { data: anonRates } = await anonClient
+    .from('fx_rates')
+    .select('base, quote, rate_date, rate')
+    .limit(5);
+
+  assert(
+    !anonRates || anonRates.length === 0,
+    '[Live-RLS-AnonReadRejection] Unauthenticated anon read on fx_rates blocked (returns 0 rows)'
   );
 
   // ----------------------------------------------------------------------------

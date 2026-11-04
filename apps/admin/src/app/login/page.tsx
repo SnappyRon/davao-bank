@@ -69,7 +69,9 @@ export default function AdminLoginPage() {
     <div className={styles.container}>
       <div className={styles.loginCard}>
         <div className={styles.brandHeader}>
-          <div className={styles.logoBadge}>DB</div>
+          <div className={styles.logoBadge}>
+            <img src="/brand/davao-bank-mark.svg" alt="" width={50} height={50} />
+          </div>
           <h1 className={styles.brandTitle}>Davao Bank</h1>
           <div className={styles.consoleSubtitle}>STAFF CONSOLE</div>
         </div>

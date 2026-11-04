@@ -5,6 +5,18 @@
 
 ---
 
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+
+
 ## 1. System Architecture
 
 Davao Bank uses an **npm workspaces** monorepo containing two frontends and a shared TypeScript package connected to a Supabase backend:
@@ -71,12 +83,336 @@ davao-bank/
 
 ---
 
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+
+
 ## 2. Cultural Brand Foundation (§5.3)
 
 All colors are centralized in `packages/shared/src/theme/colors.ts` and consumed as TypeScript tokens by both apps (no hardcoded color hexes per screen):
 
 | Token     | Cultural Name            | Hex       | Semantic Role                                   |
-| :-------- | :----------------------- | :-------- | :---------------------------------------------- |
+| :---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+-- | :---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+-- | :---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+-- | :---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+- |
 | `primary` | **Waling-waling Orchid** | `#6A1B7A` | Brand identity, headers, primary action buttons |
 | `success` | **Mt. Apo Green**        | `#1C7A4D` | Safe/successful actions, financial growth       |
 | `accent`  | **Kadayawan Gold**       | `#D99000` | Account value, balances, celebratory highlights |
@@ -85,17 +421,441 @@ All colors are centralized in `packages/shared/src/theme/colors.ts` and consumed
 
 ---
 
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+
+
 ## 3. Demo Credentials (Development Only)
+
+> [!WARNING]
+> **SECURITY NOTICE: CHANGE SEED PASSWORD BEFORE DEMOS**  
+> The default password `Password123!` is strictly for local automated test execution. Configure the `SEED_PASSWORD` environment variable to a strong, unique secret before any public demonstration, staging environment deployment, or user acceptance testing.
 
 All seed accounts are pre-configured with confirmed emails:
 
 | Role           | Email                    | Password       | Details / Starting Balance                              |
-| :------------- | :----------------------- | :------------- | :------------------------------------------------------ |
+| :---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+- | :---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+-- | :---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+- | :---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+ |
 | **Admin**      | `admin@davaobank.ph`     | `Password123!` | Staff Operations (`role: 'admin'`)                      |
 | **Customer 1** | `customer1@davaobank.ph` | `Password123!` | Juan dela Cruz — **PHP 50,000.00** (5,000,000 centavos) |
 | **Customer 2** | `customer2@davaobank.ph` | `Password123!` | Maria Santos — **PHP 25,000.00** (2,500,000 centavos)   |
 
 ---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+
 
 ## 4. Phase 4 Admin Management System
 
@@ -149,6 +909,18 @@ All administrative operations are implemented as server-side `SECURITY DEFINER` 
 - **CSV Export (`/api/export/transactions`)**: Streamed CSV export of all ledger transactions with ISO timestamps and formatted PHP amounts.
 
 ---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+
 
 ## 5. Running & Testing
 
@@ -216,6 +988,18 @@ npm run test:fx         # Stage E: FX Reference Rates & Frankfurter Integration
 
 ---
 
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+
+
 ## 6. Scheduled Jobs & Background Automation
 
 Davao Bank relies on three automated background cron jobs:
@@ -242,6 +1026,18 @@ Davao Bank relies on three automated background cron jobs:
    This safely (re)registers all 3 cron schedules with error isolation and safe unscheduling.
 
 ---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+
 
 ## 7. FX Reference Rates & External Data Integration (§E.1)
 
@@ -270,12 +1066,624 @@ Davao Bank relies on three automated background cron jobs:
 
 ---
 
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+
+
 ## 9. Automated Testing & End-to-End (E2E) Suites (Phase 6)
 
 ### 9.1 Test Pyramid Overview
 
 | Suite                    | Runner / Tool                               | Scope                                                          | Network / Secret Requirements |
-| :----------------------- | :------------------------------------------ | :------------------------------------------------------------- | :---------------------------- |
+| :---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+-- | :---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+ | :---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+- | :---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+---
+
+## Phase 6 – Security Hardening
+
+The Phase 6 work adds **no new user‑facing features** but hardens the entire system:
+
+- **Database security** – least‑privilege function privileges, tighter RLS policies, and a new migration (`20261104000000_phase6_stage_b_security.sql`).
+- **Mobile app** – encrypted session persistence via `LargeSecureStore`, privacy overlay when the app is backgrounded, and updated TypeScript typings.
+- **Admin portal** – comprehensive security headers, hardened cookie flags, and an idle‑timeout modal that automatically signs out staff after 15 minutes of inactivity.
+- **Automated safety net** – CI workflow runs all test suites, validates security headers, and scans for secrets.
+
+For a deeper dive see the dedicated documentation file **[SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+- |
 | **Unit Tests**           | Jest (`npm run test:unit`)                  | Currency math, QR encode/parse, decision logic, UI components  | **Offline / None**            |
 | **Database Tests**       | PGlite (`npm run test:db`)                  | Offline Postgres engine, triggers, RLS, single money engine    | **Offline / None**            |
 | **Live Database Suites** | tsx (`scripts/test-*.ts`)                   | Live hosted DB RPCs, concurrency, auth & security policies     | Hosted DB credentials         |

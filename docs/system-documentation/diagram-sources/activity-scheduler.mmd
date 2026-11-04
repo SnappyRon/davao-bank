@@ -1,0 +1,14 @@
+flowchart TB
+  C(["pg_cron fires every 5 minutes"]) --> Q["Select active schedules with next_run_date ≤ today (Manila)<br/>FOR UPDATE SKIP LOCKED"]
+  Q --> L{"More schedules?"}
+  L -- No --> END(["Return processed / succeeded / failed"])
+  L -- Yes --> RUN["Insert run row (schedule_id, run_date)"]
+  RUN --> D{"Unique conflict?<br/>(already run today)"}
+  D -- Yes --> L
+  D -- No --> EX["Execute via _transfer_core as the owner<br/>key sched:&lt;id&gt;:&lt;date&gt;"]
+  EX --> OK{"Succeeded?"}
+  OK -- Yes --> S1["Mark run completed with transaction_id"]
+  OK -- No --> S2["Keep run as failed with reason;<br/>notify owner"]
+  S1 --> ADV["Advance schedule: runs_done + 1;<br/>once → completed; weekly + 7 days;<br/>monthly = start_date + n months;<br/>complete at max_runs / end_date"]
+  S2 --> ADV
+  ADV --> L
