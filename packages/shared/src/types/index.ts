@@ -204,7 +204,7 @@ export function phpToCentavos(amount: number | string): number {
 /**
  * Generates a unique client idempotency key for money operations.
  */
-export function generateIdempotencyKey(operation: string): string {
+export function generateIdempotencyKey(operation: string = 'tx'): string {
   const timestamp = Date.now();
   const random = Math.random().toString(36).substring(2, 10);
   return `${operation}_${timestamp}_${random}`;

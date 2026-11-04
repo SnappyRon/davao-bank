@@ -1,0 +1,63 @@
+appId: host.exp.Exponent
+---
+# Davao Bank Mobile E2E Test — Stage 0.9 Flow Guarantees
+# Checks:
+# 1. Result screens stay visible until explicit Done dismissal
+# 2. Reopened sheets cleanly land on Step 1 (no stale inputs or receipts)
+# 3. Discard confirmation alert appears when dismissing a sheet that has input
+
+- launchApp
+
+# Sign in if on Login screen
+- runFlow:
+    when:
+      visible: "Sign In"
+    commands:
+      - tapOn: "Email"
+      - inputText: "customer1@davaobank.ph"
+      - tapOn: "Password"
+      - inputText: "Password123!"
+      - tapOn: "Sign In"
+
+- assertVisible: "Available Balance"
+
+# --- CHECK A: Cash-in Result Stays Up & Reset on Reopen ---
+- tapOn: "Cash-in"
+- assertVisible: "Cash-in · Add Money"
+- tapOn: "₱500"
+- tapOn: "Continue to Review"
+- tapOn: "Confirm Cash-in"
+- assertVisible: "Money Added"
+# Verify result persists without auto-closing
+- extendedWaitUntil:
+    visible: "Money Added"
+    timeout: 3000
+- assertVisible: "Done"
+- tapOn: "Done"
+# Reopen Cash-in: must land on Step 1 with empty or default inputs, not old receipt
+- tapOn: "Cash-in"
+- assertVisible: "Cash-in · Add Money"
+- assertNotVisible: "Money Added"
+- back
+
+# --- CHECK B: Discard Confirmation Alert When Input Exists ---
+- tapOn: "Transfer"
+- assertVisible: "Transfer · Recipient"
+- tapOn: "Account Number"
+- inputText: "1020000002"
+# Attempt dismissal by back navigation or X
+- back
+- assertVisible: "Discard this transfer?"
+- assertVisible: "Your details will be lost."
+# Tap Keep editing to verify retention
+- tapOn: "Keep editing"
+- assertVisible: "Transfer · Recipient"
+# Tap Discard to confirm clean exit
+- back
+- tapOn: "Discard"
+- assertVisible: "Available Balance"
+
+# Reopen Transfer: verify it reset to Step 1 without retained dirty inputs
+- tapOn: "Transfer"
+- assertVisible: "Transfer · Recipient"
+- back

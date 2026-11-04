@@ -1,0 +1,35 @@
+appId: host.exp.Exponent
+---
+# Davao Bank Mobile E2E Test — Authentication Errors & Insufficient Funds Flow
+
+- launchApp
+
+# 1. Test Wrong Password Rejection
+- tapOn: "Email"
+- inputText: "customer1@davaobank.ph"
+- tapOn: "Password"
+- inputText: "WrongPassword999!"
+- tapOn: "Sign In"
+- assertVisible: "That email and password don't match. Try again."
+
+# 2. Sign in with valid credentials
+- tapOn: "Password"
+- eraseText: 20
+- inputText: "Password123!"
+- tapOn: "Sign In"
+- assertVisible: "Available Balance"
+
+# 3. Test Insufficient Funds Validation in Transfer
+- tapOn: "Transfer"
+- tapOn: "Account Number"
+- inputText: "1020000002"
+- tapOn: "Continue"
+- assertVisible: "Transfer · Amount"
+- tapOn: "Amount"
+- inputText: "99999999.00"
+- tapOn: "Review Transfer"
+- assertVisible: "Insufficient funds in selected source account"
+
+# 4. Clean up / Back to Home
+- back
+- assertVisible: "Available Balance"

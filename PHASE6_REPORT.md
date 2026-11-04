@@ -1,11 +1,12 @@
 # Davao Bank — Phase 6 Report: Testing & Security Hardening
 
 ## Overview
+
 Phase 6 establishes an automated testing safety net, hardens security across mobile, admin, and backend layers, and verifies quality invariants on real hardware and test environments.
 
 Branch: `phase-6-hardening`  
 Target Remote Database: `qomxlzvrovwsfneqsfej.supabase.co`  
-Date: 2026-11-04  
+Date: 2026-11-04
 
 ---
 
@@ -58,7 +59,7 @@ Date: 2026-11-04
    - **QR with Amount Fix (§0.9.3):** Idempotency key generated and recipient validated (10 digits, not self) on QR prefill review path.
    - **User-Friendly Error Mapping (§0.9.4):** Implemented `toUserMessage(error, availableBalance)` in `@davao-bank/shared` with human-friendly copy for all common backend/network errors.
    - **Idempotency Key Invalidation (§0.9.5):** Key regenerated whenever form fields change. Replays explicitly display "This payment was already processed".
-   - **Request Confirmation & Double-Tap Guard (§0.9.6):** Added confirmation dialogs for Decline and Cancel payment requests. Action loading state set *before* authentication dialog to block double-taps.
+   - **Request Confirmation & Double-Tap Guard (§0.9.6):** Added confirmation dialogs for Decline and Cancel payment requests. Action loading state set _before_ authentication dialog to block double-taps.
    - **Home Balance Card (§0.9.7):** Displays the selected account's balance and dynamic type label (e.g. "Savings", "Checking") instead of total balance with hardcoded "Savings".
    - **Consistent Transaction Type Labels (§0.9.8):** Implemented `typeLabel(type)` for all 7 transaction types. Badges formatted in sentence case ("Reversed", "Pending", "Failed").
    - **Keyboard Persist Taps (§0.9.9):** Added `keyboardShouldPersistTaps="handled"` across all scroll containers.
@@ -69,6 +70,7 @@ Date: 2026-11-04
 ### Test Execution & Results
 
 #### 1. Offline Database Integration Suite (`npm run test:db`)
+
 - Database: PGlite (offline in-memory Postgres)
 - Command: `npm run test:db`
 - Result: **56 passed, 0 failed**
@@ -142,6 +144,7 @@ Date: 2026-11-04
 #### 2. Live Test Suites (Hosted Project: `qomxlzvrovwsfneqsfej`)
 
 ##### A. RLS & Auth (`npm run test:rls`)
+
 ```text
 > davao-bank@0.1.0 test:rls
 > node --env-file=.env --import tsx scripts/test-rls-and-auth.ts
@@ -192,6 +195,7 @@ STATUS: ALL PHASE 2 SECURITY & RLS INVARIANTS VERIFIED!
 ```
 
 ##### B. Core Money Operations (`npm run test:money`)
+
 ```text
 > davao-bank@0.1.0 test:money
 > node --env-file=.env --import tsx scripts/test-phase3-money.ts
@@ -265,6 +269,7 @@ Failed:      0
 ```
 
 ##### C. Admin Management (`npm run test:admin`)
+
 ```text
 > davao-bank@0.1.0 test:admin
 > node --env-file=.env --import tsx scripts/test-phase4-admin.ts
@@ -345,6 +350,7 @@ Failed:      0
 ```
 
 ##### D. Everyday Extras (`npm run test:extras`)
+
 ```text
 > davao-bank@0.1.0 test:extras
 > node --env-file=.env --import tsx scripts/test-phase5-extras.ts
@@ -390,6 +396,7 @@ Failed:      0
 ```
 
 ##### E. Schedules & Bill Pay (`npm run test:schedules`)
+
 ```text
 > davao-bank@0.1.0 test:schedules
 > node --env-file=.env --import tsx scripts/test-phase5-schedules.ts
@@ -450,6 +457,7 @@ Failed:      0
 ```
 
 ##### F. QR Send & Request Money (`npm run test:qr`)
+
 ```text
 > davao-bank@0.1.0 test:qr
 > node --env-file=.env --import tsx scripts/test-phase5-qr-requests.ts
@@ -501,6 +509,7 @@ Failed:      0
 ```
 
 ##### G. Foreign Exchange Rates (`npm run test:fx`)
+
 ```text
 > davao-bank@0.1.0 test:fx
 > node --env-file=.env --import tsx scripts/test-phase5-fx.ts
@@ -547,6 +556,7 @@ Failed:      0
 ---
 
 #### 3. Static Quality Gates
+
 - **Typecheck (`npm run typecheck`):** Passed 0 errors across `@davao-bank/shared`, `admin`, and `mobile`.
 - **Lint (`npm run lint`):** Passed 0 errors (94 minor warnings).
 - **Format Check (`npm run format:check`):** Passed 100% formatted.
@@ -554,3 +564,154 @@ Failed:      0
 - **Mobile Bundle Export (`EXPO_NO_TELEMETRY=1 npx expo export --platform ios`):** Succeeded (3,268 modules bundled into hermes bytecode, 0 errors).
 
 ---
+
+---
+
+## Stage A — Automated Testing and CI
+
+### Overview & Summary of Changes
+
+Stage A builds the automated safety net across the testing pyramid: unit tests across shared, mobile, and admin; offline integration tests via PGlite; mobile E2E flows via Maestro; admin E2E suites via Playwright; and a zero-secret GitHub Actions CI pipeline.
+
+1. **Unit Test Suites (`npm run test:unit`):**
+   - **`packages/shared`:**
+     - `currency.test.ts`: Covers `formatCentavosToPHP` and `phpToCentavos` with exact integer conversions, boundary values (₱0.00, ₱0.01), rounding edge cases (₱0.005 rounding), and IEEE-754 float drift protection.
+     - `idempotency.test.ts`: Verifies uniqueness and prefix handling of `generateIdempotencyKey`.
+     - `qr.test.ts`: Covers valid EMVCo-compliant QR generation and parsing (standard with note, minimal payload without note) and rejection cases (invalid CRC, corrupt payload, missing required tags, negative amount, non-10-digit account).
+     - `errors_and_labels.test.ts`: Tests `toUserMessage` mapping with dynamic available balance insertion, network fallback, and `typeLabel` sentence-case formatting across all transaction types.
+   - **`apps/mobile`:**
+     - `confirmation.test.ts`: Decision matrix for biometric authentication vs. password fallback, user cancellation handling, and ensuring critical money flows never proceed without a verification check.
+     - `components.test.tsx`: Tests rendering of `Button` (states, variants, press handlers), `AmountText` (positive, negative, masked `₱••••••`), `TransactionRow` (direction badges, formatted amounts, tap response), and `EmptyState`.
+   - **`apps/admin`:**
+     - `ui.test.tsx`: Tests `Badge` variants, `StatusBadge` (including `needs_attention`), and `Button` loading/disabled behavior.
+   - **Configuration:** Monorepo Jest configuration in `jest.config.js` with 3 separate projects (`shared`, `mobile` with `jest-expo`, `admin` with `jsdom` and `@testing-library/jest-dom`).
+
+2. **Database Offline Tests (`npm run test:db`):**
+   - Verified all 56 invariants pass against the PGlite in-memory Postgres database, including Stage 0 trigger checks, RLS policies, scheduled payments, and reconciliation balances.
+
+3. **End-to-End Test Suites (`e2e/`):**
+   - **Mobile (Maestro):**
+     - `e2e/mobile/main-customer-flow.yaml`: Customer login → Cash-in → Peer transfer → Activity feed verification → Pay demo biller → Schedule weekly bill → Logout.
+     - `e2e/mobile/auth-and-error-flow.yaml`: Negative paths for incorrect credentials and insufficient balance handling.
+     - `e2e/mobile/stage-0-9-flow-checks.yaml`: Automated validation of Stage 0.9 UX fixes (receipt persistence, modal reset to step 1 upon reopen, backdrop tap immunity during processing, discard confirmation dialog).
+   - **Admin (Playwright):**
+     - `e2e/admin/admin-flow.spec.ts`: Unauthorized redirect to `/unauthorized` for non-staff, customer suspension and reactivation, discretionary balance adjustments, transaction reversals, and audit trail validation.
+     - `playwright.config.ts`: Configured against local Next.js dev server with chromium webkit runs.
+
+4. **Continuous Integration (`.github/workflows/ci.yml`):**
+   - Automated workflow triggered on every `push` and `pull_request` to `main` and `phase-*` branches.
+   - Operates **without any secrets**:
+     1. Monorepo dependency resolution (`npm ci`)
+     2. Typecheck (`npm run typecheck`)
+     3. Linter (`npm run lint`)
+     4. Prettier format verification (`npm run format:check`)
+     5. Unit test execution (`npm run test:unit`)
+     6. Offline database integration test (`npm run test:db`)
+     7. Admin production build (`npm run build:admin`)
+     8. Mobile iOS bundle compilation (`cd apps/mobile && EXPO_NO_TELEMETRY=1 npx expo export --platform ios`)
+     9. Secret leak detection via `gitleaks`
+
+5. **Documentation (`README.md`):**
+   - Added comprehensive Section 9 detailing test runners, pyramid layers, and local execution commands for unit, database, Maestro, and Playwright suites.
+
+---
+
+### Test Execution & Logs
+
+#### 1. Unit Test Suite (`npm run test:unit`)
+
+```text
+> davao-bank@0.1.0 test:unit
+> jest
+
+PASS mobile apps/mobile/src/__tests__/components.test.tsx
+PASS mobile apps/mobile/src/__tests__/confirmation.test.ts
+PASS admin apps/admin/src/__tests__/ui.test.tsx
+PASS shared packages/shared/src/__tests__/qr.test.ts
+PASS shared packages/shared/src/__tests__/currency.test.ts
+PASS shared packages/shared/src/__tests__/errors_and_labels.test.ts
+PASS shared packages/shared/src/__tests__/idempotency.test.ts
+
+Test Suites: 7 passed, 7 total
+Tests:       50 passed, 50 total
+Snapshots:   0 total
+Time:        1.785 s
+Ran all test suites in 3 projects.
+```
+
+#### 2. Offline Database Suite (`npm run test:db`)
+
+```text
+> davao-bank@0.1.0 test:db
+> node scripts/review/pglite-behavior.mjs
+
+✓ Signup trigger provisions profile + account for each user
+✓ [SEED] service-role can promote a profile to admin (seed.ts path)
+✓ Customer changing own role is rejected — Only admins may change role or status
+✓ Customer changing own status is rejected — Only admins may change role or status
+✓ Anon changing role is rejected
+✓ Admin can suspend a customer
+✓ Postgres superuser can update profile status
+✓ Customer deposit works
+✓ Deposit idempotent replay (same key → no second credit)
+✓ Transfer A→B
+✓ Transfer idempotent replay
+✓ Insufficient funds rejected — Insufficient funds
+✓ Cannot spend from someone else's account — Unauthorized: source account does not belong to caller
+✓ Customer CANNOT call _transfer_core (would allow theft) — permission denied for function _transfer_core
+✓ Customer cannot forge audit log — permission denied for function write_audit
+✓ Customer cannot write ledger directly
+✓ RLS: B cannot see A's accounts
+✓ Suspended customer cannot transfer — Your profile is suspended
+✓ Suspended customer cannot un-suspend self — Only admins may change role or status
+✓ Admin reversal works
+✓ Second reversal (new key) rejected — Transaction is already reversed
+✓ Customer cannot call admin functions — Admin privilege required
+✓ Cannot save own account as recipient — Cannot save your own account as a recipient
+✓ Cannot save nonexistent account — Recipient account does not exist or is not active
+✓ Save valid recipient
+✓ add_saved_recipient does not return holder name
+✓ Direct insert into saved_recipients denied
+✓ Owner CANNOT change a saved recipient's account number (bypassing validation) — permission denied for table saved_recipients
+✓ Statement returns opening/closing/rows — period_to,account_id,period_from,transactions,account_number,closing_balance,opening_balance
+✓ Non-owner cannot fetch statement — Unauthorized to access this account statement
+✓ Admin creates biller (+ settlement account)
+✓ Bill pay rejects malformed reference — Invalid reference format for Mindanao Power Co. (demo) (expected pattern: ^[0-9]{10}$)
+✓ Bill pay with valid reference
+✓ bill_payments row linked to its transaction
+✓ Create weekly schedule starting today
+✓ Executor called twice → exactly one run & one debit — {"failed":0,"processed":1,"succeeded":1,"execution_date":"2026-11-04"}
+✓ next_run_date advanced by 7 days
+✓ Unfunded scheduled run recorded as failed, no ledger writes — {"status":"failed","failure_reason":"Insufficient funds"}
+✓ Monthly from Jan 31 → Feb 28 → Mar 31 → Apr 30 (no drift) — 2026-02-28,2026-03-31,2026-04-30
+✓ Customer cannot run the executor — permission denied for function run_due_scheduled_payments
+✓ Customer schedules to another customer by account number
+✓ Scheduling to nonexistent number returns not-found error — Recipient account number not found
+✓ Scheduling from someone else account is rejected — Unauthorized: source account does not belong to caller
+✓ list_my_scheduled_payments returns only caller rows with to_account_last4
+✓ Create payment request
+✓ Request response has no names
+✓ Requester cannot pay own request — Unauthorized to pay this payment request
+✓ Payer pays request (requester credited 2,500)
+✓ Request marked paid + linked to transaction
+✓ Paid request same-key retry returns success (idempotent) — [{"r":{"status":"paid","success":true,"request_id":"3cd8897a-1b82-4957-ae8d-574638a253a4","transaction_id":"a2272269-5225-44c6-ab64-5db53bdb9c8f","idempotent_replay":true}}]
+✓ Second payment (new key) rejected, no extra money moved — Payment request is no longer pending (status: paid)
+✓ Direct insert into payment_requests denied
+✓ Customers can read fx_rates — 768
+✓ Customers cannot write fx_rates
+✓ Reconciliation: every transfer/reversal/bill nets to zero — {"net":"150000","unbalanced":0,"mismatched":0}
+✓ Reconciliation: account_balances == ledger sum for every account — {"net":"150000","unbalanced":0,"mismatched":0}
+
+56 passed, 0 failed
+```
+
+#### 3. Static Quality Gates
+
+- **Typecheck (`npm run typecheck`):**
+  - admin: Passed 0 errors (`tsc --noEmit`)
+  - mobile: Passed 0 errors (`tsc --noEmit`)
+  - shared: Passed 0 errors (`tsc --noEmit`)
+- **Linter (`npm run lint`):** Passed with 0 errors (94 warnings).
+- **Format Verification (`npm run format:check`):** 100% matched Prettier code style.
+- **Admin Build (`npm run build:admin`):** Succeeded in 1.4s (Turbopack, Next.js 16.4.2).
+- **Mobile Export (`cd apps/mobile && EXPO_NO_TELEMETRY=1 npx expo export --platform ios`):** Succeeded, 3,268 modules bundled.

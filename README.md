@@ -270,13 +270,68 @@ Davao Bank relies on three automated background cron jobs:
 
 ---
 
-## 8. Scope Boundaries Maintained
+## 9. Automated Testing & End-to-End (E2E) Suites (Phase 6)
 
-- **In Scope (Phase 4 Complete):**
-  - Server-side admin functions (`admin_set_user_status`, `admin_open_account`, `admin_set_account_status`, `admin_adjust_balance`, `admin_reverse_transaction`).
-  - Next.js Admin portal (Dashboard, Users, Accounts, Transactions, Audit Log, CSV export).
-  - Attribution to admin cookie sessions; RLS deny-by-default preserved.
-- **Out of Scope (Reserved for Later Phases):**
-  - Phase 5: Integration & notifications polish beyond in-app alerts.
-  - Phase 6: System hardening, performance optimization, and pen-testing.
-  - Phase 7: Production deployment.
+### 9.1 Test Pyramid Overview
+
+| Suite                    | Runner / Tool                               | Scope                                                          | Network / Secret Requirements |
+| :----------------------- | :------------------------------------------ | :------------------------------------------------------------- | :---------------------------- |
+| **Unit Tests**           | Jest (`npm run test:unit`)                  | Currency math, QR encode/parse, decision logic, UI components  | **Offline / None**            |
+| **Database Tests**       | PGlite (`npm run test:db`)                  | Offline Postgres engine, triggers, RLS, single money engine    | **Offline / None**            |
+| **Live Database Suites** | tsx (`scripts/test-*.ts`)                   | Live hosted DB RPCs, concurrency, auth & security policies     | Hosted DB credentials         |
+| **Mobile E2E**           | Maestro (`e2e/mobile/*.yaml`)               | Expo Go mobile user flows, errors, dismissal & flow guarantees | Simulator / Expo Go           |
+| **Admin E2E**            | Playwright (`e2e/admin/*.spec.ts`)          | Staff portal flows, suspensions, adjustments, reversals        | Local dev server              |
+| **CI Automation**        | GitHub Actions (`.github/workflows/ci.yml`) | Monorepo lint, format, typecheck, unit, db, builds, gitleaks   | **Zero Secrets Needed**       |
+
+### 9.2 Running Unit & Offline Tests
+
+```bash
+# Run all unit tests across shared, mobile, and admin:
+npm run test:unit
+
+# Run the 56-check offline database integration suite:
+npm run test:db
+```
+
+### 9.3 Running Mobile E2E Tests (Maestro)
+
+Mobile end-to-end user flows are automated with [Maestro](https://maestro.mobile.dev) against Expo Go:
+
+```bash
+# 1. Install Maestro CLI (macOS):
+curl -fsSL "https://get.maestro.mobile.dev" | bash
+
+# 2. Start the mobile app on simulator:
+npm run ios:mobile
+
+# 3. Execute Maestro flows:
+maestro test e2e/mobile/main-customer-flow.yaml
+maestro test e2e/mobile/auth-and-error-flow.yaml
+maestro test e2e/mobile/stage-0-9-flow-checks.yaml
+```
+
+### 9.4 Running Admin E2E Tests (Playwright)
+
+Admin operational flows are automated with Playwright against the local Next.js server:
+
+```bash
+# Run Playwright E2E tests:
+npx playwright test
+
+# Or run with interactive UI mode:
+npx playwright test --ui
+```
+
+### 9.5 Continuous Integration (CI)
+
+The GitHub Actions workflow (`.github/workflows/ci.yml`) runs on every push and pull request. It executes the entire safety net without requiring any secrets:
+
+1. `npm ci`
+2. `npm run typecheck`
+3. `npm run lint`
+4. `npm run format:check`
+5. `npm run test:unit`
+6. `npm run test:db`
+7. `npm run build:admin`
+8. `cd apps/mobile && EXPO_NO_TELEMETRY=1 npx expo export --platform ios`
+9. `gitleaks` (secret leak prevention)

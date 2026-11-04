@@ -1,0 +1,109 @@
+appId: host.exp.Exponent
+---
+# Davao Bank Mobile E2E Test — Main Customer Flow
+# Flow: Login -> Cash-in -> Transfer -> Activity -> Pay Bill -> Schedule Bill -> Sign Out
+
+- launchApp
+- assertVisible: "Davao Bank"
+
+# 1. Sign In
+- tapOn: "Email"
+- inputText: "customer1@davaobank.ph"
+- tapOn: "Password"
+- inputText: "Password123!"
+- tapOn: "Sign In"
+
+# Verify landed on Home screen
+- assertVisible: "Available Balance"
+- assertVisible: "Recent Activity"
+
+# 2. Cash-in (Deposit)
+- tapOn: "Cash-in"
+- assertVisible: "Deposit Amount"
+- tapOn: "₱500"
+- tapOn: "Continue to Review"
+- assertVisible: "TOTAL TO ADD"
+- tapOn: "Confirm Cash-in"
+- assertVisible: "Money Added"
+- tapOn: "Done"
+
+# 3. Transfer to Customer 2
+- tapOn: "Transfer"
+- assertVisible: "Transfer · Recipient"
+- tapOn: "Account Number"
+- inputText: "1020000002"
+- tapOn: "Continue"
+- assertVisible: "Transfer · Amount"
+- tapOn: "₱500"
+- tapOn: "Review Transfer"
+- assertVisible: "Transfer · Review"
+- tapOn: "Authorize Transfer"
+# On simulator / Expo Go, biometrics falls back to Password modal or completes
+- runFlow:
+    when:
+      visible: "Confirm Password"
+    commands:
+      - tapOn: "Enter account password"
+      - inputText: "Password123!"
+      - tapOn: "Authorize"
+- assertVisible: "Transfer Sent"
+- tapOn: "Done"
+
+# 4. Check Activity Tab
+- tapOn: "Activity"
+- assertVisible: "Activity"
+- assertVisible: "Transfer out"
+
+# 5. Pay a Demo Biller
+- tapOn: "Home"
+- tapOn: "Pay Bills"
+- assertVisible: "Pay Bills"
+- tapOn: "Davao Light & Power Co."
+- assertVisible: "Account Details"
+- tapOn: "Account Number (10 digits)"
+- inputText: "1234567890"
+- tapOn: "Continue"
+- assertVisible: "Enter Amount"
+- tapOn: "₱1,000"
+- tapOn: "Continue"
+- assertVisible: "Payment Schedule"
+- tapOn: "Pay Now"
+- tapOn: "Review Payment"
+- assertVisible: "Review Payment"
+- tapOn: "Authorize Bill Payment"
+- runFlow:
+    when:
+      visible: "Confirm Password"
+    commands:
+      - tapOn: "Enter account password"
+      - inputText: "Password123!"
+      - tapOn: "Authorize"
+- assertVisible: "Payment Successful"
+- tapOn: "Done"
+
+# 6. Schedule a Recurring Bill
+- tapOn: "Pay Bills"
+- tapOn: "Davao Light & Power Co."
+- tapOn: "Account Number (10 digits)"
+- inputText: "1234567890"
+- tapOn: "Continue"
+- tapOn: "₱500"
+- tapOn: "Continue"
+- tapOn: "Recurring"
+- tapOn: "Review Payment"
+- tapOn: "Authorize Scheduled Bill"
+- runFlow:
+    when:
+      visible: "Confirm Password"
+    commands:
+      - tapOn: "Enter account password"
+      - inputText: "Password123!"
+      - tapOn: "Authorize"
+- assertVisible: "Payment Scheduled"
+- tapOn: "Done"
+
+# 7. Sign Out
+- tapOn: "Profile"
+- assertVisible: "Juan dela Cruz"
+- tapOn: "Sign Out"
+- assertVisible: "Sign In"

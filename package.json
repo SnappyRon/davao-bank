@@ -26,7 +26,8 @@
     "test:schedules": "node --env-file=.env --import tsx scripts/test-phase5-schedules.ts",
     "test:qr": "node --env-file=.env --import tsx scripts/test-phase5-qr-requests.ts",
     "test:fx": "node --env-file=.env --import tsx scripts/test-phase5-fx.ts",
-    "test:db": "node scripts/review/pglite-behavior.mjs"
+    "test:db": "node scripts/review/pglite-behavior.mjs",
+    "test:unit": "jest"
   },
   "engines": {
     "node": ">=20.0.0"
@@ -34,9 +35,19 @@
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.12",
     "@eslint/js": "^9.21.0",
+    "@playwright/test": "^1.64.1",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/react-native": "^14.1.0",
+    "@types/jest": "^30.0.0",
     "eslint": "^9.21.0",
     "eslint-config-prettier": "^10.0.1",
+    "jest": "^30.5.2",
+    "jest-environment-jsdom": "^30.5.2",
+    "jest-expo": "^58.0.14",
     "prettier": "^3.5.2",
+    "react-test-renderer": "^19.0.0",
+    "ts-jest": "^29.4.15",
     "tsx": "^4.19.3",
     "typescript": "^5.8.2",
     "typescript-eslint": "^8.25.0"
