@@ -387,7 +387,7 @@ Use only the prepared files in `apps/mobile/assets/`. Read `apps/mobile/assets/s
 - **Change navigation or features:** don't change the 4-tab navigation, and don't add banking features (savings goals, the security center and Phase 8–9 items are out of scope).
 - **Animate money:** don't animate amounts to unconfirmed values, and don't add swipe-to-pay or swipe-to-confirm.
 - **Add dependencies:** nothing beyond Reanimated, worklets and Gesture Handler.
-- **Touch protected branding:** don't use, redraw or alter the official Kadayawan logo. It stays a placeholder until the owner supplies the official files.
+- **Change the logo:** the Davao Bank logo is the Mt. Apo emblem adopted by the owner on 2026-11-04 (`packages/shared/assets/brand/davao-bank-mark.svg`, wired into `Logo.tsx`, the app icons and the admin console). Don't redraw or recolor it, and don't use the official Kadayawan festival logo. Update the About screen's brand credit, which still refers to the festival logo.
 - **Change the artwork:** don't edit or regenerate any illustration.
 
 _The reviewer will review each stage commit on the simulator and in the code, re-run the live suites and `test:db`, and check the recordings. The report alone isn't enough._
