@@ -3,9 +3,8 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Zap, Droplets, Wifi, Smartphone, HelpCircle, Plus, Power } from 'lucide-react';
-import { BillerCategory } from '@davao-bank/shared';
-import { createAdminBrowserClient } from '@/lib/supabase-browser';
-import { adminCreateBillerAction } from '@/app/actions';
+import { BillerCategory, toUserMessage } from '@davao-bank/shared';
+import { adminCreateBillerAction, adminSetBillerActiveAction } from '@/app/actions';
 import {
   Table,
   Button,
@@ -54,16 +53,11 @@ export function BillersClient({ initialBillers }: BillersClientProps) {
 
   const handleToggleActive = async (biller: AdminBillerRow) => {
     setTogglingId(biller.id);
-    const supabase = createAdminBrowserClient();
-    const { error } = await supabase
-      .from('billers')
-      .update({ is_active: !biller.is_active })
-      .eq('id', biller.id);
-
+    const res = await adminSetBillerActiveAction(biller.id, !biller.is_active);
     setTogglingId(null);
 
-    if (error) {
-      alert(`Failed to update biller: ${error.message}`);
+    if (!res.success) {
+      alert(toUserMessage(res.error || 'Failed to update biller'));
       return;
     }
 
@@ -94,7 +88,7 @@ export function BillersClient({ initialBillers }: BillersClientProps) {
     setCreating(false);
 
     if (!res.success) {
-      setCreateError(res.error || 'Failed to create biller');
+      setCreateError(toUserMessage(res.error || 'Failed to create biller'));
       return;
     }
 

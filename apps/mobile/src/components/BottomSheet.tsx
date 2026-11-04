@@ -13,6 +13,7 @@ import { X } from 'lucide-react-native';
 import { colors, radius, spacing } from '@davao-bank/shared';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { Text } from './Text';
+import { PrivacyOverlay } from './PrivacyOverlay';
 
 export interface BottomSheetProps {
   visible: boolean;
@@ -85,6 +86,7 @@ export function BottomSheet({
           </TouchableWithoutFeedback>
         </View>
       </TouchableWithoutFeedback>
+      <PrivacyOverlay />
     </Modal>
   );
 }

@@ -70,6 +70,7 @@ export function PayBillsModal({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [idempotencyKey, setIdempotencyKey] = useState<string>('');
   const [receiptTxId, setReceiptTxId] = useState<string | null>(null);
+  const [serverResult, setServerResult] = useState<any>(null);
 
   const selectedAccount =
     accounts.find((a) => a.account_id === selectedAccountId) || accounts[0];
@@ -97,12 +98,16 @@ export function PayBillsModal({
     setMaxRunsStr('12');
     setLoading(false);
     setErrorMessage(null);
+    setServerResult(null);
+    setReceiptTxId(null);
     setIdempotencyKey(generateIdempotencyKey('bill_payment'));
   };
 
   useEffect(() => {
-    setIdempotencyKey(generateIdempotencyKey('bill_payment'));
-  }, [amountStr, reference, selectedBiller?.id, selectedAccountId]);
+    if (step !== 'success') {
+      setIdempotencyKey(generateIdempotencyKey('bill_payment'));
+    }
+  }, [amountStr, reference, selectedBiller?.id, selectedAccountId, step]);
 
   const hasInput =
     Boolean(selectedBiller || reference || amountStr) && step !== 'success';
@@ -114,22 +119,7 @@ export function PayBillsModal({
       onClose();
       return;
     }
-    if (step === 'reference') {
-      setStep('biller');
-      return;
-    }
-    if (step === 'amount') {
-      setStep('reference');
-      return;
-    }
-    if (step === 'when') {
-      setStep('amount');
-      return;
-    }
-    if (step === 'review') {
-      setStep('when');
-      return;
-    }
+
     if (hasInput) {
       Alert.alert('Discard this payment?', 'Your details will be lost.', [
         { text: 'Keep editing', style: 'cancel' },
@@ -242,7 +232,8 @@ export function PayBillsModal({
         }
 
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        setReceiptTxId(data?.id || null);
+        setServerResult(data);
+        setReceiptTxId(data?.id || data?.transaction_id || null);
         setStep('success');
         onPaymentSuccess();
       } else {
@@ -406,6 +397,7 @@ export function PayBillsModal({
             timing={timing}
             scheduledDate={scheduledDate}
             receiptTxId={receiptTxId}
+            serverResult={serverResult}
             onDone={onClose}
           />
         )}

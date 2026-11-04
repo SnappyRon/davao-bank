@@ -304,7 +304,10 @@ export function ExportStatementModal({
 
   return (
     <BottomSheet visible={visible} onClose={onClose} title="Account Statement">
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+      >
         <Text variant="caption" color={colors.textSecondary} style={styles.subtitle}>
           Generate an official reconciled statement with opening & closing balances.
         </Text>

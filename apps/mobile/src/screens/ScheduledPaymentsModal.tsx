@@ -18,6 +18,7 @@ import {
   spacing,
   radius,
   formatCentavosToPHP,
+  toUserMessage,
   type ScheduledPayment,
   type ScheduledPaymentRun,
 } from '@davao-bank/shared';
@@ -122,7 +123,7 @@ export function ScheduledPaymentsModal({
               });
 
               if (error) {
-                Alert.alert('Error', error.message);
+                Alert.alert('Error', toUserMessage(error));
               } else {
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                 setSelectedSchedule(null);
@@ -130,7 +131,7 @@ export function ScheduledPaymentsModal({
                 onRefresh?.();
               }
             } catch (err: any) {
-              Alert.alert('Error', err?.message || 'Failed to cancel schedule');
+              Alert.alert('Error', toUserMessage(err));
             } finally {
               setActionLoading(false);
             }

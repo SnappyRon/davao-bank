@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { StyleSheet, ScrollView, Alert } from 'react-native';
 import { AlertCircle } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
@@ -109,22 +109,32 @@ export function TransferModal({
     }
   }, [otherAccounts.length]);
 
-  // §0.9 Item 5: Regenerate idempotency key whenever payload changes
+  const prevVisibleRef = useRef(false);
+
+  // §0.9 Item 5: Regenerate idempotency key whenever payload changes (only before success)
   useEffect(() => {
-    setIdempotencyKey(generateIdempotencyKey('transfer'));
-  }, [amountStr, recipientAccountNumber, reference, selectedAccountId]);
+    if (step !== 'success') {
+      setIdempotencyKey(generateIdempotencyKey('transfer'));
+    }
+  }, [amountStr, recipientAccountNumber, reference, selectedAccountId, step]);
 
   useEffect(() => {
-    if (visible) {
+    const wasVisible = prevVisibleRef.current;
+    prevVisibleRef.current = visible;
+
+    // Reset or apply QR prefill ONLY when visible transitions from false to true
+    if (!wasVisible && visible) {
       loadSavedRecipients();
       if (initialRecipientAccount) {
         const cleaned = initialRecipientAccount.trim();
         setRecipientAccountNumber(cleaned);
+        const currentSource =
+          accounts.find((a) => a.account_id === selectedAccountId) || accounts[0];
         // §0.9 Item 3: recipient checks on QR prefill (10 digits, not same account)
         if (cleaned.length !== 10 || !/^\d{10}$/.test(cleaned)) {
           setErrorMessage('Invalid QR recipient account: must be exactly 10 digits.');
           setStep('recipient');
-        } else if (selectedAccount && cleaned === selectedAccount.account_number) {
+        } else if (currentSource && cleaned === currentSource.account_number) {
           setErrorMessage('Cannot transfer to the same account');
           setStep('recipient');
         } else if (initialAmountCentavos && initialAmountCentavos > 0) {
@@ -152,14 +162,7 @@ export function TransferModal({
         setIdempotencyKey(generateIdempotencyKey('transfer'));
       }
     }
-  }, [
-    visible,
-    loadSavedRecipients,
-    initialRecipientAccount,
-    initialAmountCentavos,
-    initialNote,
-    selectedAccount,
-  ]);
+  }, [visible]);
 
   const resetState = () => {
     setStep('recipient');
@@ -177,7 +180,7 @@ export function TransferModal({
     onClose();
   };
 
-  // §0.9 Item 2: Confirmation before discarding flow with input
+  // §0.9 Item 2: Confirmation before discarding flow with input on any step
   const hasInput =
     Boolean(recipientAccountNumber || amountStr || reference) && step !== 'success';
 
@@ -186,16 +189,6 @@ export function TransferModal({
 
     if (step === 'success') {
       resetState();
-      return;
-    }
-
-    if (step === 'amount') {
-      setStep('recipient');
-      return;
-    }
-
-    if (step === 'review') {
-      setStep('amount');
       return;
     }
 

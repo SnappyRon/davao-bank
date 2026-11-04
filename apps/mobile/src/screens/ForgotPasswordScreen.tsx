@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { KeyRound, ArrowLeft, CheckCircle2, AlertCircle } from 'lucide-react-native';
-import { colors, spacing, radius } from '@davao-bank/shared';
+import { colors, spacing, radius, toUserMessage } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
 import { Screen, Text, TextField, Button, Card, Logo } from '../components';
 
@@ -35,13 +35,12 @@ export function ForgotPasswordScreen({ onNavigateToLogin }: ForgotPasswordScreen
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email.trim());
       if (error) {
-        setErrorMessage(error.message);
+        setErrorMessage(toUserMessage(error));
       } else {
         setMessage('Password reset instructions have been sent to your email address.');
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setErrorMessage(msg);
+      setErrorMessage(toUserMessage(err));
     } finally {
       setLoading(false);
     }

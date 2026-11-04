@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { AlertTriangle, AlertCircle, Info } from 'lucide-react';
+import { toUserMessage } from '@davao-bank/shared';
 import { Button } from './Button';
 import { Input } from './Input';
 import styles from './ConfirmDialog.module.css';
@@ -58,7 +59,7 @@ export function ConfirmDialog({
       await onConfirm(reason.trim());
       onClose();
     } catch (err: any) {
-      setError(err?.message || 'Action failed. Please try again.');
+      setError(toUserMessage(err));
     } finally {
       setSubmitting(false);
     }

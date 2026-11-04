@@ -6,6 +6,7 @@
  * Run with: npm run seed
  */
 
+import { randomBytes } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL =
@@ -29,7 +30,14 @@ const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
   },
 });
 
-const SEED_PASSWORD = process.env.SEED_PASSWORD || 'Password123!';
+const SEED_PASSWORD = process.env.SEED_PASSWORD;
+
+if (!SEED_PASSWORD) {
+  console.error(
+    'Error: SEED_PASSWORD environment variable is required to run seed script. Set SEED_PASSWORD in your .env file.'
+  );
+  process.exit(1);
+}
 
 interface SeedUserConfig {
   email: string;
@@ -65,7 +73,7 @@ const SEED_USERS: SeedUserConfig[] = [
   },
   {
     email: 'billers@system.davaobank.invalid',
-    password: 'SystemPasswordDisabled123!',
+    password: randomBytes(32).toString('base64url'),
     fullName: 'Davao Bank System Billers',
     role: 'system',
   },
@@ -101,6 +109,22 @@ async function seed() {
       console.log(`Created auth user: ${userId}`);
     } else {
       console.log(`Existing auth user found: ${userId}`);
+      if (userConfig.password) {
+        const { error: updatePwError } = await supabaseAdmin.auth.admin.updateUserById(
+          userId,
+          {
+            password: userConfig.password,
+          }
+        );
+        if (updatePwError) {
+          console.error(
+            `Failed to update password for ${userConfig.email}:`,
+            updatePwError.message
+          );
+          process.exit(1);
+        }
+        console.log(`Updated password for existing auth user: ${userId}`);
+      }
     }
 
     // Fix 2: Ban the system user from signing in through Auth API (ban_duration: 876000h)

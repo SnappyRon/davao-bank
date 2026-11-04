@@ -7,7 +7,7 @@ import {
   CheckCircle2,
   AlertCircle,
 } from 'lucide-react-native';
-import { colors, spacing, radius } from '@davao-bank/shared';
+import { colors, spacing, radius, toUserMessage } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
 import { Screen, Text, Button, Card, Logo } from '../components';
 
@@ -34,13 +34,12 @@ export function VerifyEmailScreen({ email, onNavigateToLogin }: VerifyEmailScree
       });
 
       if (resendError) {
-        setError(resendError.message);
+        setError(toUserMessage(resendError));
       } else {
         setMessage('A new verification email has been sent. Please check your inbox.');
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setError(msg);
+      setError(toUserMessage(err));
     } finally {
       setResending(false);
     }

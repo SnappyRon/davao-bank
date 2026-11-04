@@ -130,7 +130,13 @@ export function TransferReviewStep({
       </Card>
 
       <View style={styles.navRow}>
-        <Button title="Back" variant="ghost" onPress={onBack} style={styles.backButton} />
+        <Button
+          title="Back"
+          variant="ghost"
+          onPress={onBack}
+          disabled={loading}
+          style={styles.backButton}
+        />
         <Button
           title={
             timing === 'now'

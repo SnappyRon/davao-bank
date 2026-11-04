@@ -57,13 +57,47 @@ export function toUserMessage(
     return "That email and password don't match. Try again.";
   }
 
+  if (lower.includes('email not confirmed')) {
+    return 'Please verify your email address before signing in.';
+  }
+
+  if (lower.includes('user already registered') || lower.includes('already registered')) {
+    return 'An account with this email already exists.';
+  }
+
   if (
-    lower.includes('network') ||
-    lower.includes('fetch') ||
-    lower.includes('failed to fetch') ||
-    lower.includes('network request failed') ||
-    lower.includes('offline')
+    lower.includes('password should be at least') ||
+    lower.includes('password is too short')
   ) {
+    return 'Password is too weak. Please use at least 10 characters.';
+  }
+
+  if (
+    lower.includes('rate limit') ||
+    lower.includes('too many requests') ||
+    lower.includes('over_email_send_rate_limit')
+  ) {
+    return 'Too many attempts. Please try again in a few minutes.';
+  }
+
+  if (
+    lower.includes('token has expired') ||
+    lower.includes('token is invalid') ||
+    lower.includes('otp expired')
+  ) {
+    return 'This verification code or link has expired. Please request a new one.';
+  }
+
+  if (
+    lower.includes('not an administrator') ||
+    lower.includes('unauthorized') ||
+    lower.includes('permission denied') ||
+    lower.includes('admin_only')
+  ) {
+    return 'You do not have permission to perform this action.';
+  }
+
+  if (lower.includes('failed to fetch') || lower.includes('network request failed')) {
     return 'You appear to be offline. Nothing was sent.';
   }
 

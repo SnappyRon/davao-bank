@@ -167,13 +167,17 @@ export function PaymentRequestsModal({
 
   const handleDecline = (req: PaymentRequest) => {
     if (actionLoadingId) return;
+    setActionLoadingId(req.id);
     Alert.alert('Decline this request?', 'The requester will see it as declined.', [
-      { text: 'Keep', style: 'cancel' },
+      {
+        text: 'Keep',
+        style: 'cancel',
+        onPress: () => setActionLoadingId(null),
+      },
       {
         text: 'Decline',
         style: 'destructive',
         onPress: async () => {
-          setActionLoadingId(req.id);
           try {
             const { error } = await supabase.rpc('decline_payment_request', {
               p_id: req.id,
@@ -200,13 +204,17 @@ export function PaymentRequestsModal({
 
   const handleCancel = (req: PaymentRequest) => {
     if (actionLoadingId) return;
+    setActionLoadingId(req.id);
     Alert.alert('Cancel this request?', undefined, [
-      { text: 'Keep', style: 'cancel' },
+      {
+        text: 'Keep',
+        style: 'cancel',
+        onPress: () => setActionLoadingId(null),
+      },
       {
         text: 'Cancel request',
         style: 'destructive',
         onPress: async () => {
-          setActionLoadingId(req.id);
           try {
             const { error } = await supabase.rpc('cancel_payment_request', {
               p_id: req.id,

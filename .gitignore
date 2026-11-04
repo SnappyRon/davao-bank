@@ -39,3 +39,7 @@ yarn-error.log*
 
 # Local artifacts / POC results
 offline_currency_poc_results/
+
+# Local browser test artifacts
+test-results/
+playwright-report/

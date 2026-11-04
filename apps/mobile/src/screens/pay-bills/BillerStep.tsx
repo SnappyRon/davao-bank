@@ -64,6 +64,7 @@ export function BillerStep({
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.categoryChips}
       >
         {[

@@ -10,7 +10,7 @@ appId: host.exp.Exponent
 - tapOn: "Email"
 - inputText: "customer1@davaobank.ph"
 - tapOn: "Password"
-- inputText: "Password123!"
+- inputText: "${E2E_PASSWORD}"
 - tapOn: "Sign In"
 
 # Verify landed on Home screen
@@ -44,7 +44,7 @@ appId: host.exp.Exponent
       visible: "Confirm Password"
     commands:
       - tapOn: "Enter account password"
-      - inputText: "Password123!"
+      - inputText: "${E2E_PASSWORD}"
       - tapOn: "Authorize"
 - assertVisible: "Transfer Sent"
 - tapOn: "Done"
@@ -76,7 +76,7 @@ appId: host.exp.Exponent
       visible: "Confirm Password"
     commands:
       - tapOn: "Enter account password"
-      - inputText: "Password123!"
+      - inputText: "${E2E_PASSWORD}"
       - tapOn: "Authorize"
 - assertVisible: "Payment Successful"
 - tapOn: "Done"
@@ -97,7 +97,7 @@ appId: host.exp.Exponent
       visible: "Confirm Password"
     commands:
       - tapOn: "Enter account password"
-      - inputText: "Password123!"
+      - inputText: "${E2E_PASSWORD}"
       - tapOn: "Authorize"
 - assertVisible: "Payment Scheduled"
 - tapOn: "Done"

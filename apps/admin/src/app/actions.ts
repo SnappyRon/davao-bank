@@ -7,6 +7,7 @@ import {
   executeAdminSetAccountStatus,
   executeAdminAdjustBalance,
   executeAdminReverseTransaction,
+  toUserMessage,
   type ProfileStatus,
   type AccountStatus,
   type AccountType,
@@ -38,15 +39,14 @@ export async function setUserStatusAction(
     });
 
     if (error) {
-      return { success: false, error };
+      return { success: false, error: toUserMessage(error) };
     }
 
     revalidatePath('/users');
     revalidatePath('/');
     return { success: true, data };
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    return { success: false, error: message };
+    return { success: false, error: toUserMessage(err) };
   }
 }
 
@@ -67,7 +67,7 @@ export async function openAccountAction(
     });
 
     if (error) {
-      return { success: false, error };
+      return { success: false, error: toUserMessage(error) };
     }
 
     revalidatePath('/accounts');
@@ -75,8 +75,7 @@ export async function openAccountAction(
     revalidatePath('/');
     return { success: true, data };
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    return { success: false, error: message };
+    return { success: false, error: toUserMessage(err) };
   }
 }
 
@@ -97,15 +96,14 @@ export async function setAccountStatusAction(
     });
 
     if (error) {
-      return { success: false, error };
+      return { success: false, error: toUserMessage(error) };
     }
 
     revalidatePath('/accounts');
     revalidatePath('/');
     return { success: true, data };
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    return { success: false, error: message };
+    return { success: false, error: toUserMessage(err) };
   }
 }
 
@@ -130,7 +128,7 @@ export async function adjustBalanceAction(
     });
 
     if (error) {
-      return { success: false, error };
+      return { success: false, error: toUserMessage(error) };
     }
 
     revalidatePath('/accounts');
@@ -138,8 +136,7 @@ export async function adjustBalanceAction(
     revalidatePath('/');
     return { success: true, data };
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    return { success: false, error: message };
+    return { success: false, error: toUserMessage(err) };
   }
 }
 
@@ -160,7 +157,7 @@ export async function reverseTransactionAction(
     });
 
     if (error) {
-      return { success: false, error };
+      return { success: false, error: toUserMessage(error) };
     }
 
     revalidatePath('/transactions');
@@ -168,8 +165,7 @@ export async function reverseTransactionAction(
     revalidatePath('/');
     return { success: true, data };
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    return { success: false, error: message };
+    return { success: false, error: toUserMessage(err) };
   }
 }
 
@@ -182,7 +178,7 @@ export async function adminRunDueSchedulesAction(): Promise<ActionResult> {
     const { data, error } = await supabase.rpc('admin_run_due_schedules_now');
 
     if (error) {
-      return { success: false, error: error.message };
+      return { success: false, error: toUserMessage(error) };
     }
 
     revalidatePath('/schedules');
@@ -191,8 +187,7 @@ export async function adminRunDueSchedulesAction(): Promise<ActionResult> {
     revalidatePath('/');
     return { success: true, data };
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    return { success: false, error: message };
+    return { success: false, error: toUserMessage(err) };
   }
 }
 
@@ -211,15 +206,14 @@ export async function adminCancelScheduleAction(
     });
 
     if (error) {
-      return { success: false, error: error.message };
+      return { success: false, error: toUserMessage(error) };
     }
 
     revalidatePath('/schedules');
     revalidatePath('/');
     return { success: true, data };
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    return { success: false, error: message };
+    return { success: false, error: toUserMessage(err) };
   }
 }
 
@@ -242,7 +236,7 @@ export async function adminCreateBillerAction(
     });
 
     if (error) {
-      return { success: false, error: error.message };
+      return { success: false, error: toUserMessage(error) };
     }
 
     revalidatePath('/billers');
@@ -250,8 +244,7 @@ export async function adminCreateBillerAction(
     revalidatePath('/');
     return { success: true, data };
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    return { success: false, error: message };
+    return { success: false, error: toUserMessage(err) };
   }
 }
 
@@ -270,14 +263,13 @@ export async function adminSetBillerActiveAction(
     });
 
     if (error) {
-      return { success: false, error: error.message };
+      return { success: false, error: toUserMessage(error) };
     }
 
     revalidatePath('/billers');
     revalidatePath('/');
     return { success: true, data };
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    return { success: false, error: message };
+    return { success: false, error: toUserMessage(err) };
   }
 }

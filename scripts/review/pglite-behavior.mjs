@@ -94,6 +94,17 @@ const biller=(await su(`select id,account_id from billers limit 1`))[0];
 r=await cust(U.A,`select pay_bill($1,$2,'12AB','5000','bill-1')`,[A.id,biller?.id]); ok('Bill pay rejects malformed reference', !!r.err, r.err);
 r=await cust(U.A,`select pay_bill($1,$2,'1234567890',5000,'bill-2')`,[A.id,biller?.id]); ok('Bill pay with valid reference', !r.err, r.err);
 ok('bill_payments row linked to its transaction', (await su(`select count(*)::int n from bill_payments bp join transactions t on t.id=bp.transaction_id`))[0].n===1);
+
+// F3 check: Admin deactivates biller
+r = await as('authenticated', U.ADM, `select admin_set_biller_active($1, false)`, [biller?.id]);
+ok('Admin deactivates biller via RPC', !r.err, r.err);
+const custBillers = await cust(U.A, `select * from billers where id = $1`, [biller?.id]);
+ok('Deactivated biller is hidden from customer', !custBillers.err && (custBillers.rows || []).length === 0);
+const admBillers = await as('authenticated', U.ADM, `select * from billers where id = $1`, [biller?.id]);
+ok('Deactivated biller remains visible to admin', !admBillers.err && (admBillers.rows || []).length === 1);
+const billerAudit = await su(`select * from audit_logs where action = 'biller_status_changed' and entity_id = $1::text`, [biller?.id]);
+ok('Audit log records biller_status_changed entry', (billerAudit || []).length > 0);
+await as('authenticated', U.ADM, `select admin_set_biller_active($1, true)`, [biller?.id]);
 const today=(await su(`select (now() at time zone 'Asia/Manila')::date d`))[0].d;
 r=await cust(U.A,`select create_scheduled_payment($1,'transfer',$2,null,null,1000,'weekly',$3,null,3,'rent')`,[A.id,B.id,today]); ok('Create weekly schedule starting today', !r.err, r.err);
 const before=await bal(A.id);

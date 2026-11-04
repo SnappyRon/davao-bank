@@ -36,6 +36,14 @@ try {
   // .env is optional
 }
 
+const TEST_PASSWORD = process.env.SEED_PASSWORD || process.env.E2E_PASSWORD;
+if (!TEST_PASSWORD) {
+  console.error(
+    'NOT VERIFIED — set SEED_PASSWORD or E2E_PASSWORD for authenticated live checks.'
+  );
+  process.exit(1);
+}
+
 const SUPABASE_URL =
   process.env.SUPABASE_URL ||
   process.env.NEXT_PUBLIC_SUPABASE_URL ||
@@ -119,19 +127,19 @@ async function runTestSuite() {
     const cust1 = createClient(SUPABASE_URL, ANON_KEY);
     const { data: auth1 } = await cust1.auth.signInWithPassword({
       email: 'customer1@davaobank.ph',
-      password: 'Password123!',
+      password: TEST_PASSWORD,
     });
 
     const cust2 = createClient(SUPABASE_URL, ANON_KEY);
     const { data: auth2 } = await cust2.auth.signInWithPassword({
       email: 'customer2@davaobank.ph',
-      password: 'Password123!',
+      password: TEST_PASSWORD,
     });
 
     const adminUser = createClient(SUPABASE_URL, ANON_KEY);
     const { data: authAdmin } = await adminUser.auth.signInWithPassword({
       email: 'admin@davaobank.ph',
-      password: 'Password123!',
+      password: TEST_PASSWORD,
     });
 
     assert(

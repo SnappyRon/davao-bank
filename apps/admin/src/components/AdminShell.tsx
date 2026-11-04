@@ -13,8 +13,14 @@ interface AdminShellProps {
   children: React.ReactNode;
 }
 
-const IDLE_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
-const WARNING_TIMEOUT_MS = 14 * 60 * 1000; // 14 minutes (1-minute warning)
+const IDLE_TIMEOUT_MS =
+  typeof process !== 'undefined' && process.env.NEXT_PUBLIC_TEST_IDLE_TIMEOUT_MS
+    ? parseInt(process.env.NEXT_PUBLIC_TEST_IDLE_TIMEOUT_MS, 10)
+    : 15 * 60 * 1000; // 15 minutes
+const WARNING_TIMEOUT_MS =
+  typeof process !== 'undefined' && process.env.NEXT_PUBLIC_TEST_WARNING_TIMEOUT_MS
+    ? parseInt(process.env.NEXT_PUBLIC_TEST_WARNING_TIMEOUT_MS, 10)
+    : 14 * 60 * 1000; // 14 minutes (1-minute warning)
 
 export function AdminShell({ adminEmail, adminName, children }: AdminShellProps) {
   const [showWarning, setShowWarning] = useState(false);

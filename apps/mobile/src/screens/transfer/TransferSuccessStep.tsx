@@ -74,14 +74,10 @@ export function TransferSuccessStep({
           </View>
           <View style={styles.receiptRow}>
             <Text variant="caption" color={colors.textMuted}>
-              Updated Balance
+              Balance now
             </Text>
             <AmountText
-              amountCentavos={
-                successResult.from_new_balance ??
-                successResult.new_balance ??
-                selectedAccountBalance
-              }
+              amountCentavos={selectedAccountBalance}
               hidden={hideBalance}
               variant="bodyStrong"
               color={colors.ink}

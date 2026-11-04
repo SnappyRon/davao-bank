@@ -17,6 +17,57 @@ export interface ConfirmMoneyOptions {
   promptMessage?: string;
 }
 
+export interface DecideConfirmationParams {
+  biometricEnabled: boolean;
+  isBiometricSupported: boolean;
+  authenticateBiometric: () => Promise<{ success: boolean; error?: string }>;
+  promptPassword: () => Promise<{
+    success: boolean;
+    cancelled?: boolean;
+    error?: string;
+  }>;
+}
+
+/**
+ * Pure decision evaluator for money confirmation (§0.9 / Fix F10).
+ * Invariant: Never returns { success: true } without a successful biometric or password check.
+ */
+export async function decideConfirmation({
+  biometricEnabled,
+  isBiometricSupported,
+  authenticateBiometric,
+  promptPassword,
+}: DecideConfirmationParams): Promise<{
+  success: boolean;
+  cancelled?: boolean;
+  error?: string;
+}> {
+  if (biometricEnabled && isBiometricSupported) {
+    try {
+      const bioResult = await authenticateBiometric();
+      if (bioResult.success) {
+        return { success: true };
+      }
+      if (bioResult.error === 'user_cancel' || bioResult.error === 'app_cancel') {
+        return { success: false, cancelled: true };
+      }
+      // Biometric error or fallback chosen -> proceed to password
+    } catch {
+      // Proceed to password
+    }
+  }
+
+  const pwdResult = await promptPassword();
+  if (pwdResult.success) {
+    return { success: true };
+  }
+  return {
+    success: false,
+    cancelled: pwdResult.cancelled,
+    error: pwdResult.error || 'Authentication required',
+  };
+}
+
 interface SettingsContextType {
   hideBalance: boolean;
   toggleHideBalance: () => Promise<void>;
@@ -151,36 +202,27 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         options?.message ||
         'Please confirm your identity to authorize this transaction.';
 
-      if (biometricEnabled && isBiometricSupported) {
-        try {
-          const result = await LocalAuthentication.authenticateAsync({
+      return decideConfirmation({
+        biometricEnabled,
+        isBiometricSupported,
+        authenticateBiometric: async () => {
+          return LocalAuthentication.authenticateAsync({
             promptMessage: promptMsg,
             fallbackLabel: 'Enter Password',
             cancelLabel: 'Cancel',
             disableDeviceFallback: false,
           });
-
-          if (result.success) {
-            return { success: true };
-          }
-
-          if (result.error === 'user_cancel' || result.error === 'app_cancel') {
-            return { success: false, cancelled: true };
-          }
-          // Biometric failed or user selected password fallback; proceed to password modal
-        } catch {
-          // Proceed to password modal fallback
-        }
-      }
-
-      // Fallback: in-app password re-entry modal
-      return new Promise((resolve) => {
-        setPasswordModalConfig({
-          title: promptTitle,
-          message: promptMsg,
-          resolve,
-        });
-        setPasswordModalVisible(true);
+        },
+        promptPassword: () => {
+          return new Promise((resolve) => {
+            setPasswordModalConfig({
+              title: promptTitle,
+              message: promptMsg,
+              resolve,
+            });
+            setPasswordModalVisible(true);
+          });
+        },
       });
     },
     [biometricEnabled, isBiometricSupported]

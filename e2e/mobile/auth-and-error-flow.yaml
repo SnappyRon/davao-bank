@@ -15,7 +15,7 @@ appId: host.exp.Exponent
 # 2. Sign in with valid credentials
 - tapOn: "Password"
 - eraseText: 20
-- inputText: "Password123!"
+- inputText: "${E2E_PASSWORD}"
 - tapOn: "Sign In"
 - assertVisible: "Available Balance"
 

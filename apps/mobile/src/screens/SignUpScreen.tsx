@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { UserPlus, AlertCircle } from 'lucide-react-native';
-import { colors, spacing, radius } from '@davao-bank/shared';
+import { colors, spacing, radius, toUserMessage } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
 import { Screen, Text, TextField, Button, Card, Logo } from '../components';
 
@@ -60,7 +60,7 @@ export function SignUpScreen({ onNavigateToLogin, onSignUpSuccess }: SignUpScree
       });
 
       if (error) {
-        setErrorMessage(error.message);
+        setErrorMessage(toUserMessage(error));
         return;
       }
 
@@ -68,7 +68,7 @@ export function SignUpScreen({ onNavigateToLogin, onSignUpSuccess }: SignUpScree
         onSignUpSuccess(email.trim());
       }
     } catch (err: any) {
-      setErrorMessage(err.message || 'An unexpected error occurred during signup.');
+      setErrorMessage(toUserMessage(err));
     } finally {
       setLoading(false);
     }

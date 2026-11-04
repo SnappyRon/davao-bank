@@ -32,6 +32,14 @@ try {
   // .env is optional
 }
 
+const TEST_PASSWORD = process.env.SEED_PASSWORD || process.env.E2E_PASSWORD;
+if (!TEST_PASSWORD) {
+  console.error(
+    'NOT VERIFIED — set SEED_PASSWORD or E2E_PASSWORD for authenticated live checks.'
+  );
+  process.exit(1);
+}
+
 const SUPABASE_URL =
   process.env.SUPABASE_URL ||
   process.env.NEXT_PUBLIC_SUPABASE_URL ||
@@ -117,14 +125,14 @@ async function runTestSuite() {
     const { data: custAuth, error: custAuthErr } =
       await customerClient.auth.signInWithPassword({
         email: 'customer1@davaobank.ph',
-        password: 'Password123!',
+        password: TEST_PASSWORD,
       });
 
     const staffClient = createClient(SUPABASE_URL, ANON_KEY);
     const { data: staffAuth, error: staffAuthErr } =
       await staffClient.auth.signInWithPassword({
         email: 'admin@davaobank.ph',
-        password: 'Password123!',
+        password: TEST_PASSWORD,
       });
 
     assert(
@@ -690,6 +698,75 @@ async function runTestSuite() {
       credits === debits,
       `All transfers and reversals remain strictly balanced: Credits (₱${(credits / 100).toFixed(2)}) == Debits (₱${(debits / 100).toFixed(2)})`
     );
+
+    // 8. Biller Status Management & RLS Visibility (F3)
+    console.log(
+      '\n[8/8] Testing Admin Biller Activation/Deactivation & RLS Visibility (F3)...'
+    );
+    const { data: billerList } = await staffClient
+      .from('billers')
+      .select('id, name, is_active')
+      .limit(1);
+    if (billerList && billerList.length > 0) {
+      const testBiller = billerList[0];
+      // 8.1 Deactivate biller
+      const { data: deactRes, error: deactErr } = await staffClient.rpc(
+        'admin_set_biller_active',
+        {
+          p_biller_id: testBiller.id,
+          p_is_active: false,
+        }
+      );
+      assert(
+        'BillerStatus',
+        !deactErr && deactRes?.is_active === false,
+        `Admin deactivates biller (${testBiller.name}) through RPC`,
+        deactErr?.message
+      );
+
+      // 8.2 Customer cannot see deactivated biller via RLS
+      const { data: custBillerView } = await customerClient
+        .from('billers')
+        .select('id')
+        .eq('id', testBiller.id)
+        .maybeSingle();
+      assert(
+        'BillerStatus',
+        custBillerView === null,
+        'Deactivated biller is hidden from customer via RLS'
+      );
+
+      // 8.3 Admin can still see deactivated biller via RLS
+      const { data: adminBillerView } = await staffClient
+        .from('billers')
+        .select('id, is_active')
+        .eq('id', testBiller.id)
+        .maybeSingle();
+      assert(
+        'BillerStatus',
+        adminBillerView !== null && adminBillerView.is_active === false,
+        'Deactivated biller remains visible to administrator via RLS'
+      );
+
+      // 8.4 Audit log entry exists
+      const { data: billerAudit } = await adminClient
+        .from('audit_logs')
+        .select('id, action')
+        .eq('action', 'biller_status_changed')
+        .eq('entity_id', String(testBiller.id))
+        .limit(1);
+      assert(
+        'BillerStatus',
+        Boolean(billerAudit && billerAudit.length > 0),
+        'Audit log has biller_status_changed entry'
+      );
+
+      // Reactivate biller
+      await staffClient.rpc('admin_set_biller_active', {
+        p_biller_id: testBiller.id,
+        p_is_active: true,
+      });
+    }
 
     // Run source-file checks in addition to live tests
     runContractValidations();

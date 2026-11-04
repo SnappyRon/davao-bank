@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, Alert } from 'react-native';
 import { User, Phone, Mail, Check } from 'lucide-react-native';
-import { colors, spacing, radius, type Profile } from '@davao-bank/shared';
+import { colors, spacing, radius, toUserMessage, type Profile } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
 import { BottomSheet, Text, TextField, Button } from '../components';
 
@@ -58,7 +58,7 @@ export function PersonalDetailsModal({
         .single();
 
       if (error) {
-        setErrorMsg(error.message);
+        setErrorMsg(toUserMessage(error));
       } else if (data) {
         setSuccessMsg('Profile updated successfully');
         onUpdated(data as Profile);
@@ -67,7 +67,7 @@ export function PersonalDetailsModal({
         }, 1200);
       }
     } catch (err: any) {
-      setErrorMsg(err.message || 'Failed to update personal details');
+      setErrorMsg(toUserMessage(err));
     } finally {
       setSaving(false);
     }
@@ -75,7 +75,10 @@ export function PersonalDetailsModal({
 
   return (
     <BottomSheet visible={visible} onClose={onClose} title="Personal Details">
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+      >
         <TextField
           label="Full Name"
           value={fullName}

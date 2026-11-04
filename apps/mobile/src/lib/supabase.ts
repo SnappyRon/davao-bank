@@ -18,20 +18,16 @@ import { createSupabaseClient } from '@davao-bank/shared';
  * 3. Stores the encrypted ciphertext string in AsyncStorage (which has no practical size limit).
  * 4. Decrypts ciphertext in memory upon app startup or session refresh.
  */
-class LargeSecureStore {
-  private async _getEncryptionKey(key: string): Promise<Uint8Array> {
-    const keyAlias = `sq_key_${key.replace(/[^a-zA-Z0-9_]/g, '_')}`;
-    const existingHex = await SecureStore.getItemAsync(keyAlias);
-    if (existingHex) {
-      return aesjs.utils.hex.toBytes(existingHex);
-    }
-    const newKey = crypto.getRandomValues(new Uint8Array(256 / 8));
-    await SecureStore.setItemAsync(keyAlias, aesjs.utils.hex.fromBytes(newKey));
-    return newKey;
+export class LargeSecureStore {
+  private _getKeyAlias(key: string): string {
+    return `sq_key_${key.replace(/[^a-zA-Z0-9_]/g, '_')}`;
   }
 
   private async _encrypt(key: string, value: string): Promise<string> {
-    const encryptionKey = await this._getEncryptionKey(key);
+    const encryptionKey = crypto.getRandomValues(new Uint8Array(256 / 8));
+    const keyAlias = this._getKeyAlias(key);
+    await SecureStore.setItemAsync(keyAlias, aesjs.utils.hex.fromBytes(encryptionKey));
+
     const cipher = new aesjs.ModeOfOperation.ctr(encryptionKey, new aesjs.Counter(1));
     const textBytes = aesjs.utils.utf8.toBytes(value);
     const encryptedBytes = cipher.encrypt(textBytes);
@@ -39,7 +35,7 @@ class LargeSecureStore {
   }
 
   private async _decrypt(key: string, encryptedHex: string): Promise<string | null> {
-    const keyAlias = `sq_key_${key.replace(/[^a-zA-Z0-9_]/g, '_')}`;
+    const keyAlias = this._getKeyAlias(key);
     const encryptionKeyHex = await SecureStore.getItemAsync(keyAlias);
     if (!encryptionKeyHex) {
       return null;
@@ -77,7 +73,7 @@ class LargeSecureStore {
   }
 
   async removeItem(key: string): Promise<void> {
-    const keyAlias = `sq_key_${key.replace(/[^a-zA-Z0-9_]/g, '_')}`;
+    const keyAlias = this._getKeyAlias(key);
     try {
       await SecureStore.deleteItemAsync(keyAlias);
     } catch {

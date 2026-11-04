@@ -20,6 +20,13 @@ interface SuccessStepProps {
   timing: PaymentTiming;
   scheduledDate: string;
   receiptTxId: string | null;
+  serverResult?: {
+    id?: string;
+    transaction_id?: string;
+    amount?: number | string;
+    idempotent_replay?: boolean;
+    [key: string]: any;
+  } | null;
   onDone: () => void;
 }
 
@@ -30,8 +37,12 @@ export function SuccessStep({
   timing,
   scheduledDate,
   receiptTxId,
+  serverResult,
   onDone,
 }: SuccessStepProps) {
+  const displayAmount = serverResult?.amount ? Number(serverResult.amount) : centavos;
+  const displayTxId = serverResult?.id || serverResult?.transaction_id || receiptTxId;
+
   return (
     <View style={styles.successContainer}>
       <View style={styles.successIconWrapper}>
@@ -46,6 +57,16 @@ export function SuccessStep({
         {timing === 'now' ? 'Payment Completed' : `Scheduled for ${scheduledDate}`}
       </Text>
 
+      {serverResult?.idempotent_replay && (
+        <Text
+          variant="caption"
+          color={colors.orangeText}
+          style={{ marginTop: spacing.xs }}
+        >
+          This payment was already processed
+        </Text>
+      )}
+
       <Text variant="body" color="textSecondary" style={styles.successSubtitle}>
         {timing === 'now'
           ? `Successfully paid ${biller.name}`
@@ -58,7 +79,7 @@ export function SuccessStep({
             Amount
           </Text>
           <Text variant="title" color="ink">
-            {formatCentavosToPHP(centavos)}
+            {formatCentavosToPHP(displayAmount)}
           </Text>
         </View>
         <View style={styles.divider} />
@@ -74,13 +95,13 @@ export function SuccessStep({
           </Text>
           <Text variant="bodyStrong">{reference}</Text>
         </View>
-        {receiptTxId && (
+        {displayTxId && (
           <View style={styles.reviewRow}>
             <Text variant="caption" color="textSecondary">
               Ref ID
             </Text>
             <Text variant="caption" color="textMuted">
-              {receiptTxId.slice(0, 8)}...
+              {displayTxId.slice(0, 8)}...
             </Text>
           </View>
         )}

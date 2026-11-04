@@ -14,6 +14,7 @@ import { useReducedMotion } from '../hooks/useReducedMotion';
 import { Text } from './Text';
 import { TextField } from './TextField';
 import { Button } from './Button';
+import { PrivacyOverlay } from './PrivacyOverlay';
 
 export interface PasswordConfirmationModalProps {
   visible: boolean;
@@ -153,6 +154,7 @@ export function PasswordConfirmationModal({
           </TouchableWithoutFeedback>
         </View>
       </TouchableWithoutFeedback>
+      <PrivacyOverlay />
     </Modal>
   );
 }

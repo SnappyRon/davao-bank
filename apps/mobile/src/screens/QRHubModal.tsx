@@ -9,6 +9,7 @@ import {
   radius,
   phpToCentavos,
   parseDavaoBankQRPayload,
+  toUserMessage,
   type AccountBalance,
 } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
@@ -139,7 +140,7 @@ export function QRHubModal({
       setReqLoading(false);
 
       if (error) {
-        setReqError(error.message);
+        setReqError(toUserMessage(error));
         try {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         } catch {
@@ -156,7 +157,7 @@ export function QRHubModal({
       }
     } catch (err: any) {
       setReqLoading(false);
-      setReqError(err?.message || 'Failed to send payment request');
+      setReqError(toUserMessage(err));
     }
   };
 
@@ -231,6 +232,7 @@ export function QRHubModal({
           style={styles.tabContent}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollInner}
+          keyboardShouldPersistTaps="handled"
         >
           {tab === 'my_qr' && (
             <MyQRTab

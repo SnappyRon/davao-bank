@@ -14,6 +14,7 @@ import {
 } from '@davao-bank/shared';
 import { Text } from '../components/Text';
 import { Card } from '../components/Card';
+import { PrivacyOverlay } from '../components/PrivacyOverlay';
 import { supabase } from '../lib/supabase';
 import {
   FXRatesChart,
@@ -249,6 +250,7 @@ export function FXRatesModal({
           {/* Recent Daily Rates Table */}
           <FXRatesHistory rates={periodRates} baseCurrency={currentPairMeta.base} />
         </ScrollView>
+        <PrivacyOverlay />
       </View>
     </Modal>
   );

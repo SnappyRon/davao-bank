@@ -17,7 +17,13 @@ import {
   X,
   CreditCard,
 } from 'lucide-react-native';
-import { colors, spacing, radius, type SavedRecipient } from '@davao-bank/shared';
+import {
+  colors,
+  spacing,
+  radius,
+  toUserMessage,
+  type SavedRecipient,
+} from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
 import {
   BottomSheet,
@@ -104,7 +110,7 @@ export function SavedRecipientsModal({
       });
 
       if (error) {
-        setFormError(error.message);
+        setFormError(toUserMessage(error));
         return;
       }
 
@@ -115,8 +121,7 @@ export function SavedRecipientsModal({
         loadRecipients();
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to add recipient';
-      setFormError(msg);
+      setFormError(toUserMessage(err));
     } finally {
       setSubmitting(false);
     }
@@ -142,7 +147,7 @@ export function SavedRecipientsModal({
               .eq('id', id);
 
             if (error) {
-              Alert.alert('Error', error.message);
+              Alert.alert('Error', toUserMessage(error));
             } else {
               loadRecipients();
             }
@@ -170,7 +175,7 @@ export function SavedRecipientsModal({
               .eq('id', recipient.id);
 
             if (error) {
-              Alert.alert('Error', error.message);
+              Alert.alert('Error', toUserMessage(error));
             } else {
               loadRecipients();
             }
@@ -292,6 +297,7 @@ export function SavedRecipientsModal({
                 data={filteredRecipients}
                 keyExtractor={(item) => item.id}
                 contentContainerStyle={styles.listContent}
+                keyboardShouldPersistTaps="handled"
                 renderItem={({ item }) => (
                   <Card
                     variant="elevated"

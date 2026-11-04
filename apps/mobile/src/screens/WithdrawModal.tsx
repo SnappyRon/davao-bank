@@ -90,11 +90,6 @@ export function WithdrawModal({
       return;
     }
 
-    if (step === 'review') {
-      setStep('input');
-      return;
-    }
-
     if (hasInput) {
       Alert.alert('Discard this cash-out?', 'Your details will be lost.', [
         { text: 'Keep editing', style: 'cancel' },
@@ -286,6 +281,7 @@ export function WithdrawModal({
                 title="Back"
                 variant="ghost"
                 onPress={() => setStep('input')}
+                disabled={loading}
                 style={styles.backButton}
               />
               <Button

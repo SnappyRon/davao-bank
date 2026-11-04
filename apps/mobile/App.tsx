@@ -1,11 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import {
-  View,
-  StyleSheet,
-  ActivityIndicator,
-  AppState,
-  type AppStateStatus,
-} from 'react-native';
+import { View, StyleSheet, ActivityIndicator, Platform } from 'react-native';
+import * as ScreenCapture from 'expo-screen-capture';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -27,7 +22,7 @@ import {
 } from '@davao-bank/shared';
 import { supabase } from './src/lib/supabase';
 import { SettingsProvider } from './src/context/SettingsContext';
-import { Logo, Text } from './src/components';
+import { Logo, Text, PrivacyOverlay } from './src/components';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { ActivityScreen } from './src/screens/ActivityScreen';
 import { InboxScreen } from './src/screens/InboxScreen';
@@ -63,13 +58,13 @@ export default function App() {
   const [authScreen, setAuthScreen] = useState<AuthScreenState>('login');
   const [targetEmail, setTargetEmail] = useState<string>('');
   const [unreadCount, setUnreadCount] = useState<number>(0);
-  const [isAppInactive, setIsAppInactive] = useState<boolean>(false);
 
   useEffect(() => {
-    const sub = AppState.addEventListener('change', (nextState: AppStateStatus) => {
-      setIsAppInactive(nextState === 'inactive' || nextState === 'background');
-    });
-    return () => sub.remove();
+    if (Platform.OS === 'android') {
+      ScreenCapture.preventScreenCaptureAsync().catch((err) => {
+        console.warn('Failed to prevent screen capture on Android:', err);
+      });
+    }
   }, []);
 
   const loadProfile = useCallback(async (userId: string) => {
@@ -290,17 +285,7 @@ export default function App() {
         </Tab.Navigator>
       </NavigationContainer>
 
-      {isAppInactive && (
-        <View style={styles.privacyOverlay}>
-          <Logo size={64} />
-          <Text variant="title" style={styles.privacyTitle}>
-            Davao Bank
-          </Text>
-          <Text variant="caption" style={styles.privacySubtitle}>
-            Secured Banking Session
-          </Text>
-        </View>
-      )}
+      <PrivacyOverlay />
     </SettingsProvider>
   );
 }

@@ -13,13 +13,13 @@ This document details the security posture, threat model, control architecture, 
 
 ## 2. Threat Model
 
-| Actor / Threat                       | Motive & Attack Vector                                                                                                                                                        | Impact if Unchecked                                                         | Mitigating Controls                                                                                                                                                                                                                         |
-| :----------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Anonymous / External Attacker**    | Unauthenticated API probes, endpoint fuzzing, SQL injection, RLS bypass, clickjacking.                                                                                        | Database theft, unauthorized data scraping, unauthorized account creations. | Deny-by-default RLS; `anon` execution revoked on all public functions; CSP `frame-ancestors 'none'`; `X-Frame-Options: DENY`; Strict-Transport-Security.                                                                                    |
-| **Malicious Customer**               | Overdrafting, race conditions (concurrent double-spends), tampering with balances, forging ledger/audit entries, escalating role to admin, viewing other customers' balances. | Direct theft, unbalanced ledger, privilege escalation, PII data leak.       | Single Money Engine (`_transfer_core`) with deterministic `FOR UPDATE` row locking; `guard_profile_self_update` trigger; client direct writes strictly revoked on money and audit tables; RLS isolation strictly filtering by `auth.uid()`. |
-| **Compromised Staff Account**        | Malicious balance adjustments, unauthorized account closures or reversals.                                                                                                    | Ledger corruption, customer financial harm.                                 | Server-side `is_admin()` requirement; mandatory audit justifications for adjustments/reversals; append-only audit trail; 15-minute idle auto sign-out; strict cookie security (`HttpOnly; Secure; SameSite=Lax`).                           |
-| **Network Eavesdropper (MITM)**      | Intercepting credentials, session hijacking, replaying financial requests.                                                                                                    | Account takeover, duplicate debits.                                         | HTTPS/TLS enforcement; client-generated idempotency keys (`idempotency_key` database constraint); Supabase JWT rotation; Vault-secured cron webhooks.                                                                                       |
-| **Local Physical / Shoulder Surfer** | Viewing sensitive account balances in the OS task switcher or left unattended on shared device.                                                                               | Privacy leak, unauthorized financial observation.                           | Mobile app-switcher privacy screen obscures UI on `inactive`/`background` state; admin 15-minute idle sign-out modal; biometric/password confirmation on money actions.                                                                     |
+| Actor / Threat                       | Motive & Attack Vector                                                                                                                                                        | Impact if Unchecked                                                         | Mitigating Controls                                                                                                                                                                                                                                                                                      |
+| :----------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Anonymous / External Attacker**    | Unauthenticated API probes, endpoint fuzzing, SQL injection, RLS bypass, clickjacking.                                                                                        | Database theft, unauthorized data scraping, unauthorized account creations. | Deny-by-default RLS; `anon` execution revoked on all public functions; CSP `frame-ancestors 'none'`; `X-Frame-Options: DENY`; Strict-Transport-Security.                                                                                                                                                 |
+| **Malicious Customer**               | Overdrafting, race conditions (concurrent double-spends), tampering with balances, forging ledger/audit entries, escalating role to admin, viewing other customers' balances. | Direct theft, unbalanced ledger, privilege escalation, PII data leak.       | Single Money Engine (`_transfer_core`) with deterministic `FOR UPDATE` row locking; `guard_profile_self_update` trigger; client direct writes strictly revoked on money and audit tables; RLS isolation strictly filtering by `auth.uid()`.                                                              |
+| **Compromised Staff Account**        | Malicious balance adjustments, unauthorized account closures or reversals.                                                                                                    | Ledger corruption, customer financial harm.                                 | Server-side `is_admin()` requirement; mandatory audit justifications for adjustments/reversals; append-only audit trail; 15-minute idle auto sign-out; cookie security (`Secure: true` in prod; `SameSite=Lax`).                                                                                         |
+| **Network Eavesdropper (MITM)**      | Intercepting credentials, session hijacking, replaying financial requests.                                                                                                    | Account takeover, duplicate debits.                                         | HTTPS/TLS enforcement; client-generated idempotency keys (`idempotency_key` database constraint); Supabase JWT rotation; Vault-secured cron webhooks.                                                                                                                                                    |
+| **Local Physical / Shoulder Surfer** | Viewing sensitive account balances in the OS task switcher or left unattended on shared device.                                                                               | Privacy leak, unauthorized financial observation.                           | Mobile app-switcher privacy overlay obscures UI across root view and open modals (`BottomSheet`, `PasswordConfirmationModal`, `FXRatesModal`); Android `FLAG_SECURE` (`ScreenCapture.preventScreenCaptureAsync`); admin 15-minute idle sign-out modal; biometric/password confirmation on money actions. |
 
 ---
 
@@ -30,7 +30,8 @@ This document details the security posture, threat model, control architecture, 
 1. **Deny-by-Default Row Level Security (RLS):**
    - Enabled across all 12 public tables: `profiles`, `accounts`, `transactions`, `ledger_entries`, `audit_logs`, `saved_recipients`, `billers`, `bill_payments`, `scheduled_payments`, `payment_requests`, `fx_rates`, and `health_check`.
    - Only `health_check` is readable by `anon`.
-   - `fx_rates` and `billers` are strictly restricted to `authenticated` users.
+   - `billers` was never readable by `anon` (restricted to `authenticated` users and allows administrators to view/manage inactive billers via `is_active = true or public.is_admin()`).
+   - `fx_rates` is strictly restricted to `authenticated` users.
 2. **Principle of Least Privilege (Function Grants):**
    - `alter default privileges in schema public revoke execute on functions from public, anon;`
    - All `public` and `anon` execution privileges revoked across all functions.
@@ -50,30 +51,31 @@ This document details the security posture, threat model, control architecture, 
 
 ### 3.2 Mobile Security (React Native / Expo)
 
-1. **`LargeSecureStore` Session Encryption:**
+1. **`LargeSecureStore` Session Encryption & Key Rotation:**
    - Resolves the 2,048-byte iOS Keychain / Android KeyStore size limit.
-   - A random 256-bit AES key is generated and stored in `expo-secure-store`.
+   - Generates a fresh random 256-bit AES key on every `setItem`, storing it in `expo-secure-store` and replacing the previous key to eliminate keystream reuse.
    - The Supabase session JSON is encrypted via AES-256-CTR and persisted in `AsyncStorage`.
-   - Protects access and refresh tokens from unencrypted backup extraction.
-2. **App-Switcher Privacy Screen:**
-   - Implements an `AppState` event listener that immediately covers the viewport with a branded `Secured Banking Session` overlay when transitioning to `inactive` or `background`.
-   - Prevents iOS and Android app switcher snapshot caching from exposing account numbers and live balances.
+   - Protects access and refresh tokens from unencrypted backup extraction while providing transparent migration for legacy unencrypted JSON.
+2. **App-Switcher Privacy Screen & Modal Protection:**
+   - Uses `useAppBackgrounded()` hook to detect when the app transitions to `inactive` or `background`.
+   - Renders a branded `Secured Banking Session` overlay in the root view and within separate React Native `<Modal>` instances (`BottomSheet`, `PasswordConfirmationModal`, `FXRatesModal`), ensuring open sheets do not leak financial details in the iOS app switcher.
+   - On Android, invokes `ScreenCapture.preventScreenCaptureAsync()` from `expo-screen-capture` to activate `FLAG_SECURE`, preventing screenshots and hiding thumbnail previews in the app switcher.
 3. **Sensitive Action Authorization:**
-   - Money transfers, bill payments, and cash-outs require biometric verification (Face ID / Touch ID) or fallback password validation prior to execution.
+   - Money transfers, bill payments, and cash-outs require biometric verification (Face ID / Touch ID) or fallback password validation prior to execution via pure decision helper `decideConfirmation`.
 4. **User-Friendly Error Sanitizing:**
-   - `toUserMessage` catches all Postgres errors, constraint violations, and network failures, translating them into human-friendly messages without exposing internal SQL, table schemas, or stack traces.
+   - `toUserMessage` maps known backend, Postgres, and Supabase auth errors to safe, user-friendly copy and uses a generic message for all unexpected errors without exposing internal SQL, table schemas, or stack traces.
 
 ### 3.3 Admin Portal Security (Next.js 16)
 
 1. **HTTP Security Headers:**
-   - `Content-Security-Policy`: Restricts resource loading to `'self'` and official Supabase endpoints; specifies `frame-ancestors 'none'`.
+   - `Content-Security-Policy`: Restricts resource loading to `'self'` and official Supabase endpoints; specifies `frame-ancestors 'none'`. Production builds omit `'unsafe-eval'`. Note: `'unsafe-inline'` is currently retained as required by Next.js client script hydration and style injection. Note that CI does not check security headers; they are enforced at runtime via Next.js response headers.
    - `X-Frame-Options: DENY`: Blocks framing and clickjacking attacks.
    - `X-Content-Type-Options: nosniff`: Prevents MIME-sniffing exploits.
    - `Strict-Transport-Security: max-age=31536000; includeSubDomains`: Enforces HTTPS.
    - `Referrer-Policy: strict-origin-when-cross-origin`: Minimizes referrer leakage.
    - `Permissions-Policy: camera=(), microphone=(), geolocation=()`: Disables unneeded browser APIs.
 2. **Cookie Security:**
-   - Session cookies strictly configured with `HttpOnly: true`, `SameSite: 'lax'`, and `Secure: true` in production environments.
+   - Supabase SSR authentication cookies are configured with `SameSite: 'lax'` and `Secure: true` in production environments. Forced `HttpOnly: true` is not used so that `@supabase/ssr`'s `createBrowserClient` can properly read and write the session for client-side sign-out and idle session termination.
 3. **Session Inactivity Management:**
    - Automated 15-minute idle sign-out with user activity listeners (`mousemove`, `keydown`, `click`, `scroll`).
    - A 1-minute warning modal alerts staff before signing out and invalidating the session.
@@ -86,27 +88,44 @@ This document details the security posture, threat model, control architecture, 
    - Stored procedures `admin_open_account` and `pay_payment_request` held unused variable declarations (`v_profile`, `v_existing_tx`), triggering static analysis warnings. Both were cleanly refactored.
 2. **Public Function Exposure:**
    - Client functions in schema `public` were implicitly callable by `anon`. Migration `20261104000000_phase6_stage_b_security.sql` revoked execution from `public` and `anon` and closed future default privileges.
-3. **Unauthenticated Reference Rate / Biller Access:**
-   - `fx_rates` and `billers` had policies accessible to `anon`. Both were restricted to authenticated users.
-4. **Hardcoded Seed Password:**
-   - Default credential string in `scripts/seed.ts` was extracted into `SEED_PASSWORD` with prominent warnings.
+3. **Unauthenticated Reference Rate Access:**
+   - `fx_rates` previously allowed unauthenticated access; it was restricted to `authenticated` users only. Note: `billers` was never readable by `anon`.
+4. **Hardcoded Seed Password Removal & Rotation:**
+   - Default credential string in `scripts/seed.ts` and test suites was removed. Credentials must be supplied via `SEED_PASSWORD` in `.env`.
 5. **Dependency Vulnerabilities:**
-   - `npm audit` flagged 3 high-severity advisories (`node-forge` and `zod`). Resolved to 0 high and 0 critical vulnerabilities.
+   - `npm audit` flagged high-severity advisories (`node-forge` and `zod`). Resolved to 0 high and 0 critical vulnerabilities.
 
 ---
 
-## 5. Remaining Risks & Operational Recommendations
+## 5. Hosted Project Settings Checklist
 
-1. **Client Device Jailbreak / Root:**
+Because local `supabase/config.toml` changes apply only to local Supabase instances, the repository owner must verify and configure the following settings directly within the hosted Supabase Dashboard (Authentication > Security / Settings):
+
+- [ ] **Minimum Password Length:** Set to at least 10 characters, requiring letters and digits.
+- [ ] **Leaked-Password Protection:** Enable HaveIBeenPwned password checking (if supported by project plan).
+- [ ] **Auth Rate Limits:** Enable built-in rate limits for email signup, password reset, and token verification requests.
+- [ ] **Email Confirmation:** Enforce email confirmation for all new accounts (`Confirm email` set to ON).
+
+---
+
+## 6. Remaining Risks & Operational Recommendations
+
+1. **Historical Seed Password in Git History:**
+   - The initial seed password was previously committed to git history. Although removed from all working tree files, repo history contains the old commit.
+   - **Mitigation:** The owner must configure a private `SEED_PASSWORD` in `.env` and run `npm run seed` to rotate all live user credentials on the hosted Supabase project.
+2. **Content Security Policy (CSP) Allowances:**
+   - Next.js requires `'unsafe-inline'` for inline scripts and styles during client hydration.
+   - Local development permits `connect-src` to `http://127.0.0.1:54321` and `ws://127.0.0.1:54321`, and `'unsafe-eval'` for hot module replacement. Production headers strictly omit `'unsafe-eval'` and localhost URLs.
+3. **Client Device Jailbreak / Root:**
    - Jailbroken or rooted devices allow attackers to inspect application memory and intercept biometric validation callbacks. Production banking apps require jailbreak detection and certificate pinning.
-2. **Denial-of-Service on Money RPCs:**
+4. **Denial-of-Service on Money RPCs:**
    - Rapid repeated calls to transfer functions are throttled by database row locks, but distributed client floods could cause transaction queueing. Upstream API rate limiting (e.g., Cloudflare / Supabase API Gateway) is recommended.
-3. **External Rate Service Availability:**
+5. **External Rate Service Availability:**
    - FX reference rate synchronization relies on the external Frankfurter API. If the provider experiences downtime, the system falls back to the most recently cached rate in `fx_rates`.
 
 ---
 
-## 6. Prototype vs. Production Capabilities
+## 7. Prototype vs. Production Capabilities
 
 | Domain                    | Davao Bank (Academic Prototype)                    | Production Commercial Bank                                                                       |
 | :------------------------ | :------------------------------------------------- | :----------------------------------------------------------------------------------------------- |

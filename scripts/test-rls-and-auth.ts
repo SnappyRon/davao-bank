@@ -37,6 +37,13 @@ const ANON_KEY =
   'placeholder-anon-key';
 
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const TEST_PASSWORD = process.env.SEED_PASSWORD || process.env.E2E_PASSWORD || '';
+if (!TEST_PASSWORD) {
+  console.error(
+    'NOT VERIFIED — set SEED_PASSWORD or E2E_PASSWORD for authenticated live checks.'
+  );
+  process.exit(1);
+}
 
 interface TestResult {
   title: string;
@@ -163,23 +170,24 @@ async function runTests() {
     auth: { persistSession: false },
   });
 
+  let userAId = '';
+  let userBId = '';
+
   const { data: authA, error: errA } = await customerAClient.auth.signInWithPassword({
     email: 'customer1@davaobank.ph',
-    password: 'Password123!',
+    password: TEST_PASSWORD,
   });
 
   const { data: authB, error: errB } = await customerBClient.auth.signInWithPassword({
     email: 'customer2@davaobank.ph',
-    password: 'Password123!',
+    password: TEST_PASSWORD,
   });
 
   if (errA || !authA.user || errB || !authB.user) {
-    console.log(
-      'Note: Seed users not logged in directly. Proceeding with simulated JWT test or schema validation.'
-    );
+    assert(false, 'Customer authentication required; isolation checks NOT VERIFIED');
   } else {
-    const userAId = authA.user.id;
-    const userBId = authB.user.id;
+    userAId = authA.user.id;
+    userBId = authB.user.id;
 
     // Customer A reading own profile
     const { data: profA } = await customerAClient
@@ -269,13 +277,11 @@ async function runTests() {
 
   const { data: authAdmin, error: errAdmin } = await adminClient.auth.signInWithPassword({
     email: 'admin@davaobank.ph',
-    password: 'Password123!',
+    password: TEST_PASSWORD,
   });
 
   if (errAdmin || !authAdmin.user) {
-    console.log(
-      'Note: Admin user not logged in directly. Verifying service role & helper.'
-    );
+    assert(false, 'Admin authentication required; privilege checks NOT VERIFIED');
   } else {
     // Admin reading all profiles
     const { data: allProfiles } = await adminClient.from('profiles').select('id, role');
@@ -318,6 +324,55 @@ async function runTests() {
       countBefore !== null && countAfter !== null && countBefore === countAfter,
       'Admin client DELETE on audit_logs is rejected (Append-only invariant)'
     );
+
+    // Guard Trigger (0.6): verify caller restrictions on profiles (§0.6 / Fix F10)
+    console.log('\n[Guard Trigger 0.6] Testing profile self-update guard trigger...');
+
+    // 1. Anon attempt is rejected
+    const { data: anonUpData, error: anonUpErr } = await anonClient
+      .from('profiles')
+      .update({ role: 'admin' })
+      .eq('id', userAId)
+      .select();
+    assert(
+      Boolean(anonUpErr) || !anonUpData || anonUpData.length === 0,
+      'Guard trigger (0.6): anonymous attempt to update profile role is rejected'
+    );
+
+    // 2. Customer changing own role is rejected
+    const { data: custRoleData, error: custRoleErr } = await customerAClient
+      .from('profiles')
+      .update({ role: 'admin' })
+      .eq('id', userAId)
+      .select();
+    assert(
+      Boolean(custRoleErr) || !custRoleData || custRoleData.length === 0,
+      'Guard trigger (0.6): customer changing own role is rejected'
+    );
+
+    // 3. Customer changing own status is rejected
+    const { data: custStatData, error: custStatErr } = await customerAClient
+      .from('profiles')
+      .update({ status: 'suspended' })
+      .eq('id', userAId)
+      .select();
+    assert(
+      Boolean(custStatErr) || !custStatData || custStatData.length === 0,
+      'Guard trigger (0.6): customer changing own status is rejected'
+    );
+
+    // 4. Administrator suspending a customer is allowed
+    const { error: adminSuspendErr } = await adminClient
+      .from('profiles')
+      .update({ status: 'suspended' })
+      .eq('id', userBId);
+    assert(
+      !adminSuspendErr,
+      'Guard trigger (0.6): administrator suspending a customer is allowed'
+    );
+
+    // Revert customer B status back to active
+    await adminClient.from('profiles').update({ status: 'active' }).eq('id', userBId);
   }
 
   // 4. Signup Provisioning Trigger Verification (Service Role)

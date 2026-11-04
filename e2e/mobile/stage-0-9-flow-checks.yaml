@@ -4,7 +4,9 @@ appId: host.exp.Exponent
 # Checks:
 # 1. Result screens stay visible until explicit Done dismissal
 # 2. Reopened sheets cleanly land on Step 1 (no stale inputs or receipts)
-# 3. Discard confirmation alert appears when dismissing a sheet that has input
+# 3. Discard confirmation alert appears when dismissing a sheet that has input on any step
+# 4. QR prefill with amount stays on success screen (F1)
+# 5. Cash-out, Pay Bills, and in-flight backdrop tap protection (F10)
 
 - launchApp
 
@@ -16,7 +18,7 @@ appId: host.exp.Exponent
       - tapOn: "Email"
       - inputText: "customer1@davaobank.ph"
       - tapOn: "Password"
-      - inputText: "Password123!"
+      - inputText: "${E2E_PASSWORD}"
       - tapOn: "Sign In"
 
 - assertVisible: "Available Balance"
@@ -29,9 +31,12 @@ appId: host.exp.Exponent
 - tapOn: "Confirm Cash-in"
 - assertVisible: "Money Added"
 # Verify result persists without auto-closing
-- extendedWaitUntil:
-    visible: "Money Added"
-    timeout: 3000
+- evalScript: ${output.receiptDeadline = Date.now() + 3000}
+- repeat:
+    while:
+      true: ${Date.now() < output.receiptDeadline}
+    commands:
+      - assertVisible: "Money Added"
 - assertVisible: "Done"
 - tapOn: "Done"
 # Reopen Cash-in: must land on Step 1 with empty or default inputs, not old receipt
@@ -40,18 +45,21 @@ appId: host.exp.Exponent
 - assertNotVisible: "Money Added"
 - back
 
-# --- CHECK B: Discard Confirmation Alert When Input Exists ---
+# --- CHECK B: Discard Confirmation Alert When Input Exists On Any Step ---
 - tapOn: "Transfer"
 - assertVisible: "Transfer · Recipient"
 - tapOn: "Account Number"
 - inputText: "1020000002"
-# Attempt dismissal by back navigation or X
+- tapOn: "Continue"
+- assertVisible: "Transfer · Amount"
+- tapOn: "₱500"
+# Attempt dismissal by back on step 2 (Amount)
 - back
 - assertVisible: "Discard this transfer?"
 - assertVisible: "Your details will be lost."
 # Tap Keep editing to verify retention
 - tapOn: "Keep editing"
-- assertVisible: "Transfer · Recipient"
+- assertVisible: "Transfer · Amount"
 # Tap Discard to confirm clean exit
 - back
 - tapOn: "Discard"
@@ -61,3 +69,113 @@ appId: host.exp.Exponent
 - tapOn: "Transfer"
 - assertVisible: "Transfer · Recipient"
 - back
+
+# --- CHECK C: Cash-out Flow & Result Guarantee ---
+- tapOn: "Cash-out"
+- assertVisible: "Cash-out · Withdraw"
+- tapOn: "₱500"
+- tapOn: "Continue to Review"
+- tapOn: "Authorize Cash-out"
+- runFlow:
+    when:
+      visible: "Account Password"
+    commands:
+      - tapOn: "Account Password"
+      - inputText: "${E2E_PASSWORD}"
+      - tapOn: "Authorize"
+- assertVisible: "Money Withdrawn"
+- evalScript: ${output.receiptDeadline = Date.now() + 3000}
+- repeat:
+    while:
+      true: ${Date.now() < output.receiptDeadline}
+    commands:
+      - assertVisible: "Money Withdrawn"
+- tapOn: "Done"
+
+# --- CHECK D: Pay Bills Flow & Result Guarantee ---
+- tapOn: "Pay Bills"
+- assertVisible: "Pay Bills"
+- tapOn: "Davao Light & Power"
+- assertVisible: "Account Details"
+- tapOn: "Account / Reference Number"
+- inputText: "1020304050"
+- tapOn: "Continue"
+- assertVisible: "Enter Amount"
+- tapOn: "₱500"
+- tapOn: "Continue"
+- assertVisible: "Payment Schedule"
+- tapOn: "Continue to Review"
+- assertVisible: "Review Payment"
+# In-flight tap protection: tapping backdrop while processing must not dismiss
+- tapOn: "Confirm & Pay"
+- runFlow:
+    when:
+      visible: "Account Password"
+    commands:
+      - tapOn: "Account Password"
+      - inputText: "${E2E_PASSWORD}"
+      - tapOn: "Authorize"
+- assertVisible: "Payment Completed"
+- evalScript: ${output.receiptDeadline = Date.now() + 3000}
+- repeat:
+    while:
+      true: ${Date.now() < output.receiptDeadline}
+    commands:
+      - assertVisible: "Payment Completed"
+- tapOn: "Done"
+
+# --- CHECK E: Physical QR with Amount Result Persistence (F1) ---
+# Requires a physical camera aimed at a valid Davao QR for another account,
+# with a nonzero amount. Do not substitute manual account entry.
+- tapOn: "QR"
+- tapOn: "Scan"
+- runFlow:
+    when:
+      visible: "Grant Camera Access"
+    commands:
+      - tapOn: "Grant Camera Access"
+- extendedWaitUntil:
+    visible: "Transfer · Review"
+    timeout: 30000
+- tapOn: "Authorize Transfer"
+- runFlow:
+    when:
+      visible: "Account Password"
+    commands:
+      - tapOn: "Account Password"
+      - inputText: "${E2E_PASSWORD}"
+      - tapOn: "Authorize"
+- assertVisible: "Transfer Sent"
+# Wait 3s after transfer to ensure Home refresh does not reset or jump to Review
+- evalScript: ${output.receiptDeadline = Date.now() + 3000}
+- repeat:
+    while:
+      true: ${Date.now() < output.receiptDeadline}
+    commands:
+      - assertVisible: "Transfer Sent"
+- assertVisible: "Transfer Sent"
+- assertVisible: "Balance now"
+- assertVisible: "Done"
+- tapOn: "Done"
+
+# --- CHECK F: Pay a pending request (fixture required; never silently skip) ---
+# Create a pending request from customer2 to customer1 before running this flow.
+- tapOn: ".*Pending Payment Request.*"
+- assertVisible: "Payment Requests"
+- tapOn:
+    text: "Pay"
+    index: 0
+- runFlow:
+    when:
+      visible: "Account Password"
+    commands:
+      - tapOn: "Account Password"
+      - inputText: "${E2E_PASSWORD}"
+      - tapOn: "Authorize"
+# Run with network latency so this tap lands while the request is processing.
+- tapOn:
+    point: "50%,5%"
+- assertVisible: "Payment Requests"
+- extendedWaitUntil:
+    visible: "Successfully paid.*"
+    timeout: 15000

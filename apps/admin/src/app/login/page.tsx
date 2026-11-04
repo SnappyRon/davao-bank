@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { LogIn } from 'lucide-react';
 import { createAdminBrowserClient } from '@/lib/supabase-browser';
+import { toUserMessage } from '@davao-bank/shared';
 import { Input, Button } from '@/components/ui';
 import styles from './Login.module.css';
 
@@ -33,7 +34,7 @@ export default function AdminLoginPage() {
       });
 
       if (error) {
-        setErrorMessage(error.message);
+        setErrorMessage(toUserMessage(error));
         setLoading(false);
         return;
       }
@@ -59,8 +60,7 @@ export default function AdminLoginPage() {
         router.refresh();
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setErrorMessage(msg);
+      setErrorMessage(toUserMessage(err));
       setLoading(false);
     }
   };
