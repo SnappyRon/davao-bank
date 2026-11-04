@@ -16,6 +16,7 @@ import {
   CalendarClock,
   QrCode,
   Inbox,
+  User,
 } from 'lucide-react-native';
 import {
   colors,
@@ -207,9 +208,13 @@ export function HomeScreen({
             activeOpacity={0.8}
             onPress={onNavigateToProfile}
           >
-            <Text variant="bodyStrong" color={colors.primary}>
-              {getInitials(profile?.full_name)}
-            </Text>
+            {profile?.full_name ? (
+              <Text variant="bodyStrong" color={colors.primary}>
+                {getInitials(profile.full_name)}
+              </Text>
+            ) : (
+              <User size={18} color={colors.primary} />
+            )}
           </TouchableOpacity>
         </View>
 
@@ -341,10 +346,6 @@ export function HomeScreen({
           setIsQROpen(true);
         }}
         onTransferSuccess={() => {
-          setIsTransferOpen(false);
-          setQrPrefillAccount(undefined);
-          setQrPrefillAmount(undefined);
-          setQrPrefillNote(undefined);
           loadData();
         }}
       />
@@ -354,7 +355,6 @@ export function HomeScreen({
         onClose={() => setIsDepositOpen(false)}
         accounts={accounts}
         onDepositSuccess={() => {
-          setIsDepositOpen(false);
           loadData();
         }}
       />
@@ -364,7 +364,6 @@ export function HomeScreen({
         onClose={() => setIsWithdrawOpen(false)}
         accounts={accounts}
         onWithdrawSuccess={() => {
-          setIsWithdrawOpen(false);
           loadData();
         }}
       />
@@ -374,7 +373,6 @@ export function HomeScreen({
         onClose={() => setIsPayBillsOpen(false)}
         accounts={accounts}
         onPaymentSuccess={() => {
-          setIsPayBillsOpen(false);
           loadData();
         }}
       />

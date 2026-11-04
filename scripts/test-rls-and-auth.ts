@@ -279,14 +279,22 @@ async function runTests() {
 
     assert(!adminAuditError, 'Admin can view audit logs');
 
-    // Admin cannot delete audit logs (append-only enforcement)
-    const { error: adminAuditDeleteError } = await adminClient
+    // Admin cannot delete audit logs (append-only enforcement: RLS matches 0 rows)
+    const { count: countBefore } = await adminClient
+      .from('audit_logs')
+      .select('*', { count: 'exact', head: true });
+
+    await adminClient
       .from('audit_logs')
       .delete()
       .neq('id', '00000000-0000-0000-0000-000000000000');
 
+    const { count: countAfter } = await adminClient
+      .from('audit_logs')
+      .select('*', { count: 'exact', head: true });
+
     assert(
-      Boolean(adminAuditDeleteError),
+      countBefore !== null && countAfter !== null && countBefore === countAfter,
       'Admin client DELETE on audit_logs is rejected (Append-only invariant)'
     );
   }

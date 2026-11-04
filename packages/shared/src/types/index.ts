@@ -166,6 +166,9 @@ export interface MoneyOperationResult {
   idempotency_key: string;
   created_at: string;
   idempotent_replay: boolean;
+  new_balance?: number;
+  from_new_balance?: number;
+  transaction_id?: string;
 }
 
 // --- Currency & Idempotency Utilities ---
@@ -341,9 +344,13 @@ export interface ScheduledPayment {
   id: string;
   owner_id: string;
   from_account: string;
+  from_account_number?: string | null;
   kind: ScheduledPaymentKind;
   to_account: string | null;
+  to_account_number?: string | null;
+  to_account_last4?: string | null;
   biller_id: string | null;
+  biller_name?: string | null;
   biller_reference: string | null;
   amount: number; // centavos
   note: string | null;

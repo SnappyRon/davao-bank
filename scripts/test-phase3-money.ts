@@ -280,10 +280,18 @@ async function runTestSuite() {
       wdErr?.message
     );
 
-    // Withdraw Insufficient Funds
+    // Withdraw Insufficient Funds: amount above balance but below ₱5,000,000 cap
+    const { data: c1WdBal } = await customer1Client
+      .from('account_balances')
+      .select('balance')
+      .eq('account_id', c1Account.account_id)
+      .single();
+    const curBal = Number(c1WdBal?.balance ?? 0);
+    const overdraftAmount = Math.min(Math.max(curBal + 5000000, 10000000), 450000000);
+
     const { error: wdOverdraftErr } = await customer1Client.rpc('withdraw', {
       p_account: c1Account.account_id,
-      p_amount: 9999999999, // Impossible amount
+      p_amount: overdraftAmount,
       p_idempotency_key: `wd_overdraft_${Date.now()}`,
     });
 

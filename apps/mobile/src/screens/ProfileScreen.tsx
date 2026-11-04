@@ -109,9 +109,13 @@ export function ProfileScreen({
         {/* Profile Card */}
         <Card variant="default" style={styles.profileCard}>
           <View style={styles.avatarContainer}>
-            <Text variant="h2" color={colors.primary}>
-              {getInitials(profile?.full_name)}
-            </Text>
+            {profile?.full_name ? (
+              <Text variant="h2" color={colors.primary}>
+                {getInitials(profile.full_name)}
+              </Text>
+            ) : (
+              <User size={32} color={colors.primary} />
+            )}
           </View>
 
           <View style={styles.profileDetails}>

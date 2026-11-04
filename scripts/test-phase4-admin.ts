@@ -144,8 +144,22 @@ async function runTestSuite() {
     const staffUser = staffAuth.user!;
 
     // Fetch accounts
-    const { data: custAccs } = await customerClient.from('account_balances').select('*');
-    const custAccount = custAccs?.[0];
+    const { data: custAccs } = await customerClient
+      .from('account_balances')
+      .select('*')
+      .eq('status', 'active');
+    const custAccount =
+      custAccs?.find((a) => Number(a.balance) >= 100000) || custAccs?.[0];
+
+    if (custAccount && Number(custAccount.balance) < 100000) {
+      await customerClient.rpc('deposit', {
+        p_account: custAccount.account_id,
+        p_amount: 500000,
+        p_idempotency_key: `seed_admin_test_${Date.now()}`,
+        p_reference: 'Seed for admin testing',
+      });
+      custAccount.balance = (Number(custAccount.balance) + 500000) as any;
+    }
 
     assert(
       'Accounts',
@@ -470,6 +484,12 @@ async function runTestSuite() {
     const adjAmount = 50000;
     const adjKey = `adj_credit_${Date.now()}`;
 
+    const { data: balBeforeRows } = await staffClient
+      .from('account_balances')
+      .select('balance')
+      .eq('account_id', newAccId);
+    const balBefore = Number(balBeforeRows?.[0]?.balance ?? 0);
+
     const { data: adjCreditRes, error: adjCreditErr } = await staffClient.rpc(
       'admin_adjust_balance',
       {
@@ -480,9 +500,34 @@ async function runTestSuite() {
         p_idempotency_key: adjKey,
       }
     );
+
+    const { data: balAfterRows } = await staffClient
+      .from('account_balances')
+      .select('balance')
+      .eq('account_id', newAccId);
+    const balAfter = Number(balAfterRows?.[0]?.balance ?? 0);
+
+    const { data: adjTx } = await staffClient
+      .from('transactions')
+      .select('id, type, status')
+      .eq('id', adjCreditRes?.id)
+      .maybeSingle();
+
+    const { data: adjLedger } = await staffClient
+      .from('ledger_entries')
+      .select('id, direction, amount')
+      .eq('transaction_id', adjCreditRes?.id)
+      .eq('direction', 'credit')
+      .maybeSingle();
+
     assert(
       'Adjustment',
-      !adjCreditErr && adjCreditRes?.new_balance === adjAmount,
+      !adjCreditErr &&
+        adjTx?.type === 'adjustment' &&
+        adjTx?.status === 'completed' &&
+        adjLedger?.direction === 'credit' &&
+        Number(adjLedger?.amount) === adjAmount &&
+        balAfter === balBefore + adjAmount,
       `Balance adjustment credit (₱${(adjAmount / 100).toFixed(2)}) applied successfully`,
       adjCreditErr?.message
     );

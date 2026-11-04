@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { StyleSheet, ScrollView } from 'react-native';
+import { StyleSheet, ScrollView, Alert } from 'react-native';
 import { AlertCircle } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import {
@@ -10,6 +10,7 @@ import {
   phpToCentavos,
   generateIdempotencyKey,
   executeTransfer,
+  toUserMessage,
   type AccountBalance,
   type MoneyOperationResult,
   type SavedRecipient,
@@ -108,18 +109,47 @@ export function TransferModal({
     }
   }, [otherAccounts.length]);
 
+  // §0.9 Item 5: Regenerate idempotency key whenever payload changes
+  useEffect(() => {
+    setIdempotencyKey(generateIdempotencyKey('transfer'));
+  }, [amountStr, recipientAccountNumber, reference, selectedAccountId]);
+
   useEffect(() => {
     if (visible) {
       loadSavedRecipients();
       if (initialRecipientAccount) {
-        setRecipientAccountNumber(initialRecipientAccount);
-        if (initialAmountCentavos && initialAmountCentavos > 0) {
+        const cleaned = initialRecipientAccount.trim();
+        setRecipientAccountNumber(cleaned);
+        // §0.9 Item 3: recipient checks on QR prefill (10 digits, not same account)
+        if (cleaned.length !== 10 || !/^\d{10}$/.test(cleaned)) {
+          setErrorMessage('Invalid QR recipient account: must be exactly 10 digits.');
+          setStep('recipient');
+        } else if (selectedAccount && cleaned === selectedAccount.account_number) {
+          setErrorMessage('Cannot transfer to the same account');
+          setStep('recipient');
+        } else if (initialAmountCentavos && initialAmountCentavos > 0) {
           setAmountStr((initialAmountCentavos / 100).toFixed(2));
           if (initialNote) setReference(initialNote);
+          // §0.9 Item 3: Generate idempotency key on QR prefill path too
+          setIdempotencyKey(generateIdempotencyKey('transfer'));
           setStep('review');
         } else {
           setStep('amount');
         }
+      } else {
+        // §0.9 Item 1: Every money modal resets to step 1 whenever visible becomes true
+        setStep('recipient');
+        setRecipientAccountNumber('');
+        setRecipientNickname('');
+        setAmountStr('');
+        setReference('');
+        setShouldSaveRecipient(false);
+        setSaveNickname('');
+        setTiming('now');
+        setIsScheduledSuccess(false);
+        setErrorMessage(null);
+        setSuccessResult(null);
+        setIdempotencyKey(generateIdempotencyKey('transfer'));
       }
     }
   }, [
@@ -128,6 +158,7 @@ export function TransferModal({
     initialRecipientAccount,
     initialAmountCentavos,
     initialNote,
+    selectedAccount,
   ]);
 
   const resetState = () => {
@@ -144,6 +175,38 @@ export function TransferModal({
     setSuccessResult(null);
     setIdempotencyKey('');
     onClose();
+  };
+
+  // §0.9 Item 2: Confirmation before discarding flow with input
+  const hasInput =
+    Boolean(recipientAccountNumber || amountStr || reference) && step !== 'success';
+
+  const handleRequestDismiss = () => {
+    if (loading) return; // In-flight request cannot be dismissed
+
+    if (step === 'success') {
+      resetState();
+      return;
+    }
+
+    if (step === 'amount') {
+      setStep('recipient');
+      return;
+    }
+
+    if (step === 'review') {
+      setStep('amount');
+      return;
+    }
+
+    if (hasInput) {
+      Alert.alert('Discard this transfer?', 'Your details will be lost.', [
+        { text: 'Keep editing', style: 'cancel' },
+        { text: 'Discard', style: 'destructive', onPress: resetState },
+      ]);
+    } else {
+      resetState();
+    }
   };
 
   const handleSelectOwnAccount = (acc: AccountBalance) => {
@@ -232,30 +295,21 @@ export function TransferModal({
     if (!selectedAccount) return;
 
     try {
-      const { data: destAcc, error: destErr } = await supabase
-        .from('accounts')
-        .select('id')
-        .eq('account_number', recipientAccountNumber.trim())
-        .single();
-
-      if (destErr || !destAcc) {
-        setLoading(false);
-        setErrorMessage('Destination account was not found or is inactive.');
-        return;
-      }
-
       const maxRuns =
         timing === 'recurring' && maxRunsStr ? parseInt(maxRunsStr, 10) : null;
-      const { error: schedErr } = await supabase.rpc('create_scheduled_payment', {
-        p_from_account: selectedAccount.account_id,
-        p_kind: 'transfer',
-        p_to_account: destAcc.id,
-        p_amount: centavos,
-        p_frequency: timing === 'recurring' ? frequency : 'once',
-        p_start_date: scheduledDate,
-        p_max_runs: maxRuns,
-        p_note: reference.trim() || 'Scheduled Transfer',
-      });
+      const { error: schedErr } = await supabase.rpc(
+        'create_scheduled_transfer_to_number',
+        {
+          p_from_account: selectedAccount.account_id,
+          p_to_account_number: recipientAccountNumber.trim(),
+          p_amount: centavos,
+          p_frequency: timing === 'recurring' ? frequency : 'once',
+          p_start_date: scheduledDate,
+          p_end_date: null,
+          p_max_runs: maxRuns,
+          p_note: reference.trim() || 'Scheduled Transfer',
+        }
+      );
 
       setLoading(false);
 
@@ -265,7 +319,7 @@ export function TransferModal({
         } catch {
           // Ignored
         }
-        setErrorMessage(schedErr.message);
+        setErrorMessage(toUserMessage(schedErr.message, selectedAccount?.balance));
       } else {
         try {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -277,7 +331,7 @@ export function TransferModal({
       }
     } catch (err: any) {
       setLoading(false);
-      setErrorMessage(err?.message || 'Failed to schedule transfer');
+      setErrorMessage(toUserMessage(err?.message, selectedAccount?.balance));
     }
   };
 
@@ -300,7 +354,7 @@ export function TransferModal({
       } catch {
         // Ignored
       }
-      setErrorMessage(error);
+      setErrorMessage(toUserMessage(error, selectedAccount?.balance));
     } else if (data) {
       try {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -331,6 +385,8 @@ export function TransferModal({
     <BottomSheet
       visible={visible}
       onClose={resetState}
+      dismissible={!loading}
+      onRequestDismiss={handleRequestDismiss}
       title={
         step === 'recipient'
           ? 'Transfer · Recipient'
@@ -344,6 +400,7 @@ export function TransferModal({
       <ScrollView
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         {errorMessage ? (
           <Card variant="subtle" style={styles.errorCard}>

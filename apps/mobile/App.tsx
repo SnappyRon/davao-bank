@@ -60,7 +60,17 @@ export default function App() {
 
   const loadProfile = useCallback(async (userId: string) => {
     try {
-      const { data } = await fetchUserProfile(supabase, userId);
+      let { data } = await fetchUserProfile(supabase, userId);
+      if (!data) {
+        // Self-heal: ensure profile exists (§0.7)
+        const healRes = await supabase.rpc('ensure_my_profile');
+        if (healRes.data && (healRes.data as any).profile) {
+          data = (healRes.data as any).profile as Profile;
+        } else {
+          const refetch = await fetchUserProfile(supabase, userId);
+          data = refetch.data;
+        }
+      }
       if (data) {
         setProfile(data);
       }

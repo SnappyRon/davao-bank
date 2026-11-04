@@ -114,12 +114,23 @@ async function runStageDTests() {
     assert(Boolean(c1Acc && c2Acc), '[Live-Accounts] Retrieved test customer accounts');
 
     if (c1Acc && c2Acc) {
+      // Ensure payer has funds to pay the request
+      const { error: depErr } = await cust2.rpc('deposit', {
+        p_account: c2Acc.id,
+        p_amount: 500000,
+        p_idempotency_key: crypto.randomUUID(),
+        p_reference: 'Test fund for payment request',
+      });
+      if (depErr) {
+        console.error('Failed to fund payer for test:', depErr);
+      }
+
       // 1. Create payment request
       const { data: createData, error: createErr } = await cust1.rpc(
         'create_payment_request',
         {
           p_amount: 250000,
-          p_requester_account_id: c1Acc.id,
+          p_requester_account: c1Acc.id,
           p_note: 'Durian split',
           p_payer_account_number: c2Acc.account_number,
         }
@@ -135,7 +146,7 @@ async function runStageDTests() {
       // 2. Requester cannot pay own request
       const { error: ownPayErr } = await cust1.rpc('pay_payment_request', {
         p_request_id: reqId,
-        p_payer_account_id: c1Acc.id,
+        p_from_account: c1Acc.id,
         p_idempotency_key: crypto.randomUUID(),
       });
       assert(Boolean(ownPayErr), '[Live-Guard] Requester cannot pay own payment request');
@@ -144,13 +155,13 @@ async function runStageDTests() {
       const payIdempotencyKey = crypto.randomUUID();
       const { data: payData, error: payErr } = await cust2.rpc('pay_payment_request', {
         p_request_id: reqId,
-        p_payer_account_id: c2Acc.id,
+        p_from_account: c2Acc.id,
         p_idempotency_key: payIdempotencyKey,
       });
 
       assert(
         !payErr && payData?.success === true && Boolean(payData?.transaction_id),
-        `[Live-PayRequest] Payer paid request with linked transaction_id (${payData?.transaction_id})`
+        `[Live-PayRequest] Payer paid request with linked transaction_id (${payData?.transaction_id || (payErr ? payErr.message : JSON.stringify(payData))})`
       );
 
       // 4. Idempotent retry on same key succeeds
@@ -158,7 +169,7 @@ async function runStageDTests() {
         'pay_payment_request',
         {
           p_request_id: reqId,
-          p_payer_account_id: c2Acc.id,
+          p_from_account: c2Acc.id,
           p_idempotency_key: payIdempotencyKey,
         }
       );
@@ -173,7 +184,7 @@ async function runStageDTests() {
       // 5. Second payment on different key rejected
       const { error: secondPayErr } = await cust2.rpc('pay_payment_request', {
         p_request_id: reqId,
-        p_payer_account_id: c2Acc.id,
+        p_from_account: c2Acc.id,
         p_idempotency_key: crypto.randomUUID(),
       });
       assert(

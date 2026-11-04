@@ -13,6 +13,7 @@ import {
   radius,
   fetchTransactionHistory,
   fetchAccountBalances,
+  typeLabel,
   type TransactionHistoryItem,
   type AccountBalance,
 } from '@davao-bank/shared';
@@ -178,7 +179,7 @@ export function ActivityScreen({ onExportStatement }: ActivityScreenProps) {
           description={
             selectedFilter === 'all'
               ? 'Your completed money operations and ledger activity will appear here.'
-              : `No activity found under ${selectedFilter}.`
+              : `No activity found under ${typeLabel(selectedFilter)}.`
           }
           icon={<SlidersHorizontal size={36} color={colors.textMuted} />}
           style={styles.emptyContainer}

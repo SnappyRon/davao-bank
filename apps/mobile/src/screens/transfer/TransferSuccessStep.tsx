@@ -49,8 +49,13 @@ export function TransferSuccessStep({
           <Text variant="h2" align="center" style={styles.successTitle}>
             Transfer Sent
           </Text>
+          {successResult.idempotent_replay && (
+            <Text variant="caption" color={colors.orangeText} style={styles.replayNotice}>
+              This payment was already processed
+            </Text>
+          )}
           <AmountText
-            amountCentavos={centavosAmount}
+            amountCentavos={successResult.amount || centavosAmount}
             direction="outgoing"
             variant="display"
           />
@@ -72,7 +77,11 @@ export function TransferSuccessStep({
               Updated Balance
             </Text>
             <AmountText
-              amountCentavos={selectedAccountBalance - centavosAmount}
+              amountCentavos={
+                successResult.from_new_balance ??
+                successResult.new_balance ??
+                selectedAccountBalance
+              }
               hidden={hideBalance}
               variant="bodyStrong"
               color={colors.ink}
@@ -84,7 +93,7 @@ export function TransferSuccessStep({
               Transaction ID
             </Text>
             <Text variant="caption" color={colors.textMuted} style={styles.idText}>
-              {successResult.id}
+              {successResult.id || successResult.transaction_id}
             </Text>
           </View>
         </Card>
@@ -171,6 +180,10 @@ const styles = StyleSheet.create({
   },
   successTitle: {
     marginTop: spacing.xs,
+  },
+  replayNotice: {
+    marginTop: 2,
+    marginBottom: spacing.xs,
   },
   receiptCard: {
     padding: spacing.base,

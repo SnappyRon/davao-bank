@@ -11,7 +11,13 @@ import {
   Clock,
   Hash,
 } from 'lucide-react-native';
-import { colors, spacing, radius, type TransactionHistoryItem } from '@davao-bank/shared';
+import {
+  colors,
+  spacing,
+  radius,
+  typeLabel,
+  type TransactionHistoryItem,
+} from '@davao-bank/shared';
 import { BottomSheet, Text, AmountText, Badge, Button, Card } from '../components';
 
 interface TransactionDetailModalProps {
@@ -56,7 +62,7 @@ export function TransactionDetailModal({
         {/* Amount Hero */}
         <View style={styles.heroBox}>
           <Text variant="caption" color={colors.textMuted} style={styles.typeLabel}>
-            {transaction.type.toUpperCase()}
+            {typeLabel(transaction.type)}
           </Text>
           <AmountText
             amountCentavos={transaction.amount}
@@ -65,7 +71,15 @@ export function TransactionDetailModal({
             style={styles.heroAmount}
           />
           <Badge
-            label={transaction.status.toUpperCase()}
+            label={
+              isReversed
+                ? 'Reversed'
+                : transaction.status === 'completed'
+                  ? 'Completed'
+                  : transaction.status === 'failed'
+                    ? 'Failed'
+                    : 'Pending'
+            }
             variant={getBadgeVariant()}
             style={styles.statusBadge}
           />

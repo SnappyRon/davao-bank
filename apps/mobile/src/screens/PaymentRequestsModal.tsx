@@ -6,6 +6,7 @@ import {
   ScrollView,
   RefreshControl,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import {
@@ -24,6 +25,7 @@ import {
   radius,
   formatCentavosToPHP,
   generateIdempotencyKey,
+  toUserMessage,
   type AccountBalance,
   type PaymentRequest,
 } from '@davao-bank/shared';
@@ -100,13 +102,19 @@ export function PaymentRequestsModal({
   };
 
   const handlePay = async (req: PaymentRequest) => {
+    if (actionLoadingId) return;
+
     // Default to first active account with sufficient balance, or first account
     const sourceAcc = accounts.find((a) => a.balance >= req.amount) || accounts[0];
 
     if (!sourceAcc) {
-      alert('No active account found to pay this request.');
+      setStatusMessage('No active account found to pay this request.');
       return;
     }
+
+    // Set loading state BEFORE authorization to prevent double-tap prompts (§0.9 item 6)
+    setActionLoadingId(req.id);
+    setStatusMessage(null);
 
     // Generate idempotency key once before confirmation
     const key = generateIdempotencyKey('pay_req');
@@ -116,10 +124,15 @@ export function PaymentRequestsModal({
       title: 'Authorize Payment Request',
       message: `Confirm payment of ₱${(req.amount / 100).toFixed(2)} to account ${req.requester_account}`,
     });
-    if (!authenticated.success) return;
-
-    setActionLoadingId(req.id);
-    setStatusMessage(null);
+    if (!authenticated.success) {
+      setActionLoadingId(null);
+      if (authenticated.cancelled) {
+        setStatusMessage('Payment authorization was cancelled.');
+      } else {
+        setStatusMessage(authenticated.error || 'Payment authorization failed.');
+      }
+      return;
+    }
 
     try {
       const { error } = await supabase.rpc('pay_payment_request', {
@@ -134,7 +147,7 @@ export function PaymentRequestsModal({
         } catch {
           // Ignore
         }
-        setStatusMessage(`Payment failed: ${error.message}`);
+        setStatusMessage(toUserMessage(error.message, sourceAcc.balance));
       } else {
         try {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -146,56 +159,76 @@ export function PaymentRequestsModal({
         if (onPaymentSuccess) onPaymentSuccess();
       }
     } catch (err: any) {
-      setStatusMessage(err?.message || 'Payment failed');
+      setStatusMessage(toUserMessage(err?.message, sourceAcc.balance));
     } finally {
       setActionLoadingId(null);
     }
   };
 
-  const handleDecline = async (req: PaymentRequest) => {
-    setActionLoadingId(req.id);
-    try {
-      const { error } = await supabase.rpc('decline_payment_request', {
-        p_id: req.id,
-      });
-      if (error) {
-        alert(error.message);
-      } else {
-        try {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        } catch {
-          // Ignore
-        }
-        loadRequests();
-      }
-    } catch (err: any) {
-      alert(err?.message || 'Failed to decline request');
-    } finally {
-      setActionLoadingId(null);
-    }
+  const handleDecline = (req: PaymentRequest) => {
+    if (actionLoadingId) return;
+    Alert.alert('Decline this request?', 'The requester will see it as declined.', [
+      { text: 'Keep', style: 'cancel' },
+      {
+        text: 'Decline',
+        style: 'destructive',
+        onPress: async () => {
+          setActionLoadingId(req.id);
+          try {
+            const { error } = await supabase.rpc('decline_payment_request', {
+              p_id: req.id,
+            });
+            if (error) {
+              setStatusMessage(toUserMessage(error.message));
+            } else {
+              try {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              } catch {
+                // Ignore
+              }
+              loadRequests();
+            }
+          } catch (err: any) {
+            setStatusMessage(toUserMessage(err?.message));
+          } finally {
+            setActionLoadingId(null);
+          }
+        },
+      },
+    ]);
   };
 
-  const handleCancel = async (req: PaymentRequest) => {
-    setActionLoadingId(req.id);
-    try {
-      const { error } = await supabase.rpc('cancel_payment_request', {
-        p_id: req.id,
-      });
-      if (error) {
-        alert(error.message);
-      } else {
-        try {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        } catch {
-          // Ignore
-        }
-        loadRequests();
-      }
-    } catch (err: any) {
-      alert(err?.message || 'Failed to cancel request');
-    } finally {
-      setActionLoadingId(null);
-    }
+  const handleCancel = (req: PaymentRequest) => {
+    if (actionLoadingId) return;
+    Alert.alert('Cancel this request?', undefined, [
+      { text: 'Keep', style: 'cancel' },
+      {
+        text: 'Cancel request',
+        style: 'destructive',
+        onPress: async () => {
+          setActionLoadingId(req.id);
+          try {
+            const { error } = await supabase.rpc('cancel_payment_request', {
+              p_id: req.id,
+            });
+            if (error) {
+              setStatusMessage(toUserMessage(error.message));
+            } else {
+              try {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              } catch {
+                // Ignore
+              }
+              loadRequests();
+            }
+          } catch (err: any) {
+            setStatusMessage(toUserMessage(err?.message));
+          } finally {
+            setActionLoadingId(null);
+          }
+        },
+      },
+    ]);
   };
 
   const getStatusBadge = (status: PaymentRequest['status']) => {
@@ -214,7 +247,12 @@ export function PaymentRequestsModal({
   };
 
   return (
-    <BottomSheet visible={visible} onClose={onClose} title="Payment Requests">
+    <BottomSheet
+      visible={visible}
+      onClose={onClose}
+      dismissible={!actionLoadingId}
+      title="Payment Requests"
+    >
       <View style={styles.container}>
         {/* Tab switch */}
         <View style={styles.tabBar}>
@@ -257,7 +295,9 @@ export function PaymentRequestsModal({
           <View
             style={[
               styles.statusBanner,
-              statusMessage.startsWith('Payment failed')
+              statusMessage.toLowerCase().includes('fail') ||
+              statusMessage.toLowerCase().includes('error') ||
+              statusMessage.toLowerCase().includes('went wrong')
                 ? styles.statusBannerError
                 : styles.statusBannerSuccess,
             ]}
@@ -265,7 +305,11 @@ export function PaymentRequestsModal({
             <Text
               variant="caption"
               color={
-                statusMessage.startsWith('Payment failed') ? colors.error : colors.primary
+                statusMessage.toLowerCase().includes('fail') ||
+                statusMessage.toLowerCase().includes('error') ||
+                statusMessage.toLowerCase().includes('went wrong')
+                  ? colors.error
+                  : colors.primary
               }
               style={{ fontWeight: '700' }}
             >
@@ -277,6 +321,7 @@ export function PaymentRequestsModal({
         <ScrollView
           style={styles.listArea}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }

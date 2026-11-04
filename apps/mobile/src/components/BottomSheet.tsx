@@ -20,6 +20,8 @@ export interface BottomSheetProps {
   title?: string;
   children: React.ReactNode;
   style?: ViewStyle;
+  dismissible?: boolean;
+  onRequestDismiss?: () => void;
 }
 
 export function BottomSheet({
@@ -28,17 +30,30 @@ export function BottomSheet({
   title,
   children,
   style,
+  dismissible = true,
+  onRequestDismiss,
 }: BottomSheetProps) {
   const reduceMotion = useReducedMotion();
+
+  const handleDismiss = () => {
+    if (dismissible === false) {
+      return;
+    }
+    if (onRequestDismiss) {
+      onRequestDismiss();
+    } else {
+      onClose();
+    }
+  };
 
   return (
     <Modal
       visible={visible}
       transparent
       animationType={reduceMotion ? 'none' : 'slide'}
-      onRequestClose={onClose}
+      onRequestClose={handleDismiss}
     >
-      <TouchableWithoutFeedback onPress={onClose}>
+      <TouchableWithoutFeedback onPress={handleDismiss}>
         <View style={styles.backdrop}>
           <TouchableWithoutFeedback>
             <KeyboardAvoidingView
@@ -56,9 +71,10 @@ export function BottomSheet({
                   <View />
                 )}
                 <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={onClose}
-                  style={styles.closeBtn}
+                  activeOpacity={dismissible ? 0.7 : 1}
+                  onPress={handleDismiss}
+                  style={[styles.closeBtn, !dismissible && { opacity: 0.3 }]}
+                  disabled={!dismissible}
                 >
                   <X size={20} color={colors.textSecondary} />
                 </TouchableOpacity>

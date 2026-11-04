@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import { View, StyleSheet, ScrollView, Alert } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import {
   colors,
@@ -8,6 +8,7 @@ import {
   formatCentavosToPHP,
   phpToCentavos,
   generateIdempotencyKey,
+  toUserMessage,
   type AccountBalance,
   type Biller,
   type ScheduledPaymentFrequency,
@@ -99,6 +100,46 @@ export function PayBillsModal({
     setIdempotencyKey(generateIdempotencyKey('bill_payment'));
   };
 
+  useEffect(() => {
+    setIdempotencyKey(generateIdempotencyKey('bill_payment'));
+  }, [amountStr, reference, selectedBiller?.id, selectedAccountId]);
+
+  const hasInput =
+    Boolean(selectedBiller || reference || amountStr) && step !== 'success';
+
+  const handleRequestDismiss = () => {
+    if (loading) return;
+
+    if (step === 'success') {
+      onClose();
+      return;
+    }
+    if (step === 'reference') {
+      setStep('biller');
+      return;
+    }
+    if (step === 'amount') {
+      setStep('reference');
+      return;
+    }
+    if (step === 'when') {
+      setStep('amount');
+      return;
+    }
+    if (step === 'review') {
+      setStep('when');
+      return;
+    }
+    if (hasInput) {
+      Alert.alert('Discard this payment?', 'Your details will be lost.', [
+        { text: 'Keep editing', style: 'cancel' },
+        { text: 'Discard', style: 'destructive', onPress: onClose },
+      ]);
+    } else {
+      onClose();
+    }
+  };
+
   const loadBillers = async () => {
     try {
       const { data, error } = await supabase
@@ -176,6 +217,13 @@ export function PayBillsModal({
 
     if (!authenticated.success) {
       setLoading(false);
+      if (authenticated.cancelled) {
+        setErrorMessage(
+          'Payment authorization was cancelled. You can retry whenever ready.'
+        );
+      } else {
+        setErrorMessage(authenticated.error || 'Payment authorization failed.');
+      }
       return;
     }
 
@@ -190,7 +238,7 @@ export function PayBillsModal({
         });
 
         if (error) {
-          throw new Error(error.message);
+          throw error;
         }
 
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -215,7 +263,7 @@ export function PayBillsModal({
         });
 
         if (error) {
-          throw new Error(error.message);
+          throw error;
         }
 
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -224,7 +272,7 @@ export function PayBillsModal({
       }
     } catch (err: any) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      setErrorMessage(err?.message || 'Payment execution failed');
+      setErrorMessage(toUserMessage(err?.message, selectedAccount?.balance));
     } finally {
       setLoading(false);
     }
@@ -234,6 +282,8 @@ export function PayBillsModal({
     <BottomSheet
       visible={visible}
       onClose={onClose}
+      dismissible={!loading}
+      onRequestDismiss={handleRequestDismiss}
       title={
         step === 'biller'
           ? 'Pay Bills'
@@ -248,7 +298,10 @@ export function PayBillsModal({
                   : 'Payment Result'
       }
     >
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+      >
         {/* Step 1: Biller Selection */}
         {step === 'biller' && (
           <BillerStep

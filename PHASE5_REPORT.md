@@ -480,6 +480,7 @@ Total tests: 15, Passed: 15, Failed: 0
 Following thorough code and behavior review using a real Postgres engine (PGlite with Supabase stand-ins), all 8 identified issues were addressed, verified, and consolidated into single migration `20261028120000_phase5_fixes.sql`.
 
 ### Database Target Status
+
 > [!IMPORTANT]
 > **LIVE DATABASE NOT AVAILABLE:** The hosted project at `qomxlzvrovwsfneqsfej.supabase.co` has no tables (all queries return HTTP 404 / relation not found). Offline behavior is fully verified via PGlite (`npm run test:db`, **47/47 passed**). All test scripts now fail loudly when the live database is unreachable.
 
@@ -488,6 +489,7 @@ Following thorough code and behavior review using a real Postgres engine (PGlite
 ### Fix Implementation Summary
 
 #### Fix 1 (HIGH): Remove Contract Mode Fallback & Stop on Unreachable DB
+
 - Updated every test script in `scripts/`:
   - `test-rls-and-auth.ts`
   - `test-phase3-money.ts`
@@ -501,6 +503,7 @@ Following thorough code and behavior review using a real Postgres engine (PGlite
 - Source-file/contract checks run **only in addition to** live tests.
 
 #### Fix 2 (HIGH): Fix Guard Trigger for Service Role & Seed Ban
+
 - In `supabase/migrations/20261028120000_phase5_fixes.sql`:
   - Updated `public.guard_profile_self_update()` to allow role and status changes when executed by trusted backend database roles (`service_role`, `postgres`, `supabase_admin`) or when JWT claim role is `service_role`.
   - Customer sessions remain strictly prevented from modifying their own role or status.
@@ -509,6 +512,7 @@ Following thorough code and behavior review using a real Postgres engine (PGlite
   - Added strict error handling: script fails loudly (`process.exit(1)`) on any error during profile, account, or biller provisioning.
 
 #### Fix 3 (HIGH): Safe pg_cron Schedule Registration & Admin Ops Function
+
 - In `20261028120000_phase5_fixes.sql`:
   - Safely wrapped `cron.unschedule('davao-run-schedules')` in its own `begin ... exception when others then null; end;` block before scheduling.
   - Added admin/ops function `public.register_cron_jobs()`, revoked from public/anon/authenticated, which safely registers all 3 jobs:
@@ -517,10 +521,12 @@ Following thorough code and behavior review using a real Postgres engine (PGlite
     3. `davao-fx-sync` (daily at 04:00 UTC)
 
 #### Fix 4 (HIGH): FX Daily Sync Job Registration & Documentation
+
 - Registered daily FX sync in `public.register_cron_jobs()` using `pg_net` to POST to the `fx-sync` Edge Function.
 - Added comprehensive deployment and setup documentation in `README.md` (`supabase functions deploy fx-sync`, secret configuration, and `select public.register_cron_jobs();`).
 
 #### Fix 5 (MEDIUM): Link Paid Payment Requests to Transactions & Idempotency
+
 - In `pay_payment_request`:
   - Corrected extraction to read `v_tx_res->>'id'` (instead of `'transaction_id'`).
   - Raises exception if `'id'` is null.
@@ -528,6 +534,7 @@ Following thorough code and behavior review using a real Postgres engine (PGlite
   - Re-payment attempts with a different idempotency key are rejected ("Payment request is no longer pending").
 
 #### Fix 6 (MEDIUM): Mandatory Confirmation Helper Across All Money Flows
+
 - Created shared confirmation modal: `apps/mobile/src/components/PasswordConfirmationModal.tsx`.
 - Updated `SettingsContext.tsx` with unified `confirmMoneyAction`:
   - If biometrics are available and enabled: prompts biometric authentication (with device passcode fallback).
@@ -542,6 +549,7 @@ Following thorough code and behavior review using a real Postgres engine (PGlite
 - Order of operations strictly preserved: generate idempotency key -> await confirmation -> invoke RPC.
 
 #### Fix 7 (LOW-MEDIUM): Restrict Saved-Recipient Updates
+
 - In `20261028120000_phase5_fixes.sql`:
   ```sql
   revoke update on public.saved_recipients from authenticated;
@@ -550,6 +558,7 @@ Following thorough code and behavior review using a real Postgres engine (PGlite
 - Prevents authenticated users from rewriting recipient account numbers.
 
 #### Fix 8 (LOW): Complete Stage A Design-System Requirements
+
 - **Admin Inline Styles:** Eliminated all 196 inline `style={{...}}` occurrences across the admin app. Moved all styles into CSS Modules (`AdminNav.module.css`, `Unauthorized.module.css`, `Users.module.css`, `Accounts.module.css`, `Transactions.module.css`, `Audit.module.css`, `Billers.module.css`, `Schedules.module.css`). `grep -rn "style={{" apps/admin/src | wc -l` is **0**.
 - **Stray Hex Colors:** Removed all 15 hardcoded hex values in `SchedulesClient.tsx` and `BillersClient.tsx`. `grep -rn -E "#[0-9a-fA-F]{3,8}"` returns **0**.
 - **Token Duplication:** Added `scripts/verify-tokens.ts` which verifies that `globals.css` CSS variables match `@davao-bank/shared` tokens.
@@ -570,6 +579,7 @@ Following thorough code and behavior review using a real Postgres engine (PGlite
 ### Verification Results
 
 #### 1. Offline Database Integration Suite (`npm run test:db`)
+
 ```text
 > davao-bank@0.1.0 test:db
 > node scripts/review/pglite-behavior.mjs
@@ -626,7 +636,9 @@ Following thorough code and behavior review using a real Postgres engine (PGlite
 ```
 
 #### 2. Live Database Gate Checks (Exit 1 on Unreachable Database)
+
 When tested without an active database:
+
 ```text
 $ npm run test:schedules
 NOT VERIFIED — database unreachable (qomxlzvrovwsfneqsfej.supabase.co)
@@ -642,6 +654,7 @@ NOT VERIFIED — database unreachable (qomxlzvrovwsfneqsfej.supabase.co)
 ```
 
 #### 3. Code Health & Design System Verification
+
 ```text
 $ grep -rn "style={{" apps/admin/src | wc -l
 0
@@ -668,4 +681,3 @@ $ npm run lint
 $ npm run format:check
 All matched files use Prettier code style!
 ```
-

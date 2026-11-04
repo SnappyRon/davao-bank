@@ -9,7 +9,13 @@ import {
   Sliders,
   Receipt,
 } from 'lucide-react-native';
-import { colors, radius, spacing, type TransactionHistoryItem } from '@davao-bank/shared';
+import {
+  colors,
+  radius,
+  spacing,
+  typeLabel,
+  type TransactionHistoryItem,
+} from '@davao-bank/shared';
 import { Text } from './Text';
 import { AmountText } from './AmountText';
 import { Badge } from './Badge';
@@ -81,9 +87,18 @@ export function TransactionRow({
           icon: <Sliders size={22} color={colors.blueText} />,
           iconBg: colors.tintBlue,
         };
+      case 'bill_payment':
+        return {
+          title: 'Bill payment',
+          subtitle: transaction.reference
+            ? `Ref: ${transaction.reference}`
+            : 'Bill payment',
+          icon: <Receipt size={22} color={colors.primary} />,
+          iconBg: colors.primaryTint,
+        };
       default:
         return {
-          title: transaction.type,
+          title: typeLabel(transaction.type),
           subtitle: transaction.reference || 'Transaction',
           icon: <Receipt size={22} color={colors.ink} />,
           iconBg: colors.surfaceSubtle,
@@ -131,7 +146,13 @@ export function TransactionRow({
           >
             {subtitle} · {timeStr}
           </Text>
-          {isReversed ? <Badge label="REVERSED" variant="danger" /> : null}
+          {transaction.status === 'reversed' ? (
+            <Badge label="Reversed" variant="danger" />
+          ) : transaction.status === 'pending' ? (
+            <Badge label="Pending" variant="warning" />
+          ) : transaction.status === 'failed' ? (
+            <Badge label="Failed" variant="danger" />
+          ) : null}
         </View>
       </View>
     </TouchableOpacity>

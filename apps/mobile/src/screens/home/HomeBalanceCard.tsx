@@ -24,7 +24,10 @@ export function HomeBalanceCard({
   onToggleHideBalance,
 }: HomeBalanceCardProps) {
   const currentAccount = accounts[selectedAccountIndex] || accounts[0];
-  const totalBalance = accounts.reduce((acc, a) => acc + a.balance, 0);
+  const accountTypeLabel = currentAccount?.type
+    ? currentAccount.type.charAt(0).toUpperCase() +
+      currentAccount.type.slice(1).toLowerCase()
+    : 'Account';
 
   if (loading) {
     return <Skeleton width="100%" height={160} style={styles.cardSkeleton} />;
@@ -39,7 +42,7 @@ export function HomeBalanceCard({
           onPress={onSwitchAccount}
         >
           <Text variant="caption" color={colors.textInverse}>
-            Savings · {currentAccount?.account_number || '•••• ••••'}
+            {accountTypeLabel} · {currentAccount?.account_number || '•••• ••••'}
           </Text>
           {accounts.length > 1 ? (
             <ChevronDown size={14} color={colors.textInverse} />
@@ -64,10 +67,10 @@ export function HomeBalanceCard({
 
       <View style={styles.balanceAmountContainer}>
         <Text variant="caption" color={colors.primaryTint} style={styles.balanceSubtext}>
-          Total Available Balance
+          Available Balance
         </Text>
         <AmountText
-          amountCentavos={totalBalance}
+          amountCentavos={currentAccount?.balance || 0}
           hidden={hideBalance}
           variant="display"
           color={colors.textInverse}

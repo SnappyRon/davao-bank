@@ -1,5 +1,5 @@
-'use client';
-
+// Shared component (no 'use client'): renders on the server when used by Server Components
+// (e.g. the dashboard, which passes render functions) and on the client inside Client Components.
 import React from 'react';
 import styles from './Table.module.css';
 
@@ -57,7 +57,7 @@ export function Table<T>({
           {data.map((item, idx) => (
             <tr
               key={keyExtractor(item)}
-              onClick={() => onRowClick && onRowClick(item)}
+              onClick={onRowClick ? () => onRowClick(item) : undefined}
               className={onRowClick ? styles.clickable : ''}
             >
               {columns.map((col) => {

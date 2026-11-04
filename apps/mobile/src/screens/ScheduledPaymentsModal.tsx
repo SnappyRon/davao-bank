@@ -55,10 +55,7 @@ export function ScheduledPaymentsModal({
   const loadSchedules = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('scheduled_payments')
-        .select('*')
-        .order('created_at', { ascending: false });
+      const { data, error } = await supabase.rpc('list_my_scheduled_payments');
 
       if (data && !error) {
         setSchedules(data as ScheduledPayment[]);
@@ -147,9 +144,13 @@ export function ScheduledPaymentsModal({
     <BottomSheet
       visible={visible}
       onClose={onClose}
+      dismissible={!actionLoading}
       title={selectedSchedule ? 'Schedule Details' : 'Scheduled Payments'}
     >
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+      >
         {selectedSchedule ? (
           // Detail View
           <View style={styles.detailContainer}>
@@ -201,6 +202,41 @@ export function ScheduledPaymentsModal({
                   {selectedSchedule.kind === 'bill' ? 'Bill Payment' : 'Funds Transfer'}
                 </Text>
               </View>
+
+              {selectedSchedule.kind === 'transfer' ? (
+                <View style={styles.row}>
+                  <Text variant="body" color="textSecondary">
+                    Destination
+                  </Text>
+                  <Text variant="bodyStrong">
+                    {selectedSchedule.to_account_number ||
+                      (selectedSchedule.to_account_last4
+                        ? `•••• ${selectedSchedule.to_account_last4}`
+                        : selectedSchedule.to_account || '—')}
+                  </Text>
+                </View>
+              ) : (
+                <>
+                  <View style={styles.row}>
+                    <Text variant="body" color="textSecondary">
+                      Biller
+                    </Text>
+                    <Text variant="bodyStrong">
+                      {selectedSchedule.biller_name || 'Bill Payment'}
+                    </Text>
+                  </View>
+                  {selectedSchedule.biller_reference ? (
+                    <View style={styles.row}>
+                      <Text variant="body" color="textSecondary">
+                        Reference
+                      </Text>
+                      <Text variant="bodyStrong">
+                        {selectedSchedule.biller_reference}
+                      </Text>
+                    </View>
+                  ) : null}
+                </>
+              )}
 
               <View style={styles.row}>
                 <Text variant="body" color="textSecondary">
@@ -321,8 +357,8 @@ export function ScheduledPaymentsModal({
                   <View style={styles.cardHeaderInfo}>
                     <Text variant="bodyStrong">
                       {item.kind === 'bill'
-                        ? item.note || 'Bill Payment'
-                        : `Transfer · ${item.to_account?.slice(0, 8)}...`}
+                        ? item.biller_name || item.note || 'Bill Payment'
+                        : `Transfer · •••• ${item.to_account_last4 || item.to_account_number?.slice(-4) || item.to_account?.slice(-4) || '••••'}`}
                     </Text>
                     <Text variant="caption" color="textSecondary">
                       Next: {item.next_run_date}

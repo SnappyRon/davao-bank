@@ -37,6 +37,22 @@ Deno.serve(async (req: Request) => {
     });
   }
 
+  // Secure authorization check (§0.5): require valid x-fx-sync-secret header
+  const expectedSecret = Deno.env.get('FX_SYNC_SECRET');
+  const incomingSecret = req.headers.get('x-fx-sync-secret');
+
+  if (!expectedSecret || incomingSecret !== expectedSecret) {
+    return new Response(
+      JSON.stringify({
+        error: 'Unauthorized: missing or invalid x-fx-sync-secret header',
+      }),
+      {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
+  }
+
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
@@ -80,7 +96,13 @@ Deno.serve(async (req: Request) => {
       }
 
       console.log(`[fx-sync] Fetching ${pair.base}/${pair.quote} from ${url}...`);
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        headers: {
+          Accept: 'application/json',
+          'User-Agent': 'DavaoBank-FXSync/1.0',
+        },
+        signal: AbortSignal.timeout(8000),
+      });
 
       if (!response.ok) {
         const errText = await response.text();

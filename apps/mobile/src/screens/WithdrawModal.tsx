@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, Alert } from 'react-native';
 import { MinusCircle, CheckCircle2, AlertCircle } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
@@ -10,6 +10,7 @@ import {
   phpToCentavos,
   generateIdempotencyKey,
   executeWithdraw,
+  toUserMessage,
   type AccountBalance,
   type MoneyOperationResult,
 } from '@davao-bank/shared';
@@ -54,6 +55,21 @@ export function WithdrawModal({
   const selectedAccount =
     accounts.find((a) => a.account_id === selectedAccountId) || accounts[0];
 
+  useEffect(() => {
+    if (visible) {
+      setStep('input');
+      setAmountStr('');
+      setReference('ATM Withdrawal');
+      setErrorMessage(null);
+      setSuccessResult(null);
+      setIdempotencyKey(generateIdempotencyKey('withdraw'));
+    }
+  }, [visible]);
+
+  useEffect(() => {
+    setIdempotencyKey(generateIdempotencyKey('withdraw'));
+  }, [amountStr, reference, selectedAccountId]);
+
   const resetState = () => {
     setStep('input');
     setAmountStr('');
@@ -62,6 +78,31 @@ export function WithdrawModal({
     setSuccessResult(null);
     setIdempotencyKey('');
     onClose();
+  };
+
+  const hasInput = Boolean(amountStr) && step !== 'success';
+
+  const handleRequestDismiss = () => {
+    if (loading) return;
+
+    if (step === 'success') {
+      resetState();
+      return;
+    }
+
+    if (step === 'review') {
+      setStep('input');
+      return;
+    }
+
+    if (hasInput) {
+      Alert.alert('Discard this cash-out?', 'Your details will be lost.', [
+        { text: 'Keep editing', style: 'cancel' },
+        { text: 'Discard', style: 'destructive', onPress: resetState },
+      ]);
+    } else {
+      resetState();
+    }
   };
 
   const handleProceedToReview = () => {
@@ -135,7 +176,7 @@ export function WithdrawModal({
       } catch {
         // Ignored
       }
-      setErrorMessage(error);
+      setErrorMessage(toUserMessage(error, selectedAccount.balance));
     } else if (data) {
       try {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -154,6 +195,8 @@ export function WithdrawModal({
     <BottomSheet
       visible={visible}
       onClose={resetState}
+      dismissible={!loading}
+      onRequestDismiss={handleRequestDismiss}
       title={
         step === 'input'
           ? 'Cash-out · Withdraw'
@@ -165,6 +208,7 @@ export function WithdrawModal({
       <ScrollView
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         {errorMessage ? (
           <Card variant="subtle" style={styles.errorCard}>
@@ -260,10 +304,17 @@ export function WithdrawModal({
             <View style={styles.successIconBox}>
               <CheckCircle2 size={54} color={colors.primary} />
               <Text variant="h2" align="center" style={styles.successTitle}>
-                Cash-out Prepared
+                {successResult.idempotent_replay
+                  ? 'Already Processed'
+                  : 'Cash-out Prepared'}
               </Text>
+              {successResult.idempotent_replay && (
+                <Text variant="caption" color={colors.textSecondary} align="center">
+                  This payment was already processed.
+                </Text>
+              )}
               <AmountText
-                amountCentavos={centavosAmount}
+                amountCentavos={successResult.amount || centavosAmount}
                 direction="outgoing"
                 variant="display"
               />
@@ -283,13 +334,29 @@ export function WithdrawModal({
                   Updated Balance
                 </Text>
                 <AmountText
-                  amountCentavos={(selectedAccount?.balance || 0) - centavosAmount}
+                  amountCentavos={
+                    successResult.from_new_balance !== undefined
+                      ? successResult.from_new_balance
+                      : successResult.new_balance !== undefined
+                        ? successResult.new_balance
+                        : selectedAccount?.balance || 0
+                  }
                   hidden={hideBalance}
                   variant="bodyStrong"
                   color={colors.ink}
                   showSign={false}
                 />
               </View>
+              {successResult.created_at && (
+                <View style={styles.receiptRow}>
+                  <Text variant="caption" color={colors.textMuted}>
+                    Date & Time
+                  </Text>
+                  <Text variant="caption" color={colors.ink}>
+                    {new Date(successResult.created_at).toLocaleString()}
+                  </Text>
+                </View>
+              )}
               <View style={styles.receiptRow}>
                 <Text variant="caption" color={colors.textMuted}>
                   Transaction ID

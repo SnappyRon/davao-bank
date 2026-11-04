@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Zap, Droplets, Wifi, Smartphone, HelpCircle, Plus, Power } from 'lucide-react';
 import { BillerCategory } from '@davao-bank/shared';
 import { createAdminBrowserClient } from '@/lib/supabase-browser';
+import { adminCreateBillerAction } from '@/app/actions';
 import {
   Table,
   Button,
@@ -83,18 +84,17 @@ export function BillersClient({ initialBillers }: BillersClientProps) {
       return;
     }
 
-    const supabase = createAdminBrowserClient();
-    const { error } = await supabase.rpc('admin_register_biller', {
-      p_name: createName.trim(),
-      p_category: createCategory,
-      p_reference_pattern: createRefPattern.trim(),
-      p_reference_label: createRefLabel.trim(),
-    });
+    const res = await adminCreateBillerAction(
+      createName.trim(),
+      createCategory,
+      createRefLabel.trim(),
+      createRefPattern.trim()
+    );
 
     setCreating(false);
 
-    if (error) {
-      setCreateError(error.message);
+    if (!res.success) {
+      setCreateError(res.error || 'Failed to create biller');
       return;
     }
 

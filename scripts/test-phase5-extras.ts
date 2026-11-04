@@ -176,7 +176,12 @@ async function runTestSuite() {
       nonExistentErr?.message
     );
 
-    // 4. Successful add recipient
+    // 4. Successful add recipient (clean up prior test run if present)
+    await cust1
+      .from('saved_recipients')
+      .delete()
+      .eq('account_number', otherAcc.account_number);
+
     const { data: addRes, error: addErr } = await cust1.rpc('add_saved_recipient', {
       p_account_number: otherAcc.account_number,
       p_nickname: 'Customer 2 Savings',

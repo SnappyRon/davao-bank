@@ -30,6 +30,20 @@ ok('Signup trigger provisions profile + account for each user', (await su(`selec
 // ---- SEED BUG CHECK: service role sets role (what scripts/seed.ts does via upsert)
 const seedTry=await as('service_role',null,`update profiles set role='admin' where id=$1`,[U.ADM]);
 ok('[SEED] service-role can promote a profile to admin (seed.ts path)', !seedTry.err, seedTry.err||'');
+
+// ---- Stage 0.6: guard_profile_self_update caller verification
+const custRoleTry = await cust(U.A, `update profiles set role='admin' where id=$1`, [U.A]);
+ok('Customer changing own role is rejected', !!custRoleTry.err && /Only admins/.test(custRoleTry.err), custRoleTry.err||'');
+const custStatusTry = await cust(U.A, `update profiles set status='suspended' where id=$1`, [U.A]);
+ok('Customer changing own status is rejected', !!custStatusTry.err && /Only admins/.test(custStatusTry.err), custStatusTry.err||'');
+const anonTry = await as('anon', null, `update profiles set role='admin' where id=$1`, [U.A]);
+ok('Anon changing role is rejected', !!anonTry.err || (anonTry.rows && anonTry.rows.length === 0));
+const adminSuspendTry = await cust(U.ADM, `update profiles set status='suspended' where id=$1`, [U.B]);
+ok('Admin can suspend a customer', !adminSuspendTry.err, adminSuspendTry.err||'');
+await cust(U.ADM, `update profiles set status='active' where id=$1`, [U.B]);
+const postgresTry = await su(`update profiles set status='active' where id=$1`, [U.B]);
+ok('Postgres superuser can update profile status', Array.isArray(postgresTry));
+
 // bootstrap admin/system for remaining tests (harness only)
 await su(`alter table profiles disable trigger trg_guard_profile_self_update`);
 await su(`update profiles set role='admin' where id=$1`,[U.ADM]); await su(`update profiles set role='system' where id=$1`,[U.SYS]);
@@ -98,6 +112,16 @@ await su(`alter table scheduled_payments enable trigger all`).catch(()=>{});
 const dates=[]; for(let i=0;i<3;i++){ await su(`select run_due_scheduled_payments()`); const d=(await su(`select next_run_date::text d from scheduled_payments where id=$1`,[mid]))[0].d; dates.push(d); }
 ok('Monthly from Jan 31 → Feb 28 → Mar 31 → Apr 30 (no drift)', dates.join(',')==='2026-02-28,2026-03-31,2026-04-30', dates.join(','));
 r=await cust(U.A,`select run_due_scheduled_payments()`); ok('Customer cannot run the executor', /permission denied/.test(r.err||''), r.err);
+
+// ---- Scheduled transfer by account number (§0.9 item 10)
+r = await cust(U.A, `select create_scheduled_transfer_to_number($1, $2, 1000, 'once', $3, null, null, 'transfer to B')`, [A.id, B.account_number, today]);
+ok('Customer schedules to another customer by account number', !r.err, r.err||'');
+r = await cust(U.A, `select create_scheduled_transfer_to_number($1, '9999999999', 1000, 'once', $2, null, null, 'invalid')`, [A.id, today]);
+ok('Scheduling to nonexistent number returns not-found error', !!r.err && /Recipient account number not found/.test(r.err), r.err||'');
+r = await cust(U.A, `select create_scheduled_transfer_to_number($1, $2, 1000, 'once', $3, null, null, 'hack')`, [B.id, A.account_number, today]);
+ok('Scheduling from someone else account is rejected', !!r.err, r.err||'');
+r = await cust(U.A, `select * from list_my_scheduled_payments()`);
+ok('list_my_scheduled_payments returns only caller rows with to_account_last4', !r.err && r.rows.every(row => row.owner_id === U.A) && r.rows.some(row => row.to_account_last4 === B.account_number.slice(-4)), r.err||'');
 
 // ---- Stage D: payment requests
 r=await cust(U.A,`select create_payment_request($1,$2,2500,'lunch') r`,[A.id,B.account_number]); ok('Create payment request', !r.err, r.err);

@@ -33,7 +33,9 @@ interface UsersClientProps {
 export function UsersClient({ initialUsers, allAccounts }: UsersClientProps) {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'suspended'>('all');
+  const [statusFilter, setStatusFilter] = useState<
+    'all' | 'active' | 'suspended' | 'needs_attention'
+  >('all');
   const [roleFilter, setRoleFilter] = useState<'all' | 'customer' | 'admin'>('all');
 
   // Status Modal State
@@ -58,7 +60,15 @@ export function UsersClient({ initialUsers, allAccounts }: UsersClientProps) {
       (user.phone || '').includes(searchTerm) ||
       user.id.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const matchesStatus = statusFilter === 'all' || user.status === statusFilter;
+    const matchesStatus =
+      statusFilter === 'all'
+        ? true
+        : statusFilter === 'needs_attention'
+          ? (user.status as string) === 'needs_attention' ||
+            !user.full_name ||
+            (user.role as string) === 'none' ||
+            userAccounts(user.id).length === 0
+          : user.status === statusFilter;
     const matchesRole = roleFilter === 'all' || user.role === roleFilter;
 
     return matchesSearch && matchesStatus && matchesRole;
@@ -215,6 +225,7 @@ export function UsersClient({ initialUsers, allAccounts }: UsersClientProps) {
               { value: 'all', label: 'All Statuses' },
               { value: 'active', label: 'Active Only' },
               { value: 'suspended', label: 'Suspended Only' },
+              { value: 'needs_attention', label: 'Needs Attention' },
             ]}
           />
         </div>

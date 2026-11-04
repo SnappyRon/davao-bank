@@ -202,7 +202,9 @@ async function runTestSuite() {
     const toAcc = targetAccounts?.[0];
 
     if (fromAcc && toAcc) {
-      const today = new Date().toISOString().split('T')[0];
+      const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(
+        new Date()
+      );
       const { data: schedRes, error: schedErr } = await cust1.rpc(
         'create_scheduled_payment',
         {
@@ -251,29 +253,150 @@ async function runTestSuite() {
       }
     }
 
-    // 4. Ledger Reconciliation Check
+    // 3b. Test create_scheduled_transfer_to_number & list_my_scheduled_payments (§0.9 Item 10)
+    console.log(
+      '\n[4b/5] Testing create_scheduled_transfer_to_number & list_my_scheduled_payments...'
+    );
+    if (fromAcc && toAcc) {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const tomorrowStr = tomorrow.toISOString().split('T')[0];
+
+      // Customer 1 schedules transfer to Customer 2 by account number
+      const { data: toNumRes, error: toNumErr } = await cust1.rpc(
+        'create_scheduled_transfer_to_number',
+        {
+          p_from_account: fromAcc.account_id,
+          p_to_account_number: toAcc.account_number,
+          p_amount: 1000,
+          p_frequency: 'once',
+          p_start_date: tomorrowStr,
+          p_note: 'Test transfer to customer 2 by number',
+        }
+      );
+      assert(
+        'Schedule-To-Number',
+        Boolean(toNumRes && !toNumErr),
+        'Customer schedules to another customer by account number',
+        toNumErr?.message
+      );
+
+      // Non-existent account number
+      const { error: notFoundErr } = await cust1.rpc(
+        'create_scheduled_transfer_to_number',
+        {
+          p_from_account: fromAcc.account_id,
+          p_to_account_number: '9999999999',
+          p_amount: 1000,
+          p_frequency: 'once',
+          p_start_date: tomorrowStr,
+        }
+      );
+      assert(
+        'Schedule-Not-Found',
+        Boolean(
+          notFoundErr &&
+          notFoundErr.message.includes('Recipient account number not found')
+        ),
+        'Scheduling to nonexistent number returns not-found error',
+        notFoundErr?.message
+      );
+
+      // Scheduling from someone else's account
+      const { error: wrongAccErr } = await cust1.rpc(
+        'create_scheduled_transfer_to_number',
+        {
+          p_from_account: toAcc.account_id, // customer 2's account
+          p_to_account_number: fromAcc.account_number,
+          p_amount: 1000,
+          p_frequency: 'once',
+          p_start_date: tomorrowStr,
+        }
+      );
+      assert(
+        'Schedule-Unauthorized',
+        Boolean(wrongAccErr),
+        'Scheduling from someone else account is rejected',
+        wrongAccErr?.message
+      );
+
+      // list_my_scheduled_payments
+      const { data: myList, error: listErr } = await cust1.rpc(
+        'list_my_scheduled_payments'
+      );
+      const listValid =
+        Boolean(!listErr && myList && myList.length > 0) &&
+        myList.every((row: any) => row.owner_id === fromAcc.user_id) &&
+        myList.some(
+          (row: any) => row.to_account_last4 === toAcc.account_number.slice(-4)
+        );
+      assert(
+        'Schedule-List',
+        listValid,
+        'list_my_scheduled_payments returns only caller rows with to_account_last4',
+        listErr?.message
+      );
+    }
+
+    // 4. Ledger Reconciliation Check: per-account balance == ledger sum & balanced transactions net to zero
     console.log('\n[5/5] Checking System-Wide Double-Entry Ledger Reconciliation...');
-    const { data: ledgerEntries } = await adminClient
+    const { data: accounts } = await adminClient.from('account_balances').select('*');
+    const { data: allLedger } = await adminClient
       .from('ledger_entries')
-      .select('direction, amount');
-    let totalCredits = 0n;
-    let totalDebits = 0n;
-    for (const entry of ledgerEntries || []) {
-      if (entry.direction === 'credit') {
-        totalCredits += BigInt(entry.amount);
-      } else {
-        totalDebits += BigInt(entry.amount);
+      .select('account_id, transaction_id, direction, amount');
+
+    let accountsReconciled = true;
+    for (const acc of accounts || []) {
+      const entries = (allLedger || []).filter((e) => e.account_id === acc.account_id);
+      const computedBal = entries.reduce((accSum, curr) => {
+        return curr.direction === 'credit'
+          ? accSum + BigInt(curr.amount)
+          : accSum - BigInt(curr.amount);
+      }, 0n);
+
+      if (computedBal !== BigInt(acc.balance)) {
+        accountsReconciled = false;
+        break;
       }
     }
 
     assert(
       'Reconciliation',
-      totalCredits === totalDebits,
-      `Ledger is strictly balanced (Total Credits: ${totalCredits} == Total Debits: ${totalDebits})`
+      accountsReconciled,
+      'Per-account balance exactly equals sum of underlying ledger entries'
+    );
+
+    const { data: balancedTxs } = await adminClient
+      .from('transactions')
+      .select('id, type')
+      .in('type', ['transfer', 'reversal', 'bill_payment']);
+
+    const txSums = new Map<string, bigint>();
+    for (const entry of allLedger || []) {
+      const cur = txSums.get(entry.transaction_id) ?? 0n;
+      txSums.set(
+        entry.transaction_id,
+        entry.direction === 'credit'
+          ? cur + BigInt(entry.amount)
+          : cur - BigInt(entry.amount)
+      );
+    }
+
+    let allTxsNetted = true;
+    for (const tx of balancedTxs || []) {
+      if ((txSums.get(tx.id) ?? 0n) !== 0n) {
+        allTxsNetted = false;
+        break;
+      }
+    }
+
+    assert(
+      'Reconciliation',
+      allTxsNetted,
+      'Every transfer, reversal, and bill_payment transaction strictly nets to zero'
     );
     // Run source-file checks in addition to live tests
     runContractValidations();
-    printSummary();
   } catch (err: any) {
     console.error('Live database test error:', err?.message || err);
     process.exit(1);

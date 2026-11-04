@@ -31,7 +31,13 @@ export function StatusBadge({ status }: { status: string }) {
       return <Badge label={status} variant="danger" />;
     case 'frozen':
     case 'pending':
-      return <Badge label={status} variant="warning" />;
+    case 'needs_attention':
+      return (
+        <Badge
+          label={status === 'needs_attention' ? 'Needs Attention' : status}
+          variant="warning"
+        />
+      );
     case 'admin':
       return <Badge label={status} variant="info" />;
     default:

@@ -1,12 +1,12 @@
 import React from 'react';
 import {
-  SafeAreaView,
   ScrollView,
   View,
   StyleSheet,
   type ViewStyle,
   RefreshControl,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { colors, spacing } from '@davao-bank/shared';
 
