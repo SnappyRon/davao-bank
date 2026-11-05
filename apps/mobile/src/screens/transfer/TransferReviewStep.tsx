@@ -26,6 +26,7 @@ interface TransferReviewStepProps {
   maxRunsStr: string;
   hideBalance: boolean;
   loading: boolean;
+  backDisabled?: boolean;
   onBack: () => void;
   onConfirm: () => void;
 }
@@ -42,6 +43,7 @@ export function TransferReviewStep({
   maxRunsStr,
   hideBalance,
   loading,
+  backDisabled = false,
   onBack,
   onConfirm,
 }: TransferReviewStepProps) {
@@ -134,7 +136,7 @@ export function TransferReviewStep({
           title="Back"
           variant="ghost"
           onPress={onBack}
-          disabled={loading}
+          disabled={loading || backDisabled}
           style={styles.backButton}
         />
         <Button

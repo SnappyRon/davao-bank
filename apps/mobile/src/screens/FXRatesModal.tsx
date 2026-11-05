@@ -1,3 +1,4 @@
+import { useReducedMotion } from '../hooks/useReducedMotion';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { View, Modal, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { X, Info, AlertCircle, Globe } from 'lucide-react-native';
@@ -37,6 +38,7 @@ export function FXRatesModal({
   onClose,
   initialPair = 'USD/PHP',
 }: FXRatesModalProps) {
+  const reduceMotion = useReducedMotion();
   const [selectedPair, setSelectedPair] = useState<FXPair>(initialPair);
   const [selectedPeriod, setSelectedPeriod] = useState<FXPeriod>('1M');
   const [allRates, setAllRates] = useState<FXRate[]>([]);
@@ -141,7 +143,7 @@ export function FXRatesModal({
   return (
     <Modal
       visible={visible}
-      animationType="slide"
+      animationType={reduceMotion ? 'none' : 'slide'}
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >

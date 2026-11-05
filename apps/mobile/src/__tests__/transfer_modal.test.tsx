@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, act } from '@testing-library/react-native';
+import { render, screen, fireEvent, act, waitFor } from '@testing-library/react-native';
 import { TransferModal } from '../screens/TransferModal';
 import { executeTransfer, generateIdempotencyKey } from '@davao-bank/shared';
 import type { AccountBalance } from '@davao-bank/shared';
@@ -147,5 +147,30 @@ describe('TransferModal - F1 State & Receipt Guarantees', () => {
     expect(screen.getByText('₱49,500.00')).toBeTruthy();
     expect(screen.queryByText('Transfer · Review')).toBeNull();
     expect(screen.queryByText('Transfer · Recipient')).toBeNull();
+  });
+  it('shows checking status and retains the request key after a dropped response', async () => {
+    jest.mocked(executeTransfer).mockClear();
+    jest
+      .mocked(executeTransfer)
+      .mockResolvedValueOnce({ data: null, error: 'TypeError: Network request failed' });
+    await render(
+      <TransferModal
+        visible={true}
+        onClose={jest.fn()}
+        accounts={initialAccounts}
+        onTransferSuccess={jest.fn()}
+        initialRecipientAccount="1099999999"
+        initialAmountCentavos={50000}
+      />
+    );
+    await fireEvent.press(screen.getByText('Authorize Transfer'));
+    await waitFor(() => expect(screen.getByText('Checking status…')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('Transfer Sent')).toBeTruthy(), {
+      timeout: 3000,
+    });
+    const calls = jest.mocked(executeTransfer).mock.calls;
+    expect(calls).toHaveLength(2);
+    expect(calls[0][1]).toEqual(calls[1][1]);
+    expect(screen.queryByText('Checking status…')).toBeNull();
   });
 });

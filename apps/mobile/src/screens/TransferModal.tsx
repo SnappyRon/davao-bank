@@ -1,3 +1,4 @@
+import { recoverTransfer, isUncertainTransferError } from '../utils/transferRecovery';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { StyleSheet, ScrollView, Alert } from 'react-native';
 import { AlertCircle } from 'lucide-react-native';
@@ -79,6 +80,7 @@ export function TransferModal({
   const [isScheduledSuccess, setIsScheduledSuccess] = useState(false);
 
   const [loading, setLoading] = useState(false);
+  const [uncertain, setUncertain] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successResult, setSuccessResult] = useState<MoneyOperationResult | null>(null);
   const [idempotencyKey, setIdempotencyKey] = useState<string>('');
@@ -185,7 +187,7 @@ export function TransferModal({
     Boolean(recipientAccountNumber || amountStr || reference) && step !== 'success';
 
   const handleRequestDismiss = () => {
-    if (loading) return; // In-flight request cannot be dismissed
+    if (loading || uncertain) return; // In-flight request cannot be dismissed
 
     if (step === 'success') {
       resetState();
@@ -331,13 +333,18 @@ export function TransferModal({
   const executeServerTransfer = async (centavos: number) => {
     if (!selectedAccount) return;
 
-    const { data, error } = await executeTransfer(supabase, {
+    const params = {
       from_account: selectedAccount.account_id,
       to_account_number: recipientAccountNumber.trim(),
       amount: centavos,
       idempotency_key: idempotencyKey,
       reference: reference.trim() || 'Mobile Transfer',
-    });
+    };
+    const { data, error } = await recoverTransfer(
+      () => executeTransfer(supabase, params),
+      () => setErrorMessage('Checking status…')
+    );
+    setUncertain(isUncertainTransferError(error));
 
     setLoading(false);
 
@@ -347,7 +354,11 @@ export function TransferModal({
       } catch {
         // Ignored
       }
-      setErrorMessage(toUserMessage(error, selectedAccount?.balance));
+      setErrorMessage(
+        isUncertainTransferError(error)
+          ? 'Status is not confirmed. Reconnect and authorize again to check the same transfer. Do not start a new transfer.'
+          : toUserMessage(error, selectedAccount?.balance)
+      );
     } else if (data) {
       try {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -366,6 +377,7 @@ export function TransferModal({
         }
       }
 
+      setErrorMessage(null);
       setSuccessResult(data);
       setStep('success');
       onTransferSuccess(data);
@@ -378,7 +390,7 @@ export function TransferModal({
     <BottomSheet
       visible={visible}
       onClose={resetState}
-      dismissible={!loading}
+      dismissible={!loading && !uncertain}
       onRequestDismiss={handleRequestDismiss}
       title={
         step === 'recipient'
@@ -465,7 +477,10 @@ export function TransferModal({
             maxRunsStr={maxRunsStr}
             hideBalance={hideBalance}
             loading={loading}
-            onBack={() => setStep('amount')}
+            onBack={() => {
+              if (!uncertain) setStep('amount');
+            }}
+            backDisabled={uncertain}
             onConfirm={handleConfirmTransfer}
           />
         )}

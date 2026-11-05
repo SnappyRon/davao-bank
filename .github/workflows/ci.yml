@@ -41,6 +41,9 @@ jobs:
       - name: Unit Tests
         run: npm run test:unit
 
+      - name: Shared Color Contrast
+        run: npm run test:contrast
+
       - name: Offline Database Tests (PGlite)
         run: npm run test:db
 

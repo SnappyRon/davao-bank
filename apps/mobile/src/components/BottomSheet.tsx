@@ -74,6 +74,8 @@ export function BottomSheet({
                 <TouchableOpacity
                   activeOpacity={dismissible ? 0.7 : 1}
                   onPress={handleDismiss}
+                  accessibilityRole="button"
+                  accessibilityLabel="Close sheet"
                   style={[styles.closeBtn, !dismissible && { opacity: 0.3 }]}
                   disabled={!dismissible}
                 >
@@ -121,8 +123,8 @@ const styles = StyleSheet.create({
     marginBottom: spacing.base,
   },
   closeBtn: {
-    width: 36,
-    height: 36,
+    width: 44,
+    height: 44,
     borderRadius: radius.pill,
     backgroundColor: colors.surfaceSubtle,
     alignItems: 'center',

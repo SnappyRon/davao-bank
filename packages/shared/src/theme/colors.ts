@@ -7,7 +7,7 @@
  * - Red: #EF2D23 (Festive Red) — Fills only (destructive button, error icon)
  * - RedText: #C8102E — Error and destructive text (5.9:1)
  * - Orange: #FD4B12 (Solar Orange) — Fills only (Cash-out tile)
- * - OrangeText: #C2410C — Warning text (5.2:1)
+ * - OrangeText: #B83D0B — Warning text (5.2:1)
  * - Yellow: #FEAD0B (Kadayawan Yellow) — Fills only, always with ink text & icons
  * - Blue: #0099C8 (Davao Gulf Blue) — Fills only (Transfer tile)
  * - BlueText: #006E94 — Info text (5.7:1)
@@ -29,7 +29,7 @@ export const colors = {
   red: '#EF2D23', // Fills only (destructive button, error icon)
   redText: '#C8102E', // Error & destructive text (5.9:1 contrast)
   orange: '#FD4B12', // Fills only (Cash-out tile)
-  orangeText: '#C2410C', // Warning text (5.2:1 contrast)
+  orangeText: '#B83D0B', // Warning text (5.2:1 contrast)
   yellow: '#FEAD0B', // Fills only (Activity/Rewards), always with ink text and icons on top
   blue: '#0099C8', // Fills only (Transfer tile)
   blueText: '#006E94', // Info text (5.7:1 contrast)
@@ -37,7 +37,7 @@ export const colors = {
   // 3. Neutrals & Chrome
   ink: '#1A1A1A', // Primary text, debit amounts
   textSecondary: '#5C5A55', // Secondary supporting text
-  textMuted: '#8A877F', // Placeholders, non-essential hints
+  textMuted: '#68655F', // Placeholders, non-essential hints
   textInverse: '#FFFFFF', // High-contrast text on solid fills
   canvas: '#F7F5F0', // App warm neutral canvas background
   surface: '#FFFFFF', // Cards, sheets, dialog surfaces
@@ -59,9 +59,9 @@ export const colors = {
   error: '#EF2D23',
   errorLight: '#FDE8E7',
   errorDark: '#C8102E',
-  warning: '#C2410C',
+  warning: '#B83D0B',
   warningLight: '#FFF4DB',
-  warningDark: '#C2410C',
+  warningDark: '#B83D0B',
   info: '#006E94',
   infoLight: '#E1F3FA',
   success: '#0C6D38',
@@ -69,14 +69,14 @@ export const colors = {
   successDark: '#09552B',
   accent: '#FEAD0B',
   accentLight: '#FFF4DB',
-  accentDark: '#C2410C',
+  accentDark: '#B83D0B',
   primaryLight: '#E3F2E8',
   primaryDark: '#09552B',
   primaryMuted: '#0C6D38',
   neutral: '#1A1A1A',
   neutralLight: '#EFECE6',
   neutralDark: '#1A1A1A',
-  neutralMuted: '#8A877F',
+  neutralMuted: '#68655F',
   earth: '#5C5A55',
   earthLight: '#EFECE6',
   earthDark: '#1A1A1A',

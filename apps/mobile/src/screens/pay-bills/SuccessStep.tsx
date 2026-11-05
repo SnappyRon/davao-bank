@@ -40,8 +40,14 @@ export function SuccessStep({
   serverResult,
   onDone,
 }: SuccessStepProps) {
-  const displayAmount = serverResult?.amount ? Number(serverResult.amount) : centavos;
-  const displayTxId = serverResult?.id || serverResult?.transaction_id || receiptTxId;
+  const displayAmount =
+    timing === 'now'
+      ? serverResult?.amount == null
+        ? null
+        : Number(serverResult.amount)
+      : centavos;
+  const displayTxId =
+    timing === 'now' ? serverResult?.transaction_id || serverResult?.id : receiptTxId;
 
   return (
     <View style={styles.successContainer}>
@@ -79,7 +85,7 @@ export function SuccessStep({
             Amount
           </Text>
           <Text variant="title" color="ink">
-            {formatCentavosToPHP(displayAmount)}
+            {displayAmount == null ? 'Unavailable' : formatCentavosToPHP(displayAmount)}
           </Text>
         </View>
         <View style={styles.divider} />

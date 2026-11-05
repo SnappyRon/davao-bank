@@ -1,5 +1,7 @@
 # Davao Bank — Security Review & Threat Model (Phase 6)
 
+> Status: implementation reviewed; Phase 6 is not yet accepted. Device privacy/accessibility evidence, private credential rotation, authenticated E2E checks and hosted auth settings remain open. See PHASE6_REPORT.md and UAT_CHECKLIST.md.
+
 ## 1. Executive Summary
 
 This document details the security posture, threat model, control architecture, and regulatory boundaries of **Davao Bank** following the Phase 6 Testing and Security Hardening milestone.

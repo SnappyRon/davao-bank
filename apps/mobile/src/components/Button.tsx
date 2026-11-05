@@ -58,7 +58,7 @@ export function Button({
         };
       case 'destructive':
         return {
-          backgroundColor: colors.red,
+          backgroundColor: colors.redText,
           borderWidth: 0,
         };
       case 'ghost':
