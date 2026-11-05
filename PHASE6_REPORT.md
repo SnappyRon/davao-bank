@@ -1780,3 +1780,80 @@ Target: project davao-bank (qomxlzvrovwsfneqsfej) · production
 }
 
 ```
+
+## Close-out — admin E2E test (2026-11-06)
+
+Preserved the reviewer's heading fixes and Free-plan leaked-password limitation. Used the privately configured credentials without changing `.env` or rotating passwords. Per the reviewer, password rotation and hosted minimum length/letters-and-digits/email-confirmation settings are complete; the seven live suites previously passed 190/190. This pass reran RLS, not all seven suites.
+
+Inspected the running admin UI and corrected the management test to use named searches, row-scoped actions, labeled fields and dialogs. Actual actions are Suspend/Activate Account, Execute Adjustment (with a native browser reason prompt), and Execute Reversal. Added only accessibility names/roles to application components; no application behavior, migrations or database functions changed.
+
+Each run credits PHP 1 and offsets it with a matching debit, creates its own PHP 1 customer transfer and reverses that exact transfer, then inspects the audit record using a unique reason. It asserts customer 2 is active and every account balance for both participating customers equals its starting value. A `finally` block repairs only the run's own outstanding mutations and repeats those assertions. An initial selector-failure run exercised that cleanup successfully. Browser sessions are isolated; sign-out passed after management during the initial run and before management in all three final runs.
+
+The idle test now installs its clock before navigation and verifies the warning before expiration, removing the late-clock timer race. Local `supabase/seed.sql` generates undisclosed random passwords. The RLS trigger fixture uses a random password and deletes its user in `finally`, checking both deletion success and a subsequent 404 lookup.
+
+Stage C and the UAT checklist remain incomplete; device acceptance belongs to the reviewer.
+
+### Validation output (excerpts)
+
+Full Playwright suite, three consecutive successful invocations after loading the private environment with `set -a; . ./.env; set +a; npx playwright test`. All four tests passed each time; no retries or skips:
+
+```text
+Run 1:
+  ✓  1 [chromium] › e2e/admin/admin-flow.spec.ts:11:7 › Admin Console E2E Flow › Non-admin user cannot access protected admin routes and gets redirected (3.4s)
+  ✓  2 [chromium] › e2e/admin/admin-flow.spec.ts:32:7 › Admin Console E2E Flow › Admin signs in, navigates twice for middleware refresh, signs out, and gets redirected to login (6.4s)
+  ✓  3 [chromium] › e2e/admin/admin-flow.spec.ts:66:7 › Admin Console E2E Flow › Admin logs in, manages users, adjusts balance, reverses transaction, and inspects audit logs (23.0s)
+  ✓  4 [chromium] › e2e/admin/admin-flow.spec.ts:316:7 › Admin Console E2E Flow › idle sign-out clears the browser session after navigation (6.9s)
+  4 passed (40.6s)
+
+Run 2:
+  ✓  1 [chromium] › e2e/admin/admin-flow.spec.ts:11:7 › Admin Console E2E Flow › Non-admin user cannot access protected admin routes and gets redirected (1.1s)
+  ✓  2 [chromium] › e2e/admin/admin-flow.spec.ts:32:7 › Admin Console E2E Flow › Admin signs in, navigates twice for middleware refresh, signs out, and gets redirected to login (6.4s)
+  ✓  3 [chromium] › e2e/admin/admin-flow.spec.ts:66:7 › Admin Console E2E Flow › Admin logs in, manages users, adjusts balance, reverses transaction, and inspects audit logs (21.7s)
+  ✓  4 [chromium] › e2e/admin/admin-flow.spec.ts:316:7 › Admin Console E2E Flow › idle sign-out clears the browser session after navigation (5.9s)
+  4 passed (35.7s)
+
+Run 3:
+  ✓  1 [chromium] › e2e/admin/admin-flow.spec.ts:11:7 › Admin Console E2E Flow › Non-admin user cannot access protected admin routes and gets redirected (1.2s)
+  ✓  2 [chromium] › e2e/admin/admin-flow.spec.ts:32:7 › Admin Console E2E Flow › Admin signs in, navigates twice for middleware refresh, signs out, and gets redirected to login (5.8s)
+  ✓  3 [chromium] › e2e/admin/admin-flow.spec.ts:66:7 › Admin Console E2E Flow › Admin logs in, manages users, adjusts balance, reverses transaction, and inspects audit logs (22.1s)
+  ✓  4 [chromium] › e2e/admin/admin-flow.spec.ts:316:7 › Admin Console E2E Flow › idle sign-out clears the browser session after navigation (6.0s)
+  4 passed (35.7s)
+
+```
+
+Other requested checks:
+
+```text
+$ npm run format:check
+All matched files use Prettier code style!
+
+$ npm run lint
+✖ 99 problems (0 errors, 99 warnings)
+
+$ npm run typecheck
+> davao-bank@0.1.0 typecheck
+> npm run typecheck --workspaces --if-present
+> admin@0.1.0 typecheck
+> tsc --noEmit
+> mobile@1.0.0 typecheck
+> tsc --noEmit
+> @davao-bank/shared@0.1.0 typecheck
+> tsc --noEmit
+
+$ npm run test:unit
+Test Suites: 10 passed, 10 total
+Tests:       58 passed, 58 total
+Snapshots:   0 total
+Time:        3.282 s
+
+$ npm run test:db
+67 passed, 0 failed
+
+$ npm run test:rls
+✓ Connected to live database
+  ✓ PASS: Throwaway trigger-test user deleted
+  ✓ PASS: Deleted trigger-test user cannot be retrieved
+Test Results: 30/30 checks passed.
+STATUS: ALL PHASE 2 SECURITY & RLS INVARIANTS VERIFIED!
+
+```

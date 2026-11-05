@@ -104,7 +104,7 @@ This document details the security posture, threat model, control architecture, 
 Because local `supabase/config.toml` changes apply only to local Supabase instances, the repository owner must verify and configure the following settings directly within the hosted Supabase Dashboard (Authentication > Security / Settings):
 
 - [ ] **Minimum Password Length:** Set to at least 10 characters, requiring letters and digits.
-- [ ] **Leaked-Password Protection:** Enable HaveIBeenPwned password checking (if supported by project plan).
+- [ ] **Leaked-Password Protection:** Not available. Supabase returns "Configuring leaked password protection via HaveIBeenPwned.org is available on Pro Plans and up" for this Free-plan project (checked 2026-11-05). Accepted as a known limitation for the capstone; enable it if the project moves to the Pro plan.
 - [ ] **Auth Rate Limits:** Enable built-in rate limits for email signup, password reset, and token verification requests.
 - [ ] **Email Confirmation:** Enforce email confirmation for all new accounts (`Confirm email` set to ON).
 

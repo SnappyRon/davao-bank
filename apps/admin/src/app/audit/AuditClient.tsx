@@ -121,6 +121,7 @@ export function AuditClient({ initialLogs }: AuditClientProps) {
       <FilterBar>
         <div className={styles.filterSearch}>
           <Input
+            aria-label="Search audit logs"
             placeholder="Search action, actor, entity ID, metadata..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}

@@ -79,7 +79,12 @@ export function ConfirmDialog({
 
   return (
     <div className={styles.overlay} onClick={onClose}>
-      <div className={styles.dialog} onClick={(e) => e.stopPropagation()}>
+      <div
+        role="dialog"
+        aria-label={title}
+        className={styles.dialog}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className={styles.header}>
           <div className={`${styles.iconBox} ${styles[`icon-${variant}`]}`}>
             {getIcon()}

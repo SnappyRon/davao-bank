@@ -211,6 +211,7 @@ export function UsersClient({ initialUsers, allAccounts }: UsersClientProps) {
       <FilterBar>
         <div className={styles.filterSearch}>
           <Input
+            aria-label="Search users"
             placeholder="Search by name, email, phone, or ID..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}

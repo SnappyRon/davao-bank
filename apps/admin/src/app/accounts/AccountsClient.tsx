@@ -239,6 +239,7 @@ export function AccountsClient({ initialAccounts, allUsers }: AccountsClientProp
       <FilterBar>
         <div className={styles.filterSearch}>
           <Input
+            aria-label="Search accounts"
             placeholder="Search by account number, UUID, or owner name/email..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}

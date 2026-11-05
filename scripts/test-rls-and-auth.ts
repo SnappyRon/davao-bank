@@ -14,6 +14,7 @@
  * Run with: npm run test:rls
  */
 
+import { randomBytes } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -386,7 +387,7 @@ async function runTests() {
     const { data: newUser, error: createError } =
       await serviceClient.auth.admin.createUser({
         email: testEmail,
-        password: 'Password123!',
+        password: randomBytes(32).toString('hex') + 'Aa1!',
         email_confirm: true,
         user_metadata: {
           full_name: 'Test Trigger User',
@@ -395,35 +396,46 @@ async function runTests() {
       });
 
     if (createError) {
-      console.warn('Skipping trigger creation test:', createError.message);
+      assert(false, 'Throwaway trigger-test user created', createError.message);
     } else if (newUser.user) {
-      // Check that profile was created by trigger
-      const { data: newProfile } = await serviceClient
-        .from('profiles')
-        .select('*')
-        .eq('id', newUser.user.id)
-        .maybeSingle();
+      try {
+        // Check that profile was created by trigger
+        const { data: newProfile } = await serviceClient
+          .from('profiles')
+          .select('*')
+          .eq('id', newUser.user.id)
+          .maybeSingle();
 
-      assert(
-        newProfile?.role === 'customer' && newProfile?.full_name === 'Test Trigger User',
-        'Trigger on_auth_user_created automatically provisions customer profile'
-      );
+        assert(
+          newProfile?.role === 'customer' &&
+            newProfile?.full_name === 'Test Trigger User',
+          'Trigger on_auth_user_created automatically provisions customer profile'
+        );
 
-      // Check that default savings account was created by trigger
-      const { data: newAccount } = await serviceClient
-        .from('accounts')
-        .select('*')
-        .eq('user_id', newUser.user.id)
-        .maybeSingle();
+        // Check that default savings account was created by trigger
+        const { data: newAccount } = await serviceClient
+          .from('accounts')
+          .select('*')
+          .eq('user_id', newUser.user.id)
+          .maybeSingle();
 
-      assert(
-        Boolean(newAccount?.account_number?.startsWith('10')) &&
-          newAccount?.type === 'savings',
-        'Trigger on_auth_user_created automatically provisions default savings account (10XXXXXXXX)'
-      );
-
-      // Cleanup test user
-      await serviceClient.auth.admin.deleteUser(newUser.user.id);
+        assert(
+          Boolean(newAccount?.account_number?.startsWith('10')) &&
+            newAccount?.type === 'savings',
+          'Trigger on_auth_user_created automatically provisions default savings account (10XXXXXXXX)'
+        );
+      } finally {
+        const { error: deleteError } = await serviceClient.auth.admin.deleteUser(
+          newUser.user.id
+        );
+        assert(!deleteError, 'Throwaway trigger-test user deleted');
+        const { data: deletedUser, error: lookupError } =
+          await serviceClient.auth.admin.getUserById(newUser.user.id);
+        assert(
+          !deletedUser.user && lookupError?.status === 404,
+          'Deleted trigger-test user cannot be retrieved'
+        );
+      }
     }
   } else {
     console.log(

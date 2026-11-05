@@ -300,6 +300,7 @@ export function TransactionsClient({
           <FilterBar>
             <div className={styles.filterSearch}>
               <Input
+                aria-label="Search transactions"
                 placeholder="Search by transaction ID, reference, or account..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}

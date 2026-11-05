@@ -27,7 +27,12 @@ export function Drawer({ isOpen, onClose, title, children, footer }: DrawerProps
 
   return (
     <div className={styles.overlay} onClick={onClose}>
-      <div className={styles.drawer} onClick={(e) => e.stopPropagation()}>
+      <div
+        role="dialog"
+        aria-label={title}
+        className={styles.drawer}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className={styles.header}>
           <h2 className={styles.title}>{title}</h2>
           <button
