@@ -16,5 +16,5 @@ export * from './Skeleton';
 export * from './Toast';
 export * from './Logo';
 export * from './CurrencyWatchCard';
-export * from './PasswordConfirmationModal';
+export * from './PasswordPromptOverlay';
 export * from './PrivacyOverlay';

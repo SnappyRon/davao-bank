@@ -1857,3 +1857,58 @@ Test Results: 30/30 checks passed.
 STATUS: ALL PHASE 2 SECURITY & RLS INVARIANTS VERIFIED!
 
 ```
+
+## Device fix — password confirmation inside sheets (2026-11-06)
+
+Replaced the root native `PasswordConfirmationModal` with a plain absolute-fill `PasswordPromptOverlay`. `PasswordPromptContext` tracks open `BottomSheet` hosts in opening order; only the newest host renders the pending prompt. The root host is used only with no open sheet. A sheet must receive native `onShow` before rendering its prompt, and a nonzero prompt layout acknowledges visibility. If no acknowledgement arrives within 2,000 ms, `confirmMoneyAction` resolves to failure with “Could not show the confirmation prompt. Please try again.” Closing/replacing a host or unmounting the provider cancels its pending request; a late authentication response cannot authorize a cancelled request.
+
+The existing `decideConfirmation` rule is unchanged. Password verification still uses `getUser` and `signInWithPassword`; wrong passwords remain in the prompt, and Cancel resolves as cancelled without authorizing. Title/message, keyboard avoidance, handled keyboard taps and the privacy cover are retained. Biometric support/enrollment is rechecked on every AppState transition to active while preserving the user's explicit preference.
+
+All five affected callers (Transfer, Withdraw, Pay Bills, Payment Requests and Scheduled Payments) use `BottomSheet` and receive the fix through that shared host. FXRatesModal only displays rates, and NotificationsModal only reads/marks notifications; neither calls money confirmation or opens a money-confirmation action, so neither needs a prompt host.
+
+Component coverage exercises two visible sheets with exactly one prompt inside the newest sheet; Cancel; an unpresented sheet timing out at 2 seconds; a visible root prompt staying open beyond the deadline; wrong-password retry followed by verified success; cancellation when the owning sheet closes; and foreground enrollment refresh.
+
+### Device proof status — BLOCKED, not a UAT pass
+
+The iPhone 17 Pro Max simulator is booted. Native UI control first timed out, then returned `Sky Computer Use native pipe startup failed`. A diagnostic simctl screenshot showed the iOS home screen, not an action under test. Consequently the requested Transfer PHP 1, Cash-out PHP 1, Pay Bills PHP 1 and incoming-request Cancel/success proofs have **not** been executed, and no new action screenshots are claimed. The pre-existing reviewer evidence under `docs/uat-evidence/ios/` is preserved unchanged. UAT rows remain untouched. Manual simulator verification is still required before device acceptance.
+
+### Validation output (excerpts)
+
+```text
+$ npm run format:check
+All matched files use Prettier code style!
+
+$ npm run lint
+✖ 99 problems (0 errors, 99 warnings)
+
+$ npm run typecheck
+> davao-bank@0.1.0 typecheck
+> npm run typecheck --workspaces --if-present
+> admin@0.1.0 typecheck
+> tsc --noEmit
+> mobile@1.0.0 typecheck
+> tsc --noEmit
+> @davao-bank/shared@0.1.0 typecheck
+> tsc --noEmit
+
+$ npm run test:unit
+Test Suites: 11 passed, 11 total
+Tests:       63 passed, 63 total
+Snapshots:   0 total
+Time:        3.031 s
+
+$ npm run test:db
+67 passed, 0 failed
+
+$ npm run test:money
+✓ Connected to live database
+Total tests: 31
+Passed:      31
+Failed:      0
+
+$ EXPO_NO_TELEMETRY=1 npx expo export --platform ios
+Exported: dist
+
+```
+
+No server functions, migrations, idempotency logic or private environment files were changed. No passwords were recorded in files or evidence.

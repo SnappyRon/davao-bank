@@ -8,8 +8,8 @@ import React, {
 } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as LocalAuthentication from 'expo-local-authentication';
-import { supabase } from '../lib/supabase';
-import { PasswordConfirmationModal } from '../components/PasswordConfirmationModal';
+import { AppState } from 'react-native';
+import { PasswordPromptProvider, usePasswordPrompt } from './PasswordPromptContext';
 
 export interface ConfirmMoneyOptions {
   title?: string;
@@ -95,57 +95,61 @@ const BIOMETRIC_ENABLED_KEY = '@davao_bank_biometric_enabled';
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
+  return (
+    <PasswordPromptProvider>
+      <SettingsContent>{children}</SettingsContent>
+    </PasswordPromptProvider>
+  );
+}
+
+function SettingsContent({ children }: { children: ReactNode }) {
+  const promptPassword = usePasswordPrompt();
   const [hideBalance, setHideBalanceState] = useState<boolean>(false);
   const [biometricEnabled, setBiometricEnabledState] = useState<boolean>(true);
   const [isBiometricSupported, setIsBiometricSupported] = useState<boolean>(false);
   const [biometricType, setBiometricType] = useState<string>('Biometrics');
 
-  // Password confirmation modal state
-  const [passwordModalVisible, setPasswordModalVisible] = useState(false);
-  const [passwordModalConfig, setPasswordModalConfig] = useState<{
-    title: string;
-    message: string;
-    resolve: (val: { success: boolean; cancelled?: boolean; error?: string }) => void;
-  } | null>(null);
+  const refreshBiometricSupport = useCallback(async () => {
+    try {
+      const supported =
+        (await LocalAuthentication.hasHardwareAsync()) &&
+        (await LocalAuthentication.isEnrolledAsync());
+      setIsBiometricSupported(supported);
+      const types = supported
+        ? await LocalAuthentication.supportedAuthenticationTypesAsync()
+        : [];
+      setBiometricType(
+        types.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)
+          ? 'Face ID'
+          : types.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)
+            ? 'Fingerprint'
+            : 'Biometrics'
+      );
+    } catch {
+      setIsBiometricSupported(false);
+      setBiometricType('Biometrics');
+    }
+  }, []);
 
-  // Load initial settings
   useEffect(() => {
     async function loadSettings() {
       try {
         const storedHide = await AsyncStorage.getItem(HIDE_BALANCE_KEY);
-        if (storedHide !== null) {
-          setHideBalanceState(storedHide === 'true');
-        }
-
-        const hasHardware = await LocalAuthentication.hasHardwareAsync();
-        const isEnrolled = await LocalAuthentication.isEnrolledAsync();
-        const supported = hasHardware && isEnrolled;
-        setIsBiometricSupported(supported);
-
-        if (supported) {
-          const types = await LocalAuthentication.supportedAuthenticationTypesAsync();
-          if (types.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)) {
-            setBiometricType('Face ID');
-          } else if (types.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)) {
-            setBiometricType('Fingerprint');
-          } else {
-            setBiometricType('Biometrics');
-          }
-        }
-
+        if (storedHide !== null) setHideBalanceState(storedHide === 'true');
         const storedBiometric = await AsyncStorage.getItem(BIOMETRIC_ENABLED_KEY);
-        if (storedBiometric !== null) {
-          setBiometricEnabledState(storedBiometric === 'true');
-        } else {
-          // Default to true if device supports biometrics
-          setBiometricEnabledState(supported);
-        }
+        // Keep the preference separate from enrollment; new enrollment can take effect immediately.
+        setBiometricEnabledState(storedBiometric === null || storedBiometric === 'true');
       } catch (err) {
         console.warn('Error loading settings:', err);
       }
     }
-    loadSettings();
-  }, []);
+    void loadSettings();
+    void refreshBiometricSupport();
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void refreshBiometricSupport();
+    });
+    return () => subscription.remove();
+  }, [refreshBiometricSupport]);
 
   const toggleHideBalance = useCallback(async () => {
     setHideBalanceState((prev) => {
@@ -213,19 +217,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
             disableDeviceFallback: false,
           });
         },
-        promptPassword: () => {
-          return new Promise((resolve) => {
-            setPasswordModalConfig({
-              title: promptTitle,
-              message: promptMsg,
-              resolve,
-            });
-            setPasswordModalVisible(true);
-          });
-        },
+        promptPassword: () => promptPassword({ title: promptTitle, message: promptMsg }),
       });
     },
-    [biometricEnabled, isBiometricSupported]
+    [biometricEnabled, isBiometricSupported, promptPassword]
   );
 
   const confirmBiometricPayment = useCallback(
@@ -245,38 +240,6 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     [confirmMoneyAction]
   );
 
-  const handlePasswordModalConfirm = async (password: string): Promise<boolean> => {
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user?.email) {
-        return false;
-      }
-
-      const { error: authErr } = await supabase.auth.signInWithPassword({
-        email: user.email,
-        password,
-      });
-
-      if (authErr) {
-        return false;
-      }
-
-      setPasswordModalVisible(false);
-      passwordModalConfig?.resolve({ success: true });
-      return true;
-    } catch {
-      return false;
-    }
-  };
-
-  const handlePasswordModalCancel = () => {
-    setPasswordModalVisible(false);
-    passwordModalConfig?.resolve({ success: false, cancelled: true });
-  };
-
   return (
     <SettingsContext.Provider
       value={{
@@ -291,13 +254,6 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       }}
     >
       {children}
-      <PasswordConfirmationModal
-        visible={passwordModalVisible}
-        title={passwordModalConfig?.title}
-        message={passwordModalConfig?.message}
-        onConfirm={handlePasswordModalConfirm}
-        onCancel={handlePasswordModalCancel}
-      />
     </SettingsContext.Provider>
   );
 }

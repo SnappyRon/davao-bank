@@ -1,4 +1,8 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import {
+  PasswordPromptHost,
+  usePasswordPromptHost,
+} from '../context/PasswordPromptContext';
 import {
   Modal,
   View,
@@ -35,8 +39,17 @@ export function BottomSheet({
   onRequestDismiss,
 }: BottomSheetProps) {
   const reduceMotion = useReducedMotion();
+  const promptHost = usePasswordPromptHost(visible);
+  const [presented, setPresented] = useState(false);
+  useEffect(() => {
+    if (!visible) setPresented(false);
+  }, [visible]);
 
   const handleDismiss = () => {
+    if (promptHost.hasPrompt) {
+      promptHost.cancel?.();
+      return;
+    }
     if (dismissible === false) {
       return;
     }
@@ -49,7 +62,9 @@ export function BottomSheet({
 
   return (
     <Modal
+      testID="bottom-sheet-modal"
       visible={visible}
+      onShow={() => setPresented(true)}
       transparent
       animationType={reduceMotion ? 'none' : 'slide'}
       onRequestClose={handleDismiss}
@@ -88,6 +103,7 @@ export function BottomSheet({
           </TouchableWithoutFeedback>
         </View>
       </TouchableWithoutFeedback>
+      <PasswordPromptHost hostId={promptHost.id} ready={presented && visible} />
       <PrivacyOverlay />
     </Modal>
   );
