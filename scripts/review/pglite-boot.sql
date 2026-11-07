@@ -13,3 +13,10 @@ create table auth.users(
 create function auth.uid() returns uuid language sql stable as
 $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
 grant execute on function auth.uid() to anon, authenticated, service_role;
+create function auth.jwt() returns jsonb language sql stable as
+$$ select coalesce(nullif(current_setting('request.jwt.claims', true), '')::jsonb, '{}'::jsonb) $$;
+grant execute on function auth.jwt() to anon, authenticated, service_role;
+create table auth.mfa_factors (
+  id uuid primary key default gen_random_uuid(), user_id uuid references auth.users(id) on delete cascade,
+  factor_type text not null, status text not null, friendly_name text, created_at timestamptz default now()
+);

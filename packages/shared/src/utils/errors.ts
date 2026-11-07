@@ -23,6 +23,10 @@ export function toUserMessage(
   }
 
   const lower = rawMsg.toLowerCase();
+  if (lower.includes('step_up_not_enrolled'))
+    return 'Set up two-step verification in Profile before sending money.';
+  if (lower.includes('step_up_required') || lower.includes('step_up_expired'))
+    return 'Enter the 6-digit code from your authenticator app to continue.';
 
   if (lower.includes('insufficient funds')) {
     if (typeof availableBalance === 'number') {

@@ -9,10 +9,11 @@ const db=await PGlite.create(); await db.exec(fs.readFileSync(new URL('./pglite-
 for (const f of fs.readdirSync(MIG).filter(f=>f.endsWith('.sql')).sort()) await db.exec(fs.readFileSync(`${MIG}/${f}`,'utf8'));
 let pass=0, fail=0; const results=[];
 const ok=(name,cond,detail='')=>{ (cond?pass++:fail++); results.push(`${cond?'✓':'✗'} ${name}${detail?' — '+detail:''}`); };
-async function as(role, uid, sql, params=[]){
+async function as(role, uid, sql, params=[], claims=uid ? {sub:uid, aal:"aal2", amr:[{method:"totp",timestamp:Math.floor(Date.now()/1000)}]} : {}){
   await db.exec(`set role ${role}`); await db.query(`select set_config('request.jwt.claim.sub',$1,false)`,[uid||'']);
+  await db.query(`select set_config('request.jwt.claims',$1,false)`,[JSON.stringify(claims)]);
   try { const r=await db.query(sql,params); return {rows:r.rows}; } catch(e){ return {err:e.message}; }
-  finally { await db.exec('reset role'); await db.query(`select set_config('request.jwt.claim.sub','',false)`); }
+  finally { await db.query(`select set_config('request.jwt.claims','',false)`); await db.exec('reset role'); await db.query(`select set_config('request.jwt.claim.sub','',false)`); }
 }
 const su=(sql,p=[])=>db.query(sql,p).then(r=>r.rows);
 const cust=(uid,sql,p)=>as('authenticated',uid,sql,p);
@@ -25,6 +26,7 @@ const reconcile=async()=>{ const r=await su(`select (select coalesce(sum(case wh
 // ---- users (signup trigger creates profile + account)
 const U={A:'11111111-1111-1111-1111-111111111111',B:'22222222-2222-2222-2222-222222222222',ADM:'33333333-3333-3333-3333-333333333333',SYS:'44444444-4444-4444-4444-444444444444'};
 for (const [k,id] of Object.entries(U)) await su(`insert into auth.users(id,email,raw_user_meta_data,email_confirmed_at) values($1,$2,$3,now())`,[id,k.toLowerCase()+'@t.test',JSON.stringify({full_name:'User '+k})]);
+for (const id of Object.values(U)) await su(`insert into auth.mfa_factors(user_id,factor_type,status) values($1,'totp','verified')`,[id]);
 ok('Signup trigger provisions profile + account for each user', (await su(`select count(*)::int n from accounts`))[0].n===4);
 
 // ---- SEED BUG CHECK: service role sets role (what scripts/seed.ts does via upsert)
@@ -202,9 +204,45 @@ const leakedRoles = await su(`
 `);
 ok('RLS Audit: neither billers nor fx_rates allow anon reads', leakedRoles.length === 0, leakedRoles.map(p=>`${p.table_name}.${p.policy_name}`).join(','));
 
+// ---- Phase 6.5 server authorization (real SQL, simulated signed JWT claims)
+const aal1 = {sub:U.A, aal:'aal1', amr:[{method:'password',timestamp:Math.floor(Date.now()/1000)}]};
+const attempt = claims => as('authenticated',U.A,`select transfer($1,$2,1,'step-up-negative','test')`,[A.id,B.id],claims);
+r=await attempt(aal1); ok('Enrolled aal1 transfer requires step-up', r.err==='STEP_UP_REQUIRED',r.err);
+await su(`delete from auth.mfa_factors where user_id=$1`,[U.A]);
+r=await attempt(aal1); ok('Unenrolled transfer requires enrollment',r.err==='STEP_UP_NOT_ENROLLED',r.err);
+await su(`insert into auth.mfa_factors(user_id,factor_type,status) values($1,'totp','verified')`,[U.A]);
+r=await attempt({...aal1,aal:'aal2',amr:[{method:'totp',timestamp:Math.floor(Date.now()/1000)-360}]});
+ok('Six-minute-old TOTP is rejected',r.err==='STEP_UP_EXPIRED',r.err);
+r=await attempt({...aal1,aal:'aal2',amr:[]}); ok('Missing TOTP claim fails closed',r.err==='STEP_UP_EXPIRED',r.err);
+r=await as('authenticated',U.A,`select deposit($1,1,'aal1-deposit','test')`,[A.id],aal1);
+ok('Deposit remains available at aal1',!r.err,r.err);
+r=await cust(U.A,`select transfer($1,$2,1,'fresh-step-up','test')`,[A.id,B.id]); ok('Fresh TOTP permits transfer',!r.err,r.err);
+r=await as('authenticated',U.ADM,`select admin_set_user_status($1,'active','test')`,[U.B],{sub:U.ADM,aal:'aal1'});
+ok('Admin mutation rejects aal1',r.err==='STEP_UP_REQUIRED',r.err);
+r=await cust(U.A,`select admin_reset_user_mfa($1,'Lost authenticator phone')`,[U.B]); ok('Customer cannot reset MFA',/Admin privilege/.test(r.err||''),r.err);
+r=await cust(U.ADM,`select admin_reset_user_mfa($1,'Lost authenticator phone')`,[U.ADM]); ok('Admin cannot reset own MFA',/own MFA/.test(r.err||''),r.err);
+r=await cust(U.ADM,`select admin_reset_user_mfa($1,'short')`,[U.B]); ok('MFA reset requires meaningful reason',/10 characters/.test(r.err||''),r.err);
+r=await cust(U.ADM,`select admin_reset_user_mfa($1,'Lost authenticator phone')`,[U.B]);
+ok('Admin reset removes customer factors and records audit',!r.err && (await su(`select count(*)::int n from auth.mfa_factors where user_id=$1`,[U.B]))[0].n===0 && (await su(`select count(*)::int n from audit_logs where action='user_mfa_reset' and entity_id=$1`,[U.B]))[0].n===1,r.err);
+r=await cust(U.A,`update security_settings set money_step_up_enabled=false`);
+ok('Customer cannot change emergency switch',(await su(`select money_step_up_enabled enabled from security_settings`))[0].enabled);
+r=await cust(U.ADM,`select * from security_settings`); ok('Settings cannot be read by clients',!!r.err,r.err);
+r=await cust(U.ADM,`update security_settings set money_step_up_enabled=false`);
+ok('Admin can disable step-up',!r.err && !(await su(`select money_step_up_enabled enabled from security_settings`))[0].enabled,r.err);
+r=await attempt(aal1); ok('Emergency switch bypasses step-up',!r.err,r.err);
+await su(`update security_settings set money_step_up_enabled=true`);
+
+const adminMutations=['admin_adjust_balance','admin_reverse_transaction','admin_set_user_status','admin_set_account_status','admin_open_account','admin_create_biller','admin_set_biller_active','admin_run_due_schedules_now'];
+for (const name of adminMutations) {
+  const [fn]=await su(`select oidvectortypes(proargtypes) args from pg_proc where proname=$1 and pronamespace='public'::regnamespace`,[name]);
+  const args=fn.args ? fn.args.split(', ').map(type=>`null::${type}`).join(',') : '';
+  const rejected=await as('authenticated',U.ADM,`select public.${name}(${args})`,[],{sub:U.ADM,aal:'aal1'});
+  ok(`${name} rejects aal1 before mutation`,rejected.err==='STEP_UP_REQUIRED',rejected.err);
+}
 // ---- Reconciliation
 const rec=await reconcile();
 ok('Reconciliation: every transfer/reversal/bill nets to zero', Number(rec.unbalanced)===0, JSON.stringify(rec));
 ok('Reconciliation: account_balances == ledger sum for every account', Number(rec.mismatched)===0, JSON.stringify(rec));
 console.log(results.join('\n')); console.log(`\n${pass} passed, ${fail} failed`);
+await db.close();
 if (fail > 0) process.exit(1);
