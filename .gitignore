@@ -43,3 +43,8 @@ offline_currency_poc_results/
 # Local browser test artifacts
 test-results/
 playwright-report/
+
+# Agent loop (scripts/agent-loop.sh)
+agent_logs/
+.agent-stop
+STOP

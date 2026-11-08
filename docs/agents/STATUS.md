@@ -53,6 +53,8 @@
 
 ## Log (newest first)
 
+- **2026-11-08, Claude Code (reviewer):** added the bounded, guarded agent loop (`scripts/agent-loop.sh`, `AGENT_PROMPT.md`, `.claude/agent-loop/`). 33 guard cases pass. A real-run smoke test is pending until the owner signs in to the Claude Code CLI again (OAuth expired).
+
 - **2026-11-08, Claude Code (reviewer):** committed the Phase 6 iOS UAT evidence (`ab190b3`, Android skipped by owner) and merged it into 6.5. Pushed `phase-6-hardening` and `phase-6-5-strong-auth`. Updated the Phase 7 prompt: based on 6.5, `Sheet` must keep the in-sheet prompt host, new Security group, item 10 carry-overs, MFA rules in the gates and Do NOT.
 
 - **2026-11-08, Claude Code (reviewer):** iOS simulator check of 6.5. Found and fixed the two-step setup screen that could never open (`2acd017`). Enrollment, password+code cash-out (DB verified) and the 2-minute app lock all PASS. Evidence in `docs/uat-evidence/ios-6.5/`.
