@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, ScrollView } from 'react-native';
 import { Zap, Droplet, Wifi, Smartphone, Layers } from 'lucide-react-native';
 import {
   colors,
@@ -11,6 +11,7 @@ import {
 import { Text } from '../../components/Text';
 import { TextField } from '../../components/TextField';
 import { Chip } from '../../components/Chip';
+import { Pressable } from '../../components/Pressable';
 
 interface BillerStepProps {
   billers: Biller[];
@@ -85,10 +86,11 @@ export function BillerStep({
 
       <View style={styles.billerList}>
         {filteredBillers.map((biller) => (
-          <TouchableOpacity
+          <Pressable
             key={biller.id}
             style={styles.billerRow}
             onPress={() => onSelectBiller(biller)}
+            feedbackType="highlight"
             accessibilityRole="button"
             accessibilityLabel={`Select ${biller.name}`}
           >
@@ -101,7 +103,7 @@ export function BillerStep({
                 {biller.reference_label}
               </Text>
             </View>
-          </TouchableOpacity>
+          </Pressable>
         ))}
 
         {filteredBillers.length === 0 && (

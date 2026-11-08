@@ -7,6 +7,7 @@ import {
   spacing,
   formatCentavosToPHP,
   phpToCentavos,
+  typography,
 } from '@davao-bank/shared';
 import { Text } from '../../components/Text';
 import { TextField } from '../../components/TextField';
@@ -152,7 +153,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   successTitle: {
-    fontWeight: '800',
+    fontFamily: typography.fonts.extraBold,
   },
   successDesc: {
     textAlign: 'center',

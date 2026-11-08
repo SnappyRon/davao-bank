@@ -23,7 +23,11 @@ describe('Mobile Core UI Components', () => {
       const onPressMock = jest.fn();
       await render(<Button title="Submit" onPress={onPressMock} loading={true} />);
 
-      expect(screen.queryByText('Submit')).toBeNull();
+      const btn = screen.getByText('Submit');
+      expect(btn).toBeTruthy();
+
+      fireEvent.press(btn);
+      expect(onPressMock).not.toHaveBeenCalled();
     });
 
     it('prevents onPress when disabled', async () => {

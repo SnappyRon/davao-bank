@@ -7,7 +7,6 @@ import {
   Modal,
   View,
   StyleSheet,
-  TouchableOpacity,
   TouchableWithoutFeedback,
   type ViewStyle,
   KeyboardAvoidingView,
@@ -18,6 +17,7 @@ import { colors, radius, spacing } from '@davao-bank/shared';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { Text } from './Text';
 import { PrivacyOverlay } from './PrivacyOverlay';
+import { Pressable } from './Pressable';
 
 export interface BottomSheetProps {
   visible: boolean;
@@ -86,16 +86,16 @@ export function BottomSheet({
                 ) : (
                   <View />
                 )}
-                <TouchableOpacity
-                  activeOpacity={dismissible ? 0.7 : 1}
+                <Pressable
                   onPress={handleDismiss}
                   accessibilityRole="button"
                   accessibilityLabel="Close sheet"
                   style={[styles.closeBtn, !dismissible && { opacity: 0.3 }]}
                   disabled={!dismissible}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
                   <X size={20} color={colors.textSecondary} />
-                </TouchableOpacity>
+                </Pressable>
               </View>
 
               <View style={styles.body}>{children}</View>

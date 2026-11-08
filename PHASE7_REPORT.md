@@ -17,6 +17,7 @@ Before modifying typography, tokens, or shared components, a complete audit of t
 ### 1. Baseline Inventory & Screenshot Evidence
 
 The baseline state incorporates the device checks from Phase 6 and 6.5 recorded in `docs/uat-evidence/ios/` and `docs/uat-evidence/ios-6.5/`:
+
 - **Main App Screens:**
   - `HomeScreen` (`01-home.png`): Green gradient balance card, 6 large solid-color action tiles (2×3), Currency Watch card, Upcoming Payments list, Recent Activity.
   - `ActivityScreen` (`12-activity.png`): Filter chips, search bar, and transaction list.
@@ -34,27 +35,27 @@ The baseline state incorporates the device checks from Phase 6 and 6.5 recorded 
 
 Every modal in `apps/mobile/src/screens` was audited against Decision D4 ("Full-screen features: major features open as full-screen pages, sheets are only for quick actions and confirmations"):
 
-| Current Component | Current Implementation | Content / Complexity | Decision D4 Destination | Rationale |
-|---|---|---|---|---|
-| `TransferModal.tsx` | `<BottomSheet>` | 4-step wizard (Recipient, Amount, Review, Result) | **Full-Screen `FeatureScreen`** | High cognitive load, multi-step flow, sticky footer action. |
-| `PayBillsModal.tsx` | `<BottomSheet>` | 6-step wizard (Biller, Reference, Amount, When, Review, Result) | **Full-Screen `FeatureScreen`** | Multi-step form with list selection and review steps. |
-| `DepositModal.tsx` | `<BottomSheet>` | 3-step wizard (Amount, Review, Result) | **Full-Screen `FeatureScreen`** | Financial mutation requiring review and dedicated result screen. |
-| `WithdrawModal.tsx` | `<BottomSheet>` | 3-step wizard (Amount, Review, Result) | **Full-Screen `FeatureScreen`** | Critical money out flow requiring clear authorization hierarchy. |
-| `QRHubModal.tsx` | `<BottomSheet>` | 3 tabs (My QR, Scan QR, Request Money) | **Full-Screen `FeatureScreen`** | Camera viewport, large QR generation, and amount requests. |
-| `ScheduledPaymentsModal.tsx` | `<BottomSheet>` | List of active schedules + sub-flow for creation | **Full-Screen `FeatureScreen`** | Scrollable schedule history and multi-field creation form. |
-| `PaymentRequestsModal.tsx` | `<BottomSheet>` | List of incoming requests + pay/decline actions | **Full-Screen `FeatureScreen`** | List of pending transactions and review details. |
-| `ExportStatementModal.tsx` | `<BottomSheet>` | Date range selection, preview, share | **Full-Screen `FeatureScreen`** | Multi-input filter and document preview. |
-| `SavedRecipientsModal.tsx` | `<BottomSheet>` | List of recipients + add/edit/delete actions | **Full-Screen `FeatureScreen`** | Full CRUD list interface. |
-| `PersonalDetailsModal.tsx` | `<BottomSheet>` | Profile editing form (name, phone) | **Full-Screen `FeatureScreen`** | Multi-field user details form. |
-| `FXRatesModal.tsx` | RN `<Modal>` | Currency picker, chart periods, rate history list | **Full-Screen `FeatureScreen`** | Complex data visualization and scrolling rate table. |
-| `TransactionDetailModal.tsx` | `<BottomSheet>` | Transaction receipt, metadata, and share action | **Full-Screen `FeatureScreen`** | Receipt layout with reference numbers and action buttons. |
-| `TwoStepSetup.tsx` | In-line / Modal | TOTP QR code, secret key display, code input | **Full-Screen `FeatureScreen`** | 200 pt QR, security-critical key entry and verification. |
-| `AboutModal.tsx` | `<BottomSheet>` | App metadata, version, academic disclaimer | **Full-Screen `FeatureScreen`** | Informational text and brand credits. |
-| *Account Picker* | In-line / Modal | List of customer accounts (Savings, etc.) | **Stays a `Sheet`** | Single quick choice, 2–4 rows, contextual to active screen. |
-| *Transaction Filter* | In-line / Sheet | Type chips (All, Transfers, Bills) | **Stays a `Sheet`** | Quick filter selection without leaving Activity list. |
-| *Confirmations* | In-line / Alert | Discard dirty form, Cancel schedule, Sign out | **Stays a `Sheet`** | 1–2 action confirmation dialogs with clear destructive choices. |
-| *Auth Overlays* | In-sheet prompt host | Password prompt, TOTP authenticator prompt | **In-window prompt host** | Rendered inside the active `FeatureScreen` or top-most `Sheet`. |
-| `NotificationsModal.tsx` | Modal | Duplicate code of `InboxScreen.tsx` | **DELETE** | Dead, orphaned component; unimported in the project. |
+| Current Component            | Current Implementation | Content / Complexity                                            | Decision D4 Destination         | Rationale                                                        |
+| ---------------------------- | ---------------------- | --------------------------------------------------------------- | ------------------------------- | ---------------------------------------------------------------- |
+| `TransferModal.tsx`          | `<BottomSheet>`        | 4-step wizard (Recipient, Amount, Review, Result)               | **Full-Screen `FeatureScreen`** | High cognitive load, multi-step flow, sticky footer action.      |
+| `PayBillsModal.tsx`          | `<BottomSheet>`        | 6-step wizard (Biller, Reference, Amount, When, Review, Result) | **Full-Screen `FeatureScreen`** | Multi-step form with list selection and review steps.            |
+| `DepositModal.tsx`           | `<BottomSheet>`        | 3-step wizard (Amount, Review, Result)                          | **Full-Screen `FeatureScreen`** | Financial mutation requiring review and dedicated result screen. |
+| `WithdrawModal.tsx`          | `<BottomSheet>`        | 3-step wizard (Amount, Review, Result)                          | **Full-Screen `FeatureScreen`** | Critical money out flow requiring clear authorization hierarchy. |
+| `QRHubModal.tsx`             | `<BottomSheet>`        | 3 tabs (My QR, Scan QR, Request Money)                          | **Full-Screen `FeatureScreen`** | Camera viewport, large QR generation, and amount requests.       |
+| `ScheduledPaymentsModal.tsx` | `<BottomSheet>`        | List of active schedules + sub-flow for creation                | **Full-Screen `FeatureScreen`** | Scrollable schedule history and multi-field creation form.       |
+| `PaymentRequestsModal.tsx`   | `<BottomSheet>`        | List of incoming requests + pay/decline actions                 | **Full-Screen `FeatureScreen`** | List of pending transactions and review details.                 |
+| `ExportStatementModal.tsx`   | `<BottomSheet>`        | Date range selection, preview, share                            | **Full-Screen `FeatureScreen`** | Multi-input filter and document preview.                         |
+| `SavedRecipientsModal.tsx`   | `<BottomSheet>`        | List of recipients + add/edit/delete actions                    | **Full-Screen `FeatureScreen`** | Full CRUD list interface.                                        |
+| `PersonalDetailsModal.tsx`   | `<BottomSheet>`        | Profile editing form (name, phone)                              | **Full-Screen `FeatureScreen`** | Multi-field user details form.                                   |
+| `FXRatesModal.tsx`           | RN `<Modal>`           | Currency picker, chart periods, rate history list               | **Full-Screen `FeatureScreen`** | Complex data visualization and scrolling rate table.             |
+| `TransactionDetailModal.tsx` | `<BottomSheet>`        | Transaction receipt, metadata, and share action                 | **Full-Screen `FeatureScreen`** | Receipt layout with reference numbers and action buttons.        |
+| `TwoStepSetup.tsx`           | In-line / Modal        | TOTP QR code, secret key display, code input                    | **Full-Screen `FeatureScreen`** | 200 pt QR, security-critical key entry and verification.         |
+| `AboutModal.tsx`             | `<BottomSheet>`        | App metadata, version, academic disclaimer                      | **Full-Screen `FeatureScreen`** | Informational text and brand credits.                            |
+| _Account Picker_             | In-line / Modal        | List of customer accounts (Savings, etc.)                       | **Stays a `Sheet`**             | Single quick choice, 2–4 rows, contextual to active screen.      |
+| _Transaction Filter_         | In-line / Sheet        | Type chips (All, Transfers, Bills)                              | **Stays a `Sheet`**             | Quick filter selection without leaving Activity list.            |
+| _Confirmations_              | In-line / Alert        | Discard dirty form, Cancel schedule, Sign out                   | **Stays a `Sheet`**             | 1–2 action confirmation dialogs with clear destructive choices.  |
+| _Auth Overlays_              | In-sheet prompt host   | Password prompt, TOTP authenticator prompt                      | **In-window prompt host**       | Rendered inside the active `FeatureScreen` or top-most `Sheet`.  |
+| `NotificationsModal.tsx`     | Modal                  | Duplicate code of `InboxScreen.tsx`                             | **DELETE**                      | Dead, orphaned component; unimported in the project.             |
 
 ---
 
@@ -110,3 +111,86 @@ Static code analysis and layout inspection revealed the structural causes of awk
 1. **Typography Repair:** Register actual weights in `tokens.ts` mapping to loaded `PlusJakartaSans_*` font families, stripping synthetic iOS bold weights.
 2. **Tokens Alignment:** Update `textMuted`, introduce `borderStrong`, `scrim`, `size.touch` (44), `size.control` (52), and card shadows.
 3. **Core Primitives:** Introduce `Pressable`, `FeatureScreen`, `Sheet` (Reanimated + GestureHandler), and `FloatingTabBar`.
+
+---
+
+## Stage 7A Implementation: Foundations
+
+### 1. Typeface Repair (`7A.1`)
+
+- **Font Family Mapping:** In `packages/shared/src/theme/tokens.ts`, registered font families mapped to the exact fonts loaded by Expo:
+  - 500: `PlusJakartaSans_500Medium`
+  - 600: `PlusJakartaSans_600SemiBold`
+  - 700: `PlusJakartaSans_700Bold`
+  - 800: `PlusJakartaSans_800ExtraBold`
+- **iOS Synthetic Bold Elimination:** Enhanced `Text.tsx` so that on iOS, any `fontWeight` defined on components or passed via styles is removed when a custom font family is present. This prevents iOS CoreText from applying synthetic stroke dilation over already-weighted font glyphs.
+- **App-Wide Coverage:** Removed manual `fontWeight` styles across screens and components (`FloatingTabBar`, `Badge`, `AmountInput`, `Chip`, `Logo`, `ActionTile`, `CurrencyWatchCard`, `MyQRTab`, `RequestMoneyTab`, `TransferRecipientStep`, `PaymentRequestsModal`, `FXRatesHero`), ensuring all text weights map to the loaded font files.
+- **Input Fields:** Set `typography.amount.fontFamily` on `AmountInput`'s `TextInput` and `typography.body.fontFamily` on `TextField`'s `TextInput`.
+
+### 2. Token Updates (`7A.2`)
+
+- **`colors.textMuted`:** Updated to `#6B6860` (contrast rises to 5.11:1 on canvas, 5.56:1 on surface).
+- **`colors.borderStrong`:** Added `#8E887B` for input outlines (3.52:1 contrast against white surface).
+- **`colors.scrim`:** Added `rgba(26, 26, 26, 0.5)` for sheet and modal backdrops.
+- **`typography.amount`:** Added 32/36, weight 800, tabular figures.
+- **`size.touch`:** Added `44` pt minimum hit target.
+- **`size.control`:** Added `52` pt control height for inputs and buttons.
+- **`elevation.card`:** Added static card shadow (offset 0/2, opacity 0.06, radius 8, Android elevation 2).
+- **`motion`:** Replaced with standardized duration and easing tables; deleted `counterDuration`.
+- **Token Verification:** `npx tsx scripts/verify-tokens.ts` verified that admin `globals.css` and shared tokens match with 0 drift.
+- **Contrast Check:** `npx tsx scripts/check-contrast.ts` confirmed 31/31 token pairs pass WCAG AA standards (text >= 4.5:1, controls/icons >= 3:1).
+
+### 3. Shared Components (`7A.3`)
+
+- **`Pressable`:** Created custom wrapper around RN `Pressable` requiring accessibility roles/labels, enforcing >= 44 pt hitSlop, providing scale and opacity feedback, and completely eliminating `TouchableOpacity` across the codebase.
+- **`FeatureScreen`:** Full-screen feature container implementing Decision D4:
+  - 44 pt Back button with step indicator ("Step X of Y") and screen title.
+  - Sticky footer with safe-area padding riding above keyboard.
+  - Dirty form guard (`Alert.alert` with discard confirmation).
+  - Processing lock (blocks back navigation and gestures during transaction submission).
+  - Built-in `PasswordPromptHost` to host in-screen password and authenticator TOTP prompts.
+  - Translucent header on scroll via `BlurView` with `reduceTransparency` fallback.
+- **`Sheet`:** Replaces `BottomSheet` for quick actions only (1–2 inputs, confirmations, pickers):
+  - 36×4 drag handle, header with close button, scrolling body, sticky footer.
+  - Dynamic `maxHeight: '90%'`.
+  - In-sheet `PasswordPromptHost` maintaining prompt continuity.
+- **`FloatingTabBar`:** Floating bottom navigation bar implementing Decision D5:
+  - 64 pt pill floating 16 pt from sides and `8 + bottom safe-area inset`.
+  - Translucent `BlurView` backdrop with solid fallback.
+  - 4 tabs with icons and always-visible labels (12/600).
+  - Active pill in `primaryTint`, selection haptic on tab switch.
+  - Automatically hidden when keyboard opens.
+- **`ResultView`:** Standardized transaction outcome screen supporting 4 states (Completed, Scheduled, Request sent, Failed) with dedicated icons, amount display, metadata card, and Done action.
+- **`Button`:**
+  - `minHeight: 52`, pill radius, `bodyStrong` (16/600).
+  - `primaryPressed` scale 0.98.
+  - Disabled state uses `surfaceSubtle` with `textMuted` (no opacity).
+  - Loading state preserves title text and replaces icon with spinner, setting `accessibilityState={{ busy: true }}`.
+  - Removed default press haptic.
+- **`TextField` & `AmountInput`:**
+  - Removed `TextField`'s `marginBottom` so parent containers control spacing.
+  - Uses `borderStrong` switching to `primary` on focus and `redText` on error.
+  - `AmountInput` uses `decimal-pad` keyboard, live grouping (`5,000.00`), and 36 pt preset chips setting amounts.
+- **`Chip`:** `minHeight: 36` + hitSlop, `accessibilityRole="button"`, `accessibilityState={{ selected }}`.
+- **`Badge`:** 24 pt height, sentence case, `typography.fonts.semiBold`.
+- **`Toast`:** Global queue with `AccessibilityInfo.announceForAccessibility` and slide/fade motion.
+- **`EmptyState`:** Scrollable container for pull-to-refresh compatibility with optional illustration support.
+- **`ListRow`:** Divider uses `border` color.
+- **`NotificationsModal.tsx`:** Deleted orphaned, unimported file.
+
+### 4. Libraries & Infrastructure (`7A.4`)
+
+- Installed `react-native-reanimated` (4.7.1), `react-native-gesture-handler` (~3.3.0), `react-native-worklets` (0.13.0), and `expo-blur` (~58.0.5).
+- Configured `babel.config.js` with `react-native-reanimated/plugin`.
+- Wrapped application root in `GestureHandlerRootView` in `App.tsx`.
+- Configured Jest environment mock in `tests/setup/mobile-setup.ts` to support worklets, Reanimated, and Gesture Handler during testing.
+
+### 5. Stage 7A Gate Verification
+
+- **Contrast Check:** 31/31 token pairs PASS (`scripts/check-contrast.ts`).
+- **Touchables:** `grep -R "TouchableOpacity" apps/mobile/src` returns 0 matches.
+- **Unit Tests:** 75/75 passing across all 3 workspaces (`test:unit`).
+- **Database / Behavioral Tests:** 90/90 passing in PGlite harness (`test:db`).
+- **Typecheck:** Clean 0 errors across mobile, admin, and shared (`typecheck`).
+- **Lint:** 0 errors across the repository (`lint`).
+- **Build / Bundle:** `npx expo export` bundles cleanly for iOS, Android, and Web with 0 errors.

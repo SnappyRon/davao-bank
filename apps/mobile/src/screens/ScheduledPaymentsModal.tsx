@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView, Alert } from 'react-native';
 import {
   CalendarClock,
   Send,
@@ -32,6 +32,7 @@ import {
   AmountText,
   Badge,
   EmptyState,
+  Pressable,
 } from '../components';
 
 interface ScheduledPaymentsModalProps {
@@ -156,15 +157,19 @@ export function ScheduledPaymentsModal({
         {selectedSchedule ? (
           // Detail View
           <View style={styles.detailContainer}>
-            <TouchableOpacity
+            <Pressable
               style={styles.backRow}
               onPress={() => setSelectedSchedule(null)}
+              feedbackType="scale"
+              accessibilityRole="button"
+              accessibilityLabel="Back to All Schedules"
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
               <ArrowLeft size={18} color={colors.primary} />
               <Text variant="bodyStrong" color="primary">
                 Back to All Schedules
               </Text>
-            </TouchableOpacity>
+            </Pressable>
 
             <Card style={styles.detailCard}>
               <View style={styles.detailAmountRow}>
@@ -340,10 +345,11 @@ export function ScheduledPaymentsModal({
           // List View
           <View style={styles.listContainer}>
             {schedules.map((item) => (
-              <TouchableOpacity
+              <Pressable
                 key={item.id}
                 style={styles.scheduleCard}
                 onPress={() => handleSelectSchedule(item)}
+                feedbackType="scale"
                 accessibilityRole="button"
                 accessibilityLabel={`View schedule for ${formatCentavosToPHP(item.amount)}`}
               >
@@ -385,7 +391,7 @@ export function ScheduledPaymentsModal({
                     />
                   </View>
                 </View>
-              </TouchableOpacity>
+              </Pressable>
             ))}
 
             {schedules.length === 0 && !loading && (

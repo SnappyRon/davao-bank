@@ -1,16 +1,17 @@
 import React from 'react';
 import {
-  TouchableOpacity,
   ActivityIndicator,
   StyleSheet,
+  View,
   type ViewStyle,
   type TextStyle,
 } from 'react-native';
-import * as Haptics from 'expo-haptics';
 import { colors, radius, spacing } from '@davao-bank/shared';
+import { Pressable } from './Pressable';
 import { Text } from './Text';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'destructive';
+export type ButtonVariant =
+  'primary' | 'secondary' | 'ghost' | 'destructive' | 'secondaryDestructive';
 
 export interface ButtonProps {
   title: string;
@@ -21,6 +22,7 @@ export interface ButtonProps {
   style?: ViewStyle;
   textStyle?: TextStyle;
   icon?: React.ReactNode;
+  accessibilityLabel?: string;
 }
 
 export function Button({
@@ -32,38 +34,44 @@ export function Button({
   style,
   textStyle,
   icon,
+  accessibilityLabel,
 }: ButtonProps) {
-  const handlePress = () => {
-    if (disabled || loading) return;
-    try {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } catch {
-      // Haptics optional fallback
-    }
-    onPress();
-  };
+  const isInteractive = !disabled && !loading;
 
-  const getContainerStyle = (): ViewStyle => {
+  const getContainerStyle = (pressed: boolean): ViewStyle => {
+    if (disabled) {
+      return {
+        backgroundColor: colors.surfaceSubtle,
+        borderWidth: 0,
+      };
+    }
+
     switch (variant) {
       case 'primary':
         return {
-          backgroundColor: colors.primary,
+          backgroundColor: pressed ? colors.primaryPressed : colors.primary,
           borderWidth: 0,
         };
       case 'secondary':
         return {
-          backgroundColor: colors.surface,
+          backgroundColor: pressed ? colors.surfaceSubtle : colors.surface,
+          borderWidth: 1.5,
+          borderColor: colors.borderStrong,
+        };
+      case 'secondaryDestructive':
+        return {
+          backgroundColor: pressed ? colors.tintRed : colors.surface,
           borderWidth: 1.5,
           borderColor: colors.border,
         };
       case 'destructive':
         return {
-          backgroundColor: colors.redText,
+          backgroundColor: pressed ? colors.red : colors.redText,
           borderWidth: 0,
         };
       case 'ghost':
         return {
-          backgroundColor: 'transparent',
+          backgroundColor: pressed ? colors.surfaceSubtle : 'transparent',
           borderWidth: 0,
         };
     }
@@ -77,65 +85,70 @@ export function Button({
         return colors.textInverse;
       case 'secondary':
         return colors.ink;
+      case 'secondaryDestructive':
+        return colors.redText;
       case 'ghost':
         return colors.primary;
     }
   };
 
+  const spinnerColor =
+    variant === 'primary' || variant === 'destructive'
+      ? colors.textInverse
+      : variant === 'secondaryDestructive'
+        ? colors.redText
+        : colors.primary;
+
   return (
-    <TouchableOpacity
-      activeOpacity={0.8}
-      onPress={handlePress}
-      disabled={disabled || loading}
-      style={[
-        styles.base,
-        getContainerStyle(),
-        (disabled || loading) && styles.disabled,
-        style,
-      ]}
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel || title}
+      accessibilityState={{ disabled: !isInteractive, busy: loading }}
+      disabled={!isInteractive}
+      onPress={onPress}
+      feedbackType={variant === 'primary' ? 'scale' : 'none'}
+      style={({ pressed }) => [styles.base, getContainerStyle(pressed), style]}
     >
-      {loading ? (
-        <ActivityIndicator
-          size="small"
-          color={
-            variant === 'secondary' || variant === 'ghost'
-              ? colors.primary
-              : colors.textInverse
-          }
-        />
-      ) : (
-        <>
-          {icon}
-          <Text
-            variant="title"
-            color={getTextColor()}
-            style={[styles.text, icon ? styles.textWithIcon : undefined, textStyle]}
-          >
-            {title}
-          </Text>
-        </>
-      )}
-    </TouchableOpacity>
+      <View style={styles.contentRow}>
+        {loading ? (
+          <ActivityIndicator size="small" color={spinnerColor} style={styles.spinner} />
+        ) : (
+          icon && <View style={styles.iconBox}>{icon}</View>
+        )}
+        <Text
+          variant="bodyStrong"
+          color={getTextColor()}
+          style={[styles.text, textStyle]}
+        >
+          {title}
+        </Text>
+      </View>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   base: {
-    height: 56,
+    minHeight: 52,
     borderRadius: radius.pill,
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
     width: '100%',
   },
-  disabled: {
-    opacity: 0.5,
+  contentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  spinner: {
+    marginRight: spacing.sm,
+  },
+  iconBox: {
+    marginRight: spacing.sm,
   },
   text: {
     textAlign: 'center',
-  },
-  textWithIcon: {
-    marginLeft: spacing.sm,
   },
 });

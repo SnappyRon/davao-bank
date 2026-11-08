@@ -51,6 +51,8 @@ export function TextField({
         <TextInput
           style={[styles.input, style]}
           placeholderTextColor={colors.textMuted}
+          accessibilityLabel={label}
+          aria-invalid={Boolean(error)}
           onFocus={(e) => {
             setIsFocused(true);
             onFocus?.(e);
@@ -65,7 +67,13 @@ export function TextField({
       </View>
 
       {error ? (
-        <Text variant="caption" color={colors.redText} style={styles.errorText}>
+        <Text
+          variant="caption"
+          color={colors.redText}
+          style={styles.errorText}
+          accessibilityRole="alert"
+          accessibilityLiveRegion="polite"
+        >
           {error}
         </Text>
       ) : helperText ? (
@@ -80,7 +88,6 @@ export function TextField({
 const styles = StyleSheet.create({
   wrapper: {
     width: '100%',
-    marginBottom: spacing.base,
   },
   label: {
     marginBottom: spacing.xs,
@@ -89,7 +96,7 @@ const styles = StyleSheet.create({
     minHeight: 52,
     backgroundColor: colors.surface,
     borderWidth: 1.5,
-    borderColor: colors.border,
+    borderColor: colors.borderStrong,
     borderRadius: radius.md,
     flexDirection: 'row',
     alignItems: 'center',
@@ -99,11 +106,11 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   inputError: {
-    borderColor: colors.red,
+    borderColor: colors.redText,
   },
   input: {
     flex: 1,
-    fontFamily: typography.fontFamily,
+    fontFamily: typography.body.fontFamily,
     fontSize: typography.body.fontSize,
     color: colors.ink,
     paddingVertical: spacing.md,

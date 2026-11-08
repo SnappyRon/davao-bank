@@ -10,20 +10,22 @@
   --color-red: #EF2D23;
   --color-red-text: #C8102E;
   --color-orange: #FD4B12;
-  --color-orange-text: #C2410C;
+  --color-orange-text: #B83D0B;
   --color-yellow: #FEAD0B;
   --color-blue: #0099C8;
   --color-blue-text: #006E94;
 
   --color-ink: #1A1A1A;
   --color-text-secondary: #5C5A55;
-  --color-text-muted: #8A877F;
+  --color-text-muted: #6B6860;
   --color-text-inverse: #FFFFFF;
   --color-canvas: #F7F5F0;
   --color-surface: #FFFFFF;
   --color-surface-subtle: #EFECE6;
   --color-border: #E4E0D8;
+  --color-border-strong: #8E887B;
   --color-border-focus: #0C6D38;
+  --color-scrim: rgba(26, 26, 26, 0.5);
 
   --color-tint-red: #FDE8E7;
   --color-tint-orange: #FFEDE4;

@@ -37,13 +37,15 @@ export const colors = {
   // 3. Neutrals & Chrome
   ink: '#1A1A1A', // Primary text, debit amounts
   textSecondary: '#5C5A55', // Secondary supporting text
-  textMuted: '#68655F', // Placeholders, non-essential hints
+  textMuted: '#6B6860', // Placeholders, non-essential hints (5.11:1 on canvas, 5.81:1 on surface)
   textInverse: '#FFFFFF', // High-contrast text on solid fills
   canvas: '#F7F5F0', // App warm neutral canvas background
   surface: '#FFFFFF', // Cards, sheets, dialog surfaces
   surfaceSubtle: '#EFECE6', // Inputs, inactive chips
   border: '#E4E0D8', // Dividers, outlines
+  borderStrong: '#8E887B', // Input outlines (3.5:1 on white)
   borderFocus: '#0C6D38', // Focus rings
+  scrim: 'rgba(26, 26, 26, 0.5)', // Backdrop behind sheets and confirmation prompts
 
   // 4. Soft Tint Backgrounds (badges, icon circles)
   tintRed: '#FDE8E7',

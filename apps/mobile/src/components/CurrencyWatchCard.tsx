@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { TouchableOpacity, View, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import {
   TrendingUp,
   TrendingDown,
@@ -15,10 +15,12 @@ import {
   formatFXRate,
   formatFXChange,
   calculateFXSummary,
+  typography,
 } from '@davao-bank/shared';
 import { Text } from './Text';
 import { Badge } from './Badge';
 import { Skeleton } from './Skeleton';
+import { Pressable } from './Pressable';
 import { supabase } from '../lib/supabase';
 
 interface CurrencyWatchCardProps {
@@ -90,10 +92,10 @@ export function CurrencyWatchCard({ onPress, style }: CurrencyWatchCardProps) {
   const changeText = formatFXChange(changeValue, changePercent);
 
   return (
-    <TouchableOpacity
+    <Pressable
       style={[styles.card, style]}
       onPress={onPress}
-      activeOpacity={0.8}
+      feedbackType="scale"
       accessibilityRole="button"
       accessibilityLabel={`Currency watch: USD to PHP indicative rate ₱${formatFXRate(latestRate, 'USD')}, change ${changeText}, as of ${rateDate}. Double tap to open reference rates.`}
     >
@@ -127,7 +129,7 @@ export function CurrencyWatchCard({ onPress, style }: CurrencyWatchCardProps) {
       <View style={styles.rightCol}>
         <ChevronRight size={18} color={colors.textMuted} />
       </View>
-    </TouchableOpacity>
+    </Pressable>
   );
 }
 
@@ -158,7 +160,7 @@ const styles = StyleSheet.create({
     marginVertical: 2,
   },
   rateText: {
-    fontWeight: '800',
+    fontFamily: typography.fonts.extraBold,
     fontSize: 20,
   },
   rightCol: {

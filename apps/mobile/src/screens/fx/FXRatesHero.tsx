@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { TrendingUp, TrendingDown, Globe } from 'lucide-react-native';
 import {
   colors,
@@ -10,11 +10,13 @@ import {
   type FXSummary,
   formatFXRate,
   formatFXChange,
+  typography,
 } from '@davao-bank/shared';
 import { Text } from '../../components/Text';
 import { Badge } from '../../components/Badge';
 import { Skeleton } from '../../components/Skeleton';
 import { EmptyState } from '../../components/EmptyState';
+import { Pressable } from '../../components/Pressable';
 import type { ChartPoint } from './FXRatesChart';
 
 export const PAIR_OPTIONS: { pair: FXPair; base: string; label: string }[] = [
@@ -60,23 +62,31 @@ export function FXRatesHero({
         {PAIR_OPTIONS.map((item) => {
           const isSelected = selectedPair === item.pair;
           return (
-            <TouchableOpacity
+            <Pressable
               key={item.pair}
               style={[
                 styles.pairChip,
                 isSelected ? styles.pairChipSelected : styles.pairChipUnselected,
               ]}
               onPress={() => onSelectPair(item.pair)}
-              activeOpacity={0.8}
+              feedbackType="scale"
+              accessibilityRole="button"
+              accessibilityState={{ selected: isSelected }}
+              accessibilityLabel={item.label}
+              hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
             >
               <Text
                 variant="label"
                 color={isSelected ? colors.textInverse : colors.ink}
-                style={{ fontWeight: isSelected ? '700' : '600' }}
+                style={{
+                  fontFamily: isSelected
+                    ? typography.fonts.bold
+                    : typography.fonts.semiBold,
+                }}
               >
                 {item.label}
               </Text>
-            </TouchableOpacity>
+            </Pressable>
           );
         })}
       </View>
@@ -94,7 +104,7 @@ export function FXRatesHero({
             {pairLabel} Indicative Rate
           </Text>
           <View style={styles.rateRow}>
-            <Text variant="display" color={colors.ink} style={styles.rateValue}>
+            <Text variant="amount" color={colors.ink} tabularNums>
               ₱
               {formatFXRate(
                 activePoint ? activePoint.rate : summary.latestRate,
@@ -136,23 +146,31 @@ export function FXRatesHero({
         {PERIOD_OPTIONS.map((item) => {
           const isSelected = selectedPeriod === item.period;
           return (
-            <TouchableOpacity
+            <Pressable
               key={item.period}
               style={[
                 styles.periodChip,
                 isSelected ? styles.periodChipSelected : styles.periodChipUnselected,
               ]}
               onPress={() => onSelectPeriod(item.period)}
-              activeOpacity={0.8}
+              feedbackType="scale"
+              accessibilityRole="button"
+              accessibilityState={{ selected: isSelected }}
+              accessibilityLabel={item.label}
+              hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
             >
               <Text
                 variant="label"
                 color={isSelected ? colors.primary : colors.textSecondary}
-                style={{ fontWeight: isSelected ? '700' : '500' }}
+                style={{
+                  fontFamily: isSelected
+                    ? typography.fonts.bold
+                    : typography.fonts.medium,
+                }}
               >
                 {item.label}
               </Text>
-            </TouchableOpacity>
+            </Pressable>
           );
         })}
       </View>
@@ -198,10 +216,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginVertical: spacing.xs,
-  },
-  rateValue: {
-    fontSize: 32,
-    fontWeight: '800',
   },
   periodRow: {
     flexDirection: 'row',

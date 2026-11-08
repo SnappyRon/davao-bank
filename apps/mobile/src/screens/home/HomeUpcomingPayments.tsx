@@ -1,9 +1,10 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Zap, Send, ChevronRight } from 'lucide-react-native';
 import { colors, radius, spacing, type ScheduledPayment } from '@davao-bank/shared';
 import { Text } from '../../components/Text';
 import { AmountText } from '../../components/AmountText';
+import { Pressable } from '../../components/Pressable';
 
 interface HomeUpcomingPaymentsProps {
   schedules: ScheduledPayment[];
@@ -20,23 +21,28 @@ export function HomeUpcomingPayments({
     <View style={styles.container}>
       <View style={styles.sectionHeader}>
         <Text variant="h2">Upcoming Payments</Text>
-        <TouchableOpacity
+        <Pressable
           onPress={onOpenSchedules}
           style={styles.seeAllButton}
-          activeOpacity={0.7}
+          feedbackType="scale"
+          accessibilityRole="button"
+          accessibilityLabel="See all scheduled payments"
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
           <Text variant="bodyStrong" color={colors.primary}>
             See all
           </Text>
           <ChevronRight size={16} color={colors.primary} />
-        </TouchableOpacity>
+        </Pressable>
       </View>
       {schedules.map((sched) => (
-        <TouchableOpacity
+        <Pressable
           key={sched.id}
           style={styles.upcomingCard}
           onPress={onOpenSchedules}
-          activeOpacity={0.7}
+          feedbackType="highlight"
+          accessibilityRole="button"
+          accessibilityLabel={`Scheduled payment: ${sched.note || (sched.kind === 'bill' ? 'Bill Payment' : 'Transfer')}, ${sched.next_run_date}`}
         >
           <View style={styles.upcomingIconCircle}>
             {sched.kind === 'bill' ? (
@@ -59,7 +65,7 @@ export function HomeUpcomingPayments({
             color={colors.ink}
             showSign={false}
           />
-        </TouchableOpacity>
+        </Pressable>
       ))}
     </View>
   );

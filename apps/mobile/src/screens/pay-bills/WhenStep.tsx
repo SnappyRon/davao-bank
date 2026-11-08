@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Zap, Calendar, Repeat } from 'lucide-react-native';
 import {
   colors,
@@ -11,6 +11,7 @@ import { Text } from '../../components/Text';
 import { TextField } from '../../components/TextField';
 import { Button } from '../../components/Button';
 import { Chip } from '../../components/Chip';
+import { Pressable } from '../../components/Pressable';
 
 export type PaymentTiming = 'now' | 'later' | 'recurring';
 
@@ -45,9 +46,13 @@ export function WhenStep({
         Choose Payment Timing
       </Text>
 
-      <TouchableOpacity
+      <Pressable
         style={[styles.timingOption, timing === 'now' && styles.timingOptionActive]}
         onPress={() => onTimingChange('now')}
+        feedbackType="scale"
+        accessibilityRole="button"
+        accessibilityState={{ selected: timing === 'now' }}
+        accessibilityLabel="Pay Now: Execute payment immediately"
       >
         <Zap size={22} color={timing === 'now' ? colors.primary : colors.textSecondary} />
         <View style={styles.timingTextContainer}>
@@ -56,11 +61,15 @@ export function WhenStep({
             Execute payment immediately
           </Text>
         </View>
-      </TouchableOpacity>
+      </Pressable>
 
-      <TouchableOpacity
+      <Pressable
         style={[styles.timingOption, timing === 'later' && styles.timingOptionActive]}
         onPress={() => onTimingChange('later')}
+        feedbackType="scale"
+        accessibilityRole="button"
+        accessibilityState={{ selected: timing === 'later' }}
+        accessibilityLabel="Schedule for Later: Pay once on a future date"
       >
         <Calendar
           size={22}
@@ -72,11 +81,15 @@ export function WhenStep({
             Pay once on a future date
           </Text>
         </View>
-      </TouchableOpacity>
+      </Pressable>
 
-      <TouchableOpacity
+      <Pressable
         style={[styles.timingOption, timing === 'recurring' && styles.timingOptionActive]}
         onPress={() => onTimingChange('recurring')}
+        feedbackType="scale"
+        accessibilityRole="button"
+        accessibilityState={{ selected: timing === 'recurring' }}
+        accessibilityLabel="Recurring Payment: Repeat weekly or monthly automatically"
       >
         <Repeat
           size={22}
@@ -88,7 +101,7 @@ export function WhenStep({
             Repeat weekly or monthly automatically
           </Text>
         </View>
-      </TouchableOpacity>
+      </Pressable>
 
       {timing !== 'now' && (
         <View style={styles.scheduleConfigBox}>

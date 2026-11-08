@@ -1,8 +1,9 @@
 import React from 'react';
-import { TouchableOpacity, View, StyleSheet, type ViewStyle } from 'react-native';
+import { View, StyleSheet, type ViewStyle } from 'react-native';
 import { ChevronRight } from 'lucide-react-native';
-import { colors, radius, spacing } from '@davao-bank/shared';
+import { colors, spacing } from '@davao-bank/shared';
 import { Text } from './Text';
+import { Pressable } from './Pressable';
 
 export interface ListRowProps {
   title: string;
@@ -45,9 +46,14 @@ export function ListRow({
 
   if (onPress) {
     return (
-      <TouchableOpacity activeOpacity={0.7} onPress={onPress}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={subtitle ? `${title}, ${subtitle}` : title}
+        feedbackType="highlight"
+        onPress={onPress}
+      >
         {content}
-      </TouchableOpacity>
+      </Pressable>
     );
   }
 
@@ -60,7 +66,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: colors.surfaceSubtle,
+    borderBottomColor: colors.border,
   },
   left: {
     marginRight: spacing.md,

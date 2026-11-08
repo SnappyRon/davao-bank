@@ -5,12 +5,11 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  TouchableOpacity,
 } from 'react-native';
 import { LogIn, AlertCircle } from 'lucide-react-native';
 import { colors, spacing, radius, toUserMessage } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
-import { Screen, Text, TextField, Button, Card, Logo } from '../components';
+import { Screen, Text, TextField, Button, Card, Logo, Pressable } from '../components';
 
 interface LoginScreenProps {
   onNavigateToSignUp: () => void;
@@ -117,15 +116,18 @@ export function LoginScreen({
               autoCapitalize="none"
             />
 
-            <TouchableOpacity
+            <Pressable
               onPress={onNavigateToForgotPassword}
               style={styles.forgotBtn}
-              activeOpacity={0.7}
+              feedbackType="scale"
+              accessibilityRole="button"
+              accessibilityLabel="Forgot your password?"
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
               <Text variant="caption" color={colors.primary}>
                 Forgot your password?
               </Text>
-            </TouchableOpacity>
+            </Pressable>
 
             <Button
               title="Sign In"
@@ -140,11 +142,17 @@ export function LoginScreen({
             <Text variant="body" color={colors.textSecondary}>
               Don't have an account?{' '}
             </Text>
-            <TouchableOpacity onPress={onNavigateToSignUp} activeOpacity={0.7}>
+            <Pressable
+              onPress={onNavigateToSignUp}
+              feedbackType="scale"
+              accessibilityRole="button"
+              accessibilityLabel="Sign Up"
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
               <Text variant="bodyStrong" color={colors.primary}>
                 Sign Up
               </Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
 
           <Text

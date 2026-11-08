@@ -25,8 +25,19 @@ pairs.push(
   ['textInverse', 'redText', 4.5],
   ['ink', 'yellow', 4.5]
 );
+
+const controlPairs: [keyof typeof colors, keyof typeof colors, number][] = [
+  ['borderStrong', 'surface', 3.0],
+  ['borderStrong', 'canvas', 3.0],
+  ['primary', 'surface', 3.0],
+  ['primary', 'canvas', 3.0],
+  ['blueText', 'surface', 3.0],
+  ['orangeText', 'surface', 3.0],
+  ['redText', 'surface', 3.0],
+];
 let failures = 0;
-for (const [fg, bg, minimum] of pairs) {
+const allPairs = [...pairs, ...controlPairs];
+for (const [fg, bg, minimum] of allPairs) {
   const a = luminance(colors[fg]);
   const b = luminance(colors[bg]);
   const ratio = (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
@@ -37,6 +48,6 @@ for (const [fg, bg, minimum] of pairs) {
   );
 }
 console.log(
-  `${pairs.length - failures}/${pairs.length} token pairs pass. Rendered screens still require device review.`
+  `${allPairs.length - failures}/${allPairs.length} token pairs pass. Rendered screens still require device review.`
 );
 process.exitCode = failures ? 1 : 0;

@@ -1,12 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import {
-  View,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Alert,
-  Switch,
-} from 'react-native';
+import { View, StyleSheet, ScrollView, Alert, Switch } from 'react-native';
 import {
   User,
   Info,
@@ -29,7 +22,7 @@ import {
 import { supabase } from '../lib/supabase';
 import { useAppLock } from '../context/AppLockContext';
 import { useSettings } from '../context/SettingsContext';
-import { Screen, Text, Card, Badge, Button } from '../components';
+import { Screen, Text, Card, Badge, Button, Pressable } from '../components';
 import { TwoStepSetup } from '../components/TwoStepSetup';
 import { PersonalDetailsModal } from './PersonalDetailsModal';
 import { AboutModal } from './AboutModal';
@@ -168,9 +161,11 @@ export function ProfileScreen({
             ACCOUNT SETTINGS
           </Text>
 
-          <TouchableOpacity
+          <Pressable
             style={styles.menuRow}
-            activeOpacity={0.7}
+            feedbackType="highlight"
+            accessibilityRole="button"
+            accessibilityLabel="Personal Details: Manage your legal name and contact phone"
             onPress={() => setPersonalDetailsOpen(true)}
           >
             <View style={styles.menuIconContainer}>
@@ -185,12 +180,14 @@ export function ProfileScreen({
               </Text>
             </View>
             <ChevronRight size={18} color={colors.textMuted} />
-          </TouchableOpacity>
+          </Pressable>
 
           {/* Saved Recipients Row (§B.1) */}
-          <TouchableOpacity
+          <Pressable
             style={styles.menuRow}
-            activeOpacity={0.7}
+            feedbackType="highlight"
+            accessibilityRole="button"
+            accessibilityLabel="Saved Recipients: Manage trusted Davao Bank accounts for fast transfers"
             onPress={() => setSavedRecipientsOpen(true)}
           >
             <View style={styles.menuIconContainer}>
@@ -205,7 +202,7 @@ export function ProfileScreen({
               </Text>
             </View>
             <ChevronRight size={18} color={colors.textMuted} />
-          </TouchableOpacity>
+          </Pressable>
 
           <View style={styles.menuRow}>
             <Text variant="bodyStrong">App lock</Text>
@@ -252,9 +249,11 @@ export function ProfileScreen({
           </View>
 
           {/* Scheduled Payments Row (§C) */}
-          <TouchableOpacity
+          <Pressable
             style={styles.menuRow}
-            activeOpacity={0.7}
+            feedbackType="highlight"
+            accessibilityRole="button"
+            accessibilityLabel="Scheduled Payments: View and manage recurring transfers and bill payments"
             onPress={() => setScheduledOpen(true)}
           >
             <View style={styles.menuIconContainer}>
@@ -269,12 +268,14 @@ export function ProfileScreen({
               </Text>
             </View>
             <ChevronRight size={18} color={colors.textMuted} />
-          </TouchableOpacity>
+          </Pressable>
 
           {/* Payment Requests Row (§D) */}
-          <TouchableOpacity
+          <Pressable
             style={styles.menuRow}
-            activeOpacity={0.7}
+            feedbackType="highlight"
+            accessibilityRole="button"
+            accessibilityLabel="Payment Requests: Review incoming requests and track outgoing requests"
             onPress={() => setRequestsOpen(true)}
           >
             <View style={styles.menuIconContainer}>
@@ -289,11 +290,13 @@ export function ProfileScreen({
               </Text>
             </View>
             <ChevronRight size={18} color={colors.textMuted} />
-          </TouchableOpacity>
+          </Pressable>
 
-          <TouchableOpacity
+          <Pressable
             style={styles.menuRow}
-            activeOpacity={0.7}
+            feedbackType="highlight"
+            accessibilityRole="button"
+            accessibilityLabel="About Davao Bank: Academic prototype disclosure & brand credits"
             onPress={() => setAboutOpen(true)}
           >
             <View style={styles.menuIconContainer}>
@@ -308,15 +311,15 @@ export function ProfileScreen({
               </Text>
             </View>
             <ChevronRight size={18} color={colors.textMuted} />
-          </TouchableOpacity>
+          </Pressable>
         </View>
 
         {/* Sign Out Button */}
         <View style={styles.signOutContainer}>
           <Button
             title="Sign Out"
-            variant="destructive"
-            icon={<LogOut size={18} color={colors.textInverse} />}
+            variant="secondaryDestructive"
+            icon={<LogOut size={18} color={colors.redText} />}
             onPress={handleSignOut}
             loading={signingOut}
             style={styles.signOutButton}

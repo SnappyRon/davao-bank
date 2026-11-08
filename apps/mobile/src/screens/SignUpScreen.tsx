@@ -5,12 +5,11 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  TouchableOpacity,
 } from 'react-native';
 import { UserPlus, AlertCircle } from 'lucide-react-native';
 import { colors, spacing, radius, toUserMessage } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
-import { Screen, Text, TextField, Button, Card, Logo } from '../components';
+import { Screen, Text, TextField, Button, Card, Logo, Pressable } from '../components';
 
 interface SignUpScreenProps {
   onNavigateToLogin: () => void;
@@ -165,11 +164,17 @@ export function SignUpScreen({ onNavigateToLogin, onSignUpSuccess }: SignUpScree
             <Text variant="body" color={colors.textSecondary}>
               Already have an account?{' '}
             </Text>
-            <TouchableOpacity onPress={onNavigateToLogin} activeOpacity={0.7}>
+            <Pressable
+              onPress={onNavigateToLogin}
+              feedbackType="scale"
+              accessibilityRole="button"
+              accessibilityLabel="Sign In"
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
               <Text variant="bodyStrong" color={colors.primary}>
                 Sign In
               </Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
 
           <Text

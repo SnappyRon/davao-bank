@@ -1,11 +1,12 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { ChevronRight } from 'lucide-react-native';
 import { colors, radius, spacing, type TransactionHistoryItem } from '@davao-bank/shared';
 import { Text } from '../../components/Text';
 import { TransactionRow } from '../../components/TransactionRow';
 import { EmptyState } from '../../components/EmptyState';
 import { Skeleton } from '../../components/Skeleton';
+import { Pressable } from '../../components/Pressable';
 
 interface HomeRecentActivityProps {
   loading: boolean;
@@ -27,16 +28,19 @@ export function HomeRecentActivity({
       <View style={styles.sectionHeader}>
         <Text variant="h2">Recent Activity</Text>
         {transactions.length > 0 && onNavigateToActivity ? (
-          <TouchableOpacity
+          <Pressable
             onPress={onNavigateToActivity}
             style={styles.seeAllButton}
-            activeOpacity={0.7}
+            feedbackType="scale"
+            accessibilityRole="button"
+            accessibilityLabel="See all activity"
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             <Text variant="bodyStrong" color={colors.primary}>
               See all
             </Text>
             <ChevronRight size={16} color={colors.primary} />
-          </TouchableOpacity>
+          </Pressable>
         ) : null}
       </View>
 

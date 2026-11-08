@@ -1,10 +1,11 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { ChevronDown, Eye, EyeOff } from 'lucide-react-native';
 import { colors, radius, spacing, type AccountBalance } from '@davao-bank/shared';
 import { Text } from '../../components/Text';
 import { AmountText } from '../../components/AmountText';
 import { Skeleton } from '../../components/Skeleton';
+import { Pressable } from '../../components/Pressable';
 
 interface HomeBalanceCardProps {
   loading: boolean;
@@ -36,10 +37,12 @@ export function HomeBalanceCard({
   return (
     <View style={styles.balanceCard}>
       <View style={styles.balanceHeader}>
-        <TouchableOpacity
+        <Pressable
           style={styles.accountPill}
-          activeOpacity={accounts.length > 1 ? 0.7 : 1}
+          disabled={accounts.length <= 1}
           onPress={onSwitchAccount}
+          accessibilityRole="button"
+          accessibilityLabel={`Selected account: ${accountTypeLabel} ${currentAccount?.account_number || ''}`}
         >
           <Text variant="caption" color={colors.textInverse}>
             {accountTypeLabel} · {currentAccount?.account_number || '•••• ••••'}
@@ -47,22 +50,23 @@ export function HomeBalanceCard({
           {accounts.length > 1 ? (
             <ChevronDown size={14} color={colors.textInverse} />
           ) : null}
-        </TouchableOpacity>
+        </Pressable>
 
-        <TouchableOpacity
+        <Pressable
           onPress={onToggleHideBalance}
           style={styles.eyeButton}
-          activeOpacity={0.7}
+          accessibilityRole="button"
           accessibilityLabel={
             hideBalance ? 'Balance hidden. Double tap to reveal' : 'Hide balance'
           }
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
           {hideBalance ? (
             <EyeOff size={20} color={colors.textInverse} />
           ) : (
             <Eye size={20} color={colors.textInverse} />
           )}
-        </TouchableOpacity>
+        </Pressable>
       </View>
 
       <View style={styles.balanceAmountContainer}>

@@ -5,7 +5,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   StyleSheet,
-  TouchableOpacity,
   ScrollView,
   RefreshControl,
   ActivityIndicator,
@@ -31,10 +30,19 @@ import {
   toUserMessage,
   type AccountBalance,
   type PaymentRequest,
+  typography,
 } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
 import { useSettings } from '../context/SettingsContext';
-import { BottomSheet, Text, Button, Badge, EmptyState, AmountText } from '../components';
+import {
+  BottomSheet,
+  Text,
+  Button,
+  Badge,
+  EmptyState,
+  AmountText,
+  Pressable,
+} from '../components';
 
 interface PaymentRequestsModalProps {
   visible: boolean;
@@ -272,10 +280,13 @@ export function PaymentRequestsModal({
       <View style={styles.container}>
         {/* Tab switch */}
         <View style={styles.tabBar}>
-          <TouchableOpacity
+          <Pressable
             style={[styles.tabItem, tab === 'incoming' && styles.tabItemActive]}
             onPress={() => setTab('incoming')}
-            activeOpacity={0.7}
+            feedbackType="scale"
+            accessibilityRole="tab"
+            accessibilityState={{ selected: tab === 'incoming' }}
+            accessibilityLabel={`Incoming requests: ${incomingRequests.filter((r) => r.status === 'pending').length} pending`}
           >
             <ArrowDownLeft
               size={18}
@@ -287,12 +298,15 @@ export function PaymentRequestsModal({
             >
               Incoming ({incomingRequests.filter((r) => r.status === 'pending').length})
             </Text>
-          </TouchableOpacity>
+          </Pressable>
 
-          <TouchableOpacity
+          <Pressable
             style={[styles.tabItem, tab === 'outgoing' && styles.tabItemActive]}
             onPress={() => setTab('outgoing')}
-            activeOpacity={0.7}
+            feedbackType="scale"
+            accessibilityRole="tab"
+            accessibilityState={{ selected: tab === 'outgoing' }}
+            accessibilityLabel={`Outgoing requests: ${outgoingRequests.length}`}
           >
             <ArrowUpRight
               size={18}
@@ -304,7 +318,7 @@ export function PaymentRequestsModal({
             >
               Outgoing ({outgoingRequests.length})
             </Text>
-          </TouchableOpacity>
+          </Pressable>
         </View>
 
         {statusMessage && (
@@ -327,7 +341,7 @@ export function PaymentRequestsModal({
                   ? colors.error
                   : colors.primary
               }
-              style={{ fontWeight: '700' }}
+              style={{ fontFamily: typography.fonts.bold }}
             >
               {statusMessage}
             </Text>

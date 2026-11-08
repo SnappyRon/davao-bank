@@ -3,7 +3,6 @@ import {
   ScrollView,
   View,
   StyleSheet,
-  TouchableOpacity,
   TouchableWithoutFeedback,
   KeyboardAvoidingView,
   Platform,
@@ -14,6 +13,7 @@ import { Text } from './Text';
 import { TextField } from './TextField';
 import { Button } from './Button';
 import { PrivacyOverlay } from './PrivacyOverlay';
+import { Pressable } from './Pressable';
 
 export interface PasswordPromptOverlayProps {
   onVisible: () => void;
@@ -89,14 +89,15 @@ export function PasswordPromptOverlay({
                   <View style={styles.iconCircle}>
                     <ShieldCheck size={22} color={colors.primary} />
                   </View>
-                  <TouchableOpacity
+                  <Pressable
                     onPress={handleClose}
                     style={styles.closeBtn}
                     accessibilityLabel="Cancel authorization"
                     accessibilityRole="button"
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   >
                     <X size={20} color={colors.textMuted} />
-                  </TouchableOpacity>
+                  </Pressable>
                 </View>
 
                 <Text variant="title" color={colors.ink} style={styles.title}>
@@ -120,19 +121,20 @@ export function PasswordPromptOverlay({
                   error={error}
                   leftElement={<Lock size={18} color={colors.textMuted} />}
                   rightElement={
-                    <TouchableOpacity
+                    <Pressable
                       onPress={() => setShowPassword((prev) => !prev)}
                       accessibilityLabel={
                         showPassword ? 'Hide password' : 'Show password'
                       }
                       accessibilityRole="button"
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     >
                       {showPassword ? (
                         <EyeOff size={18} color={colors.textMuted} />
                       ) : (
                         <Eye size={18} color={colors.textMuted} />
                       )}
-                    </TouchableOpacity>
+                    </Pressable>
                   }
                   containerStyle={styles.inputContainer}
                 />

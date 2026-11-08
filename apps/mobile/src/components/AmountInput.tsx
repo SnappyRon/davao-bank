@@ -1,13 +1,8 @@
-import React from 'react';
-import {
-  View,
-  TextInput,
-  StyleSheet,
-  TouchableOpacity,
-  type ViewStyle,
-} from 'react-native';
+import React, { useState } from 'react';
+import { View, TextInput, StyleSheet, type ViewStyle } from 'react-native';
 import { colors, radius, spacing, typography } from '@davao-bank/shared';
 import { Text } from './Text';
+import { Pressable } from './Pressable';
 
 export interface AmountInputProps {
   value: string;
@@ -21,6 +16,19 @@ export interface AmountInputProps {
   style?: ViewStyle;
 }
 
+function formatAmountGrouping(input: string): string {
+  const clean = input.replace(/[^0-9.]/g, '');
+  const parts = clean.split('.');
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  if (parts.length > 2) {
+    return `${parts[0]}.${parts[1].slice(0, 2)}`;
+  }
+  if (parts.length === 2) {
+    return `${parts[0]}.${parts[1].slice(0, 2)}`;
+  }
+  return parts[0];
+}
+
 export function AmountInput({
   value,
   onChangeText,
@@ -32,10 +40,15 @@ export function AmountInput({
   error,
   style,
 }: AmountInputProps) {
+  const [isFocused, setIsFocused] = useState(false);
   const chips = presetAmounts || presetChips || [500, 1000, 2000, 5000];
 
   const handlePreset = (php: number) => {
-    onChangeText(php.toString());
+    onChangeText(formatAmountGrouping(php.toString()));
+  };
+
+  const handleChange = (raw: string) => {
+    onChangeText(formatAmountGrouping(raw));
   };
 
   return (
@@ -60,16 +73,24 @@ export function AmountInput({
         </View>
       ) : null}
 
-      <View style={[styles.inputBox, Boolean(error) && styles.inputBoxError]}>
-        <Text variant="display" color={colors.ink} style={styles.currencyPrefix}>
+      <View
+        style={[
+          styles.inputBox,
+          isFocused && styles.inputBoxFocused,
+          Boolean(error) && styles.inputBoxError,
+        ]}
+      >
+        <Text variant="amount" color={colors.ink} style={styles.currencyPrefix}>
           ₱
         </Text>
         <TextInput
           value={value}
-          onChangeText={onChangeText}
+          onChangeText={handleChange}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
           placeholder="0.00"
           placeholderTextColor={colors.textMuted}
-          keyboardType="numeric"
+          keyboardType="decimal-pad"
           style={styles.textInput}
         />
       </View>
@@ -83,11 +104,14 @@ export function AmountInput({
       {chips && chips.length > 0 ? (
         <View style={styles.presetRow}>
           {chips.map((chipAmount) => (
-            <TouchableOpacity
+            <Pressable
               key={chipAmount}
               onPress={() => handlePreset(chipAmount)}
               style={styles.chip}
-              activeOpacity={0.8}
+              feedbackType="scale"
+              hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+              accessibilityRole="button"
+              accessibilityLabel={`Set amount to ₱${chipAmount}`}
             >
               <Text
                 variant="caption"
@@ -95,9 +119,9 @@ export function AmountInput({
                 tabularNums
                 style={styles.chipText}
               >
-                +₱{chipAmount.toLocaleString()}
+                ₱{chipAmount.toLocaleString()}
               </Text>
-            </TouchableOpacity>
+            </Pressable>
           ))}
         </View>
       ) : null}
@@ -120,22 +144,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: colors.surface,
     borderWidth: 1.5,
-    borderColor: colors.border,
+    borderColor: colors.borderStrong,
     borderRadius: radius.md,
     paddingHorizontal: spacing.base,
     paddingVertical: spacing.sm,
+    minHeight: 52,
+  },
+  inputBoxFocused: {
+    borderColor: colors.primary,
   },
   inputBoxError: {
-    borderColor: colors.red,
+    borderColor: colors.redText,
   },
   currencyPrefix: {
     marginRight: spacing.xs,
   },
   textInput: {
     flex: 1,
-    fontSize: typography.display.fontSize,
-    lineHeight: typography.display.lineHeight,
-    fontWeight: typography.display.fontWeight,
+    fontSize: typography.amount.fontSize,
+    lineHeight: typography.amount.lineHeight,
+    fontFamily: typography.amount.fontFamily,
     color: colors.ink,
     fontVariant: ['tabular-nums'],
     padding: 0,
@@ -150,12 +178,14 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   chip: {
+    minHeight: 36,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
     borderRadius: radius.pill,
     backgroundColor: colors.primaryTint,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   chipText: {
-    fontWeight: '700',
+    fontFamily: typography.fonts.semiBold,
   },
 });

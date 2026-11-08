@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import {
   colors,
@@ -9,11 +9,13 @@ import {
   phpToCentavos,
   generateDavaoBankQRPayload,
   type AccountBalance,
+  typography,
 } from '@davao-bank/shared';
 import { Text } from '../../components/Text';
 import { TextField } from '../../components/TextField';
 import { AmountInput } from '../../components/AmountInput';
 import { Badge } from '../../components/Badge';
+import { Pressable } from '../../components/Pressable';
 
 interface MyQRTabProps {
   accounts: AccountBalance[];
@@ -53,22 +55,27 @@ export function MyQRTab({
           </Text>
           <View style={styles.accountPills}>
             {accounts.map((acc, index) => (
-              <TouchableOpacity
+              <Pressable
                 key={acc.account_id}
                 onPress={() => onSelectAccountIndex(index)}
                 style={[
                   styles.accountPill,
                   selectedAccountIndex === index && styles.accountPillActive,
                 ]}
+                feedbackType="scale"
+                accessibilityRole="button"
+                accessibilityState={{ selected: selectedAccountIndex === index }}
+                accessibilityLabel={`${acc.type} account ending in ${acc.account_number.slice(-4)}`}
+                hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
               >
                 <Text
                   variant="caption"
                   color={selectedAccountIndex === index ? colors.textInverse : colors.ink}
-                  style={{ fontWeight: '700' }}
+                  style={{ fontFamily: typography.fonts.bold }}
                 >
                   {acc.type.toUpperCase()} ({acc.account_number.slice(-4)})
                 </Text>
-              </TouchableOpacity>
+              </Pressable>
             ))}
           </View>
         </View>
@@ -116,15 +123,20 @@ export function MyQRTab({
       </View>
 
       {/* Set Amount & Note Toggle */}
-      <TouchableOpacity
+      <Pressable
         onPress={() => setShowOptions((prev) => !prev)}
         style={styles.optionsToggle}
-        activeOpacity={0.7}
+        feedbackType="scale"
+        accessibilityRole="button"
+        accessibilityLabel={
+          showOptions ? 'Hide custom amount & note' : 'Add custom amount or note'
+        }
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       >
         <Text variant="bodyStrong" color={colors.primary}>
           {showOptions ? 'Hide custom amount & note' : '+ Add custom amount or note'}
         </Text>
-      </TouchableOpacity>
+      </Pressable>
 
       {showOptions && (
         <View style={styles.optionsForm}>

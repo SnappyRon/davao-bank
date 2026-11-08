@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import {
   ArrowDownLeft,
   ArrowUpRight,
@@ -19,6 +19,7 @@ import {
 import { Text } from './Text';
 import { AmountText } from './AmountText';
 import { Badge } from './Badge';
+import { Pressable } from './Pressable';
 
 export interface TransactionRowProps {
   transaction: TransactionHistoryItem;
@@ -115,8 +116,10 @@ export function TransactionRow({
   });
 
   return (
-    <TouchableOpacity
-      activeOpacity={0.8}
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${title}, ${subtitle}, ${timeStr}`}
+      feedbackType="highlight"
       onPress={onPress}
       disabled={!onPress}
       style={styles.container}
@@ -155,7 +158,7 @@ export function TransactionRow({
           ) : null}
         </View>
       </View>
-    </TouchableOpacity>
+    </Pressable>
   );
 }
 

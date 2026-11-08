@@ -1,0 +1,43 @@
+/* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any */
+import 'react-native-gesture-handler/jestSetup';
+
+jest.mock('react-native-reanimated', () => {
+  const { View, Text } = require('react-native');
+  return {
+    __esModule: true,
+    default: {
+      View,
+      Text,
+      createAnimatedComponent: (c: any) => c,
+    },
+    useSharedValue: (init: any) => ({ value: init }),
+    useAnimatedStyle: (fn: any) => {
+      try {
+        return fn() || {};
+      } catch {
+        return {};
+      }
+    },
+    withTiming: (toValue: any, _config: any, cb: any) => {
+      if (cb) cb(true);
+      return toValue;
+    },
+    withSpring: (toValue: any, _config: any, cb: any) => {
+      if (cb) cb(true);
+      return toValue;
+    },
+    withSequence: (...anims: any[]) => anims[anims.length - 1],
+    withDelay: (_delay: any, anim: any) => anim,
+    runOnJS: (fn: any) => fn,
+    Easing: {
+      bezier: () => (x: any) => x,
+      linear: (x: any) => x,
+      ease: (x: any) => x,
+      out: (fn: any) => fn,
+      in: (fn: any) => fn,
+      inOut: (fn: any) => fn,
+    },
+  };
+});
+
+jest.mock('react-native-worklets', () => ({}), { virtual: true });

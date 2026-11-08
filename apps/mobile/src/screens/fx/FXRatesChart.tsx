@@ -170,7 +170,8 @@ export function FXRatesChart({
               y={CHART_PADDING.top - 5}
               textAnchor="end"
               fontSize="11"
-              style={{ fontWeight: typography.bodyStrong.fontWeight }}
+              fontFamily={typography.fonts.semiBold}
+              fontWeight="600"
               fill={colors.textSecondary}
             >
               ₱{formatFXRate(chartData.maxVal, baseCurrency)}
@@ -180,7 +181,8 @@ export function FXRatesChart({
               y={CHART_HEIGHT - 6}
               textAnchor="end"
               fontSize="11"
-              style={{ fontWeight: typography.bodyStrong.fontWeight }}
+              fontFamily={typography.fonts.semiBold}
+              fontWeight="600"
               fill={colors.textMuted}
             >
               ₱{formatFXRate(chartData.minVal, baseCurrency)}
@@ -192,6 +194,7 @@ export function FXRatesChart({
               y={CHART_HEIGHT - 6}
               textAnchor="start"
               fontSize="11"
+              fontFamily={typography.fonts.medium}
               fontWeight="500"
               fill={colors.textMuted}
             >

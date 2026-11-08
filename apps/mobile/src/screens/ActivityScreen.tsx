@@ -1,11 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import {
-  View,
-  StyleSheet,
-  SectionList,
-  RefreshControl,
-  TouchableOpacity,
-} from 'react-native';
+import { View, StyleSheet, SectionList, RefreshControl } from 'react-native';
 import { FileText, SlidersHorizontal } from 'lucide-react-native';
 import {
   colors,
@@ -25,6 +19,7 @@ import {
   TransactionRow,
   EmptyState,
   Skeleton,
+  Pressable,
 } from '../components';
 import { TransactionDetailModal } from './TransactionDetailModal';
 import { ExportStatementModal } from './ExportStatementModal';
@@ -140,7 +135,7 @@ export function ActivityScreen({ onExportStatement }: ActivityScreenProps) {
       <View style={styles.header}>
         <View style={styles.headerTitleRow}>
           <Text variant="h1">Activity</Text>
-          <TouchableOpacity
+          <Pressable
             onPress={() => {
               if (onExportStatement) {
                 onExportStatement();
@@ -149,14 +144,16 @@ export function ActivityScreen({ onExportStatement }: ActivityScreenProps) {
               }
             }}
             style={styles.exportButton}
-            activeOpacity={0.8}
+            feedbackType="scale"
+            accessibilityRole="button"
             accessibilityLabel="Export statement"
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             <FileText size={18} color={colors.primary} />
             <Text variant="bodyStrong" color={colors.primary}>
               Statement
             </Text>
-          </TouchableOpacity>
+          </Pressable>
         </View>
 
         <FilterChips

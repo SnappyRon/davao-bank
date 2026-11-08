@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, StyleSheet, ScrollView } from 'react-native';
 import { useCameraPermissions } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
 import { QrCode, ScanLine, Send } from 'lucide-react-native';
@@ -13,7 +13,7 @@ import {
   type AccountBalance,
 } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
-import { BottomSheet, Text } from '../components';
+import { BottomSheet, Text, Pressable } from '../components';
 import { MyQRTab } from './qr/MyQRTab';
 import { ScanQRTab } from './qr/ScanQRTab';
 import { RequestMoneyTab } from './qr/RequestMoneyTab';
@@ -166,13 +166,16 @@ export function QRHubModal({
       <View style={styles.container}>
         {/* Navigation Tabs */}
         <View style={styles.tabBar}>
-          <TouchableOpacity
+          <Pressable
             style={[styles.tabItem, tab === 'my_qr' && styles.tabItemActive]}
             onPress={() => {
               setTab('my_qr');
               setScanError(null);
             }}
-            activeOpacity={0.7}
+            feedbackType="scale"
+            accessibilityRole="tab"
+            accessibilityState={{ selected: tab === 'my_qr' }}
+            accessibilityLabel="My QR"
           >
             <QrCode
               size={18}
@@ -184,16 +187,19 @@ export function QRHubModal({
             >
               My QR
             </Text>
-          </TouchableOpacity>
+          </Pressable>
 
-          <TouchableOpacity
+          <Pressable
             style={[styles.tabItem, tab === 'scan' && styles.tabItemActive]}
             onPress={() => {
               setTab('scan');
               setScanned(false);
               setScanError(null);
             }}
-            activeOpacity={0.7}
+            feedbackType="scale"
+            accessibilityRole="tab"
+            accessibilityState={{ selected: tab === 'scan' }}
+            accessibilityLabel="Scan"
           >
             <ScanLine
               size={18}
@@ -205,15 +211,18 @@ export function QRHubModal({
             >
               Scan
             </Text>
-          </TouchableOpacity>
+          </Pressable>
 
-          <TouchableOpacity
+          <Pressable
             style={[styles.tabItem, tab === 'request' && styles.tabItemActive]}
             onPress={() => {
               setTab('request');
               setScanError(null);
             }}
-            activeOpacity={0.7}
+            feedbackType="scale"
+            accessibilityRole="tab"
+            accessibilityState={{ selected: tab === 'request' }}
+            accessibilityLabel="Request"
           >
             <Send
               size={18}
@@ -225,7 +234,7 @@ export function QRHubModal({
             >
               Request
             </Text>
-          </TouchableOpacity>
+          </Pressable>
         </View>
 
         <ScrollView

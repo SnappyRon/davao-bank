@@ -5,7 +5,6 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  TouchableOpacity,
 } from 'react-native';
 import { KeyRound, ArrowLeft, CheckCircle2, AlertCircle } from 'lucide-react-native';
 import { colors, spacing, radius, toUserMessage } from '@davao-bank/shared';

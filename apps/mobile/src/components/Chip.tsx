@@ -1,7 +1,8 @@
 import React from 'react';
-import { TouchableOpacity, ScrollView, StyleSheet, type ViewStyle } from 'react-native';
-import { colors, radius, spacing } from '@davao-bank/shared';
+import { ScrollView, StyleSheet, type ViewStyle } from 'react-native';
+import { colors, radius, spacing, typography } from '@davao-bank/shared';
 import { Text } from './Text';
+import { Pressable } from './Pressable';
 
 export interface ChipProps {
   label: string;
@@ -12,9 +13,13 @@ export interface ChipProps {
 
 export function Chip({ label, selected = false, onPress, style }: ChipProps) {
   return (
-    <TouchableOpacity
-      activeOpacity={0.8}
+    <Pressable
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      accessibilityLabel={label}
+      feedbackType="scale"
+      hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
       style={[styles.chip, selected ? styles.selectedChip : styles.unselectedChip, style]}
     >
       <Text
@@ -24,7 +29,7 @@ export function Chip({ label, selected = false, onPress, style }: ChipProps) {
       >
         {label}
       </Text>
-    </TouchableOpacity>
+    </Pressable>
   );
 }
 
@@ -76,8 +81,10 @@ export function FilterChips<T extends string = string>({
 
 const styles = StyleSheet.create({
   chip: {
+    minHeight: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
     paddingHorizontal: spacing.base,
-    paddingVertical: spacing.sm,
     borderRadius: radius.pill,
     marginRight: spacing.sm,
     borderWidth: 1,
@@ -91,7 +98,7 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   label: {
-    fontWeight: '700',
+    fontFamily: typography.fonts.bold,
   },
   filterContainer: {
     flexDirection: 'row',

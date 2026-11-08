@@ -1,11 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import {
-  View,
-  StyleSheet,
-  ScrollView,
-  RefreshControl,
-  TouchableOpacity,
-} from 'react-native';
+import { View, StyleSheet, ScrollView, RefreshControl } from 'react-native';
 import {
   Send,
   PlusCircle,
@@ -41,6 +35,7 @@ import {
   ActionTileGrid,
   Logo,
   CurrencyWatchCard,
+  Pressable,
 } from '../components';
 import { TransferModal } from './TransferModal';
 import { DepositModal } from './DepositModal';
@@ -203,9 +198,12 @@ export function HomeScreen({
             </View>
           </View>
 
-          <TouchableOpacity
+          <Pressable
             style={styles.avatarButton}
-            activeOpacity={0.8}
+            feedbackType="scale"
+            accessibilityRole="button"
+            accessibilityLabel="Open profile"
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             onPress={onNavigateToProfile}
           >
             {profile?.full_name ? (
@@ -215,7 +213,7 @@ export function HomeScreen({
             ) : (
               <User size={18} color={colors.primary} />
             )}
-          </TouchableOpacity>
+          </Pressable>
         </View>
 
         {/* Hero Balance Card */}
@@ -230,10 +228,12 @@ export function HomeScreen({
 
         {/* Pending Payment Requests Banner */}
         {pendingRequestsCount > 0 && (
-          <TouchableOpacity
+          <Pressable
             style={styles.requestsBanner}
             onPress={() => setIsRequestsOpen(true)}
-            activeOpacity={0.8}
+            feedbackType="highlight"
+            accessibilityRole="button"
+            accessibilityLabel={`${pendingRequestsCount} Pending Payment Request${pendingRequestsCount > 1 ? 's' : ''}. Tap to review, pay, or decline`}
           >
             <View style={styles.requestsIconBox}>
               <Inbox size={20} color={colors.primary} />
@@ -248,7 +248,7 @@ export function HomeScreen({
               </Text>
             </View>
             <ChevronRight size={18} color={colors.primary} />
-          </TouchableOpacity>
+          </Pressable>
         )}
 
         {/* Action Grid: 6 tiles in 3x2 (Final Stages C & D) */}
@@ -272,7 +272,7 @@ export function HomeScreen({
           />
           <ActionTile
             label="QR"
-            color="purple"
+            color="primary"
             icon={<QrCode size={24} color={colors.textInverse} />}
             onPress={() => setIsQROpen(true)}
           />

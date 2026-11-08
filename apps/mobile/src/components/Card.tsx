@@ -1,21 +1,23 @@
 import React from 'react';
-import {
-  View,
-  StyleSheet,
-  type StyleProp,
-  type ViewStyle,
-  TouchableOpacity,
-} from 'react-native';
+import { View, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import { colors, radius, spacing } from '@davao-bank/shared';
+import { Pressable } from './Pressable';
 
 export interface CardProps {
   children: React.ReactNode;
   style?: StyleProp<ViewStyle>;
   onPress?: () => void;
   variant?: 'elevated' | 'flat' | 'primary' | 'subtle' | 'default';
+  accessibilityLabel?: string;
 }
 
-export function Card({ children, style, onPress, variant = 'flat' }: CardProps) {
+export function Card({
+  children,
+  style,
+  onPress,
+  variant = 'flat',
+  accessibilityLabel = 'Card',
+}: CardProps) {
   const containerStyle = [
     styles.card,
     variant === 'primary' && styles.primaryCard,
@@ -26,9 +28,15 @@ export function Card({ children, style, onPress, variant = 'flat' }: CardProps) 
 
   if (onPress) {
     return (
-      <TouchableOpacity activeOpacity={0.88} onPress={onPress} style={containerStyle}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel}
+        feedbackType="scale"
+        onPress={onPress}
+        style={containerStyle}
+      >
         {children}
-      </TouchableOpacity>
+      </Pressable>
     );
   }
 

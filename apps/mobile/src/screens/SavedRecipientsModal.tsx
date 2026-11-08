@@ -1,12 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import {
-  View,
-  StyleSheet,
-  FlatList,
-  TouchableOpacity,
-  Alert,
-  ActivityIndicator,
-} from 'react-native';
+import { View, StyleSheet, FlatList, Alert, ActivityIndicator } from 'react-native';
 import {
   Users,
   Plus,
@@ -33,6 +26,7 @@ import {
   Card,
   EmptyState,
   Badge,
+  Pressable,
 } from '../components';
 
 interface SavedRecipientsModalProps {
@@ -201,14 +195,18 @@ export function SavedRecipientsModal({
               <Text variant="title" color={colors.ink}>
                 New Saved Recipient
               </Text>
-              <TouchableOpacity
+              <Pressable
                 onPress={() => {
                   setIsAdding(false);
                   setFormError(null);
                 }}
+                feedbackType="scale"
+                accessibilityRole="button"
+                accessibilityLabel="Cancel adding recipient"
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
                 <X size={20} color={colors.textSecondary} />
-              </TouchableOpacity>
+              </Pressable>
             </View>
 
             <TextField
@@ -324,20 +322,26 @@ export function SavedRecipientsModal({
                     </View>
 
                     <View style={styles.actionRow}>
-                      <TouchableOpacity
+                      <Pressable
                         onPress={() => handleUpdateNickname(item.id, item.nickname)}
                         style={styles.iconBtn}
+                        feedbackType="scale"
+                        accessibilityRole="button"
                         accessibilityLabel="Edit nickname"
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                       >
                         <Edit2 size={16} color={colors.textSecondary} />
-                      </TouchableOpacity>
-                      <TouchableOpacity
+                      </Pressable>
+                      <Pressable
                         onPress={() => handleDeleteRecipient(item)}
                         style={styles.iconBtn}
+                        feedbackType="scale"
+                        accessibilityRole="button"
                         accessibilityLabel="Delete recipient"
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                       >
                         <Trash2 size={16} color={colors.redText} />
-                      </TouchableOpacity>
+                      </Pressable>
                     </View>
                   </Card>
                 )}

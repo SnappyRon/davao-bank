@@ -1,10 +1,11 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { CameraView, type PermissionResponse } from 'expo-camera';
 import { AlertCircle, Flashlight, FlashlightOff } from 'lucide-react-native';
 import { colors, radius, spacing } from '@davao-bank/shared';
 import { Text } from '../../components/Text';
 import { Button } from '../../components/Button';
+import { Pressable } from '../../components/Pressable';
 
 interface ScanQRTabProps {
   permission: PermissionResponse | null;
@@ -86,17 +87,20 @@ export function ScanQRTab({
             </View>
           )}
 
-          <TouchableOpacity
+          <Pressable
             style={[styles.torchToggle, torch && styles.torchToggleActive]}
             onPress={onToggleTorch}
-            activeOpacity={0.8}
+            feedbackType="scale"
+            accessibilityRole="button"
+            accessibilityLabel={torch ? 'Turn flashlight off' : 'Turn flashlight on'}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             {torch ? (
               <FlashlightOff size={22} color={colors.textInverse} />
             ) : (
               <Flashlight size={22} color={colors.textInverse} />
             )}
-          </TouchableOpacity>
+          </Pressable>
         </View>
       </CameraView>
 

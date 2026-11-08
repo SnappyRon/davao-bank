@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Users, BookmarkCheck, UserCheck, CreditCard } from 'lucide-react-native';
 import {
   colors,
@@ -8,6 +8,7 @@ import {
   formatCentavosToPHP,
   type AccountBalance,
   type SavedRecipient,
+  typography,
 } from '@davao-bank/shared';
 import { Text } from '../../components/Text';
 import { TextField } from '../../components/TextField';
@@ -15,6 +16,7 @@ import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
 import { AmountText } from '../../components/AmountText';
 import { Chip } from '../../components/Chip';
+import { Pressable } from '../../components/Pressable';
 
 export type RecipientTab = 'saved' | 'my_accounts' | 'new';
 
@@ -159,9 +161,12 @@ export function TransferRecipientStep({
             maxLength={10}
           />
 
-          <TouchableOpacity
+          <Pressable
             style={styles.checkboxRow}
-            activeOpacity={0.7}
+            feedbackType="scale"
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: shouldSaveRecipient }}
+            accessibilityLabel="Save this recipient for future transfers"
             onPress={() => onShouldSaveChange(!shouldSaveRecipient)}
           >
             <View
@@ -177,7 +182,7 @@ export function TransferRecipientStep({
             <Text variant="body" color={colors.ink}>
               Save this recipient for future transfers
             </Text>
-          </TouchableOpacity>
+          </Pressable>
 
           {shouldSaveRecipient && (
             <TextField
@@ -222,15 +227,22 @@ export function TransferRecipientStep({
       )}
 
       {onRequestMoneyPress && (
-        <TouchableOpacity
+        <Pressable
           onPress={onRequestMoneyPress}
           style={styles.requestMoneyLink}
-          activeOpacity={0.7}
+          feedbackType="scale"
+          accessibilityRole="button"
+          accessibilityLabel="Need to receive funds? Request money instead"
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Text variant="caption" color={colors.primary} style={{ fontWeight: '700' }}>
+          <Text
+            variant="caption"
+            color={colors.primary}
+            style={{ fontFamily: typography.fonts.bold }}
+          >
             Need to receive funds? Request money instead &rarr;
           </Text>
-        </TouchableOpacity>
+        </Pressable>
       )}
     </View>
   );

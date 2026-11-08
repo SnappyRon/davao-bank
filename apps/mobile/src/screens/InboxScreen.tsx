@@ -1,11 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import {
-  View,
-  StyleSheet,
-  FlatList,
-  RefreshControl,
-  TouchableOpacity,
-} from 'react-native';
+import { View, StyleSheet, FlatList, RefreshControl } from 'react-native';
 import { Bell, CheckCheck } from 'lucide-react-native';
 import {
   colors,
@@ -15,7 +9,7 @@ import {
   type Notification,
 } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
-import { Screen, Text, Card, EmptyState, Skeleton } from '../components';
+import { Screen, Text, Card, EmptyState, Skeleton, Pressable } from '../components';
 
 interface InboxScreenProps {
   onUnreadCountChange?: (count: number) => void;
@@ -113,17 +107,20 @@ export function InboxScreen({ onUnreadCountChange }: InboxScreenProps) {
         <View style={styles.headerRow}>
           <Text variant="h1">Inbox</Text>
           {unreadCount > 0 ? (
-            <TouchableOpacity
+            <Pressable
               onPress={markAllAsRead}
               disabled={markingAll}
               style={styles.markAllButton}
-              activeOpacity={0.8}
+              feedbackType="scale"
+              accessibilityRole="button"
+              accessibilityLabel="Mark all as read"
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
               <CheckCheck size={18} color={colors.primary} />
               <Text variant="bodyStrong" color={colors.primary}>
                 Mark all read
               </Text>
-            </TouchableOpacity>
+            </Pressable>
           ) : null}
         </View>
       </View>
@@ -167,41 +164,38 @@ export function InboxScreen({ onUnreadCountChange }: InboxScreenProps) {
               : 'ACCOUNT ALERT';
 
             return (
-              <TouchableOpacity
-                activeOpacity={0.88}
+              <Card
+                variant={item.read ? 'default' : 'subtle'}
+                style={[
+                  styles.notificationCard,
+                  !item.read ? styles.unreadCard : undefined,
+                ]}
                 onPress={() => !item.read && markAsRead(item.id)}
+                accessibilityLabel={`${displayTitle}, ${item.message}, ${timeStr}`}
               >
-                <Card
-                  variant={item.read ? 'default' : 'subtle'}
-                  style={[
-                    styles.notificationCard,
-                    !item.read ? styles.unreadCard : undefined,
-                  ]}
-                >
-                  <View style={styles.cardHeader}>
-                    <View style={styles.titleRow}>
-                      {!item.read ? <View style={styles.unreadDot} /> : null}
-                      <Text
-                        variant="bodyStrong"
-                        color={colors.ink}
-                        style={styles.cardTitle}
-                      >
-                        {displayTitle}
-                      </Text>
-                    </View>
-                    <Text variant="caption" color={colors.textMuted}>
-                      {timeStr}
+                <View style={styles.cardHeader}>
+                  <View style={styles.titleRow}>
+                    {!item.read ? <View style={styles.unreadDot} /> : null}
+                    <Text
+                      variant="bodyStrong"
+                      color={colors.ink}
+                      style={styles.cardTitle}
+                    >
+                      {displayTitle}
                     </Text>
                   </View>
-                  <Text
-                    variant="body"
-                    color={colors.textSecondary}
-                    style={styles.cardMessage}
-                  >
-                    {item.message}
+                  <Text variant="caption" color={colors.textMuted}>
+                    {timeStr}
                   </Text>
-                </Card>
-              </TouchableOpacity>
+                </View>
+                <Text
+                  variant="body"
+                  color={colors.textSecondary}
+                  style={styles.cardMessage}
+                >
+                  {item.message}
+                </Text>
+              </Card>
             );
           }}
         />

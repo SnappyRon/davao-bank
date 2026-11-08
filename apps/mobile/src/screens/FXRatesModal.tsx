@@ -1,6 +1,6 @@
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { View, Modal, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Modal, StyleSheet, ScrollView } from 'react-native';
 import { X, Info, AlertCircle, Globe } from 'lucide-react-native';
 import {
   colors,
@@ -16,6 +16,7 @@ import {
 import { Text } from '../components/Text';
 import { Card } from '../components/Card';
 import { PrivacyOverlay } from '../components/PrivacyOverlay';
+import { Pressable } from '../components/Pressable';
 import { supabase } from '../lib/supabase';
 import {
   FXRatesChart,
@@ -156,13 +157,16 @@ export function FXRatesModal({
               FX Reference Rates
             </Text>
           </View>
-          <TouchableOpacity
+          <Pressable
             onPress={onClose}
             style={styles.closeButton}
+            feedbackType="scale"
+            accessibilityRole="button"
             accessibilityLabel="Close reference rates modal"
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             <X size={20} color={colors.ink} />
-          </TouchableOpacity>
+          </Pressable>
         </View>
 
         <ScrollView

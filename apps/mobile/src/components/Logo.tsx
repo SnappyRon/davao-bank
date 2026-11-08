@@ -1,6 +1,6 @@
 import React from 'react';
 import { Image, View, StyleSheet, type ViewStyle } from 'react-native';
-import { colors, spacing } from '@davao-bank/shared';
+import { colors, spacing, typography } from '@davao-bank/shared';
 import { Text } from './Text';
 
 // Davao Bank emblem: Mt. Apo over a woven Kadayawan band (source: packages/shared/assets/brand).
@@ -62,6 +62,6 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   brandTitle: {
-    fontWeight: '800',
+    fontFamily: typography.fonts.extraBold,
   },
 });

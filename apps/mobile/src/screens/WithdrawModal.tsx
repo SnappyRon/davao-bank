@@ -1,14 +1,10 @@
-import { StepUpSetupLink } from '../components/StepUpSetupLink';
-import { retryStepUp } from '../utils/stepUpRetry';
-import { useTotpPrompt } from '../context/PasswordPromptContext';
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Alert } from 'react-native';
-import { MinusCircle, CheckCircle2, AlertCircle } from 'lucide-react-native';
+import { View, StyleSheet, Modal, Alert } from 'react-native';
+import { MinusCircle, AlertCircle } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import {
   colors,
   spacing,
-  radius,
   formatCentavosToPHP,
   phpToCentavos,
   generateIdempotencyKey,
@@ -19,14 +15,18 @@ import {
 } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
 import { useSettings } from '../context/SettingsContext';
+import { useTotpPrompt } from '../context/PasswordPromptContext';
+import { retryStepUp } from '../utils/stepUpRetry';
+import { StepUpSetupLink } from '../components/StepUpSetupLink';
 import {
-  BottomSheet,
+  FeatureScreen,
   Text,
   AmountInput,
   TextField,
   Button,
   Card,
   AmountText,
+  ResultView,
 } from '../components';
 
 interface WithdrawModalProps {
@@ -45,9 +45,7 @@ export function WithdrawModal({
   const promptTotp = useTotpPrompt();
   const { hideBalance, confirmBiometricPayment } = useSettings();
 
-  const [selectedAccountId, setSelectedAccountId] = useState<string>(
-    accounts[0]?.account_id || ''
-  );
+  const [selectedAccountId] = useState<string>(accounts[0]?.account_id || '');
   const [amountStr, setAmountStr] = useState('');
   const [reference, setReference] = useState('ATM Withdrawal');
   const [step, setStep] = useState<'input' | 'review' | 'success'>('input');
@@ -194,24 +192,49 @@ export function WithdrawModal({
 
   const centavosAmount = phpToCentavos(amountStr);
 
+  if (!visible) return null;
+
   return (
-    <BottomSheet
+    <Modal
       visible={visible}
-      onClose={resetState}
-      dismissible={!loading}
-      onRequestDismiss={handleRequestDismiss}
-      title={
-        step === 'input'
-          ? 'Cash-out · Withdraw'
-          : step === 'review'
-            ? 'Cash-out · Review'
-            : 'Cash-out Successful'
-      }
+      animationType="slide"
+      onRequestClose={handleRequestDismiss}
+      presentationStyle="fullScreen"
     >
-      <ScrollView
-        contentContainerStyle={styles.container}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
+      <FeatureScreen
+        ready={visible}
+        title={
+          step === 'input'
+            ? 'Cash Out'
+            : step === 'review'
+              ? 'Review Cash Out'
+              : 'Cash Out Successful'
+        }
+        step={step === 'input' ? 1 : step === 'review' ? 2 : undefined}
+        stepCount={step === 'success' ? undefined : 2}
+        onBack={handleRequestDismiss}
+        onPrevStep={() => setStep('input')}
+        isDirty={hasInput}
+        isProcessing={loading}
+        footer={
+          step === 'input' ? (
+            <Button
+              title="Continue to Review"
+              onPress={handleProceedToReview}
+              style={styles.actionButton}
+            />
+          ) : step === 'review' ? (
+            <View style={styles.footerRow}>
+              <Button
+                title="Authorize Cash-out"
+                onPress={handleConfirmWithdraw}
+                loading={loading}
+                icon={<MinusCircle size={18} color={colors.textInverse} />}
+                style={styles.actionButton}
+              />
+            </View>
+          ) : null
+        }
       >
         {errorMessage ? (
           <Card variant="subtle" style={styles.errorCard}>
@@ -237,12 +260,6 @@ export function WithdrawModal({
               value={reference}
               onChangeText={setReference}
               placeholder="e.g. ATM Withdrawal"
-            />
-
-            <Button
-              title="Continue to Review"
-              onPress={handleProceedToReview}
-              style={styles.actionButton}
             />
           </View>
         )}
@@ -283,115 +300,63 @@ export function WithdrawModal({
                 />
               </View>
             </Card>
-
-            <View style={styles.navRow}>
-              <Button
-                title="Back"
-                variant="ghost"
-                onPress={() => setStep('input')}
-                disabled={loading}
-                style={styles.backButton}
-              />
-              <Button
-                title="Authorize Cash-out"
-                onPress={handleConfirmWithdraw}
-                loading={loading}
-                icon={<MinusCircle size={18} color={colors.textInverse} />}
-                style={styles.forwardButton}
-              />
-            </View>
           </View>
         )}
 
         {step === 'success' && successResult && (
-          <View style={styles.stepContainer}>
-            <View style={styles.successIconBox}>
-              <CheckCircle2 size={54} color={colors.primary} />
-              <Text variant="h2" align="center" style={styles.successTitle}>
-                {successResult.idempotent_replay
-                  ? 'Already Processed'
-                  : 'Cash-out Prepared'}
-              </Text>
-              {successResult.idempotent_replay && (
-                <Text variant="caption" color={colors.textSecondary} align="center">
-                  This payment was already processed.
-                </Text>
-              )}
-              <AmountText
-                amountCentavos={successResult.amount || centavosAmount}
-                direction="outgoing"
-                variant="display"
-              />
-            </View>
-
-            <Card variant="subtle" style={styles.receiptCard}>
-              <View style={styles.receiptRow}>
-                <Text variant="caption" color={colors.textMuted}>
-                  Account
-                </Text>
-                <Text variant="bodyStrong" tabularNums color={colors.ink}>
-                  {selectedAccount?.account_number}
-                </Text>
-              </View>
-              <View style={styles.receiptRow}>
-                <Text variant="caption" color={colors.textMuted}>
-                  Updated Balance
-                </Text>
-                <AmountText
-                  amountCentavos={
-                    successResult.from_new_balance !== undefined
-                      ? successResult.from_new_balance
-                      : successResult.new_balance !== undefined
-                        ? successResult.new_balance
-                        : selectedAccount?.balance || 0
-                  }
-                  hidden={hideBalance}
-                  variant="bodyStrong"
-                  color={colors.ink}
-                  showSign={false}
-                />
-              </View>
-              {successResult.created_at && (
-                <View style={styles.receiptRow}>
-                  <Text variant="caption" color={colors.textMuted}>
-                    Date & Time
-                  </Text>
-                  <Text variant="caption" color={colors.ink}>
-                    {new Date(successResult.created_at).toLocaleString()}
-                  </Text>
-                </View>
-              )}
-              <View style={styles.receiptRow}>
-                <Text variant="caption" color={colors.textMuted}>
-                  Transaction ID
-                </Text>
-                <Text variant="caption" color={colors.textMuted} style={styles.idText}>
-                  {successResult.id}
-                </Text>
-              </View>
-            </Card>
-
-            <Button
-              title="Done"
-              variant="secondary"
-              onPress={resetState}
-              style={styles.actionButton}
-            />
-          </View>
+          <ResultView
+            outcome="completed"
+            title={
+              successResult.idempotent_replay ? 'Already Processed' : 'Cash-out Prepared'
+            }
+            amountCentavos={successResult.amount || centavosAmount}
+            details={[
+              {
+                label: 'From Account',
+                value: selectedAccount?.account_number || '••••',
+              },
+              {
+                label: 'Balance now',
+                value: formatCentavosToPHP(
+                  successResult.from_new_balance !== undefined
+                    ? successResult.from_new_balance
+                    : successResult.new_balance !== undefined
+                      ? successResult.new_balance
+                      : selectedAccount?.balance || 0
+                ),
+              },
+              ...(successResult.created_at
+                ? [
+                    {
+                      label: 'Date & Time',
+                      value: new Date(successResult.created_at).toLocaleString(),
+                    },
+                  ]
+                : []),
+              {
+                label: 'Transaction ID',
+                value: successResult.id,
+              },
+            ]}
+            onDone={resetState}
+          />
         )}
-      </ScrollView>
-      <StepUpSetupLink error={errorMessage} onClose={onClose} />
-    </BottomSheet>
+
+        <StepUpSetupLink error={errorMessage} onClose={onClose} />
+      </FeatureScreen>
+    </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    paddingBottom: spacing.xl,
-    gap: spacing.base,
-  },
   stepContainer: {
     gap: spacing.base,
+  },
+  actionButton: {
+    width: '100%',
+  },
+  footerRow: {
+    width: '100%',
   },
   errorCard: {
     flexDirection: 'row',
@@ -400,34 +365,21 @@ const styles = StyleSheet.create({
     backgroundColor: colors.tintRed,
     borderColor: colors.redText,
     padding: spacing.md,
-    borderRadius: radius.md,
+    borderRadius: 8,
   },
   errorText: {
     flex: 1,
-  },
-  actionButton: {
-    marginTop: spacing.md,
-    width: '100%',
-  },
-  navRow: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    marginTop: spacing.md,
-  },
-  backButton: {
-    flex: 1,
-  },
-  forwardButton: {
-    flex: 2,
+    lineHeight: 18,
   },
   reviewCard: {
-    padding: spacing.base,
-    borderRadius: radius.lg,
+    padding: spacing.lg,
+    borderRadius: 16,
     gap: spacing.md,
   },
   reviewHeader: {
     alignItems: 'center',
-    paddingBottom: spacing.md,
+    paddingVertical: spacing.md,
+    gap: spacing.xs,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,
   },
@@ -435,27 +387,5 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-  },
-  successIconBox: {
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-    gap: spacing.xs,
-  },
-  successTitle: {
-    marginTop: spacing.xs,
-  },
-  receiptCard: {
-    padding: spacing.base,
-    borderRadius: radius.md,
-    gap: spacing.sm,
-  },
-  receiptRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  idText: {
-    fontFamily: 'monospace',
-    fontSize: 11,
   },
 });

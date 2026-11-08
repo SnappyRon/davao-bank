@@ -1,0 +1,185 @@
+import React, { useEffect } from 'react';
+import { View, StyleSheet } from 'react-native';
+import * as Haptics from 'expo-haptics';
+import { Check, Calendar, Send, AlertCircle } from 'lucide-react-native';
+import { colors, spacing, formatCentavosToPHP } from '@davao-bank/shared';
+import { Text } from './Text';
+import { Button } from './Button';
+import { Card } from './Card';
+
+export type ResultOutcome = 'completed' | 'scheduled' | 'request_sent' | 'failed';
+
+export interface ResultDetailRow {
+  label: string;
+  value: string;
+}
+
+export interface ResultViewProps {
+  outcome: ResultOutcome;
+  title: string;
+  amountCentavos?: number;
+  amountFormatted?: string;
+  details?: ResultDetailRow[];
+  onDone: () => void;
+  onShareReceipt?: () => void;
+  contextualActionTitle?: string;
+  onContextualAction?: () => void;
+}
+
+export function ResultView({
+  outcome,
+  title,
+  amountCentavos,
+  amountFormatted,
+  details = [],
+  onDone,
+  onShareReceipt,
+  contextualActionTitle,
+  onContextualAction,
+}: ResultViewProps) {
+  useEffect(() => {
+    try {
+      if (outcome === 'completed') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } else if (outcome === 'failed') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      } else {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }
+    } catch {
+      // Haptics optional
+    }
+  }, [outcome]);
+
+  const getIcon = () => {
+    switch (outcome) {
+      case 'completed':
+        return <Check size={32} color={colors.primary} strokeWidth={3} />;
+      case 'scheduled':
+        return <Calendar size={32} color={colors.blueText} strokeWidth={2.5} />;
+      case 'request_sent':
+        return <Send size={30} color={colors.primary} strokeWidth={2.5} />;
+      case 'failed':
+        return <AlertCircle size={32} color={colors.redText} strokeWidth={2.5} />;
+    }
+  };
+
+  const getDiscBg = () => {
+    switch (outcome) {
+      case 'completed':
+        return colors.primaryTint;
+      case 'scheduled':
+        return colors.tintBlue;
+      case 'request_sent':
+        return colors.primaryTint;
+      case 'failed':
+        return colors.tintRed;
+    }
+  };
+
+  const displayAmount =
+    amountFormatted ||
+    (amountCentavos !== undefined ? formatCentavosToPHP(amountCentavos) : null);
+
+  return (
+    <View style={styles.container}>
+      <View style={[styles.iconDisc, { backgroundColor: getDiscBg() }]}>{getIcon()}</View>
+
+      <Text variant="h2" color={colors.ink} align="center" style={styles.title}>
+        {title}
+      </Text>
+
+      {displayAmount ? (
+        <Text variant="amount" color={colors.ink} align="center" style={styles.amount}>
+          {displayAmount}
+        </Text>
+      ) : null}
+
+      {details.length > 0 ? (
+        <Card style={styles.detailsCard}>
+          {details.map((row, idx) => (
+            <View
+              key={row.label}
+              style={[
+                styles.detailRow,
+                idx < details.length - 1 && styles.detailRowBorder,
+              ]}
+            >
+              <Text variant="caption" color={colors.textSecondary}>
+                {row.label}
+              </Text>
+              <Text variant="bodyStrong" color={colors.ink}>
+                {row.value}
+              </Text>
+            </View>
+          ))}
+        </Card>
+      ) : null}
+
+      <View style={styles.actionButtons}>
+        <Button title="Done" onPress={onDone} variant="primary" style={styles.btn} />
+        {onShareReceipt ? (
+          <Button
+            title="Share receipt"
+            onPress={onShareReceipt}
+            variant="secondary"
+            style={styles.btn}
+          />
+        ) : null}
+        {contextualActionTitle && onContextualAction ? (
+          <Button
+            title={contextualActionTitle}
+            onPress={onContextualAction}
+            variant="secondary"
+            style={styles.btn}
+          />
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    alignItems: 'center',
+    paddingVertical: spacing.xl,
+    paddingHorizontal: 20,
+    width: '100%',
+  },
+  iconDisc: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.base,
+  },
+  title: {
+    marginBottom: spacing.xs,
+  },
+  amount: {
+    marginBottom: spacing.lg,
+  },
+  detailsCard: {
+    width: '100%',
+    padding: spacing.base,
+    marginBottom: spacing.xl,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+  },
+  detailRowBorder: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  actionButtons: {
+    width: '100%',
+    gap: spacing.sm,
+  },
+  btn: {
+    width: '100%',
+  },
+});

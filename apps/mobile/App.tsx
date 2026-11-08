@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, StyleSheet, ActivityIndicator, Platform } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as ScreenCapture from 'expo-screen-capture';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
@@ -13,17 +14,11 @@ import {
 } from '@expo-google-fonts/plus-jakarta-sans';
 import { Home, Receipt, Bell, User } from 'lucide-react-native';
 import type { Session } from '@supabase/supabase-js';
-import {
-  colors,
-  radius,
-  spacing,
-  fetchUserProfile,
-  type Profile,
-} from '@davao-bank/shared';
+import { colors, spacing, fetchUserProfile, type Profile } from '@davao-bank/shared';
 import { supabase } from './src/lib/supabase';
 import { AppLockProvider } from './src/context/AppLockContext';
 import { SettingsProvider } from './src/context/SettingsContext';
-import { Logo, Text, PrivacyOverlay } from './src/components';
+import { Logo, Text, PrivacyOverlay, ToastProvider } from './src/components';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { ActivityScreen } from './src/screens/ActivityScreen';
 import { InboxScreen } from './src/screens/InboxScreen';
@@ -120,9 +115,15 @@ export default function App() {
     };
   }, [loadProfile]);
 
+  const isAuthenticated = Boolean(session?.user);
+  const isEmailVerified = Boolean(session?.user?.email_confirmed_at);
+  const isSuspended = profile?.status === 'suspended';
+
+  let content: React.ReactNode = null;
+
   // Loading / Splash Screen
   if (loading || !fontsLoaded) {
-    return (
+    content = (
       <View style={styles.loadingContainer}>
         <StatusBar style="dark" />
         <Logo variant="mark" size={56} />
@@ -136,20 +137,8 @@ export default function App() {
         />
       </View>
     );
-  }
-
-  // Auth Gating Rule (Proposal §A.4):
-  // 1. Not signed in -> Auth screens
-  // 2. Email not verified -> Verify screen
-  // 3. Suspended -> Suspended screen
-  // 4. Otherwise -> 4-Tab Main Navigation
-
-  const isAuthenticated = Boolean(session?.user);
-  const isEmailVerified = Boolean(session?.user?.email_confirmed_at);
-  const isSuspended = profile?.status === 'suspended';
-
-  if (!isAuthenticated) {
-    return (
+  } else if (!isAuthenticated) {
+    content = (
       <NavigationContainer>
         <StatusBar style="dark" />
         {authScreen === 'login' && (
@@ -182,10 +171,8 @@ export default function App() {
         )}
       </NavigationContainer>
     );
-  }
-
-  if (!isEmailVerified) {
-    return (
+  } else if (!isEmailVerified) {
+    content = (
       <NavigationContainer>
         <StatusBar style="dark" />
         <VerifyEmailScreen
@@ -197,10 +184,8 @@ export default function App() {
         />
       </NavigationContainer>
     );
-  }
-
-  if (isSuspended) {
-    return (
+  } else if (isSuspended) {
+    content = (
       <NavigationContainer>
         <StatusBar style="dark" />
         <SuspendedScreen
@@ -215,90 +200,99 @@ export default function App() {
         />
       </NavigationContainer>
     );
+  } else {
+    content = (
+      <AppLockProvider key={session?.user.id} restoredSession={restoredSession}>
+        <SettingsProvider>
+          <NavigationContainer>
+            <StatusBar style="dark" />
+            <Tab.Navigator
+              screenOptions={{
+                headerShown: false,
+                tabBarStyle: styles.tabBar,
+                tabBarActiveTintColor: colors.primary,
+                tabBarInactiveTintColor: colors.textMuted,
+                tabBarLabelStyle: styles.tabBarLabel,
+              }}
+            >
+              <Tab.Screen
+                name="HomeTab"
+                options={{
+                  tabBarLabel: 'Home',
+                  tabBarIcon: ({ color, size }) => <Home size={size} color={color} />,
+                }}
+              >
+                {({ navigation }) => (
+                  <HomeScreen
+                    onNavigateToActivity={() => navigation.navigate('ActivityTab')}
+                    onNavigateToProfile={() => navigation.navigate('ProfileTab')}
+                  />
+                )}
+              </Tab.Screen>
+
+              <Tab.Screen
+                name="ActivityTab"
+                component={ActivityScreen}
+                options={{
+                  tabBarLabel: 'Activity',
+                  tabBarIcon: ({ color, size }) => <Receipt size={size} color={color} />,
+                }}
+              />
+
+              <Tab.Screen
+                name="InboxTab"
+                options={{
+                  tabBarLabel: 'Inbox',
+                  tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
+                  tabBarBadgeStyle: styles.badgeStyle,
+                  tabBarIcon: ({ color, size }) => <Bell size={size} color={color} />,
+                }}
+              >
+                {() => <InboxScreen onUnreadCountChange={setUnreadCount} />}
+              </Tab.Screen>
+
+              <Tab.Screen
+                name="ProfileTab"
+                options={{
+                  tabBarLabel: 'Profile',
+                  tabBarIcon: ({ color, size }) => <User size={size} color={color} />,
+                }}
+              >
+                {({ route, navigation }) => (
+                  <ProfileScreen
+                    setupTwoStep={route.params?.setupTwoStep}
+                    onSetupClosed={() => navigation.setParams({ setupTwoStep: false })}
+                    profile={profile}
+                    userEmail={session?.user?.email || null}
+                    onProfileUpdated={(updated) => setProfile(updated)}
+                    onSignOut={() => {
+                      setSession(null);
+                      setProfile(null);
+                      setAuthScreen('login');
+                    }}
+                  />
+                )}
+              </Tab.Screen>
+            </Tab.Navigator>
+          </NavigationContainer>
+
+          <PrivacyOverlay />
+        </SettingsProvider>
+      </AppLockProvider>
+    );
   }
 
   return (
-    <AppLockProvider key={session?.user.id} restoredSession={restoredSession}>
-      <SettingsProvider>
-        <NavigationContainer>
-          <StatusBar style="dark" />
-          <Tab.Navigator
-            screenOptions={{
-              headerShown: false,
-              tabBarStyle: styles.tabBar,
-              tabBarActiveTintColor: colors.primary,
-              tabBarInactiveTintColor: colors.textMuted,
-              tabBarLabelStyle: styles.tabBarLabel,
-            }}
-          >
-            <Tab.Screen
-              name="HomeTab"
-              options={{
-                tabBarLabel: 'Home',
-                tabBarIcon: ({ color, size }) => <Home size={size} color={color} />,
-              }}
-            >
-              {({ navigation }) => (
-                <HomeScreen
-                  onNavigateToActivity={() => navigation.navigate('ActivityTab')}
-                  onNavigateToProfile={() => navigation.navigate('ProfileTab')}
-                />
-              )}
-            </Tab.Screen>
-
-            <Tab.Screen
-              name="ActivityTab"
-              component={ActivityScreen}
-              options={{
-                tabBarLabel: 'Activity',
-                tabBarIcon: ({ color, size }) => <Receipt size={size} color={color} />,
-              }}
-            />
-
-            <Tab.Screen
-              name="InboxTab"
-              options={{
-                tabBarLabel: 'Inbox',
-                tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
-                tabBarBadgeStyle: styles.badgeStyle,
-                tabBarIcon: ({ color, size }) => <Bell size={size} color={color} />,
-              }}
-            >
-              {() => <InboxScreen onUnreadCountChange={setUnreadCount} />}
-            </Tab.Screen>
-
-            <Tab.Screen
-              name="ProfileTab"
-              options={{
-                tabBarLabel: 'Profile',
-                tabBarIcon: ({ color, size }) => <User size={size} color={color} />,
-              }}
-            >
-              {({ route, navigation }) => (
-                <ProfileScreen
-                  setupTwoStep={route.params?.setupTwoStep}
-                  onSetupClosed={() => navigation.setParams({ setupTwoStep: false })}
-                  profile={profile}
-                  userEmail={session?.user?.email || null}
-                  onProfileUpdated={(updated) => setProfile(updated)}
-                  onSignOut={() => {
-                    setSession(null);
-                    setProfile(null);
-                    setAuthScreen('login');
-                  }}
-                />
-              )}
-            </Tab.Screen>
-          </Tab.Navigator>
-        </NavigationContainer>
-
-        <PrivacyOverlay />
-      </SettingsProvider>
-    </AppLockProvider>
+    <GestureHandlerRootView style={styles.root}>
+      <ToastProvider>{content}</ToastProvider>
+    </GestureHandlerRootView>
   );
 }
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
   loadingContainer: {
     flex: 1,
     backgroundColor: colors.canvas,
@@ -336,7 +330,7 @@ const styles = StyleSheet.create({
   },
   tabBarLabel: {
     fontSize: 12,
-    fontWeight: '600',
+    fontFamily: 'PlusJakartaSans_600SemiBold',
   },
   badgeStyle: {
     backgroundColor: colors.red,

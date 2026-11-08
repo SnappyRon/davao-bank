@@ -1,10 +1,11 @@
 import React from 'react';
-import { TouchableOpacity, StyleSheet, View, type ViewStyle } from 'react-native';
+import { StyleSheet, View, type ViewStyle } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { colors, radius, spacing } from '@davao-bank/shared';
+import { colors, radius, spacing, typography } from '@davao-bank/shared';
 import { Text } from './Text';
+import { Pressable } from './Pressable';
 
-export type ActionTileColor = 'blue' | 'green' | 'orange' | 'yellow' | 'purple';
+export type ActionTileColor = 'blue' | 'green' | 'orange' | 'yellow' | 'primary';
 
 export interface ActionTileProps {
   label: string;
@@ -34,7 +35,7 @@ export function ActionTile({ label, color, icon, onPress, style }: ActionTilePro
         return colors.orange;
       case 'yellow':
         return colors.yellow;
-      case 'purple':
+      case 'primary':
         return colors.primary;
     }
   };
@@ -43,8 +44,10 @@ export function ActionTile({ label, color, icon, onPress, style }: ActionTilePro
   const textColor = isYellow ? colors.ink : colors.textInverse;
 
   return (
-    <TouchableOpacity
-      activeOpacity={0.88}
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      feedbackType="scale"
       onPress={handlePress}
       style={[styles.tile, { backgroundColor: getBackgroundColor() }, style]}
     >
@@ -52,7 +55,7 @@ export function ActionTile({ label, color, icon, onPress, style }: ActionTilePro
       <Text variant="title" color={textColor} style={styles.label}>
         {label}
       </Text>
-    </TouchableOpacity>
+    </Pressable>
   );
 }
 
@@ -107,6 +110,6 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 18,
-    fontWeight: '800',
+    fontFamily: typography.fonts.extraBold,
   },
 });

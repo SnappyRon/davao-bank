@@ -18,3 +18,8 @@ export * from './Logo';
 export * from './CurrencyWatchCard';
 export * from './PasswordPromptOverlay';
 export * from './PrivacyOverlay';
+export * from './Pressable';
+export * from './FeatureScreen';
+export * from './Sheet';
+export * from './FloatingTabBar';
+export * from './ResultView';
