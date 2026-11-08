@@ -78,28 +78,6 @@ Agents do not hand tasks to each other directly. Work flows through the prompt f
 - Do not run `npm audit fix` (with or without `--force`), and do not add dependencies the prompt does not name. Pin exact versions.
 - If you find a real bug outside your task, do not fix it silently. Make a separate commit titled `Phase X · Fix — <what>` and note it in `STATUS.md` and the report.
 
-## Unattended loop (`scripts/agent-loop.sh`)
-
-The owner may run a programmer agent unattended: `scripts/agent-loop.sh <stage> [max_runs]`.
-
-- **Where it runs:** Claude Code in its own worktree (`../davao-bank-agent`), one step per run, with the per-run instructions in `AGENT_PROMPT.md`.
-- **When it stops:**
-  - the agent writes `.agent-stop` (`STAGE_DONE: <stage>` or `BLOCKED: <reason>`);
-  - a `STOP` file exists;
-  - two runs in a row make no commit;
-  - `max_runs` is reached.
-- **Guardrails:** `.claude/agent-loop/guard.py`, loaded only by the loop, blocks:
-  - push, PRs and destructive git commands;
-  - hosted-Supabase changes;
-  - reading `.env`;
-  - new dependencies;
-  - network downloads;
-  - edits outside the worktree.
-
-  The worktree has no Supabase CLI link, and push is also disabled through git environment config. **A blocked command is a rule.** Never work around it.
-
-- **After every stage:** the reviewer reviews it before the next loop starts. Logs are in `agent_logs/`, which is gitignored.
-
 ## Project facts
 
 - **What:** an academic capstone, a simulated mobile bank using play money (₱), themed on Davao City. Transfers happen only between Davao Bank accounts.
