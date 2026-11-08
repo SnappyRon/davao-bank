@@ -368,3 +368,28 @@ Results after the fixes, all against hosted:
 | MFA factors left on hosted after all runs                                  | 0                        |
 
 Still pending: the iOS device check of authenticator setup, the code prompt and the biometric app lock (the owner scans a QR code).
+
+## Reviewer iOS simulator check (2026-11-08, iPhone 17 Pro Max, Expo Go, hosted backend)
+
+Face ID was not enrolled on the simulator, so the password path was used as the first factor. The owner typed the password and the authenticator codes; the reviewer drove the rest. Evidence is in `docs/uat-evidence/ios-6.5/`. The setup-key screen was deliberately not captured.
+
+| Check                                                       | Result                                                                                                                                                                                                                                                  |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ₱1 cash-out before enrolling                                | PASS: blocked after the password with "Set up two-step verification…" and **Set up now**; balance unchanged                                                                                                                                             |
+| Two-step setup from Profile                                 | **FAIL → fixed** (`2acd017`): the setup screen could never open, because its early return was inside `getInitials()`. After the fix: QR, setup key, Copy and Open-in-app all shown; the code verified; status reads "On · Davao Bank · added 11/8/2026" |
+| ₱1 cash-out after enrolling (password → authenticator code) | PASS: balance ₱14,099.10 → ₱14,098.10; DB shows 1 completed withdrawal with an idempotency key and its ledger entry                                                                                                                                     |
+| App lock after more than 2 min in the background            | PASS: "Davao Bank is locked", no account data visible; unlocking with the password returns to Home                                                                                                                                                      |
+
+Not covered on device:
+
+- the Face ID path (the simulator could not enroll);
+- Cancel and a wrong code at the authenticator prompt (unit-tested);
+- "Set up now" opening the setup screen directly after the fix (only reached Profile before the fix);
+- the admin console sign-in by hand (Playwright covers it 5/5).
+
+Cosmetic issues for Phase 7:
+
+- the setup screen has no side padding;
+- the App lock row has no icon or subtitle and the Two-step button sits outside the settings list;
+- the lock screen shows both a password field and a "Use password" link;
+- the App lock switch was slow to respond to taps.

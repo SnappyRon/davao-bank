@@ -8,16 +8,16 @@
 - **Branch:** `phase-6-5-strong-auth` (created from `phase-6-hardening`; neither has been pushed)
 - **Active prompt:** `Phase-6.5-Strong-Auth-Prompt.md`
 - **Assigned to:** Reviewer (Claude Code) and Owner. No programmer task is open.
-- **Exact next step:** iOS simulator check of 2FA setup, the code prompt on payments and the biometric app lock. The owner signs in and scans one QR with an authenticator app, and the reviewer drives the rest. Then the Phase 6 Android check, and push and PRs for `phase-6-hardening` and `phase-6-5-strong-auth`.
+- **Exact next step:** Phase 6.5 is verified. Owner: Phase 6 Android quick check, then push `phase-6-hardening` and `phase-6-5-strong-auth` and open the PRs (merge 6 first). Reviewer: update the Phase 7 prompt (6.5 screens and the cosmetic list in `PHASE6_5_REPORT.md`).
 
 ## Stages
 
 | Stage                                                                         | State                                     | Commit                          |
 | ----------------------------------------------------------------------------- | ----------------------------------------- | ------------------------------- |
 | A — Server-enforced step-up (migration `20261110000000_phase6_5_step_up.sql`) | Reviewed ✅, applied to hosted 2026-11-08 | `05f7f34`, fix `73c31ed`        |
-| B — Mobile authenticator setup and transfer verification                      | Reviewed ✅ (device check pending)        | `b4ca28e`                       |
-| C — Biometric app lock                                                        | Reviewed ✅ (device check pending)        | `d419a19`                       |
-| D — Admin console two-step sign-in                                            | Reviewed ✅ (browser check pending)       | `80b5699`                       |
+| B — Mobile authenticator setup and transfer verification                      | Device-verified ✅                        | `b4ca28e`, fix `2acd017`        |
+| C — Biometric app lock                                                        | Device-verified ✅                        | `d419a19`                       |
+| D — Admin console two-step sign-in                                            | Verified ✅ (Playwright 5/5 ×3)           | `80b5699`                       |
 | E — Tests, docs and report                                                    | Reviewed ✅, live-verified                | `6382358`, test fixes (see log) |
 
 ### Reviewer verification (2026-11-08)
@@ -32,6 +32,7 @@
 ## Blockers and known facts
 
 - **Migration not deployed.** The Phase 6.5 migration is **not on the hosted project** by design. Live suites and Playwright will stop with "NOT VERIFIED — Phase 6.5 migration is not deployed" until the reviewer applies it. This is expected; do not work around it.
+- **customer1 now has a REAL authenticator (owner's phone, added 2026-11-08).** Live suites will stop with NOT VERIFIED for customer1 until it is removed in Profile → Two-step verification → Turn off, or until dedicated test accounts exist.
 - **Demo accounts and authenticators.** Live tests need the demo accounts to have **no** real authenticator enrolled. The owner should enroll one for the demo only after Phase 6.5 tests pass on the hosted project.
 
 ## Open items for later phases
@@ -50,6 +51,8 @@
 - **Follow-up:** add dedicated test accounts so live tests don't conflict with the presenter's real authenticator.
 
 ## Log (newest first)
+
+- **2026-11-08, Claude Code (reviewer):** iOS simulator check of 6.5. Found and fixed the two-step setup screen that could never open (`2acd017`). Enrollment, password+code cash-out (DB verified) and the 2-minute app lock all PASS. Evidence in `docs/uat-evidence/ios-6.5/`.
 
 - **2026-11-08, Claude Code (reviewer):** applied the Phase 6.5 migration to hosted. Fixed four Stage E test-harness bugs (see the `PHASE6_5_REPORT.md` reviewer section). Live: rls 30, money 33, admin 45, extras 20, schedules 24, qr 24, fx 18, all passing. Playwright 5/5 ×3. 0 MFA factors left on hosted.
 
