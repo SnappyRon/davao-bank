@@ -86,13 +86,6 @@ export function ProfileScreen({
     if (!name) return 'DB';
     const parts = name.trim().split(/\s+/);
     if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
-    if (twoStepOpen)
-      return (
-        <Screen>
-          <TwoStepSetup onClose={closeSetup} />
-        </Screen>
-      );
-
     return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
   };
 
@@ -118,6 +111,13 @@ export function ProfileScreen({
       },
     ]);
   };
+
+  if (twoStepOpen)
+    return (
+      <Screen>
+        <TwoStepSetup onClose={closeSetup} />
+      </Screen>
+    );
 
   return (
     <Screen style={styles.screen}>
