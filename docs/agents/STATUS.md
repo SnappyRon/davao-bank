@@ -8,7 +8,20 @@
 - **Branch:** `phase-7-ui-motion` (branched from tip of `phase-6-5-strong-auth`).
 - **Active prompt:** `Phase-7-Prompt-UI-UX-and-Motion.md`.
 - **Assigned to:** Antigravity.
-- **Exact next step:** Stage 7A Complete. Awaiting reviewer verification before Stage 7B (Screens, flows and wording).
+- **Exact next step:** fix the reviewer findings below ("Stage 7A — reviewer findings"), commit as `Phase 7 · Fix — Stage 7A review findings`, then stop for re-review. Do **not** start 7B yet.
+
+## Stage 7A — reviewer findings (2026-11-08, Claude Code)
+
+Re-ran on `4027d98`: typecheck 0 errors, lint 0 errors (97 warnings), unit 75/75, PGlite 90/90, contrast 31/31, token drift pass, 0 `TouchableOpacity`. Money logic in `WithdrawModal` (`handleConfirmWithdraw`, step-up) is unchanged. Good.
+
+Fix these before 7B:
+
+1. **Hidden balance leaks (privacy regression).** `WithdrawModal.tsx` result "Balance now" uses `formatCentavosToPHP(...)` and ignores `hideBalance`. Before it used `AmountText hidden={hideBalance}`. `ResultView` details must respect hide-balance.
+2. **Double discard prompt.** On Cash out step 1 with input, Back → `FeatureScreen` shows "Discard changes?", then Discard calls `onBack` = `handleRequestDismiss`, which shows "Discard this cash-out?" again. One guard only: either `FeatureScreen` owns it (pass a plain close as `onBack`) or the screen does (don't pass `isDirty`).
+3. **`Pressable` scale wrapper breaks row layouts.** With `feedbackType='scale'` (the default) children are wrapped in an `Animated.View` (column), so a `flexDirection: 'row'` style on the `Pressable` no longer lays out the children. Example: `FeatureScreen` Back button (chevron + "Back") will stack vertically. Also the scale applies to the content, not the pressed surface (the spec says the button scales to 0.98, not 0.97 on the label). Animate the outer container instead. `feedbackType='highlight'` is accepted but does nothing (`ListRow` has no press feedback); implement it.
+4. **Not built as specified (D4/D5).** The prompt says feature screens are pages in a root native stack (`presentation: 'card'`, swipe-back guarded with `preventRemove`). Cash out is an RN `Modal` wrapping `FeatureScreen`, and `FeatureScreen` has no `preventRemove`. `FloatingTabBar` is exported but not used as the tab navigator's `tabBar`; `Sheet` is used nowhere. Either wire them in now (preferred: Cash out pushed on a root native stack; `FloatingTabBar` as `tabBar`) or state plainly in the report that wiring happens in 7B.0 and the gate item is "exists only".
+5. **Gate evidence missing — mark NOT VERIFIED, don't claim pass.** `PHASE7_REPORT.md` has no font-check screenshot, no iOS simulator proof of Cash out (password → code → result, back blocked while processing), and no Expo Go proof. No Maestro flow was changed in `e2e/mobile/`, yet the checklist says "Maestro flows updated and pass". Either run them and paste output, or write "NOT VERIFIED — reason". Note: the Cash out device run needs the owner's authenticator code (customer1); ask the owner, don't work around it.
+6. **Small ones.** Hard-coded values instead of tokens in `WithdrawModal` (`borderRadius: 8`, `16`, `lineHeight: 18`) and `FeatureScreen` (`20`, `24`, `56`, `100`); use the spacing/radius tokens. `FeatureScreen` calls `navigation.goBack()` when `navigation` may be null. `react-native-gesture-handler` and `expo-blur` are `~` ranges; AGENTS.md says pin exact. Uncommitted trailing blank line in `tests/setup/mobile-setup.ts` makes `format:check` fail; revert it.
 
 ## Stage 7A Checklist
 
@@ -42,7 +55,7 @@
 
 | Stage                                                                         | State                                     | Commit                          |
 | ----------------------------------------------------------------------------- | ----------------------------------------- | ------------------------------- |
-| 7A — Foundations (Typeface, tokens, shared components, libraries)             | Verified ✅ (Gate passed)                 | `6441fc0`                       |
+| 7A — Foundations (Typeface, tokens, shared components, libraries)             | Changes requested (review 2026-11-08)     | `6441fc0`                       |
 | A — Server-enforced step-up (migration `20261110000000_phase6_5_step_up.sql`) | Reviewed ✅, applied to hosted 2026-11-08 | `05f7f34`, fix `73c31ed`        |
 | B — Mobile authenticator setup and transfer verification                      | Device-verified ✅                        | `b4ca28e`, fix `2acd017`        |
 | C — Biometric app lock                                                        | Device-verified ✅                        | `d419a19`                       |
@@ -81,6 +94,8 @@
 - **Follow-up:** add dedicated test accounts so live tests don't conflict with the presenter's real authenticator.
 
 ## Log (newest first)
+
+- **2026-11-08, Claude Code (reviewer):** reviewed Stage 7A `6441fc0`. Checks re-run and pass, money logic untouched, but changes requested: hide-balance leak on the Cash out result, double discard prompt, `Pressable` row layout and missing highlight feedback, D4/D5 not wired (Modal instead of native stack; `FloatingTabBar`/`Sheet` unused), and missing device/Maestro evidence. See "Stage 7A — reviewer findings".
 
 - **2026-11-08, Antigravity:** completed Stage 7A Foundations (Typeface mapping and synthetic bold fix, token additions, custom Pressable removing all TouchableOpacity, FeatureScreen, Sheet, FloatingTabBar, ResultView, Reanimated/GestureHandler/Blur setup). Gate checks pass (31/31 contrast, 0 TouchableOpacity, 75/75 unit, 90/90 db, typecheck/lint clean, expo export bundled).
 - **2026-11-08, Antigravity:** completed 7A.0 pre-implementation UI/UX audit and created `PHASE7_REPORT.md`. Starting 7A.1 Typeface repair.
