@@ -37,7 +37,8 @@ begin
     into v_timestamp
     from jsonb_array_elements(case when jsonb_typeof(v_jwt->'amr') = 'array' then v_jwt->'amr' else '[]'::jsonb end) entry
     where entry->>'method' = 'totp';
-  if v_timestamp is null or v_timestamp > extract(epoch from clock_timestamp())
+  -- Allow 30 s of clock skew between the Auth server and the database.
+  if v_timestamp is null or v_timestamp > extract(epoch from clock_timestamp()) + 30
      or extract(epoch from clock_timestamp()) - v_timestamp > v_window then
     raise exception 'STEP_UP_EXPIRED';
   end if;
