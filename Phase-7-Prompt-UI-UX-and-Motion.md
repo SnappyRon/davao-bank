@@ -33,15 +33,74 @@ The owner approved these on 2026-11-03. They replace earlier decisions.
 ## How to run this phase
 
 1. **Branch:** create `phase-7-ui-motion` from the tip of `phase-6-5-strong-auth`. It already contains all of Phase 6. If both have been merged into `main` by the time you start, branch from `main` instead.
-2. **Stages:** 7A, 7B and 7C. Make one commit per stage, titled `Phase 7 · Stage X — <name>`, and stop if a stage's gate fails.
+2. **Stages:** 7A, 7B and 7C. Run each stage with the **work loop** below. Make one commit per stage, titled `Phase 7 · Stage X — <name>`. **Stop after each stage** and report to the owner. Don't start the next stage until the reviewer has approved this one.
 3. **Report:** append to `PHASE7_REPORT.md` after each stage. Include what was built, every command you ran with its full output, before/after screenshots and any deviations, with reasons.
-4. **Screenshots:** for every changed screen, capture an iPhone simulator at 402 pt and 440 pt wide and an Android emulator at 360 dp. All three at 1.0× and 1.4× text size.
+4. **Screenshots:** for every changed screen, capture iPhone simulators at three widths, each at 1.0× and 1.4× text size:
+   - **375 pt** (iPhone SE or 16e): the narrow-screen check. It replaces the Android 360 dp check, because the owner skipped Android for now;
+   - **402 pt**;
+   - **440 pt** (iPhone 17 Pro Max).
+
+   An Android emulator is optional. Use it if one is available.
+
 5. **Don't change behavior that Phase 6 or 6.5 fixed.** Rebuild these on the new components without changing what they do:
    - the result screens and the dismissal locks;
    - the idempotency handling and the error mapper;
    - the confirmation order for every money action: **biometrics or password, then the authenticator code, then the server call**;
    - the 2-minute app lock.
 6. **Conflicts:** if anything here conflicts with the code or an approved document, stop and flag it.
+
+## Work loop (use it for every stage)
+
+Keep working through this loop until the stage's gate passes, or a stop condition below applies. Don't hand back half-finished work, and don't stop just because one attempt failed.
+
+**A. Plan the stage.**
+
+- Copy every numbered item and every gate line of the stage into `docs/agents/STATUS.md` as a checklist.
+- Do this before writing any code.
+- This checklist is your definition of done.
+
+**B. Loop over the steps.** For each unticked item:
+
+1. **Build** the smallest complete version of the item.
+2. **Check** it straight away:
+   - run `npm run typecheck`, `npm run lint`, and the tests that touch it (`npm run test:unit`; `npm run test:db` if it touches SQL);
+   - for anything visible, open it on the iPhone simulator and look at it.
+3. **Fix** whatever the checks report:
+   - read the actual error message;
+   - fix the cause, not the symptom;
+   - run the same checks again.
+4. **Repeat** steps 2–3 until the item's checks pass.
+5. **Record and commit:**
+   - tick the item in `STATUS.md` and write the exact next step;
+   - commit, staging files by name.
+
+   If you run out of credits, the next agent continues from here.
+
+**C. Run the gate.** When every item is ticked:
+
+- Run the stage's full gate.
+- Paste the real outputs into `PHASE7_REPORT.md`.
+- If any gate line fails, go back to B for that item.
+
+**D. Final self-review.** Re-read the stage section of this prompt, line by line. For each requirement, write in the report whether it's **done**, **not verified** (with the reason), or a **deviation** (with the reason).
+
+- Anything you skipped by accident: go back to B.
+- Only then make the stage commit with the exact title, and report to the owner.
+
+**Stop conditions.** Stop the loop and report, with the details in `STATUS.md` under Blockers, when:
+
+| Condition           | What it means                                                                                                                                                                                                                         |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Done**            | Every gate line passes, and D is complete.                                                                                                                                                                                            |
+| **Stuck**           | The same failure is still there after **3 different fix attempts**. Describe what you tried. Don't keep trying variations.                                                                                                            |
+| **Needs the owner** | A sign-in, a password, an authenticator code, a decision, or anything you're not allowed to do (see `AGENTS.md`). Mark that item "NOT VERIFIED — needs owner" and continue with the other items. Stop only when nothing else is left. |
+| **Rule conflict**   | The only fix would break a "Do NOT" rule here or a hard rule in `AGENTS.md`.                                                                                                                                                          |
+
+**Never fake progress.**
+
+- Don't claim a check passed if it didn't run.
+- Don't weaken a test, a security check or a "NOT VERIFIED" stop to make a gate pass.
+- Don't mark an item done because the code looks right. It needs its check.
 
 ---
 
@@ -366,7 +425,7 @@ The reviewer found these on the iOS simulator. Fix each one, and add a before/af
 | `spring.sheet`        | damping 26, stiffness 260, mass 1                   |
 | `spring.pop`          | damping 14, stiffness 180, mass 1                   |
 
-The spring values are starting points. Tune them on the Android emulator and the iPhone simulator, and record the final values.
+The spring values are starting points. Tune them on the iPhone simulator (and on the Android emulator if one is available), and record the final values.
 
 **Rules:**
 
@@ -421,7 +480,7 @@ Use only the prepared files in `apps/mobile/assets/`. Read `apps/mobile/assets/s
 **7C gate:**
 
 - **Recordings:** screen recordings of sheet open, step change, result, swipe-dismiss of a clean sheet, a blocked dismiss of a dirty sheet, and Reduce Motion on vs off. All are in the report.
-- **Frame rate:** the performance monitor shows 60 fps during sheet open, step change and result on the Android emulator and the iPhone simulator.
+- **Frame rate:** the performance monitor shows 60 fps during sheet open, step change and result on the iPhone simulator (and on the Android emulator if one is available).
 - **Activity:** with 100 rows, a filter change finishes in under 100 ms.
 - **Regression:** the Maestro flows pass.
 

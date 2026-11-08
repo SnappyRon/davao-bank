@@ -7,7 +7,7 @@
 - **Active phase:** Phase 6.5 complete and pushed. **Next: Phase 7 — UI/UX and motion** (prompt updated, ready to assign).
 - **Branch:** `phase-6-5-strong-auth` (created from `phase-6-hardening`; neither has been pushed)
 - **Active prompt:** `Phase-7-Prompt-UI-UX-and-Motion.md`. Branch `phase-7-ui-motion` from the tip of `phase-6-5-strong-auth` (or from `main` once both PRs are merged).
-- **Assigned to:** not yet assigned (the owner picks a programmer agent).
+- **Assigned to:** Antigravity (owner decision, 2026-11-08).
 - **Exact next step:** Owner opens the PRs (`phase-6-hardening` → `main` first, then `phase-6-5-strong-auth`) and assigns Phase 7. The agent starts at Stage 7A, item 1 (font fix).
 
 ## Stages
@@ -52,6 +52,8 @@
 - **Follow-up:** add dedicated test accounts so live tests don't conflict with the presenter's real authenticator.
 
 ## Log (newest first)
+
+- **2026-11-08, Claude Code (reviewer):** the owner chose Antigravity for Phase 7. Removed the Claude Code loop script (revert `bb39154`). Added a **Work loop** section to the Phase 7 prompt: plan a checklist, build/check/fix until each item passes, run the gate, self-review, and stop after each stage for review. Narrow-screen check is now the 375 pt iPhone, with Android optional.
 
 - **2026-11-08, Claude Code (reviewer):** committed the Phase 6 iOS UAT evidence (`ab190b3`, Android skipped by owner) and merged it into 6.5. Pushed `phase-6-hardening` and `phase-6-5-strong-auth`. Updated the Phase 7 prompt: based on 6.5, `Sheet` must keep the in-sheet prompt host, new Security group, item 10 carry-overs, MFA rules in the gates and Do NOT.
 
