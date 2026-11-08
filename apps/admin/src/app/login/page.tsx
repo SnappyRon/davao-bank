@@ -56,7 +56,13 @@ export default function AdminLoginPage() {
           return;
         }
 
-        router.push('/');
+        const { data: factors, error: factorError } =
+          await supabase.auth.mfa.listFactors();
+        if (factorError) throw factorError;
+        setPassword('');
+        router.push(
+          factors.totp.some((f) => f.status === 'verified') ? '/mfa/verify' : '/mfa/setup'
+        );
         router.refresh();
       }
     } catch (err: unknown) {

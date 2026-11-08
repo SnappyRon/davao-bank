@@ -15,6 +15,25 @@ import {
 } from '@davao-bank/shared';
 import { createAdminCookieServerClient } from '@/lib/supabase-cookies';
 
+async function requireAdminAal2() {
+  const client = await createAdminCookieServerClient();
+  const {
+    data: { user },
+    error,
+  } = await client.auth.getUser();
+  if (error || !user) throw new Error('Authentication required');
+  const { data: profile } = await client
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .maybeSingle();
+  if (profile?.role !== 'admin') throw new Error('Admin privilege required');
+  const { data: assurance, error: aalError } =
+    await client.auth.mfa.getAuthenticatorAssuranceLevel();
+  if (aalError || assurance?.currentLevel !== 'aal2') throw new Error('STEP_UP_REQUIRED');
+  return client;
+}
+
 export interface ActionResult<T = unknown> {
   success: boolean;
   data?: T;
@@ -31,7 +50,7 @@ export async function setUserStatusAction(
   reason: string
 ): Promise<ActionResult> {
   try {
-    const supabase = await createAdminCookieServerClient();
+    const supabase = await requireAdminAal2();
     const { data, error } = await executeAdminSetUserStatus(supabase, {
       userId,
       status,
@@ -59,7 +78,7 @@ export async function openAccountAction(
   currency: string = 'PHP'
 ): Promise<ActionResult> {
   try {
-    const supabase = await createAdminCookieServerClient();
+    const supabase = await requireAdminAal2();
     const { data, error } = await executeAdminOpenAccount(supabase, {
       userId,
       type,
@@ -88,7 +107,7 @@ export async function setAccountStatusAction(
   reason: string
 ): Promise<ActionResult> {
   try {
-    const supabase = await createAdminCookieServerClient();
+    const supabase = await requireAdminAal2();
     const { data, error } = await executeAdminSetAccountStatus(supabase, {
       accountId,
       status,
@@ -118,7 +137,7 @@ export async function adjustBalanceAction(
   idempotencyKey: string
 ): Promise<ActionResult> {
   try {
-    const supabase = await createAdminCookieServerClient();
+    const supabase = await requireAdminAal2();
     const { data, error } = await executeAdminAdjustBalance(supabase, {
       accountId,
       amount: amountCentavos,
@@ -149,7 +168,7 @@ export async function reverseTransactionAction(
   idempotencyKey: string
 ): Promise<ActionResult> {
   try {
-    const supabase = await createAdminCookieServerClient();
+    const supabase = await requireAdminAal2();
     const { data, error } = await executeAdminReverseTransaction(supabase, {
       transactionId,
       reason,
@@ -174,7 +193,7 @@ export async function reverseTransactionAction(
  */
 export async function adminRunDueSchedulesAction(): Promise<ActionResult> {
   try {
-    const supabase = await createAdminCookieServerClient();
+    const supabase = await requireAdminAal2();
     const { data, error } = await supabase.rpc('admin_run_due_schedules_now');
 
     if (error) {
@@ -199,7 +218,7 @@ export async function adminCancelScheduleAction(
   reason: string
 ): Promise<ActionResult> {
   try {
-    const supabase = await createAdminCookieServerClient();
+    const supabase = await requireAdminAal2();
     const { data, error } = await supabase.rpc('cancel_scheduled_payment', {
       p_id: scheduleId,
       p_reason: reason,
@@ -227,7 +246,7 @@ export async function adminCreateBillerAction(
   referencePattern: string
 ): Promise<ActionResult> {
   try {
-    const supabase = await createAdminCookieServerClient();
+    const supabase = await requireAdminAal2();
     const { data, error } = await supabase.rpc('admin_create_biller', {
       p_name: name,
       p_category: category,
@@ -256,7 +275,7 @@ export async function adminSetBillerActiveAction(
   isActive: boolean
 ): Promise<ActionResult> {
   try {
-    const supabase = await createAdminCookieServerClient();
+    const supabase = await requireAdminAal2();
     const { data, error } = await supabase.rpc('admin_set_biller_active', {
       p_biller_id: billerId,
       p_is_active: isActive,
@@ -271,5 +290,25 @@ export async function adminSetBillerActiveAction(
     return { success: true, data };
   } catch (err: unknown) {
     return { success: false, error: toUserMessage(err) };
+  }
+}
+
+export async function resetUserMfaAction(
+  userId: string,
+  reason: string
+): Promise<ActionResult> {
+  try {
+    const client = await requireAdminAal2();
+    if (reason.trim().length < 10)
+      return { success: false, error: 'Enter a reason of at least 10 characters.' };
+    const { error } = await client.rpc('admin_reset_user_mfa', {
+      target_user: userId,
+      reason: reason.trim(),
+    });
+    if (error) return { success: false, error: toUserMessage(error) };
+    revalidatePath('/users');
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: toUserMessage(error) };
   }
 }

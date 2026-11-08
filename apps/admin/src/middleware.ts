@@ -59,41 +59,28 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // If visiting login while already authenticated as admin -> redirect to dashboard
-  if (user && pathname === '/login') {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .maybeSingle();
-
-    if (profile?.role === 'admin') {
-      return NextResponse.redirect(new URL('/', request.url));
-    }
-  }
-
-  // If public route, allow access
-  if (isPublicRoute) {
-    return response;
-  }
-
-  // Protected Routes: Require authenticated user
-  if (!user) {
-    const loginUrl = new URL('/login', request.url);
-    loginUrl.searchParams.set('redirect', pathname);
-    return NextResponse.redirect(loginUrl);
-  }
-
-  // Protected Routes: Server-side Admin Role Enforcement
+  const redirect = (path: string) => {
+    const next = NextResponse.redirect(new URL(path, request.url));
+    for (const cookie of response.cookies.getAll()) next.cookies.set(cookie);
+    return next;
+  };
+  if (isPublicRoute && pathname !== '/login') return response;
+  if (!user) return isPublicRoute ? response : redirect('/login');
   const { data: profile, error } = await supabase
     .from('profiles')
     .select('role')
     .eq('id', user.id)
     .maybeSingle();
-
-  if (error || !profile || profile.role !== 'admin') {
-    return NextResponse.redirect(new URL('/unauthorized', request.url));
+  if (error || profile?.role !== 'admin')
+    return pathname === '/login' ? response : redirect('/unauthorized');
+  const { data: assurance, error: assuranceError } =
+    await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+  if (assuranceError || !assurance) return redirect('/login?error=mfa');
+  const target = assurance.nextLevel === 'aal2' ? '/mfa/verify' : '/mfa/setup';
+  if (assurance.currentLevel !== 'aal2') {
+    return pathname === target ? response : redirect(target);
   }
+  if (pathname === '/login' || pathname.startsWith('/mfa/')) return redirect('/');
 
   return response;
 }

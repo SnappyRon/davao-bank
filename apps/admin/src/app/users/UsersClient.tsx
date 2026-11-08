@@ -10,7 +10,7 @@ import {
   type ProfileStatus,
   type AccountType,
 } from '@davao-bank/shared';
-import { setUserStatusAction, openAccountAction } from '../actions';
+import { setUserStatusAction, openAccountAction, resetUserMfaAction } from '../actions';
 import {
   Table,
   Button,
@@ -26,12 +26,18 @@ import {
 import styles from './Users.module.css';
 
 interface UsersClientProps {
+  userHasTotp: Record<string, boolean>;
   initialUsers: AdminUserItem[];
   allAccounts: AccountBalance[];
 }
 
-export function UsersClient({ initialUsers, allAccounts }: UsersClientProps) {
+export function UsersClient({
+  initialUsers,
+  allAccounts,
+  userHasTotp,
+}: UsersClientProps) {
   const router = useRouter();
+  const [resetUser, setResetUser] = useState<AdminUserItem | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<
     'all' | 'active' | 'suspended' | 'needs_attention'
@@ -268,6 +274,14 @@ export function UsersClient({ initialUsers, allAccounts }: UsersClientProps) {
                 <div>
                   <div className={styles.metaLabel}>Email</div>
                   <div>{selectedUserDetail.email}</div>
+                  {userHasTotp[selectedUserDetail.id] && (
+                    <Button
+                      variant="destructive"
+                      onClick={() => setResetUser(selectedUserDetail)}
+                    >
+                      Reset two-step verification
+                    </Button>
+                  )}
                 </div>
                 <div>
                   <div className={styles.metaLabel}>Status</div>
@@ -311,6 +325,22 @@ export function UsersClient({ initialUsers, allAccounts }: UsersClientProps) {
         )}
       </Drawer>
 
+      {resetUser && (
+        <ConfirmDialog
+          isOpen
+          onClose={() => setResetUser(null)}
+          title="Reset two-step verification"
+          description="This removes the customer's authenticator factors. Verify their identity before proceeding. Enter a reason of at least 10 characters."
+          confirmText="Reset two-step verification"
+          variant="destructive"
+          onConfirm={async (reason) => {
+            const result = await resetUserMfaAction(resetUser.id, reason);
+            if (!result.success) throw new Error(result.error);
+            setResetUser(null);
+            router.refresh();
+          }}
+        />
+      )}
       {/* Confirm Status Change Dialog */}
       {statusModalUser && (
         <ConfirmDialog
