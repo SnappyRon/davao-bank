@@ -42,7 +42,7 @@
 
 | Stage                                                                         | State                                     | Commit                          |
 | ----------------------------------------------------------------------------- | ----------------------------------------- | ------------------------------- |
-| 7A — Foundations (Typeface, tokens, shared components, libraries)             | Verified ✅ (Gate passed)                 | Pending commit                  |
+| 7A — Foundations (Typeface, tokens, shared components, libraries)             | Verified ✅ (Gate passed)                 | `6441fc0`                       |
 | A — Server-enforced step-up (migration `20261110000000_phase6_5_step_up.sql`) | Reviewed ✅, applied to hosted 2026-11-08 | `05f7f34`, fix `73c31ed`        |
 | B — Mobile authenticator setup and transfer verification                      | Device-verified ✅                        | `b4ca28e`, fix `2acd017`        |
 | C — Biometric app lock                                                        | Device-verified ✅                        | `d419a19`                       |
