@@ -4,11 +4,39 @@
 
 ## Now
 
-- **Active phase:** Phase 6.5 complete and pushed. **Next: Phase 7 — UI/UX and motion** (prompt updated, ready to assign).
-- **Branch:** `phase-6-5-strong-auth` (created from `phase-6-hardening`; neither has been pushed)
-- **Active prompt:** `Phase-7-Prompt-UI-UX-and-Motion.md`. Branch `phase-7-ui-motion` from the tip of `phase-6-5-strong-auth` (or from `main` once both PRs are merged).
-- **Assigned to:** Antigravity (owner decision, 2026-11-08).
-- **Exact next step:** Owner opens the PRs (`phase-6-hardening` → `main` first, then `phase-6-5-strong-auth`) and assigns Phase 7. The agent starts at Stage 7A, item 1 (font fix).
+- **Active phase:** Phase 7 — UI/UX Refinement & Motion.
+- **Branch:** `phase-7-ui-motion` (branched from tip of `phase-6-5-strong-auth`).
+- **Active prompt:** `Phase-7-Prompt-UI-UX-and-Motion.md`.
+- **Assigned to:** Antigravity.
+- **Exact next step:** Stage 7A.1 Typeface repair in `tokens.ts`, `Text.tsx`, `AmountInput.tsx`, and app-wide.
+
+## Stage 7A Checklist
+
+- [x] **7A.0 Audit**: Inspect current design, navigation, components, theme; add Audit section to `PHASE7_REPORT.md` (screens/features baseline, BottomSheet/modal inventory -> Full-screen vs Sheet under D4, causes of cramped widgets & empty gaps with file/line, interactions not responding immediately or double-triggerable).
+- [ ] **7A.1 Typeface**: Map weights to files in `tokens.ts` (500: Medium, 600: SemiBold, 700: Bold, 800: ExtraBold); remove `fontWeight` on iOS when family is set; set family in `AmountInput`, tab labels, and all direct RN `Text`; verify Plus Jakarta Sans on device.
+- [ ] **7A.2 Token changes**: `colors.textMuted` (#8A877F -> #6B6860), `colors.borderStrong` (#8E887B), `colors.scrim` (rgba(26,26,26,0.5)), `typography.amount` (32/36, 800, tabular), `size.touch` (44), `size.control` (52), `elevation.card`, motion table (delete `counterDuration`); admin `globals.css` match and drift check pass; delete unused aliases; rename ActionTile purple -> primary.
+- [ ] **7A.3 Shared components**:
+  - [ ] `Pressable`: wrap RN Pressable, require role/label, hitSlop >= 44 pt, press feedback, eliminate all `TouchableOpacity`.
+  - [ ] `FeatureScreen`: full-screen page for major features (D4), header with 44 pt back button, step caption, scroll body without fixed spacers, sticky footer, preventRemove dirty form guard, processing gesture lock, result screen, prompt host for password & code.
+  - [ ] `Sheet`: replaces `BottomSheet` for quick actions only (D4), Reanimated + GestureHandler, 36x4 drag handle, header, close button, scrolling body, sticky footer, animated height, carries over `dismissible`, `onRequestDismiss`, `step`, `stepCount`, keeps prompt host.
+  - [ ] `FloatingTabBar`: custom bottom bar (D5), 64 pt floating pill, BlurView, 4 tabs with icons & visible labels (12/600), active pill in `primaryTint`, selection haptic.
+  - [ ] `ResultView`: 4 outcomes (Completed, Scheduled, Request sent, Failed) with dedicated icons, titles, haptics, details card, Done/Share/contextual action.
+  - [ ] `Button`: minHeight 52, pill radius, bodyStrong (16/600), primaryPressed scale 0.98, surfaceSubtle disabled, loading busy state without size shift, remove always-on haptic, sign-out secondary red.
+  - [ ] `TextField` & `AmountInput`: remove TextField marginBottom, borderStrong with primary on focus & redText on error, link error text; AmountInput decimal-pad, live grouping, 36 pt preset chips.
+  - [ ] `Chip`: minHeight 36 + hitSlop, role button, selected state.
+  - [ ] `Badge`: 24 pt tall, sentence case, label 12/600, status colors.
+  - [ ] `Toast`: app-level queue, announceForAccessibility, motion pattern 12.
+  - [ ] `EmptyState`: optional illustration prop, scrollable for pull-to-refresh.
+  - [ ] `ListRow`: divider uses `border`.
+  - [ ] `NotificationsModal.tsx`: delete unused file.
+- [ ] **7A.4 Libraries**: install `react-native-reanimated`, `react-native-gesture-handler`, `react-native-worklets`, `expo-blur` via `npx expo install`; configure Babel & `GestureHandlerRootView`; verify in Expo Go.
+- [ ] **7A Gate**:
+  - [ ] Contrast script over token pairs passes (text >= 4.5:1, controls/icons >= 3:1).
+  - [ ] Font check screenshot in report.
+  - [ ] No `TouchableOpacity` remains in codebase.
+  - [ ] Foundations work end to end: `FeatureScreen`, `Sheet`, `FloatingTabBar` exist; Cash out runs end to end with password -> code -> result with back blocked; audit in report.
+  - [ ] Builds pass: typecheck, lint, format:check, `expo export`.
+  - [ ] Regression: Maestro flows updated and pass.
 
 ## Stages
 
@@ -52,6 +80,9 @@
 - **Follow-up:** add dedicated test accounts so live tests don't conflict with the presenter's real authenticator.
 
 ## Log (newest first)
+
+- **2026-11-08, Antigravity:** completed 7A.0 pre-implementation UI/UX audit and created `PHASE7_REPORT.md`. Starting 7A.1 Typeface repair.
+- **2026-11-08, Antigravity:** created branch `phase-7-ui-motion` from tip of `phase-6-5-strong-auth`. Planned Stage 7A checklist in `STATUS.md` and initiated 7A.0 Audit.
 
 - **2026-11-08, Claude Code (reviewer):** added the owner's UX direction to the Phase 7 prompt as D4–D7: full-screen `FeatureScreen` for major features with sheets for quick actions only, a floating translucent tab bar, mascots and onboarding, selective blur with `expo-blur` (the only new dependency). Also an audit step 7A.0, no-dead-space spacing rules, and 7B.11 visible system status.
 
