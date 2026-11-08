@@ -4,11 +4,11 @@
 
 ## Now
 
-- **Active phase:** Phase 6.5 — Strong authentication. **All stages A–E are committed; the reviewer's code review passed.**
+- **Active phase:** Phase 6.5 complete and pushed. **Next: Phase 7 — UI/UX and motion** (prompt updated, ready to assign).
 - **Branch:** `phase-6-5-strong-auth` (created from `phase-6-hardening`; neither has been pushed)
-- **Active prompt:** `Phase-6.5-Strong-Auth-Prompt.md`
-- **Assigned to:** Reviewer (Claude Code) and Owner. No programmer task is open.
-- **Exact next step:** Phase 6.5 is verified. Owner: Phase 6 Android quick check, then push `phase-6-hardening` and `phase-6-5-strong-auth` and open the PRs (merge 6 first). Reviewer: update the Phase 7 prompt (6.5 screens and the cosmetic list in `PHASE6_5_REPORT.md`).
+- **Active prompt:** `Phase-7-Prompt-UI-UX-and-Motion.md`. Branch `phase-7-ui-motion` from the tip of `phase-6-5-strong-auth` (or from `main` once both PRs are merged).
+- **Assigned to:** not yet assigned (the owner picks a programmer agent).
+- **Exact next step:** Owner opens the PRs (`phase-6-hardening` → `main` first, then `phase-6-5-strong-auth`) and assigns Phase 7. The agent starts at Stage 7A, item 1 (font fix).
 
 ## Stages
 
@@ -37,7 +37,8 @@
 
 ## Open items for later phases
 
-- **Phase 6 close-out (owner and reviewer):**
+- **Phase 6 close-out:** done. Android check skipped by owner decision (a known gap). Both branches pushed 2026-11-08.
+- ~~Phase 6 close-out (owner and reviewer):~~
   - Android quick check on the Pixel 9a emulator;
   - optional physical-phone QR check;
   - commit `docs/UAT_CHECKLIST.md` and `docs/uat-evidence/`;
@@ -51,6 +52,8 @@
 - **Follow-up:** add dedicated test accounts so live tests don't conflict with the presenter's real authenticator.
 
 ## Log (newest first)
+
+- **2026-11-08, Claude Code (reviewer):** committed the Phase 6 iOS UAT evidence (`ab190b3`, Android skipped by owner) and merged it into 6.5. Pushed `phase-6-hardening` and `phase-6-5-strong-auth`. Updated the Phase 7 prompt: based on 6.5, `Sheet` must keep the in-sheet prompt host, new Security group, item 10 carry-overs, MFA rules in the gates and Do NOT.
 
 - **2026-11-08, Claude Code (reviewer):** iOS simulator check of 6.5. Found and fixed the two-step setup screen that could never open (`2acd017`). Enrollment, password+code cash-out (DB verified) and the 2-minute app lock all PASS. Evidence in `docs/uat-evidence/ios-6.5/`.
 

@@ -4,9 +4,20 @@
 
 Phase 7 makes the mobile app consistent, accessible and responsive. It does that by fixing the type, color, spacing, wording, flow structure and motion across every screen. It adds **no banking features** and **no database changes**, except for one migration that only changes notification wording (7B, item 9).
 
-**Prerequisite:** Phase 6 must be approved first. In particular, Stage 0.9 (the critical flow fixes) has to be merged. This phase builds on those fixes and doesn't redo them.
+**Read first:** `AGENTS.md` and `docs/agents/STATUS.md`. Follow their hard rules and the handoff protocol: update `STATUS.md` and commit after every completed step.
 
-**Source:** the reviewer's UI/UX and motion audit (2026-11-03). Every finding was checked on an iPhone 17 Pro Max simulator or read in the code.
+**Prerequisite:** Phase 6 **and Phase 6.5 (strong authentication)** are approved, and both are pushed. This phase builds on their fixes and doesn't redo them. In particular, it builds on:
+
+- the Phase 6 Stage 0.9 flow fixes;
+- the in-sheet password prompt;
+- the Phase 6.5 authenticator step-up and app lock.
+
+**Source:**
+
+- the reviewer's UI/UX and motion audit (2026-11-03);
+- the reviewer's iOS device checks of Phase 6 and Phase 6.5 (2026-11-08), which are in **"Carry-overs from the device checks"** below.
+
+Every finding was checked on an iPhone 17 Pro Max simulator or read in the code.
 
 ## Decisions this phase implements
 
@@ -21,11 +32,15 @@ The owner approved these on 2026-11-03. They replace earlier decisions.
 
 ## How to run this phase
 
-1. **Branch:** create `phase-7-ui-motion` from the approved Phase 6 branch.
+1. **Branch:** create `phase-7-ui-motion` from the tip of `phase-6-5-strong-auth`. It already contains all of Phase 6. If both have been merged into `main` by the time you start, branch from `main` instead.
 2. **Stages:** 7A, 7B and 7C. Make one commit per stage, titled `Phase 7 · Stage X — <name>`, and stop if a stage's gate fails.
 3. **Report:** append to `PHASE7_REPORT.md` after each stage. Include what was built, every command you ran with its full output, before/after screenshots and any deviations, with reasons.
 4. **Screenshots:** for every changed screen, capture an iPhone simulator at 402 pt and 440 pt wide and an Android emulator at 360 dp. All three at 1.0× and 1.4× text size.
-5. **Don't change behavior that Phase 6 fixed.** Keep the result screens, the dismissal locks, the idempotency handling and the error mapper as they are. Rebuild them on the new components without changing what they do.
+5. **Don't change behavior that Phase 6 or 6.5 fixed.** Rebuild these on the new components without changing what they do:
+   - the result screens and the dismissal locks;
+   - the idempotency handling and the error mapper;
+   - the confirmation order for every money action: **biometrics or password, then the authenticator code, then the server call**;
+   - the 2-minute app lock.
 6. **Conflicts:** if anything here conflicts with the code or an approved document, stop and flag it.
 
 ---
@@ -103,6 +118,11 @@ The owner approved these on 2026-11-03. They replace earlier decisions.
 - **New props:** `step` and `stepCount`.
 - **Dismissal:** swipe down to dismiss works only when `dismissible` is true. Tapping the backdrop, the X, a swipe and Android back all go through the same guard.
 - **Accessibility:** `accessibilityViewIsModal`. When the sheet opens or the step changes, focus moves to the title.
+- **Confirmation prompts (critical, Phase 6 device fix).**
+  - The password prompt and the authenticator-code prompt render **inside the top-most sheet**, through `usePasswordPromptHost(visible)` and `<PasswordPromptHost hostId=… ready=… />` from `PasswordPromptContext`.
+  - `Sheet` must keep that host exactly as `BottomSheet` does today.
+  - If the host is missing, iOS cannot show the prompt, and every money action fails closed after 2 seconds.
+  - Prove it on the iOS simulator with a ₱1 cash-out: the password prompt appears, then the code prompt, both over the sheet.
 
 ### 4. Install the libraries
 
@@ -172,9 +192,15 @@ The owner approved these on 2026-11-03. They replace earlier decisions.
 
 ### 3. Profile
 
-- **Layout:** the profile card stays. Below it are two grouped cards:
+- **Layout:** the profile card stays. Below it are three grouped cards:
   - **"Money":** Saved recipients, Scheduled payments, Payment requests, Statements.
-  - **"Settings":** Personal details, Confirm with Face ID, Hide balances (new switch, using the existing setting), Change password, About.
+  - **"Security":**
+    - Two-step verification: a row with the subtitle "On" or "Off", opening the setup screen;
+    - App lock: a switch with the subtitle "Lock after 2 minutes in the background";
+    - Confirm with Face ID;
+    - Change password.
+  - **"Settings":** Personal details, Hide balances (new switch, using the existing setting), About.
+- **Remove** the full-width "Two-step verification" button that floats below the list today. It becomes the Security row.
 - **Footer:** the Sign out button (secondary style), then the caption "Version 1.0.0 · Simulated prototype".
 - **Change password** uses `supabase.auth.updateUser` after the password-confirmation step.
 
@@ -284,12 +310,42 @@ The Inbox messages are written by database functions, as "You transferred PHP 50
 - **Text only.** Don't change any logic, signature, grant or which events produce a notification.
 - **Tests:** update the matching assertions in the live suites and in `test:db`.
 
+### 10. Carry-overs from the device checks (2026-11-08)
+
+The reviewer found these on the iOS simulator. Fix each one, and add a before/after screenshot to the report.
+
+**Phase 6 iOS check**
+
+| Problem found                                                                                                                                                                          | Fix                                                                                                                                                                                                                         |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Large text fails.** At accessibility XL, the Home balance wraps in the middle of the number, tile labels split mid-word, and amounts are clipped. Evidence: `docs/uat-evidence/ios/` | Covered by item 6. Verify it at the largest accessibility size, not only 1.4×. Amounts never wrap: they shrink with `adjustsFontSizeToFit` / `minimumFontScale` 0.7 inside their cap. Tiles grow taller instead of clipping |
+| **Raw regex.** The biller account field shows `^[0-9]{10}$` as a hint                                                                                                                  | Covered by item 4: show "e.g. 10 digits, on your bill"                                                                                                                                                                      |
+| **Completed schedules look upcoming.** A completed one-time schedule shows "Next: <past date>" with no status. The database is correct: these schedules are `completed`                | Show a "Completed" badge (neutral) and "Paid <date>". Hide "Next". Sort completed schedules below the active ones                                                                                                           |
+| **Overlay flash.** The privacy overlay flashes for a moment when the password prompt closes                                                                                            | Check whether the Phase 6.5 change already fixed it. If not, ignore the brief `inactive` state that the prompt's own keyboard dismissal causes. The overlay must still cover the app in the app switcher                    |
+| **No exit from "uncertain".** When a transfer's status is uncertain, the Transfer sheet has no way out                                                                                 | Add "Check status", which reuses `transferRecovery` with the **same** idempotency key, and "Done", which closes the sheet and points the user to Activity. Never send again with a new key                                  |
+
+**Phase 6.5 iOS check**
+
+| Problem found                                                                                                                                 | Fix                                                                                                                                                                                                                                                                                                                                                                        |
+| --------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Plain setup screen.** The two-step setup screen (`TwoStepSetup`) has no side margins or layout                                              | Present it as a `Sheet` titled "Two-step verification", using the 7B layout rules: a centred 200 pt QR on white, the setup key in a monospace box with Copy, "Open in authenticator app" as a secondary button, then the 6-digit code field. Steps: "Step 1 of 2: add to your app", "Step 2 of 2: enter the code". **Never** log or screenshot the key in tests or reports |
+| **Rough lock screen.** It shows a password field, "Unlock with password" and a "Use password" link all at once                                | Show the logo, "Davao Bank is locked", and one primary button: "Unlock with Face ID" (or "Unlock" when biometrics are unavailable). The password field appears only after "Use password". Keep "Sign out" as a quiet secondary action                                                                                                                                      |
+| **Slow switch.** The App lock switch took several taps to change                                                                              | Update the switch immediately (optimistic), then save. Revert it and show a toast if saving fails                                                                                                                                                                                                                                                                          |
+| **Inconsistent code prompt.** The authenticator-code prompt doesn't match the password prompt                                                 | Same card, title, button sizes and copy style as the password prompt. Title "Enter your authenticator code"; auto-submit on 6 digits; "Not authorized. Nothing was sent." on Cancel                                                                                                                                                                                        |
+| **"Set up now" is unverified.** It should open the setup screen directly, but this hasn't been checked since the setup-screen fix (`2acd017`) | Verify it on the device and fix it if it only lands on Profile                                                                                                                                                                                                                                                                                                             |
+
 **7B gate:**
 
 - **Screenshots:** before/after for every screen at the three widths, at 1.0× and 1.4× text.
 - **Scripts and tests:** `check-copy` passes, and the VoiceOver notes are in the report.
 - **Regression:** the Phase 6 Maestro flows pass, updated only for the new labels.
+  - Maestro can't generate authenticator codes. So a flow that moves money must assert that the code prompt appears, then Cancel, and assert "Not authorized. Nothing was sent."
+  - Do not weaken or bypass step-up to make a flow complete.
 - **Live suites:** they pass, each showing `✓ Connected to live database`.
+  - `customer1` now has the owner's **real** authenticator, so suites that sign in as customer1 will stop with "NOT VERIFIED — Test account has a pre-existing authenticator".
+  - That is expected. Report it as is, and never remove or change that factor.
+  - The reviewer runs the full live suites after removing it temporarily.
+- **Device proof:** the screenshots for item 10 are in the report.
 
 ---
 
@@ -376,6 +432,8 @@ Use only the prepared files in `apps/mobile/assets/`. Read `apps/mobile/assets/s
 1. The brand font renders on every screen, and every token pair passes the contrast script.
 2. Every touchable uses `Pressable` with a role and a label, and every sheet uses `Sheet`.
 3. Home, the lists, Receipt, Inbox, Profile and every money flow match 7B. Every string in the 7B table has been replaced, and `check-copy` passes.
+   - Every item 10 carry-over is fixed.
+   - A ₱1 cash-out on the iOS simulator still goes through password (or Face ID), then the authenticator code, then the result.
 4. The 12 motion patterns are in place, with Reduce Motion alternatives and the haptics policy.
 5. The illustrations appear only where the 7C table puts them.
 6. The Phase 6 Maestro and Playwright flows pass, and the live suites pass with the connection line.
@@ -384,6 +442,16 @@ Use only the prepared files in `apps/mobile/assets/`. Read `apps/mobile/assets/s
 ## Do NOT
 
 - **Change behavior:** no change to money logic, RPC signatures, RLS or grants. The only database change is the 7B item 9 wording migration.
+- **Touch strong authentication logic:** restyle only. Leave these as they are:
+  - `assert_money_step_up` and `assert_admin_aal2`;
+  - the 5-minute window;
+  - `security_settings`;
+  - the order of biometrics/password then code;
+  - `retryStepUp`;
+  - the 2-minute app lock rule;
+  - the admin `/mfa/*` middleware;
+  - the MFA test helpers. Their cleanup must only ever remove factors the test created.
+- **Handle MFA secrets:** never print, log, screenshot or commit a TOTP setup key or code. Never enroll or remove factors on the demo accounts except through the existing temporary test helpers.
 - **Change navigation or features:** don't change the 4-tab navigation, and don't add banking features (savings goals, the security center and Phase 8–9 items are out of scope).
 - **Animate money:** don't animate amounts to unconfirmed values, and don't add swipe-to-pay or swipe-to-confirm.
 - **Add dependencies:** nothing beyond Reanimated, worklets and Gesture Handler.
