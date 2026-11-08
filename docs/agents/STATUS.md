@@ -53,6 +53,8 @@
 
 ## Log (newest first)
 
+- **2026-11-08, Claude Code (reviewer):** added the owner's UX direction to the Phase 7 prompt as D4–D7: full-screen `FeatureScreen` for major features with sheets for quick actions only, a floating translucent tab bar, mascots and onboarding, selective blur with `expo-blur` (the only new dependency). Also an audit step 7A.0, no-dead-space spacing rules, and 7B.11 visible system status.
+
 - **2026-11-08, Claude Code (reviewer):** the owner chose Antigravity for Phase 7. Removed the Claude Code loop script (revert `bb39154`). Added a **Work loop** section to the Phase 7 prompt: plan a checklist, build/check/fix until each item passes, run the gate, self-review, and stop after each stage for review. Narrow-screen check is now the 375 pt iPhone, with Android optional.
 
 - **2026-11-08, Claude Code (reviewer):** committed the Phase 6 iOS UAT evidence (`ab190b3`, Android skipped by owner) and merged it into 6.5. Pushed `phase-6-hardening` and `phase-6-5-strong-auth`. Updated the Phase 7 prompt: based on 6.5, `Sheet` must keep the in-sheet prompt host, new Security group, item 10 carry-overs, MFA rules in the gates and Do NOT.
