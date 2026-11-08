@@ -22,8 +22,10 @@ export async function requireStepUpMigration(client: SupabaseClient) {
     throw new Error(
       'NOT VERIFIED — Phase 6.5 migration is not deployed. Reviewer must apply it before live strong-auth tests.'
     );
+  // 42501: the function exists, but anon has no EXECUTE grant (expected once deployed).
   if (
     error &&
+    error.code !== '42501' &&
     !/Authentication required|STEP_UP_REQUIRED|Admin privilege required/.test(
       error.message
     )
@@ -84,7 +86,10 @@ export async function temporaryStepUp(
         factorId: data.id,
         code: await nextCode(),
       });
-      if (verifyError) throw new Error('Temporary authenticator verification failed');
+      if (verifyError)
+        throw new Error(
+          `Temporary authenticator verification failed: ${verifyError.message}`
+        );
       const { error: refreshError } = await target.auth.refreshSession();
       if (refreshError) throw new Error('Could not refresh test MFA session');
     },

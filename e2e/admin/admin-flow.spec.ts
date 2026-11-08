@@ -2,7 +2,13 @@ import { randomUUID } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 import { formatCentavosToPHP } from '@davao-bank/shared';
 import { test, expect } from '@playwright/test';
-import { checkPlaywrightPrerequisites, completeMfa, cleanupMfa } from './mfa-helper';
+import {
+  checkPlaywrightPrerequisites,
+  completeMfa,
+  cleanupMfa,
+  stepUpApiClient,
+} from './mfa-helper';
+import { temporaryStepUp, withStepUpCleanup } from '../../scripts/lib/step-up';
 
 const E2E_ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL || 'admin@davaobank.ph';
 const E2E_CUSTOMER_EMAIL = process.env.E2E_CUSTOMER_EMAIL || 'customer1@davaobank.ph';
@@ -233,6 +239,11 @@ test.describe('Admin Console E2E Flow', () => {
       });
 
       await test.step('Reverse this run’s own PHP 1 transfer', async () => {
+        // Phase 6.5: transfers need a fresh authenticator code (temporary test factor, removed in finally).
+        await temporaryStepUp(customer, {
+          email: E2E_CUSTOMER_EMAIL,
+          password: E2E_PASSWORD,
+        });
         const transfer = await customer.rpc('transfer_by_account_number', {
           p_from_account: source.account_id,
           p_to_account_number: destination.account_number,
@@ -273,63 +284,80 @@ test.describe('Admin Console E2E Flow', () => {
         await assertRestored();
       });
     } finally {
-      // Recover only this run's mutations, even if a UI assertion failed after commit.
-      const transfer = await admin
-        .from('transactions')
-        .select('id, status')
-        .eq('idempotency_key', transferKey)
-        .maybeSingle();
-      expect(transfer.error).toBeNull();
-      if (transfer.data?.status === 'completed') {
+      try {
+        // Recover only this run's mutations, even if a UI assertion failed after commit.
+        // Admin money functions need aal2; reuse the browser's temporary test factor when it exists.
+        // Verifying a newly enrolled factor (browser /mfa/setup) revokes the user's other sessions,
+        // so sign this API client in again before stepping it up.
         expect(
           (
-            await admin.rpc('admin_reverse_transaction', {
-              p_transaction_id: transfer.data.id,
-              p_reason: `${run} cleanup`,
-              p_idempotency_key: `${run}-cleanup-reversal`,
+            await admin.auth.signInWithPassword({
+              email: E2E_ADMIN_EMAIL,
+              password: E2E_PASSWORD,
             })
           ).error
         ).toBeNull();
+        await stepUpApiClient(admin).catch(() => undefined);
+        const transfer = await admin
+          .from('transactions')
+          .select('id, status')
+          .eq('idempotency_key', transferKey)
+          .maybeSingle();
+        expect(transfer.error).toBeNull();
+        if (transfer.data?.status === 'completed') {
+          expect(
+            (
+              await admin.rpc('admin_reverse_transaction', {
+                p_transaction_id: transfer.data.id,
+                p_reason: `${run} cleanup`,
+                p_idempotency_key: `${run}-cleanup-reversal`,
+              })
+            ).error
+          ).toBeNull();
+        }
+        const adjustments = await admin
+          .from('transactions')
+          .select('reference')
+          .in('reference', [creditReason, debitReason]);
+        expect(adjustments.error).toBeNull();
+        if (
+          adjustments.data?.some((tx) => tx.reference === creditReason) &&
+          !adjustments.data.some((tx) => tx.reference === debitReason)
+        ) {
+          expect(
+            (
+              await admin.rpc('admin_adjust_balance', {
+                p_account_id: destination.account_id,
+                p_amount: 100,
+                p_direction: 'debit',
+                p_reason: debitReason,
+                p_idempotency_key: `${run}-cleanup-adjustment`,
+              })
+            ).error
+          ).toBeNull();
+        }
+        const profile = await admin
+          .from('profiles')
+          .select('status')
+          .eq('id', target.id)
+          .single();
+        expect(profile.error).toBeNull();
+        if (profile.data?.status !== 'active') {
+          expect(
+            (
+              await admin.rpc('admin_set_user_status', {
+                p_user_id: target.id,
+                p_status: 'active',
+                p_reason: `${run} cleanup`,
+              })
+            ).error
+          ).toBeNull();
+        }
+        await assertRestored();
+      } finally {
+        // Always remove the customer's temporary test factor, even if recovery failed.
+        await withStepUpCleanup(async () => undefined);
       }
-      const adjustments = await admin
-        .from('transactions')
-        .select('reference')
-        .in('reference', [creditReason, debitReason]);
-      expect(adjustments.error).toBeNull();
-      if (
-        adjustments.data?.some((tx) => tx.reference === creditReason) &&
-        !adjustments.data.some((tx) => tx.reference === debitReason)
-      ) {
-        expect(
-          (
-            await admin.rpc('admin_adjust_balance', {
-              p_account_id: destination.account_id,
-              p_amount: 100,
-              p_direction: 'debit',
-              p_reason: debitReason,
-              p_idempotency_key: `${run}-cleanup-adjustment`,
-            })
-          ).error
-        ).toBeNull();
-      }
-      const profile = await admin
-        .from('profiles')
-        .select('status')
-        .eq('id', target.id)
-        .single();
-      expect(profile.error).toBeNull();
-      if (profile.data?.status !== 'active') {
-        expect(
-          (
-            await admin.rpc('admin_set_user_status', {
-              p_user_id: target.id,
-              p_status: 'active',
-              p_reason: `${run} cleanup`,
-            })
-          ).error
-        ).toBeNull();
-      }
-      await assertRestored();
     }
   });
 

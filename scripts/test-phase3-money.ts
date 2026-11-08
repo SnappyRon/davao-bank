@@ -4,6 +4,7 @@ import {
   requireStepUpMigration,
   assertAal1TransferRejected,
   assertStaleStepUpRejected,
+  testFactorForEmail,
 } from './lib/step-up';
 /**
  * Davao Bank — Phase 3 Core Banking Test Suite
@@ -453,7 +454,7 @@ async function runTestSuite() {
         err?.message
       );
     } finally {
-      await aal1Client.auth.signOut();
+      await aal1Client.auth.signOut({ scope: 'local' }); // global sign-out would revoke customer1Client's session too
     }
 
     try {
@@ -468,6 +469,8 @@ async function runTestSuite() {
     }
 
     // 6. Concurrency Safety Test (§7)
+    // The stale-window check above waited > 5 minutes, so customer2's step-up is stale too.
+    await testFactorForEmail('customer2@davaobank.ph')?.verify(customer2Client);
     console.log(
       '\n[6/7] Running Parallel Concurrency Test (Overdraft Prevention under Load)...'
     );

@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { Page } from '@playwright/test';
 import { TOTP } from 'otpauth';
 import { requireStepUpMigration } from '../../scripts/lib/step-up';
@@ -25,6 +25,58 @@ const E2E_ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL || 'admin@davaobank.ph';
 const E2E_PASSWORD = process.env.E2E_PASSWORD || process.env.SEED_PASSWORD || '';
 
 let activeTotp: TOTP | null = null;
+let lastCode = '';
+
+/** Never reuse a code inside one 30 s period; wait for the next one instead. */
+async function nextCode(): Promise<string> {
+  if (!activeTotp) throw new Error('No active test authenticator');
+  let code = activeTotp.generate();
+  if (code === lastCode) {
+    await new Promise((r) => setTimeout(r, 30_000 - (Date.now() % 30_000) + 1000));
+    code = activeTotp.generate();
+  }
+  lastCode = code;
+  return code;
+}
+
+/** Give an API client for the admin account aal2, using the factor the browser just enrolled. */
+export async function stepUpApiClient(client: SupabaseClient) {
+  const { data, error } = await client.auth.mfa.listFactors();
+  const factor = data?.totp.find((f) => f.status === 'verified');
+  if (error || !factor) throw new Error('No verified test factor for API step-up');
+  const { error: verifyError } = await client.auth.mfa.challengeAndVerify({
+    factorId: factor.id,
+    code: await nextCode(),
+  });
+  if (verifyError) throw new Error(`API step-up failed: ${verifyError.message}`);
+}
+// Factor ids that existed before the run. Cleanup never touches these.
+let baselineFactorIds: Set<string> | null = null;
+
+function serviceClient() {
+  if (!SERVICE_ROLE_KEY)
+    throw new Error(
+      'NOT VERIFIED — SUPABASE_SERVICE_ROLE_KEY is required for MFA cleanup'
+    );
+  return createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
+    auth: { persistSession: false },
+  });
+}
+
+async function adminFactorIds(): Promise<{ userId: string; ids: string[] }> {
+  const svc = serviceClient();
+  const { data: usersData, error } = await svc.auth.admin.listUsers();
+  if (error) throw new Error('Could not list users for MFA cleanup');
+  const user = usersData.users.find(
+    (u) => u.email?.toLowerCase() === E2E_ADMIN_EMAIL.toLowerCase()
+  );
+  if (!user) throw new Error('Admin test user not found');
+  const { data: factors, error: listErr } = await svc.auth.admin.mfa.listFactors({
+    userId: user.id,
+  });
+  if (listErr) throw new Error('Could not list admin MFA factors');
+  return { userId: user.id, ids: (factors?.factors || []).map((f) => f.id) };
+}
 
 export async function checkPlaywrightPrerequisites() {
   const client = createClient(SUPABASE_URL, ANON_KEY, {
@@ -51,6 +103,8 @@ export async function checkPlaywrightPrerequisites() {
       }
     }
   }
+  // Only reached when every prerequisite passed; cleanup is disabled otherwise.
+  baselineFactorIds = new Set((await adminFactorIds()).ids);
 }
 
 export async function completeMfa(page: Page) {
@@ -77,7 +131,7 @@ export async function completeMfa(page: Page) {
       period: 30,
     });
 
-    const code = activeTotp.generate();
+    const code = await nextCode();
     const input = page.getByLabel('Authenticator code');
     await input.fill(code);
 
@@ -95,7 +149,7 @@ export async function completeMfa(page: Page) {
         'Landed on /mfa/verify but no active TOTP instance exists in test runner.'
       );
     }
-    const code = activeTotp.generate();
+    const code = await nextCode();
     const input = page.getByLabel('Authenticator code');
     await input.fill(code);
 
@@ -111,57 +165,17 @@ export async function completeMfa(page: Page) {
 }
 
 export async function cleanupMfa() {
-  try {
-    if (E2E_PASSWORD) {
-      const adminAuthClient = createClient(SUPABASE_URL, ANON_KEY, {
-        auth: { persistSession: false },
-      });
-      const { data: authData } = await adminAuthClient.auth.signInWithPassword({
-        email: E2E_ADMIN_EMAIL,
-        password: E2E_PASSWORD,
-      });
-
-      if (authData?.session) {
-        const { data: factors } = await adminAuthClient.auth.mfa.listFactors();
-        if (factors?.all) {
-          for (const factor of factors.all) {
-            if (activeTotp) {
-              const code = activeTotp.generate();
-              await adminAuthClient.auth.mfa.challengeAndVerify({
-                factorId: factor.id,
-                code,
-              });
-            }
-            await adminAuthClient.auth.mfa.unenroll({ factorId: factor.id });
-          }
-        }
-      }
-    }
-
-    if (SERVICE_ROLE_KEY) {
-      const serviceClient = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
-        auth: { persistSession: false },
-      });
-      const { data: usersData } = await serviceClient.auth.admin.listUsers();
-      const targetUser = usersData?.users?.find(
-        (u) => u.email?.toLowerCase() === E2E_ADMIN_EMAIL.toLowerCase()
-      );
-      if (targetUser?.id) {
-        const { data: factors } = await serviceClient.auth.admin.mfa.listFactors({
-          userId: targetUser.id,
-        });
-        for (const factor of factors?.factors || []) {
-          await serviceClient.auth.admin.mfa.deleteFactor({
-            userId: targetUser.id,
-            id: factor.id,
-          });
-        }
-      }
-    }
-  } catch (err) {
-    console.warn('MFA factor cleanup note:', err);
-  } finally {
-    activeTotp = null;
-    activeFactorId = null;
+  activeTotp = null;
+  lastCode = '';
+  // Prerequisites failed (e.g. a real authenticator exists): never delete anything.
+  if (!baselineFactorIds) return;
+  const { userId, ids } = await adminFactorIds();
+  const svc = serviceClient();
+  for (const id of ids.filter((factorId) => !baselineFactorIds!.has(factorId))) {
+    const { error } = await svc.auth.admin.mfa.deleteFactor({ userId, id });
+    if (error) throw new Error('Temporary admin MFA factor cleanup failed');
   }
+  const after = (await adminFactorIds()).ids.filter((id) => !baselineFactorIds!.has(id));
+  if (after.length)
+    throw new Error('Admin MFA factors did not return to their original state');
 }

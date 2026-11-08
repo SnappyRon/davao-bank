@@ -336,3 +336,35 @@ Running 5 tests using 1 worker
 ```
 
 _Result: Stops cleanly with NOT VERIFIED pending deployment by the reviewer._
+
+## Reviewer verification on hosted (2026-11-08)
+
+The reviewer applied migration `20261110000000_phase6_5_step_up.sql` to the hosted project, after adding 30 s of clock-skew tolerance in `73c31ed`.
+
+Running against the live database surfaced four bugs in the Stage E test harness. These were never exercised before, because every run stopped at the "not deployed" check. The reviewer fixed them in the next commit:
+
+1. `requireStepUpMigration` treated the expected anon `permission denied` (42501) as "could not verify", so all 7 suites stopped.
+2. `test:money` signed out its aal1 client with the default **global** scope, which revoked `customer1Client`'s session ("Auth session missing"). The stale-window wait also left customer2's step-up stale before the concurrency test.
+3. `e2e/admin/mfa-helper.ts`:
+   - `cleanupMfa` referenced an undefined `activeFactorId` (a ReferenceError);
+   - worse, it deleted **every** admin factor even when the "existing authenticator" prerequisite had failed. Once the presenter enrolls a real authenticator, it would have been deleted.
+
+   Cleanup now removes only factors created during the run, and does nothing if the prerequisites failed.
+
+4. The admin E2E customer transfer needed a step-up session (temporary test factor, always cleaned up). The cleanup reversal needed an aal2 admin API session, which the test now gets by signing in again: verifying a newly enrolled factor revokes the user's other sessions.
+
+Results after the fixes, all against hosted:
+
+| Check                                                                      | Result                   |
+| -------------------------------------------------------------------------- | ------------------------ |
+| `test:rls`                                                                 | 30/30                    |
+| `test:money` (including aal1 rejected and stale step-up `STEP_UP_EXPIRED`) | 33/33                    |
+| `test:admin`                                                               | 45/45                    |
+| `test:extras`                                                              | 20/20                    |
+| `test:schedules`                                                           | 24/24                    |
+| `test:qr`                                                                  | 24/24                    |
+| `test:fx`                                                                  | 18/18                    |
+| Playwright                                                                 | 5/5, three runs in a row |
+| MFA factors left on hosted after all runs                                  | 0                        |
+
+Still pending: the iOS device check of authenticator setup, the code prompt and the biometric app lock (the owner scans a QR code).
