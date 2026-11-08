@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Modal, Alert } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, StyleSheet, Modal } from 'react-native';
 import { MinusCircle, AlertCircle } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import {
   colors,
   spacing,
+  radius,
   formatCentavosToPHP,
   phpToCentavos,
   generateIdempotencyKey,
@@ -84,23 +85,9 @@ export function WithdrawModal({
 
   const hasInput = Boolean(amountStr) && step !== 'success';
 
-  const handleRequestDismiss = () => {
-    if (loading) return;
-
-    if (step === 'success') {
-      resetState();
-      return;
-    }
-
-    if (hasInput) {
-      Alert.alert('Discard this cash-out?', 'Your details will be lost.', [
-        { text: 'Keep editing', style: 'cancel' },
-        { text: 'Discard', style: 'destructive', onPress: resetState },
-      ]);
-    } else {
-      resetState();
-    }
-  };
+  // FeatureScreen owns the single discard guard. This only closes.
+  // Android back (Modal onRequestClose) goes through FeatureScreen's handleBack.
+  const backHandlerRef = useRef<(() => void) | null>(null);
 
   const handleProceedToReview = () => {
     setErrorMessage(null);
@@ -198,7 +185,7 @@ export function WithdrawModal({
     <Modal
       visible={visible}
       animationType="slide"
-      onRequestClose={handleRequestDismiss}
+      onRequestClose={() => backHandlerRef.current?.()}
       presentationStyle="fullScreen"
     >
       <FeatureScreen
@@ -212,7 +199,8 @@ export function WithdrawModal({
         }
         step={step === 'input' ? 1 : step === 'review' ? 2 : undefined}
         stepCount={step === 'success' ? undefined : 2}
-        onBack={handleRequestDismiss}
+        onBack={resetState}
+        backHandlerRef={backHandlerRef}
         onPrevStep={() => setStep('input')}
         isDirty={hasInput}
         isProcessing={loading}
@@ -317,13 +305,15 @@ export function WithdrawModal({
               },
               {
                 label: 'Balance now',
-                value: formatCentavosToPHP(
-                  successResult.from_new_balance !== undefined
-                    ? successResult.from_new_balance
-                    : successResult.new_balance !== undefined
-                      ? successResult.new_balance
-                      : selectedAccount?.balance || 0
-                ),
+                value: hideBalance
+                  ? '₱••••••'
+                  : formatCentavosToPHP(
+                      successResult.from_new_balance !== undefined
+                        ? successResult.from_new_balance
+                        : successResult.new_balance !== undefined
+                          ? successResult.new_balance
+                          : selectedAccount?.balance || 0
+                    ),
               },
               ...(successResult.created_at
                 ? [
@@ -365,15 +355,14 @@ const styles = StyleSheet.create({
     backgroundColor: colors.tintRed,
     borderColor: colors.redText,
     padding: spacing.md,
-    borderRadius: 8,
+    borderRadius: radius.md,
   },
   errorText: {
     flex: 1,
-    lineHeight: 18,
   },
   reviewCard: {
     padding: spacing.lg,
-    borderRadius: 16,
+    borderRadius: radius.md,
     gap: spacing.md,
   },
   reviewHeader: {

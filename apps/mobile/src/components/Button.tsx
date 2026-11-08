@@ -107,6 +107,7 @@ export function Button({
       disabled={!isInteractive}
       onPress={onPress}
       feedbackType={variant === 'primary' ? 'scale' : 'none'}
+      pressedScale={0.98}
       style={({ pressed }) => [styles.base, getContainerStyle(pressed), style]}
     >
       <View style={styles.contentRow}>

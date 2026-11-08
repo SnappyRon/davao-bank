@@ -12,10 +12,10 @@ import {
   type NativeScrollEvent,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useIsFocused, useNavigation } from '@react-navigation/native';
+import { useIsFocused, useNavigation, usePreventRemove } from '@react-navigation/native';
 import { ChevronLeft } from 'lucide-react-native';
 import { BlurView } from 'expo-blur';
-import { colors, spacing } from '@davao-bank/shared';
+import { colors, spacing, size } from '@davao-bank/shared';
 import { Text } from './Text';
 import { Pressable } from './Pressable';
 import {
@@ -37,6 +37,22 @@ export interface FeatureScreenProps {
   footer?: React.ReactNode;
   style?: ViewStyle;
   contentContainerStyle?: ViewStyle;
+  /**
+   * Receives this screen's back handler so a host `Modal` can route
+   * `onRequestClose` (Android back) through the same single guard.
+   */
+  backHandlerRef?: React.MutableRefObject<(() => void) | null>;
+}
+
+const DISCARD_TITLE = 'Discard changes?';
+const DISCARD_MESSAGE =
+  'You have unsaved details. Are you sure you want to discard them?';
+
+function confirmDiscard(onDiscard: () => void) {
+  Alert.alert(DISCARD_TITLE, DISCARD_MESSAGE, [
+    { text: 'Keep editing', style: 'cancel' },
+    { text: 'Discard', style: 'destructive', onPress: onDiscard },
+  ]);
 }
 
 export function FeatureScreen({
@@ -53,6 +69,7 @@ export function FeatureScreen({
   footer,
   style,
   contentContainerStyle,
+  backHandlerRef,
 }: FeatureScreenProps) {
   const insets = useSafeAreaInsets();
   let navigation: any;
@@ -84,6 +101,19 @@ export function FeatureScreen({
     };
   }, []);
 
+  // Two paths, one guard each (never both):
+  // - `onBack` passed: the screen is hosted by a Modal (or closes itself).
+  //   handleBack owns the discard prompt. usePreventRemove stays OFF, because
+  //   inside a Modal useNavigation() returns the *host* tab's navigation.
+  // - no `onBack`: the screen is a native-stack page. usePreventRemove owns
+  //   the prompt for the back button, Android back and iOS swipe-back.
+  const isStackPage = !onBack;
+
+  usePreventRemove(isStackPage && (isDirty || isProcessing), ({ data }) => {
+    if (isProcessing) return;
+    confirmDiscard(() => navigation?.dispatch(data.action));
+  });
+
   const handleBack = () => {
     if (isProcessing) return;
 
@@ -92,28 +122,16 @@ export function FeatureScreen({
       return;
     }
 
-    if (isDirty) {
-      Alert.alert(
-        'Discard changes?',
-        'You have unsaved details. Are you sure you want to discard them?',
-        [
-          { text: 'Keep editing', style: 'cancel' },
-          {
-            text: 'Discard',
-            style: 'destructive',
-            onPress: () => {
-              if (onBack) onBack();
-              else navigation.goBack();
-            },
-          },
-        ]
-      );
+    if (onBack) {
+      if (isDirty) confirmDiscard(onBack);
+      else onBack();
       return;
     }
 
-    if (onBack) onBack();
-    else navigation.goBack();
+    navigation?.goBack();
   };
+
+  if (backHandlerRef) backHandlerRef.current = handleBack;
 
   const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const y = e.nativeEvent.contentOffset.y;
@@ -132,7 +150,7 @@ export function FeatureScreen({
       <View
         style={[
           styles.headerContainer,
-          { paddingTop: Math.max(insets.top, 12) },
+          { paddingTop: Math.max(insets.top, spacing.md) },
           scrolled && styles.headerBorder,
         ]}
       >
@@ -154,7 +172,7 @@ export function FeatureScreen({
             disabled={isProcessing}
             onPress={handleBack}
             style={[styles.backButton, isProcessing && { opacity: 0.3 }]}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            hitSlop={spacing.sm}
           >
             <ChevronLeft size={24} color={colors.ink} />
             <Text variant="bodyStrong" color={colors.ink} style={styles.backLabel}>
@@ -193,7 +211,11 @@ export function FeatureScreen({
           style={styles.scrollView}
           contentContainerStyle={[
             styles.scrollContent,
-            { paddingBottom: footer ? 100 + insets.bottom : spacing.xl + insets.bottom },
+            {
+              paddingBottom: footer
+                ? FOOTER_CLEARANCE + insets.bottom
+                : spacing.xl + insets.bottom,
+            },
             contentContainerStyle,
           ]}
           keyboardShouldPersistTaps="handled"
@@ -205,7 +227,12 @@ export function FeatureScreen({
 
         {/* Sticky Footer */}
         {footer ? (
-          <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+          <View
+            style={[
+              styles.footer,
+              { paddingBottom: Math.max(insets.bottom, spacing.base) },
+            ]}
+          >
             {footer}
           </View>
         ) : null}
@@ -216,6 +243,9 @@ export function FeatureScreen({
     </View>
   );
 }
+
+// Footer = control height + top and bottom padding.
+const FOOTER_CLEARANCE = size.control + spacing.base * 2;
 
 const styles = StyleSheet.create({
   root: {
@@ -234,20 +264,20 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   headerBar: {
-    height: 56,
+    minHeight: size.touch + spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
+    paddingHorizontal: spacing.screenSide,
   },
   backButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    minHeight: 44,
-    minWidth: 44,
+    minHeight: size.touch,
+    minWidth: size.touch,
   },
   backLabel: {
-    marginLeft: 2,
+    marginLeft: spacing.xs,
   },
   headerTitleBox: {
     flex: 1,
@@ -256,12 +286,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
   },
   headerTrailing: {
-    minWidth: 44,
+    minWidth: size.touch,
     alignItems: 'flex-end',
     justifyContent: 'center',
   },
   placeholder: {
-    width: 44,
+    width: size.touch,
   },
   keyboardContainer: {
     flex: 1,
@@ -270,16 +300,16 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 20,
+    paddingHorizontal: spacing.screenSide,
     paddingTop: spacing.base,
-    gap: 24,
+    gap: spacing.xl,
   },
   footer: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    paddingHorizontal: 20,
+    paddingHorizontal: spacing.screenSide,
     paddingTop: spacing.base,
     backgroundColor: colors.canvas,
     borderTopWidth: StyleSheet.hairlineWidth,

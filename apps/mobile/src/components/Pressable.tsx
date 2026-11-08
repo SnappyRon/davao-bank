@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   Pressable as RNPressable,
   Animated,
@@ -21,6 +21,8 @@ export interface PressableProps {
   onLongPress?: (event: GestureResponderEvent) => void;
   disabled?: boolean;
   feedbackType?: PressFeedbackType;
+  /** Scale while pressed for `feedbackType='scale'`. Default 0.97 (Button uses 0.98). */
+  pressedScale?: number;
   hitSlop?: Insets | number;
   style?: StyleProp<ViewStyle> | ((state: { pressed: boolean }) => StyleProp<ViewStyle>);
   children?: React.ReactNode | ((state: { pressed: boolean }) => React.ReactNode);
@@ -36,6 +38,11 @@ export interface PressableProps {
 }
 
 const DEFAULT_HIT_SLOP: Insets = { top: 8, bottom: 8, left: 8, right: 8 };
+const HIGHLIGHT_OPACITY = 0.6;
+
+// The animated node IS the pressable surface, so the caller's style (row
+// layout, background, border) is applied to the element that scales.
+const AnimatedPressable = Animated.createAnimatedComponent(RNPressable);
 
 export function Pressable({
   accessibilityRole,
@@ -46,6 +53,7 @@ export function Pressable({
   onLongPress,
   disabled = false,
   feedbackType = 'scale',
+  pressedScale = 0.97,
   hitSlop = DEFAULT_HIT_SLOP,
   style,
   children,
@@ -55,11 +63,14 @@ export function Pressable({
 }: PressableProps) {
   const reduceMotion = useReducedMotion();
   const scaleAnim = useRef(new Animated.Value(1)).current;
+  const [pressed, setPressed] = useState(false);
+  const animateScale = feedbackType === 'scale' && !reduceMotion;
 
   const handlePressIn = (e: GestureResponderEvent) => {
-    if (!disabled && feedbackType === 'scale' && !reduceMotion) {
+    setPressed(true);
+    if (!disabled && animateScale) {
       Animated.timing(scaleAnim, {
-        toValue: 0.97,
+        toValue: pressedScale,
         duration: 100,
         useNativeDriver: true,
       }).start();
@@ -68,7 +79,8 @@ export function Pressable({
   };
 
   const handlePressOut = (e: GestureResponderEvent) => {
-    if (!disabled && feedbackType === 'scale' && !reduceMotion) {
+    setPressed(false);
+    if (!disabled && animateScale) {
       Animated.timing(scaleAnim, {
         toValue: 1,
         duration: 150,
@@ -78,8 +90,14 @@ export function Pressable({
     onPressOut?.(e);
   };
 
+  const resolvedStyle = typeof style === 'function' ? style({ pressed }) : style;
+  const highlight =
+    feedbackType === 'highlight' && pressed && !disabled
+      ? { opacity: HIGHLIGHT_OPACITY }
+      : null;
+
   return (
-    <RNPressable
+    <AnimatedPressable
       accessibilityRole={accessibilityRole}
       accessibilityLabel={accessibilityLabel}
       accessibilityState={{ disabled: Boolean(disabled), ...accessibilityState }}
@@ -91,23 +109,13 @@ export function Pressable({
       onPressOut={handlePressOut}
       onLongPress={onLongPress}
       testID={testID}
-      style={(state) => {
-        const resolvedStyle = typeof style === 'function' ? style(state) : style;
-        return resolvedStyle;
-      }}
+      style={[
+        resolvedStyle,
+        highlight,
+        animateScale ? { transform: [{ scale: scaleAnim }] } : null,
+      ]}
     >
-      {(state) => {
-        const resolvedChildren =
-          typeof children === 'function' ? children(state) : children;
-        if (feedbackType === 'scale' && !reduceMotion) {
-          return (
-            <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
-              {resolvedChildren}
-            </Animated.View>
-          );
-        }
-        return resolvedChildren;
-      }}
-    </RNPressable>
+      {typeof children === 'function' ? children({ pressed }) : children}
+    </AnimatedPressable>
   );
 }
