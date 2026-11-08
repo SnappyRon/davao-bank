@@ -1,3 +1,8 @@
+import {
+  signInWithStepUp,
+  withStepUpCleanup,
+  requireStepUpMigration,
+} from './lib/step-up';
 /**
  * Davao Bank — Phase 5 Stage B: Everyday Extras Verification Suite
  *
@@ -35,7 +40,7 @@ if (!TEST_PASSWORD) {
   console.error(
     'NOT VERIFIED — set SEED_PASSWORD or E2E_PASSWORD for authenticated live checks.'
   );
-  process.exit(1);
+  throw new Error('Live suite failed; see checks above.');
 }
 
 const SUPABASE_URL =
@@ -74,6 +79,9 @@ function assert(category: string, condition: boolean, title: string, details?: s
 }
 
 async function runTestSuite() {
+  await requireStepUpMigration(
+    createClient(SUPABASE_URL, ANON_KEY, { auth: { persistSession: false } })
+  );
   console.log('================================================================');
   console.log('Davao Bank — Phase 5 Stage B: Everyday Extras Test Suite');
   console.log('Saved Recipients, Statements & Financial Reconciliation');
@@ -108,25 +116,25 @@ async function runTestSuite() {
 
   if (!isConnected) {
     console.error(`NOT VERIFIED — database unreachable (${host})`);
-    process.exit(1);
+    throw new Error('Live suite failed; see checks above.');
   }
 
   if (!adminClient) {
     console.error('Cannot run live database test suite without SERVICE_ROLE_KEY.');
-    process.exit(1);
+    throw new Error('Live suite failed; see checks above.');
   }
 
   try {
     // Live Database Test Path
     console.log('[1/4] Authenticating Test Users (Customer 1 & Customer 2)...');
     const cust1 = createClient(SUPABASE_URL, ANON_KEY);
-    const { data: auth1 } = await cust1.auth.signInWithPassword({
+    const { data: auth1 } = await signInWithStepUp(cust1, {
       email: 'customer1@davaobank.ph',
       password: TEST_PASSWORD,
     });
 
     const cust2 = createClient(SUPABASE_URL, ANON_KEY);
-    const { data: auth2 } = await cust2.auth.signInWithPassword({
+    const { data: auth2 } = await signInWithStepUp(cust2, {
       email: 'customer2@davaobank.ph',
       password: TEST_PASSWORD,
     });
@@ -386,8 +394,11 @@ function printSummary() {
   console.log('================================================================\n');
 
   if (failed > 0) {
-    process.exit(1);
+    throw new Error('Live suite failed; see checks above.');
   }
 }
 
-runTestSuite();
+withStepUpCleanup(runTestSuite).catch((error: Error) => {
+  console.error(error.message);
+  process.exitCode = 1;
+});

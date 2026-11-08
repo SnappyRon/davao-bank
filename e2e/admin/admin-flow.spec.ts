@@ -2,12 +2,25 @@ import { randomUUID } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 import { formatCentavosToPHP } from '@davao-bank/shared';
 import { test, expect } from '@playwright/test';
+import { checkPlaywrightPrerequisites, completeMfa, cleanupMfa } from './mfa-helper';
 
 const E2E_ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL || 'admin@davaobank.ph';
 const E2E_CUSTOMER_EMAIL = process.env.E2E_CUSTOMER_EMAIL || 'customer1@davaobank.ph';
 const E2E_PASSWORD = process.env.E2E_PASSWORD || process.env.SEED_PASSWORD || '';
 
 test.describe('Admin Console E2E Flow', () => {
+  test.beforeAll(async () => {
+    await checkPlaywrightPrerequisites();
+  });
+
+  test.afterEach(async () => {
+    await cleanupMfa();
+  });
+
+  test.afterAll(async () => {
+    await cleanupMfa();
+  });
+
   test('Non-admin user cannot access protected admin routes and gets redirected', async ({
     page,
   }) => {
@@ -39,6 +52,9 @@ test.describe('Admin Console E2E Flow', () => {
     await page.fill('input[type="email"]', E2E_ADMIN_EMAIL);
     await page.fill('input[type="password"]', E2E_PASSWORD);
     await page.click('button[type="submit"]');
+
+    // Complete MFA step-up
+    await completeMfa(page);
 
     await expect(page).toHaveURL('/');
     await expect(
@@ -141,6 +157,10 @@ test.describe('Admin Console E2E Flow', () => {
       await page.getByLabel('Staff Email Address').fill(E2E_ADMIN_EMAIL);
       await page.getByLabel('Security Password').fill(E2E_PASSWORD);
       await page.getByRole('button', { name: 'Sign In to Staff Console' }).click();
+
+      // Complete MFA step-up
+      await completeMfa(page);
+
       await expect(page).toHaveURL('/');
       await expect(
         page.getByRole('heading', { name: 'Staff Console Dashboard' })
@@ -321,6 +341,10 @@ test.describe('Admin Console E2E Flow', () => {
     await page.fill('input[type="email"]', E2E_ADMIN_EMAIL);
     await page.fill('input[type="password"]', E2E_PASSWORD);
     await page.click('button[type="submit"]');
+
+    // Complete MFA step-up
+    await completeMfa(page);
+
     await expect(page).toHaveURL('/');
     await page.goto('/users');
     await page.goto('/accounts');
@@ -334,5 +358,28 @@ test.describe('Admin Console E2E Flow', () => {
     await expect(page).toHaveURL(/\/login\?reason=idle_timeout/);
     await page.goto('/');
     await expect(page).toHaveURL(/\/login/);
+  });
+
+  test('AAL1 admin session (password only) opening / is redirected to MFA step', async ({
+    page,
+  }) => {
+    test.skip(!E2E_PASSWORD, 'E2E_PASSWORD is required');
+
+    // Sign in with password only
+    await page.goto('/login');
+    await page.fill('input[type="email"]', E2E_ADMIN_EMAIL);
+    await page.fill('input[type="password"]', E2E_PASSWORD);
+    await page.click('button[type="submit"]');
+
+    // Verify redirected to /mfa/setup or /mfa/verify
+    await expect(page).toHaveURL(/\/mfa\/(setup|verify)/);
+
+    // Attempting to navigate directly to / with aal1 session must be redirected back to MFA
+    await page.goto('/');
+    await expect(page).toHaveURL(/\/mfa\/(setup|verify)/);
+
+    // Attempting to navigate to /users with aal1 session must also be redirected to MFA
+    await page.goto('/users');
+    await expect(page).toHaveURL(/\/mfa\/(setup|verify)/);
   });
 });

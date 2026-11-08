@@ -1,3 +1,8 @@
+import {
+  signInWithStepUp,
+  withStepUpCleanup,
+  requireStepUpMigration,
+} from './lib/step-up';
 /**
  * Davao Bank — Phase 4 Admin Management Test Suite (With Phase 4 Follow-Up Invariants)
  *
@@ -37,7 +42,7 @@ if (!TEST_PASSWORD) {
   console.error(
     'NOT VERIFIED — set SEED_PASSWORD or E2E_PASSWORD for authenticated live checks.'
   );
-  process.exit(1);
+  throw new Error('Live suite failed; see checks above.');
 }
 
 const SUPABASE_URL =
@@ -76,6 +81,9 @@ function assert(category: string, condition: boolean, title: string, details?: s
 }
 
 async function runTestSuite() {
+  await requireStepUpMigration(
+    createClient(SUPABASE_URL, ANON_KEY, { auth: { persistSession: false } })
+  );
   console.log('================================================================');
   console.log('Davao Bank — Phase 4: Admin Management Verification Suite');
   console.log('Access Control, Status Transitions, Adjustments & Reversals');
@@ -110,30 +118,31 @@ async function runTestSuite() {
 
   if (!isConnected) {
     console.error(`NOT VERIFIED — database unreachable (${host})`);
-    process.exit(1);
+    throw new Error('Live suite failed; see checks above.');
   }
 
   if (!adminClient) {
     console.error('Cannot run live database test suite without SERVICE_ROLE_KEY.');
-    process.exit(1);
+    throw new Error('Live suite failed; see checks above.');
   }
 
   try {
     // 1. Authenticate Identities
     console.log('[1/8] Authenticating Customer and Staff (Admin) Sessions...');
     const customerClient = createClient(SUPABASE_URL, ANON_KEY);
-    const { data: custAuth, error: custAuthErr } =
-      await customerClient.auth.signInWithPassword({
+    const { data: custAuth, error: custAuthErr } = await signInWithStepUp(
+      customerClient,
+      {
         email: 'customer1@davaobank.ph',
         password: TEST_PASSWORD,
-      });
+      }
+    );
 
     const staffClient = createClient(SUPABASE_URL, ANON_KEY);
-    const { data: staffAuth, error: staffAuthErr } =
-      await staffClient.auth.signInWithPassword({
-        email: 'admin@davaobank.ph',
-        password: TEST_PASSWORD,
-      });
+    const { data: staffAuth, error: staffAuthErr } = await signInWithStepUp(staffClient, {
+      email: 'admin@davaobank.ph',
+      password: TEST_PASSWORD,
+    });
 
     assert(
       'Auth',
@@ -919,8 +928,11 @@ function printSummary() {
   console.log('================================================================\n');
 
   if (failed > 0) {
-    process.exit(1);
+    throw new Error('Live suite failed; see checks above.');
   }
 }
 
-runTestSuite();
+withStepUpCleanup(runTestSuite).catch((error: Error) => {
+  console.error(error.message);
+  process.exitCode = 1;
+});

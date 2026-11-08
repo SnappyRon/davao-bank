@@ -1,3 +1,8 @@
+import {
+  signInWithStepUp,
+  withStepUpCleanup,
+  requireStepUpMigration,
+} from './lib/step-up';
 /**
  * Davao Bank — Phase 2 Verification & RLS Test Suite
  *
@@ -43,7 +48,7 @@ if (!TEST_PASSWORD) {
   console.error(
     'NOT VERIFIED — set SEED_PASSWORD or E2E_PASSWORD for authenticated live checks.'
   );
-  process.exit(1);
+  throw new Error('Live suite failed; see checks above.');
 }
 
 interface TestResult {
@@ -68,6 +73,9 @@ function assert(condition: boolean, title: string, details?: string) {
 }
 
 async function runTests() {
+  await requireStepUpMigration(
+    createClient(SUPABASE_URL, ANON_KEY, { auth: { persistSession: false } })
+  );
   console.log('========================================================');
   console.log('Davao Bank Phase 2 — Comprehensive RLS & Auth Test Suite');
   console.log('========================================================\n');
@@ -96,7 +104,7 @@ async function runTests() {
 
   if (!isConnected) {
     console.error(`NOT VERIFIED — database unreachable (${host})`);
-    process.exit(1);
+    throw new Error('Live suite failed; see checks above.');
   }
 
   // 1. Anon Client Checks
@@ -174,12 +182,12 @@ async function runTests() {
   let userAId = '';
   let userBId = '';
 
-  const { data: authA, error: errA } = await customerAClient.auth.signInWithPassword({
+  const { data: authA, error: errA } = await signInWithStepUp(customerAClient, {
     email: 'customer1@davaobank.ph',
     password: TEST_PASSWORD,
   });
 
-  const { data: authB, error: errB } = await customerBClient.auth.signInWithPassword({
+  const { data: authB, error: errB } = await signInWithStepUp(customerBClient, {
     email: 'customer2@davaobank.ph',
     password: TEST_PASSWORD,
   });
@@ -276,7 +284,7 @@ async function runTests() {
     auth: { persistSession: false },
   });
 
-  const { data: authAdmin, error: errAdmin } = await adminClient.auth.signInWithPassword({
+  const { data: authAdmin, error: errAdmin } = await signInWithStepUp(adminClient, {
     email: 'admin@davaobank.ph',
     password: TEST_PASSWORD,
   });
@@ -499,11 +507,11 @@ function printSummary() {
   }
   console.log('========================================================\n');
   if (failed > 0) {
-    process.exit(1);
+    throw new Error('Live suite failed; see checks above.');
   }
 }
 
-runTests().catch((err) => {
-  console.error('Fatal error in RLS test suite:', err);
-  process.exit(1);
+withStepUpCleanup(runTests).catch((error: Error) => {
+  console.error(error.message);
+  process.exitCode = 1;
 });

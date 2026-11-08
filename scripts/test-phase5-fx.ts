@@ -1,3 +1,8 @@
+import {
+  signInWithStepUp,
+  withStepUpCleanup,
+  requireStepUpMigration,
+} from './lib/step-up';
 /**
  * Davao Bank — Phase 5 Stage E: FX Reference Rates Test Suite
  *
@@ -35,7 +40,7 @@ if (!TEST_PASSWORD) {
   console.error(
     'NOT VERIFIED — set SEED_PASSWORD or E2E_PASSWORD for authenticated live checks.'
   );
-  process.exit(1);
+  throw new Error('Live suite failed; see checks above.');
 }
 
 const SUPABASE_URL =
@@ -64,6 +69,9 @@ function assert(condition: boolean, message: string) {
 }
 
 async function runStageETests() {
+  await requireStepUpMigration(
+    createClient(SUPABASE_URL, ANON_KEY, { auth: { persistSession: false } })
+  );
   console.log('================================================================');
   console.log('Davao Bank — Phase 5 Stage E: FX Reference-Rate Test Suite');
   console.log('ECB Frankfurter Integration, RLS, Idempotency & Invariants');
@@ -94,7 +102,7 @@ async function runStageETests() {
 
   if (!liveConnected) {
     console.error(`NOT VERIFIED — database unreachable (${host})`);
-    process.exit(1);
+    throw new Error('Live suite failed; see checks above.');
   }
 
   // ----------------------------------------------------------------------------
@@ -102,12 +110,10 @@ async function runStageETests() {
   // ----------------------------------------------------------------------------
   console.log('[Live Checks] Authenticating Customer & Querying Live Rates...');
   const customerClient = createClient(SUPABASE_URL, ANON_KEY);
-  const { data: authData, error: authErr } = await customerClient.auth.signInWithPassword(
-    {
-      email: 'customer1@davaobank.ph',
-      password: TEST_PASSWORD,
-    }
-  );
+  const { data: authData, error: authErr } = await signInWithStepUp(customerClient, {
+    email: 'customer1@davaobank.ph',
+    password: TEST_PASSWORD,
+  });
 
   assert(!authErr && Boolean(authData?.user), '[Live-Auth] Customer signed in');
 
@@ -324,11 +330,11 @@ async function runStageETests() {
   console.log('================================================================\n');
 
   if (failedTests > 0) {
-    process.exit(1);
+    throw new Error('Live suite failed; see checks above.');
   }
 }
 
-runStageETests().catch((err) => {
-  console.error('Fatal test error:', err);
-  process.exit(1);
+withStepUpCleanup(runStageETests).catch((error: Error) => {
+  console.error(error.message);
+  process.exitCode = 1;
 });

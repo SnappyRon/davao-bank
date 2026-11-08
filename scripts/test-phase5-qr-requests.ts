@@ -1,3 +1,8 @@
+import {
+  signInWithStepUp,
+  withStepUpCleanup,
+  requireStepUpMigration,
+} from './lib/step-up';
 /**
  * Davao Bank — Phase 5 Stage D: QR Send & Request Money Test Suite
  * Validates QR encoding/parsing, payment requests lifecycle, run-once locks,
@@ -27,7 +32,7 @@ if (!TEST_PASSWORD) {
   console.error(
     'NOT VERIFIED — set SEED_PASSWORD or E2E_PASSWORD for authenticated live checks.'
   );
-  process.exit(1);
+  throw new Error('Live suite failed; see checks above.');
 }
 
 const SUPABASE_URL =
@@ -56,6 +61,9 @@ function assert(condition: boolean, message: string) {
 }
 
 async function runStageDTests() {
+  await requireStepUpMigration(
+    createClient(SUPABASE_URL, ANON_KEY, { auth: { persistSession: false } })
+  );
   console.log('================================================================');
   console.log('Davao Bank — Phase 5 Stage D: QR Send & Request Money Test Suite');
   console.log('QR Code Standard, Payment Requests, Run-Once & Privacy Guards');
@@ -84,7 +92,7 @@ async function runStageDTests() {
 
   if (!liveConnected) {
     console.error(`NOT VERIFIED — database unreachable (${host})`);
-    process.exit(1);
+    throw new Error('Live suite failed; see checks above.');
   }
 
   // ----------------------------------------------------------------------------
@@ -92,13 +100,13 @@ async function runStageDTests() {
   // ----------------------------------------------------------------------------
   console.log('[Live Checks] Authenticating Customer 1 & Customer 2...');
   const cust1 = createClient(SUPABASE_URL, ANON_KEY);
-  const { data: auth1, error: a1Err } = await cust1.auth.signInWithPassword({
+  const { data: auth1, error: a1Err } = await signInWithStepUp(cust1, {
     email: 'customer1@davaobank.ph',
     password: TEST_PASSWORD,
   });
 
   const cust2 = createClient(SUPABASE_URL, ANON_KEY);
-  const { data: auth2, error: a2Err } = await cust2.auth.signInWithPassword({
+  const { data: auth2, error: a2Err } = await signInWithStepUp(cust2, {
     email: 'customer2@davaobank.ph',
     password: TEST_PASSWORD,
   });
@@ -424,11 +432,11 @@ async function runStageDTests() {
   console.log('================================================================\n');
 
   if (failedTests > 0) {
-    process.exit(1);
+    throw new Error('Live suite failed; see checks above.');
   }
 }
 
-runStageDTests().catch((err) => {
-  console.error('Fatal test error:', err);
-  process.exit(1);
+withStepUpCleanup(runStageDTests).catch((error: Error) => {
+  console.error(error.message);
+  process.exitCode = 1;
 });

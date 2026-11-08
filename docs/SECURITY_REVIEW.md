@@ -82,6 +82,36 @@ This document details the security posture, threat model, control architecture, 
    - Automated 15-minute idle sign-out with user activity listeners (`mousemove`, `keydown`, `click`, `scroll`).
    - A 1-minute warning modal alerts staff before signing out and invalidating the session.
 
+### 3.4 Strong Authentication (Phase 6.5)
+
+1. **Threat Closed (Server-Enforced Step-Up):**
+   - In earlier phases, confirmation of money movements (Face ID / Touch ID / fallback password) occurred exclusively inside the mobile app client. The database stored procedures checked only that the caller held a valid authenticated session (`auth.uid()`) and owned the source account. Anyone possessing a valid session token (via token extraction, MITM interception, or unauthorized script access) could call `transfer`, `withdraw`, `pay_bill`, and other money functions directly, bypassing client UI prompts entirely.
+   - Phase 6.5 enforces step-up authentication at the database layer via `public.assert_money_step_up()` inside every outgoing money RPC: `transfer`, `withdraw`, `pay_bill`, `create_scheduled_payment`, and `pay_payment_request`. Direct RPC calls without proof of recent second-factor verification fail closed with `STEP_UP_REQUIRED` (or `STEP_UP_NOT_ENROLLED`).
+2. **5-Minute Freshness Window:**
+   - A session level of `aal2` alone is insufficient because Supabase sessions remain `aal2` until sign-out once verified.
+   - The database inspects `auth.jwt() -> 'amr'` array for entries with `method = 'totp'`, finding the maximum timestamp.
+   - If the most recent TOTP verification is older than 300 seconds (5 minutes) or absent, the transaction is rejected with `STEP_UP_EXPIRED`.
+   - The 5-minute window provides ample time to execute a transaction, inspect review screens, or replay with the same idempotency key upon transient network drop, while ensuring subsequent money movements require fresh authentication.
+3. **Emergency Switch (`security_settings.money_step_up_enabled`):**
+   - The `public.security_settings` table contains a single configuration row (`id = 1`) with `money_step_up_enabled boolean default true`.
+   - Access to `security_settings` is completely revoked from `anon` and regular `authenticated` clients; only administrative sessions (`is_admin()`) can update the flag.
+   - When set to `false`, `assert_money_step_up()` gracefully permits transactions at `aal1`, providing an immediate operational bypass in case of authenticator provider outages.
+4. **Customer Factor Reset (`public.admin_reset_user_mfa`):**
+   - If a customer loses their authenticator device or replaces their phone, administrators can invoke `admin_reset_user_mfa(target_user uuid, reason text)`.
+   - Requires an administrative session operating at `aal2`.
+   - Removes all rows from `auth.mfa_factors` for the target customer, returning their profile to `STEP_UP_NOT_ENROLLED` so they can re-enroll a new device.
+   - Requires a documented reason of at least 10 characters and records an immutable audit log entry via `write_audit`.
+5. **Admin Self-Recovery via Supabase Dashboard:**
+   - To prevent unilateral security downgrade or privilege escalation, administrators are strictly prohibited from resetting their own MFA factors through `admin_reset_user_mfa` (`target_user = auth.uid()` is rejected).
+   - If an administrator loses access to their authenticator device, recovery must be performed by a co-administrator or database owner directly through the hosted Supabase Dashboard (Authentication > Users > select user > Unenroll factor) or via secure server-side SQL console using the service role.
+6. **Rationale for Authenticator Apps (TOTP) vs. SMS:**
+   - SMS-based OTP was intentionally omitted. Telecommunications-based SMS delivery is highly vulnerable to SIM-swap fraud, SS7 network interception, carrier routing attacks, and social engineering / smishing.
+   - Davao Bank adopts RFC 6238 Time-based One-Time Password (TOTP) standards using standard authenticator apps (Google Authenticator, Microsoft Authenticator, 1Password, etc.). Secrets are generated cryptographically on-device, never transit telecommunications networks, and operate reliably without cellular reception.
+7. **Known Limitation for Automated Live Testing:**
+   - Automated live test suites (`test:money`, `test:rls`, `test:admin`, `test:extras`, `test:schedules`, `test:qr`, `test:fx`) and Playwright E2E suites dynamically enroll and clean up temporary TOTP factors on demo accounts.
+   - To prevent overwriting or tampering with human-enrolled credentials, the test harness checks whether test accounts (`customer1`, `customer2`, `admin`) already have an active, verified factor. If an existing verified factor is detected, the suite halts immediately with `NOT VERIFIED — Test account has a pre-existing authenticator`.
+   - Presenters and automated CI runners must use dedicated test accounts or unenroll temporary factors in the profile before running live test suites.
+
 ---
 
 ## 4. Phase 6 Vulnerabilities Discovered & Remediated
