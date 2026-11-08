@@ -27,6 +27,7 @@ import {
   type AccountBalance,
 } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
+import { useAppLock } from '../context/AppLockContext';
 import { useSettings } from '../context/SettingsContext';
 import { Screen, Text, Card, Badge, Button } from '../components';
 import { TwoStepSetup } from '../components/TwoStepSetup';
@@ -53,6 +54,7 @@ export function ProfileScreen({
   onProfileUpdated,
   onSignOut,
 }: ProfileScreenProps) {
+  const appLock = useAppLock();
   const { biometricEnabled, setBiometricEnabled, biometricType, isBiometricSupported } =
     useSettings();
   const [twoStepOpen, setTwoStepOpen] = useState(false);
@@ -205,6 +207,18 @@ export function ProfileScreen({
             <ChevronRight size={18} color={colors.textMuted} />
           </TouchableOpacity>
 
+          <View style={styles.menuRow}>
+            <Text variant="bodyStrong">App lock</Text>
+            <Switch
+              accessibilityLabel="App lock"
+              value={appLock.enabled}
+              onValueChange={(value) => {
+                void appLock
+                  .setEnabled(value)
+                  .catch(() => Alert.alert('Could not save app lock setting'));
+              }}
+            />
+          </View>
           {/* Biometrics Toggle Row (§B.4) */}
           <View style={styles.menuRow}>
             <View style={styles.menuIconContainer}>

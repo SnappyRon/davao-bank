@@ -21,6 +21,7 @@ import {
   type Profile,
 } from '@davao-bank/shared';
 import { supabase } from './src/lib/supabase';
+import { AppLockProvider } from './src/context/AppLockContext';
 import { SettingsProvider } from './src/context/SettingsContext';
 import { Logo, Text, PrivacyOverlay } from './src/components';
 import { HomeScreen } from './src/screens/HomeScreen';
@@ -52,6 +53,7 @@ export default function App() {
     PlusJakartaSans_800ExtraBold,
   });
 
+  const [restoredSession, setRestoredSession] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -91,6 +93,7 @@ export default function App() {
   useEffect(() => {
     // 1. Initial session check
     supabase.auth.getSession().then(({ data: { session } }) => {
+      setRestoredSession(Boolean(session));
       setSession(session);
       if (session?.user) {
         loadProfile(session.user.id);
@@ -106,6 +109,7 @@ export default function App() {
       if (session?.user) {
         loadProfile(session.user.id);
       } else {
+        setRestoredSession(false);
         setProfile(null);
       }
       setLoading(false);
@@ -214,81 +218,83 @@ export default function App() {
   }
 
   return (
-    <SettingsProvider>
-      <NavigationContainer>
-        <StatusBar style="dark" />
-        <Tab.Navigator
-          screenOptions={{
-            headerShown: false,
-            tabBarStyle: styles.tabBar,
-            tabBarActiveTintColor: colors.primary,
-            tabBarInactiveTintColor: colors.textMuted,
-            tabBarLabelStyle: styles.tabBarLabel,
-          }}
-        >
-          <Tab.Screen
-            name="HomeTab"
-            options={{
-              tabBarLabel: 'Home',
-              tabBarIcon: ({ color, size }) => <Home size={size} color={color} />,
+    <AppLockProvider key={session?.user.id} restoredSession={restoredSession}>
+      <SettingsProvider>
+        <NavigationContainer>
+          <StatusBar style="dark" />
+          <Tab.Navigator
+            screenOptions={{
+              headerShown: false,
+              tabBarStyle: styles.tabBar,
+              tabBarActiveTintColor: colors.primary,
+              tabBarInactiveTintColor: colors.textMuted,
+              tabBarLabelStyle: styles.tabBarLabel,
             }}
           >
-            {({ navigation }) => (
-              <HomeScreen
-                onNavigateToActivity={() => navigation.navigate('ActivityTab')}
-                onNavigateToProfile={() => navigation.navigate('ProfileTab')}
-              />
-            )}
-          </Tab.Screen>
+            <Tab.Screen
+              name="HomeTab"
+              options={{
+                tabBarLabel: 'Home',
+                tabBarIcon: ({ color, size }) => <Home size={size} color={color} />,
+              }}
+            >
+              {({ navigation }) => (
+                <HomeScreen
+                  onNavigateToActivity={() => navigation.navigate('ActivityTab')}
+                  onNavigateToProfile={() => navigation.navigate('ProfileTab')}
+                />
+              )}
+            </Tab.Screen>
 
-          <Tab.Screen
-            name="ActivityTab"
-            component={ActivityScreen}
-            options={{
-              tabBarLabel: 'Activity',
-              tabBarIcon: ({ color, size }) => <Receipt size={size} color={color} />,
-            }}
-          />
+            <Tab.Screen
+              name="ActivityTab"
+              component={ActivityScreen}
+              options={{
+                tabBarLabel: 'Activity',
+                tabBarIcon: ({ color, size }) => <Receipt size={size} color={color} />,
+              }}
+            />
 
-          <Tab.Screen
-            name="InboxTab"
-            options={{
-              tabBarLabel: 'Inbox',
-              tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
-              tabBarBadgeStyle: styles.badgeStyle,
-              tabBarIcon: ({ color, size }) => <Bell size={size} color={color} />,
-            }}
-          >
-            {() => <InboxScreen onUnreadCountChange={setUnreadCount} />}
-          </Tab.Screen>
+            <Tab.Screen
+              name="InboxTab"
+              options={{
+                tabBarLabel: 'Inbox',
+                tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
+                tabBarBadgeStyle: styles.badgeStyle,
+                tabBarIcon: ({ color, size }) => <Bell size={size} color={color} />,
+              }}
+            >
+              {() => <InboxScreen onUnreadCountChange={setUnreadCount} />}
+            </Tab.Screen>
 
-          <Tab.Screen
-            name="ProfileTab"
-            options={{
-              tabBarLabel: 'Profile',
-              tabBarIcon: ({ color, size }) => <User size={size} color={color} />,
-            }}
-          >
-            {({ route, navigation }) => (
-              <ProfileScreen
-                setupTwoStep={route.params?.setupTwoStep}
-                onSetupClosed={() => navigation.setParams({ setupTwoStep: false })}
-                profile={profile}
-                userEmail={session?.user?.email || null}
-                onProfileUpdated={(updated) => setProfile(updated)}
-                onSignOut={() => {
-                  setSession(null);
-                  setProfile(null);
-                  setAuthScreen('login');
-                }}
-              />
-            )}
-          </Tab.Screen>
-        </Tab.Navigator>
-      </NavigationContainer>
+            <Tab.Screen
+              name="ProfileTab"
+              options={{
+                tabBarLabel: 'Profile',
+                tabBarIcon: ({ color, size }) => <User size={size} color={color} />,
+              }}
+            >
+              {({ route, navigation }) => (
+                <ProfileScreen
+                  setupTwoStep={route.params?.setupTwoStep}
+                  onSetupClosed={() => navigation.setParams({ setupTwoStep: false })}
+                  profile={profile}
+                  userEmail={session?.user?.email || null}
+                  onProfileUpdated={(updated) => setProfile(updated)}
+                  onSignOut={() => {
+                    setSession(null);
+                    setProfile(null);
+                    setAuthScreen('login');
+                  }}
+                />
+              )}
+            </Tab.Screen>
+          </Tab.Navigator>
+        </NavigationContainer>
 
-      <PrivacyOverlay />
-    </SettingsProvider>
+        <PrivacyOverlay />
+      </SettingsProvider>
+    </AppLockProvider>
   );
 }
 

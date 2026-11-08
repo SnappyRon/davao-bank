@@ -1,25 +1,14 @@
-import { useState, useEffect } from 'react';
-import { AppState, type AppStateStatus } from 'react-native';
+import { useSyncExternalStore } from 'react';
+import { AppState } from 'react-native';
 
-/**
- * Hook to detect when the app is backgrounded or inactive (e.g., in app switcher).
- * Used to blur or overlay sensitive banking information across the root app and open modals.
- */
+const subscribe = (changed: () => void) => {
+  const subscription = AppState.addEventListener('change', changed);
+  return () => subscription.remove();
+};
+const snapshot = () =>
+  AppState.currentState === 'inactive' || AppState.currentState === 'background';
+
+/** Read the current native state on render, avoiding stale per-overlay state after a prompt closes. */
 export function useAppBackgrounded(): boolean {
-  const [isBackgrounded, setIsBackgrounded] = useState<boolean>(() => {
-    const current = AppState.currentState;
-    return current === 'inactive' || current === 'background';
-  });
-
-  useEffect(() => {
-    const sub = AppState.addEventListener('change', (nextState: AppStateStatus) => {
-      setIsBackgrounded(nextState === 'inactive' || nextState === 'background');
-    });
-
-    return () => {
-      sub.remove();
-    };
-  }, []);
-
-  return isBackgrounded;
+  return useSyncExternalStore(subscribe, snapshot, () => false);
 }
