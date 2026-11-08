@@ -1,3 +1,6 @@
+import { StepUpSetupLink } from '../components/StepUpSetupLink';
+import { retryStepUp } from '../utils/stepUpRetry';
+import { useTotpPrompt } from '../context/PasswordPromptContext';
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, Alert } from 'react-native';
 import { MinusCircle, CheckCircle2, AlertCircle } from 'lucide-react-native';
@@ -39,6 +42,7 @@ export function WithdrawModal({
   accounts,
   onWithdrawSuccess,
 }: WithdrawModalProps) {
+  const promptTotp = useTotpPrompt();
   const { hideBalance, confirmBiometricPayment } = useSettings();
 
   const [selectedAccountId, setSelectedAccountId] = useState<string>(
@@ -156,12 +160,16 @@ export function WithdrawModal({
   const executeServerWithdraw = async (centavos: number) => {
     if (!selectedAccount) return;
 
-    const { data, error } = await executeWithdraw(supabase, {
-      account: selectedAccount.account_id,
-      amount: centavos,
-      idempotency_key: idempotencyKey,
-      reference: reference.trim() || 'ATM Withdrawal',
-    });
+    const { data, error } = await retryStepUp(
+      () =>
+        executeWithdraw(supabase, {
+          account: selectedAccount.account_id,
+          amount: centavos,
+          idempotency_key: idempotencyKey,
+          reference: reference.trim() || 'ATM Withdrawal',
+        }),
+      promptTotp
+    );
 
     setLoading(false);
 
@@ -372,6 +380,7 @@ export function WithdrawModal({
           </View>
         )}
       </ScrollView>
+      <StepUpSetupLink error={errorMessage} onClose={onClose} />
     </BottomSheet>
   );
 }

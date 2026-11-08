@@ -1,3 +1,8 @@
+jest.mock('../context/PasswordPromptContext', () => ({
+  ...jest.requireActual('../context/PasswordPromptContext'),
+  useTotpPrompt: () => async () => ({ success: true }),
+}));
+jest.mock('../components/StepUpSetupLink', () => ({ StepUpSetupLink: () => null }));
 import React from 'react';
 import { render, screen, fireEvent, act, waitFor } from '@testing-library/react-native';
 import { TransferModal } from '../screens/TransferModal';

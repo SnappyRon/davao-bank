@@ -29,6 +29,7 @@ import {
 import { supabase } from '../lib/supabase';
 import { useSettings } from '../context/SettingsContext';
 import { Screen, Text, Card, Badge, Button } from '../components';
+import { TwoStepSetup } from '../components/TwoStepSetup';
 import { PersonalDetailsModal } from './PersonalDetailsModal';
 import { AboutModal } from './AboutModal';
 import { SavedRecipientsModal } from './SavedRecipientsModal';
@@ -36,6 +37,8 @@ import { ScheduledPaymentsModal } from './ScheduledPaymentsModal';
 import { PaymentRequestsModal } from './PaymentRequestsModal';
 
 interface ProfileScreenProps {
+  setupTwoStep?: boolean;
+  onSetupClosed?: () => void;
   profile: Profile | null;
   userEmail: string | null;
   onProfileUpdated?: (profile: Profile) => void;
@@ -43,6 +46,8 @@ interface ProfileScreenProps {
 }
 
 export function ProfileScreen({
+  setupTwoStep,
+  onSetupClosed,
   profile,
   userEmail,
   onProfileUpdated,
@@ -50,6 +55,7 @@ export function ProfileScreen({
 }: ProfileScreenProps) {
   const { biometricEnabled, setBiometricEnabled, biometricType, isBiometricSupported } =
     useSettings();
+  const [twoStepOpen, setTwoStepOpen] = useState(false);
   const [personalDetailsOpen, setPersonalDetailsOpen] = useState(false);
   const [savedRecipientsOpen, setSavedRecipientsOpen] = useState(false);
   const [scheduledOpen, setScheduledOpen] = useState(false);
@@ -66,10 +72,25 @@ export function ProfileScreen({
     }
   }, [requestsOpen]);
 
+  useEffect(() => {
+    if (setupTwoStep) setTwoStepOpen(true);
+  }, [setupTwoStep]);
+  const closeSetup = () => {
+    setTwoStepOpen(false);
+    onSetupClosed?.();
+  };
+
   const getInitials = (name?: string | null) => {
     if (!name) return 'DB';
     const parts = name.trim().split(/\s+/);
     if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+    if (twoStepOpen)
+      return (
+        <Screen>
+          <TwoStepSetup onClose={closeSetup} />
+        </Screen>
+      );
+
     return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
   };
 
@@ -299,6 +320,7 @@ export function ProfileScreen({
       </ScrollView>
 
       {/* Modals */}
+      <Button title="Two-step verification" onPress={() => setTwoStepOpen(true)} />
       <PersonalDetailsModal
         visible={personalDetailsOpen}
         profile={profile}

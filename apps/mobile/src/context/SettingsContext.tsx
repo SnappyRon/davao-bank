@@ -9,10 +9,15 @@ import React, {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { AppState } from 'react-native';
-import { PasswordPromptProvider, usePasswordPrompt } from './PasswordPromptContext';
+import {
+  PasswordPromptProvider,
+  usePasswordPrompt,
+  useTotpPrompt,
+} from './PasswordPromptContext';
 
 export interface ConfirmMoneyOptions {
   title?: string;
+  requireTotp?: boolean;
   message?: string;
   promptMessage?: string;
 }
@@ -104,6 +109,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
 function SettingsContent({ children }: { children: ReactNode }) {
   const promptPassword = usePasswordPrompt();
+  const promptTotp = useTotpPrompt();
   const [hideBalance, setHideBalanceState] = useState<boolean>(false);
   const [biometricEnabled, setBiometricEnabledState] = useState<boolean>(true);
   const [isBiometricSupported, setIsBiometricSupported] = useState<boolean>(false);
@@ -206,7 +212,7 @@ function SettingsContent({ children }: { children: ReactNode }) {
         options?.message ||
         'Please confirm your identity to authorize this transaction.';
 
-      return decideConfirmation({
+      const firstFactor = await decideConfirmation({
         biometricEnabled,
         isBiometricSupported,
         authenticateBiometric: async () => {
@@ -219,8 +225,11 @@ function SettingsContent({ children }: { children: ReactNode }) {
         },
         promptPassword: () => promptPassword({ title: promptTitle, message: promptMsg }),
       });
+      if (!firstFactor.success) return firstFactor;
+      if (options?.requireTotp === false) return firstFactor;
+      return promptTotp();
     },
-    [biometricEnabled, isBiometricSupported, promptPassword]
+    [biometricEnabled, isBiometricSupported, promptPassword, promptTotp]
   );
 
   const confirmBiometricPayment = useCallback(

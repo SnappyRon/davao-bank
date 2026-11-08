@@ -1,3 +1,6 @@
+import { StepUpSetupLink } from '../components/StepUpSetupLink';
+import { retryStepUp } from '../utils/stepUpRetry';
+import { useTotpPrompt } from '../context/PasswordPromptContext';
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, Alert } from 'react-native';
 import * as Haptics from 'expo-haptics';
@@ -45,6 +48,7 @@ export function PayBillsModal({
   accounts,
   onPaymentSuccess,
 }: PayBillsModalProps) {
+  const promptTotp = useTotpPrompt();
   const { confirmBiometricPayment } = useSettings();
 
   const [step, setStep] = useState<Step>('biller');
@@ -219,13 +223,17 @@ export function PayBillsModal({
 
     try {
       if (timing === 'now') {
-        const { data, error } = await supabase.rpc('pay_bill', {
-          p_from_account: selectedAccount.account_id,
-          p_biller_id: selectedBiller.id,
-          p_biller_reference: reference.trim(),
-          p_amount: centavos,
-          p_idempotency_key: idempotencyKey,
-        });
+        const { data, error } = await retryStepUp(
+          () =>
+            supabase.rpc('pay_bill', {
+              p_from_account: selectedAccount.account_id,
+              p_biller_id: selectedBiller.id,
+              p_biller_reference: reference.trim(),
+              p_amount: centavos,
+              p_idempotency_key: idempotencyKey,
+            }),
+          promptTotp
+        );
 
         if (error) {
           throw error;
@@ -239,19 +247,23 @@ export function PayBillsModal({
       } else {
         const maxRuns =
           timing === 'recurring' && maxRunsStr ? parseInt(maxRunsStr, 10) : null;
-        const { error } = await supabase.rpc('create_scheduled_payment', {
-          p_from_account: selectedAccount.account_id,
-          p_kind: 'bill',
-          p_to_account: null,
-          p_biller_id: selectedBiller.id,
-          p_biller_reference: reference.trim(),
-          p_amount: centavos,
-          p_frequency: timing === 'recurring' ? frequency : 'once',
-          p_start_date: scheduledDate,
-          p_end_date: endDate || null,
-          p_max_runs: maxRuns,
-          p_note: `Bill: ${selectedBiller.name}`,
-        });
+        const { error } = await retryStepUp(
+          () =>
+            supabase.rpc('create_scheduled_payment', {
+              p_from_account: selectedAccount.account_id,
+              p_kind: 'bill',
+              p_to_account: null,
+              p_biller_id: selectedBiller.id,
+              p_biller_reference: reference.trim(),
+              p_amount: centavos,
+              p_frequency: timing === 'recurring' ? frequency : 'once',
+              p_start_date: scheduledDate,
+              p_end_date: endDate || null,
+              p_max_runs: maxRuns,
+              p_note: `Bill: ${selectedBiller.name}`,
+            }),
+          promptTotp
+        );
 
         if (error) {
           throw error;
@@ -402,6 +414,7 @@ export function PayBillsModal({
           />
         )}
       </ScrollView>
+      <StepUpSetupLink error={errorMessage} onClose={onClose} />
     </BottomSheet>
   );
 }

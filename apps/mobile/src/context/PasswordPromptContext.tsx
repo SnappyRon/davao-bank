@@ -9,6 +9,7 @@ import React, {
   useState,
   ReactNode,
 } from 'react';
+import { TotpPromptOverlay } from '../components/TotpPromptOverlay';
 import { View } from 'react-native';
 import { PasswordPromptOverlay } from '../components/PasswordPromptOverlay';
 import { supabase } from '../lib/supabase';
@@ -16,18 +17,23 @@ import { supabase } from '../lib/supabase';
 export const PROMPT_UNAVAILABLE =
   'Could not show the confirmation prompt. Please try again.';
 type Result = { success: boolean; cancelled?: boolean; error?: string };
-type Request = { id: number; title: string; message: string };
+type Request = { id: number; title: string; message: string; factorId?: string };
 type Pending = {
   id: number;
   resolve: (result: Result) => void;
   timer: ReturnType<typeof setTimeout>;
   verifying: boolean;
+  factorId?: string;
 };
 interface PromptContext {
   request: Request | null;
   activeHost: string;
   register: (id: string) => () => void;
-  ask: (options: { title: string; message: string }) => Promise<Result>;
+  ask: (options: {
+    title: string;
+    message: string;
+    factorId?: string;
+  }) => Promise<Result>;
   acknowledge: (id: number) => void;
   confirm: (id: number, password: string) => Promise<boolean>;
   cancel: () => void;
@@ -67,7 +73,7 @@ export function PasswordPromptProvider({ children }: { children: ReactNode }) {
     [finish]
   );
   const ask = useCallback(
-    (options: { title: string; message: string }): Promise<Result> => {
+    (options: { title: string; message: string; factorId?: string }): Promise<Result> => {
       if (pending.current)
         return Promise.resolve({ success: false, error: PROMPT_UNAVAILABLE });
       return new Promise((resolve) => {
@@ -76,7 +82,13 @@ export function PasswordPromptProvider({ children }: { children: ReactNode }) {
           () => finish({ success: false, error: PROMPT_UNAVAILABLE }),
           2000
         );
-        pending.current = { id, resolve, timer, verifying: false };
+        pending.current = {
+          id,
+          resolve,
+          timer,
+          verifying: false,
+          factorId: options.factorId,
+        };
         setRequest({ id, ...options });
       });
     },
@@ -91,6 +103,19 @@ export function PasswordPromptProvider({ children }: { children: ReactNode }) {
       if (!current || current.id !== id || current.verifying) return false;
       current.verifying = true;
       try {
+        if (current.factorId) {
+          const { error } = await supabase.auth.mfa.challengeAndVerify({
+            factorId: current.factorId,
+            code: password,
+          });
+          if (error || pending.current !== current) return false;
+          const refreshed = await supabase.auth.refreshSession();
+          if (refreshed.error || pending.current !== current) return false;
+          const assurance = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+          if (assurance.error || assurance.data?.currentLevel !== 'aal2') return false;
+          finish({ success: true });
+          return true;
+        }
         const {
           data: { user },
         } = await supabase.auth.getUser();
@@ -171,6 +196,15 @@ export function PasswordPromptHost({
   const context = useContext(Context);
   if (!ready || !context?.request || context.activeHost !== hostId) return null;
   const { request } = context;
+  if (request.factorId)
+    return (
+      <TotpPromptOverlay
+        key={request.id}
+        onVisible={() => context.acknowledge(request.id)}
+        onConfirm={(code) => context.confirm(request.id, code)}
+        onCancel={context.cancel}
+      />
+    );
   return (
     <PasswordPromptOverlay
       key={request.id}
@@ -181,4 +215,31 @@ export function PasswordPromptHost({
       onCancel={context.cancel}
     />
   );
+}
+
+export function useTotpPrompt() {
+  const ask = usePasswordPrompt();
+  return useCallback(async (): Promise<Result> => {
+    try {
+      const { data, error } = await supabase.auth.mfa.listFactors();
+      if (error)
+        return {
+          success: false,
+          error: 'Could not load two-step verification. Please try again.',
+        };
+      const factor = data.totp.find((item) => item.status === 'verified');
+      if (!factor)
+        return {
+          success: false,
+          error: 'Set up two-step verification in Profile before sending money.',
+        };
+      return ask({
+        title: 'Two-step verification',
+        message: 'Enter your authenticator code.',
+        factorId: factor.id,
+      });
+    } catch {
+      return { success: false, error: PROMPT_UNAVAILABLE };
+    }
+  }, [ask]);
 }

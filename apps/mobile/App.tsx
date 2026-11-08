@@ -37,7 +37,7 @@ export type BottomTabParamList = {
   HomeTab: undefined;
   ActivityTab: undefined;
   InboxTab: undefined;
-  ProfileTab: undefined;
+  ProfileTab: { setupTwoStep?: boolean } | undefined;
 };
 
 const Tab = createBottomTabNavigator<BottomTabParamList>();
@@ -269,8 +269,10 @@ export default function App() {
               tabBarIcon: ({ color, size }) => <User size={size} color={color} />,
             }}
           >
-            {() => (
+            {({ route, navigation }) => (
               <ProfileScreen
+                setupTwoStep={route.params?.setupTwoStep}
+                onSetupClosed={() => navigation.setParams({ setupTwoStep: false })}
                 profile={profile}
                 userEmail={session?.user?.email || null}
                 onProfileUpdated={(updated) => setProfile(updated)}

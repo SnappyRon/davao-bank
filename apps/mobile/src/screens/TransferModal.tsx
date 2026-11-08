@@ -1,3 +1,6 @@
+import { StepUpSetupLink } from '../components/StepUpSetupLink';
+import { retryStepUp } from '../utils/stepUpRetry';
+import { useTotpPrompt } from '../context/PasswordPromptContext';
 import { recoverTransfer, isUncertainTransferError } from '../utils/transferRecovery';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { StyleSheet, ScrollView, Alert } from 'react-native';
@@ -51,6 +54,7 @@ export function TransferModal({
   initialNote,
   onRequestMoneyPress,
 }: TransferModalProps) {
+  const promptTotp = useTotpPrompt();
   const { hideBalance, confirmBiometricPayment } = useSettings();
 
   const [step, setStep] = useState<TransferStep>('recipient');
@@ -292,18 +296,19 @@ export function TransferModal({
     try {
       const maxRuns =
         timing === 'recurring' && maxRunsStr ? parseInt(maxRunsStr, 10) : null;
-      const { error: schedErr } = await supabase.rpc(
-        'create_scheduled_transfer_to_number',
-        {
-          p_from_account: selectedAccount.account_id,
-          p_to_account_number: recipientAccountNumber.trim(),
-          p_amount: centavos,
-          p_frequency: timing === 'recurring' ? frequency : 'once',
-          p_start_date: scheduledDate,
-          p_end_date: null,
-          p_max_runs: maxRuns,
-          p_note: reference.trim() || 'Scheduled Transfer',
-        }
+      const { error: schedErr } = await retryStepUp(
+        () =>
+          supabase.rpc('create_scheduled_transfer_to_number', {
+            p_from_account: selectedAccount.account_id,
+            p_to_account_number: recipientAccountNumber.trim(),
+            p_amount: centavos,
+            p_frequency: timing === 'recurring' ? frequency : 'once',
+            p_start_date: scheduledDate,
+            p_end_date: null,
+            p_max_runs: maxRuns,
+            p_note: reference.trim() || 'Scheduled Transfer',
+          }),
+        promptTotp
       );
 
       setLoading(false);
@@ -340,9 +345,13 @@ export function TransferModal({
       idempotency_key: idempotencyKey,
       reference: reference.trim() || 'Mobile Transfer',
     };
-    const { data, error } = await recoverTransfer(
-      () => executeTransfer(supabase, params),
-      () => setErrorMessage('Checking status…')
+    const { data, error } = await retryStepUp(
+      () =>
+        recoverTransfer(
+          () => executeTransfer(supabase, params),
+          () => setErrorMessage('Checking status…')
+        ),
+      promptTotp
     );
     setUncertain(isUncertainTransferError(error));
 
@@ -502,6 +511,7 @@ export function TransferModal({
           />
         )}
       </ScrollView>
+      <StepUpSetupLink error={errorMessage} onClose={onClose} />
     </BottomSheet>
   );
 }

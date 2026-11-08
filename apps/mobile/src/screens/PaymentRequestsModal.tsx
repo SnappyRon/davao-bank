@@ -1,3 +1,6 @@
+import { StepUpSetupLink } from '../components/StepUpSetupLink';
+import { retryStepUp } from '../utils/stepUpRetry';
+import { useTotpPrompt } from '../context/PasswordPromptContext';
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
@@ -48,6 +51,7 @@ export function PaymentRequestsModal({
   accounts,
   onPaymentSuccess,
 }: PaymentRequestsModalProps) {
+  const promptTotp = useTotpPrompt();
   const { confirmBiometricPayment, hideBalance } = useSettings();
   const [tab, setTab] = useState<RequestTab>('incoming');
   const [incomingRequests, setIncomingRequests] = useState<PaymentRequest[]>([]);
@@ -135,11 +139,15 @@ export function PaymentRequestsModal({
     }
 
     try {
-      const { error } = await supabase.rpc('pay_payment_request', {
-        p_request_id: req.id,
-        p_from_account: sourceAcc.account_id,
-        p_idempotency_key: key,
-      });
+      const { error } = await retryStepUp(
+        () =>
+          supabase.rpc('pay_payment_request', {
+            p_request_id: req.id,
+            p_from_account: sourceAcc.account_id,
+            p_idempotency_key: key,
+          }),
+        promptTotp
+      );
 
       if (error) {
         try {
@@ -449,6 +457,7 @@ export function PaymentRequestsModal({
           )}
         </ScrollView>
       </View>
+      <StepUpSetupLink error={statusMessage} onClose={onClose} />
     </BottomSheet>
   );
 }

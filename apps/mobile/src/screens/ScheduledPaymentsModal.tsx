@@ -111,6 +111,7 @@ export function ScheduledPaymentsModal({
           onPress: async () => {
             const authRes = await confirmBiometricPayment({
               title: 'Cancel Scheduled Payment',
+              requireTotp: false,
               message: 'Confirm your identity to cancel this recurring payment schedule.',
             });
             if (!authRes.success) return;

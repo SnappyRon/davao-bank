@@ -42,6 +42,7 @@ function Trigger({ result }: { result: jest.Mock }) {
           void settings
             .confirmMoneyAction({
               title: 'Test authorization',
+              requireTotp: false,
               message: 'Confirm fixture action',
             })
             .then(result);
