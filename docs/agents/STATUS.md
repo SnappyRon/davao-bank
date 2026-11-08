@@ -7,8 +7,8 @@
 - **Active phase:** Phase 7 — UI/UX Refinement & Motion.
 - **Branch:** `phase-7-ui-motion` (branched from tip of `phase-6-5-strong-auth`).
 - **Active prompt:** `Phase-7-Prompt-UI-UX-and-Motion.md`.
-- **Assigned to:** Claude Code (owner reassigned the 7A fixes on 2026-11-09; Antigravity resumes at 7B).
-- **Exact next step:** iOS simulator proof for Cash out (password → code → result, back blocked while processing) and the font check, then the Maestro flows; record in `PHASE7_REPORT.md`. Then 7A is approved and Antigravity starts 7B.0 (which includes moving Cash out to a native-stack page and wiring `FloatingTabBar` / `Sheet`).
+- **Assigned to:** Antigravity (7B). The 7A fixes were done by Claude Code on 2026-11-09.
+- **Exact next step:** Antigravity starts **Stage 7B**, beginning with 7B.0: move Cash out to a root native-stack page (delete the Modal wrapper and the `onBack` path), wire `FloatingTabBar` as `tabBar`, use `Sheet` for quick actions. Also read "Found during the device check" in `PHASE7_REPORT.md`. The 7B gate must update and run the Maestro flows.
 
 ## Stage 7A — reviewer findings (2026-11-08, Claude Code)
 
@@ -29,7 +29,7 @@ Fix these before 7B:
 2. Fixed: one guard. `FeatureScreen` has two paths: `onBack` passed (Modal host) → `handleBack` prompts once, `usePreventRemove` off; no `onBack` (stack page) → `usePreventRemove` owns Back, Android back and swipe-back. `WithdrawModal` routes `onRequestClose` through `backHandlerRef`. Step > 1 still goes to the previous step. 9 unit tests in `feature_screen_guard.test.tsx`.
 3. Fixed: `Pressable` animates the pressable surface itself (`Animated.createAnimatedComponent`), so row layouts keep working; `highlight` dims to 0.6 while pressed; Button scales to 0.98.
 4. **Deferred to 7B.0 (owner decision):** Cash out stays a `Modal` around `FeatureScreen` for 7A. 7B.0 moves it to a root native-stack page, deletes the Modal wrapper, and wires `FloatingTabBar` as `tabBar` and `Sheet` for quick actions. The 7A gate item is "exist".
-5. Open: device evidence (next step).
+5. Done: iOS simulator Cash out end to end PASS (password → code → result, back locked while processing), DB verified, font check. Maestro NOT VERIFIED (not installed; flows predate the code prompt) → 7B gate.
 6. Fixed: tokens in `FeatureScreen` and `WithdrawModal`, null-safe `navigation`, exact pins for `expo-blur` 58.0.5 and `react-native-gesture-handler` 3.3.0, and the stray blank line.
 
 ## Stage 7A Checklist
@@ -54,7 +54,7 @@ Fix these before 7B:
 - [x] **7A.4 Libraries**: install `react-native-reanimated`, `react-native-gesture-handler`, `react-native-worklets`, `expo-blur` via `npx expo install`; configure Babel & `GestureHandlerRootView`; verify in Expo Go.
 - [x] **7A Gate**:
   - [x] Contrast script over token pairs passes (text >= 4.5:1, controls/icons >= 3:1).
-  - [ ] Font check screenshot in report. (missing in `6441fc0`)
+  - [x] Font check screenshot in report. (`docs/uat-evidence/ios-7a/01-font-check-lock-screen.png`, added by the reviewer)
   - [x] No `TouchableOpacity` remains in codebase.
   - [x] Foundations work end to end: `FeatureScreen`, `Sheet`, `FloatingTabBar` exist; Cash out runs end to end with password -> code -> result with back blocked; audit in report.
   - [x] Builds pass: typecheck, lint, format:check, `expo export`.
@@ -62,14 +62,14 @@ Fix these before 7B:
 
 ## Stages
 
-| Stage                                                                         | State                                     | Commit                          |
-| ----------------------------------------------------------------------------- | ----------------------------------------- | ------------------------------- |
-| 7A — Foundations (Typeface, tokens, shared components, libraries)             | Changes requested (review 2026-11-08)     | `6441fc0`                       |
-| A — Server-enforced step-up (migration `20261110000000_phase6_5_step_up.sql`) | Reviewed ✅, applied to hosted 2026-11-08 | `05f7f34`, fix `73c31ed`        |
-| B — Mobile authenticator setup and transfer verification                      | Device-verified ✅                        | `b4ca28e`, fix `2acd017`        |
-| C — Biometric app lock                                                        | Device-verified ✅                        | `d419a19`                       |
-| D — Admin console two-step sign-in                                            | Verified ✅ (Playwright 5/5 ×3)           | `80b5699`                       |
-| E — Tests, docs and report                                                    | Reviewed ✅, live-verified                | `6382358`, test fixes (see log) |
+| Stage                                                                         | State                                       | Commit                                |
+| ----------------------------------------------------------------------------- | ------------------------------------------- | ------------------------------------- |
+| 7A — Foundations (Typeface, tokens, shared components, libraries)             | Approved ✅ (2026-11-09), Maestro → 7B gate | `6441fc0`, fixes `b6d09e4`, `93cb757` |
+| A — Server-enforced step-up (migration `20261110000000_phase6_5_step_up.sql`) | Reviewed ✅, applied to hosted 2026-11-08   | `05f7f34`, fix `73c31ed`              |
+| B — Mobile authenticator setup and transfer verification                      | Device-verified ✅                          | `b4ca28e`, fix `2acd017`              |
+| C — Biometric app lock                                                        | Device-verified ✅                          | `d419a19`                             |
+| D — Admin console two-step sign-in                                            | Verified ✅ (Playwright 5/5 ×3)             | `80b5699`                             |
+| E — Tests, docs and report                                                    | Reviewed ✅, live-verified                  | `6382358`, test fixes (see log)       |
 
 ### Reviewer verification (2026-11-08)
 
@@ -103,6 +103,8 @@ Fix these before 7B:
 - **Follow-up:** add dedicated test accounts so live tests don't conflict with the presenter's real authenticator.
 
 ## Log (newest first)
+
+- **2026-11-09, Claude Code (reviewer):** found that `6441fc0` crashed on launch (no `SafeAreaProvider`) and fixed it in `93cb757`. iOS simulator: Cash out PASS end to end (owner entered the password and code), DB read-only check PASS. **Stage 7A approved.** Maestro moves to the 7B gate.
 
 - **2026-11-09, Claude Code:** the owner reassigned the 7A fixes to Claude Code after Antigravity lost access to the repo files. Fixed items 1, 2, 3 and 6 and deferred item 4 to 7B.0. Gate: typecheck 0 errors, lint 0 errors (97 warnings), format clean, unit 84/84 (9 new), db 90/90, contrast 31/31, tokens match, 0 TouchableOpacity, iOS `expo export` bundled.
 

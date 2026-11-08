@@ -194,3 +194,54 @@ Static code analysis and layout inspection revealed the structural causes of awk
 - **Typecheck:** Clean 0 errors across mobile, admin, and shared (`typecheck`).
 - **Lint:** 0 errors across the repository (`lint`).
 - **Build / Bundle:** `npx expo export` bundles cleanly for iOS, Android, and Web with 0 errors.
+
+---
+
+## Stage 7A — Reviewer verification and fixes (Claude Code, 2026-11-09)
+
+The review of `6441fc0` requested changes (see `docs/agents/STATUS.md`). The owner reassigned the fixes to Claude Code.
+
+### Commits
+
+- `b6d09e4` Phase 7 · Fix — Stage 7A review findings: hidden balance masked on the Cash out result; one back guard in `FeatureScreen` (Modal path via `onBack` + `backHandlerRef`, stack path via `usePreventRemove`); `Pressable` animates the pressable surface (row layouts work), `highlight` implemented, Button scale 0.98; token values; exact pins for `expo-blur` 58.0.5 and `react-native-gesture-handler` 3.3.0; 9 guard unit tests.
+- `93cb757` Phase 7 · Fix — app crashes on launch without SafeAreaProvider. **`6441fc0` did not open**: `ToastProvider` calls `useSafeAreaInsets()` with no provider above it (render error on launch, evidence `00-crash-before-fix-6441fc0.png`). The earlier "app opens in Expo Go" claim was not true.
+
+### Gate (re-run after the fixes)
+
+| Check                                                      | Result                                                                                                                                                                                                                                |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run typecheck`                                        | 0 errors                                                                                                                                                                                                                              |
+| `npm run lint`                                             | 0 errors, 97 warnings                                                                                                                                                                                                                 |
+| `npm run format:check`                                     | All matched files use Prettier code style                                                                                                                                                                                             |
+| `npm run test:unit`                                        | 15 suites, 84/84 (9 new in `feature_screen_guard.test.tsx`)                                                                                                                                                                           |
+| `npm run test:db`                                          | 90 passed, 0 failed                                                                                                                                                                                                                   |
+| `scripts/check-contrast.ts`                                | 31/31 token pairs pass                                                                                                                                                                                                                |
+| `scripts/verify-tokens.ts`                                 | globals.css matches shared tokens                                                                                                                                                                                                     |
+| `TouchableOpacity` grep                                    | 0                                                                                                                                                                                                                                     |
+| `expo export --platform ios`                               | iOS bundled (3801 modules)                                                                                                                                                                                                            |
+| App opens in Expo Go (iOS 26 simulator, iPhone 17 Pro Max) | PASS after `93cb757`                                                                                                                                                                                                                  |
+| Maestro (`e2e/mobile`)                                     | **NOT VERIFIED** — Maestro is not installed on this machine, and the flows predate the authenticator-code prompt (customer1 now has a real authenticator). Updating and running them moves to the 7B gate, which already requires it. |
+
+### iOS simulator — Cash out as a `FeatureScreen` (evidence in `docs/uat-evidence/ios-7a/`)
+
+| #   | Check                                                                                                                                         | Result |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| 01  | Font: Plus Jakarta Sans renders at the real weights                                                                                           | PASS   |
+| 02  | Dirty step 1 → Back shows exactly **one** "Discard changes?" prompt; Keep editing keeps the input                                             | PASS   |
+| 03  | Step 2 (Review) → Back returns to step 1 with the amount kept                                                                                 | PASS   |
+| 04  | Authorize → password prompt renders inside the feature screen; Back is disabled while processing                                              | PASS   |
+| 05  | Password → authenticator code (entered by the owner) → result screen                                                                          | PASS   |
+| —   | Database (read-only): transaction `fd27ad74-…` type `withdrawal`, status `completed`, one ledger debit of 100 centavos on customer1's account | PASS   |
+
+No password or code was typed by an agent or written to any file.
+
+### Deferred to 7B.0 (owner decision)
+
+- Cash out moves from a `Modal` to a root native-stack page (`presentation: 'card'`); the Modal wrapper and the `onBack` path then go away.
+- `FloatingTabBar` is wired as the tab navigator's `tabBar`; `Sheet` replaces `BottomSheet` for quick actions.
+
+### Found during the device check (for 7B)
+
+- With the amount field focused, the first tap on Back only blurs the field; a second tap is needed. Use `keyboardShouldPersistTaps` on the header path or dismiss and act on the same tap.
+- Wording: the result says "Cash Out Successful" in the header but "Cash-out Prepared" in the body; the Review button says "Authorize Cash-out". Unify the wording and casing in 7B.
+- The result card's Transaction ID wraps under its label at this width.
