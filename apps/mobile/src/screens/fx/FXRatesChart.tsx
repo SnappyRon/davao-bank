@@ -15,7 +15,7 @@ import Svg, {
   Circle,
   Text as SvgText,
 } from 'react-native-svg';
-import { colors, radius, spacing, formatFXRate } from '@davao-bank/shared';
+import { colors, radius, spacing, formatFXRate, typography } from '@davao-bank/shared';
 import { Text } from '../../components/Text';
 import { Skeleton } from '../../components/Skeleton';
 
@@ -170,7 +170,7 @@ export function FXRatesChart({
               y={CHART_PADDING.top - 5}
               textAnchor="end"
               fontSize="11"
-              fontWeight="600"
+              style={{ fontWeight: typography.bodyStrong.fontWeight }}
               fill={colors.textSecondary}
             >
               ₱{formatFXRate(chartData.maxVal, baseCurrency)}
@@ -180,7 +180,7 @@ export function FXRatesChart({
               y={CHART_HEIGHT - 6}
               textAnchor="end"
               fontSize="11"
-              fontWeight="600"
+              style={{ fontWeight: typography.bodyStrong.fontWeight }}
               fill={colors.textMuted}
             >
               ₱{formatFXRate(chartData.minVal, baseCurrency)}
