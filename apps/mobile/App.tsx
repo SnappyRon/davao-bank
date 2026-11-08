@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, StyleSheet, ActivityIndicator, Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as ScreenCapture from 'expo-screen-capture';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
@@ -284,7 +285,9 @@ export default function App() {
 
   return (
     <GestureHandlerRootView style={styles.root}>
-      <ToastProvider>{content}</ToastProvider>
+      <SafeAreaProvider>
+        <ToastProvider>{content}</ToastProvider>
+      </SafeAreaProvider>
     </GestureHandlerRootView>
   );
 }
