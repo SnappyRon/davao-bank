@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, StyleSheet, ScrollView, Alert, Switch } from 'react-native';
 import {
   User,
@@ -11,12 +11,18 @@ import {
   CalendarClock,
   Inbox,
 } from 'lucide-react-native';
-import { colors, spacing, radius, type Profile } from '@davao-bank/shared';
+import {
+  colors,
+  spacing,
+  radius,
+  fetchUserProfile,
+  type Profile,
+} from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
 import { useAppLock } from '../context/AppLockContext';
 import { useSettings } from '../context/SettingsContext';
 import { Screen, Text, Card, Badge, Button, Pressable } from '../components';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../App';
 import { SavedRecipientsModal } from './SavedRecipientsModal';
@@ -32,7 +38,7 @@ interface ProfileScreenProps {
 export function ProfileScreen({
   profile,
   userEmail,
-  onProfileUpdated: _onProfileUpdated,
+  onProfileUpdated,
   onSignOut,
 }: ProfileScreenProps) {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -42,6 +48,31 @@ export function ProfileScreen({
   const [savedRecipientsOpen, setSavedRecipientsOpen] = useState(false);
   const [scheduledOpen, setScheduledOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      async function reloadProfile() {
+        try {
+          const {
+            data: { user },
+          } = await supabase.auth.getUser();
+          if (user && active) {
+            const { data } = await fetchUserProfile(supabase, user.id);
+            if (data && active && onProfileUpdated) {
+              onProfileUpdated(data);
+            }
+          }
+        } catch (err) {
+          console.warn('Failed to refetch profile on focus:', err);
+        }
+      }
+      void reloadProfile();
+      return () => {
+        active = false;
+      };
+    }, [onProfileUpdated])
+  );
 
   const getInitials = (name?: string | null) => {
     if (!name) return 'DB';

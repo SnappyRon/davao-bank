@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
@@ -10,17 +10,29 @@ import {
   radius,
   formatCentavosToPHP,
   fetchAccountBalances,
+  toUserMessage,
   type AccountBalance,
   type AccountStatement,
 } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
-import { FeatureScreen, Text, Button, Card, Chip, TextField } from '../components';
+import { useSettings } from '../context/SettingsContext';
+import {
+  FeatureScreen,
+  Text,
+  Button,
+  Card,
+  Chip,
+  TextField,
+  AmountText,
+} from '../components';
 
 type PeriodOption = 'this_month' | 'last_month' | 'last_3_months' | 'custom';
 
 export function ExportStatementScreen() {
+  const { hideBalance } = useSettings();
   const [accounts, setAccounts] = useState<AccountBalance[]>([]);
   const [loadingAccounts, setLoadingAccounts] = useState(true);
+  const [accountError, setAccountError] = useState<string | null>(null);
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
   const [period, setPeriod] = useState<PeriodOption>('this_month');
   const [customFrom, setCustomFrom] = useState('');
@@ -30,31 +42,45 @@ export function ExportStatementScreen() {
   const [loadingCsv, setLoadingCsv] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const mountedRef = useRef(true);
+
   useEffect(() => {
-    let mounted = true;
-    async function load() {
-      try {
-        setLoadingAccounts(true);
-        const { data, error: accErr } = await fetchAccountBalances(supabase);
-        if (accErr) {
-          setError(accErr);
-        } else if (data && data.length > 0 && mounted) {
-          setAccounts(data);
-          setSelectedAccountId(data[0].account_id);
-        }
-      } catch (err: unknown) {
-        if (mounted) {
-          setError(err instanceof Error ? err.message : 'Failed to load accounts');
-        }
-      } finally {
-        if (mounted) setLoadingAccounts(false);
-      }
-    }
-    load();
+    mountedRef.current = true;
     return () => {
-      mounted = false;
+      mountedRef.current = false;
     };
   }, []);
+
+  const loadAccounts = useCallback(async () => {
+    try {
+      if (mountedRef.current) {
+        setLoadingAccounts(true);
+        setAccountError(null);
+      }
+      const { data, error: accErr } = await fetchAccountBalances(supabase);
+      if (!mountedRef.current) return;
+      if (accErr) {
+        setAccountError(toUserMessage(accErr));
+      } else if (data && data.length > 0) {
+        setAccounts(data);
+        setSelectedAccountId(data[0].account_id);
+      } else {
+        setAccounts([]);
+      }
+    } catch (err: unknown) {
+      if (mountedRef.current) {
+        setAccountError(toUserMessage(err));
+      }
+    } finally {
+      if (mountedRef.current) {
+        setLoadingAccounts(false);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadAccounts();
+  }, [loadAccounts]);
 
   const selectedAccount =
     accounts.find((a) => a.account_id === selectedAccountId) || accounts[0];
@@ -82,7 +108,7 @@ export function ExportStatementScreen() {
 
   const fetchStatementData = async (): Promise<AccountStatement> => {
     if (!selectedAccount) {
-      throw new Error('No account selected');
+      throw new Error(toUserMessage('No account selected'));
     }
     const { from, to } = calculateDateRange();
     if (!from || !to) {
@@ -96,10 +122,10 @@ export function ExportStatementScreen() {
     });
 
     if (rpcErr) {
-      throw new Error(rpcErr.message);
+      throw new Error(toUserMessage(rpcErr));
     }
     if (!data) {
-      throw new Error('No statement data returned from server');
+      throw new Error(toUserMessage('No statement data returned from server'));
     }
 
     return data as AccountStatement;
@@ -233,8 +259,7 @@ export function ExportStatementScreen() {
         Alert.alert('Statement Ready', `Generated PDF statement at: ${uri}`);
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to export PDF';
-      setError(msg);
+      setError(toUserMessage(err));
     } finally {
       setLoadingPdf(false);
     }
@@ -299,8 +324,7 @@ export function ExportStatementScreen() {
         Alert.alert('Statement Ready', `Generated CSV statement at: ${fileUri}`);
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to export CSV';
-      setError(msg);
+      setError(toUserMessage(err));
     } finally {
       setLoadingCsv(false);
     }
@@ -320,6 +344,29 @@ export function ExportStatementScreen() {
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="small" color={colors.primary} />
         </View>
+      ) : accountError ? (
+        <View style={styles.loadErrorContainer}>
+          <AlertCircle size={24} color={colors.redText} />
+          <Text
+            variant="body"
+            color={colors.redText}
+            accessibilityRole="alert"
+            style={styles.loadErrorText}
+          >
+            {accountError}
+          </Text>
+          <Button
+            title="Try again"
+            variant="secondary"
+            onPress={() => void loadAccounts()}
+          />
+        </View>
+      ) : accounts.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Text variant="body" color={colors.textSecondary} align="center">
+            No accounts found.
+          </Text>
+        </View>
       ) : (
         <>
           {/* Account Selector */}
@@ -331,10 +378,13 @@ export function ExportStatementScreen() {
               <View style={styles.accountRow}>
                 {accounts.map((acc) => {
                   const isSelected = acc.account_id === selectedAccount?.account_id;
+                  const capitalizedType = acc.type
+                    ? acc.type.charAt(0).toUpperCase() + acc.type.slice(1)
+                    : 'Account';
                   return (
                     <Chip
                       key={acc.account_id}
-                      label={`${acc.type} · ${acc.account_number.slice(-4)}`}
+                      label={`${capitalizedType} •• ${acc.account_number.slice(-4)}`}
                       selected={isSelected}
                       onPress={() => setSelectedAccountId(acc.account_id)}
                     />
@@ -407,9 +457,19 @@ export function ExportStatementScreen() {
                 <Text variant="caption" color={colors.textSecondary}>
                   Current Balance:
                 </Text>
-                <Text variant="bodyStrong" color={colors.primary} tabularNums>
-                  {formatCentavosToPHP(selectedAccount.balance || 0)}
-                </Text>
+                {selectedAccount.balance == null ? (
+                  <Text variant="bodyStrong" color={colors.ink}>
+                    —
+                  </Text>
+                ) : (
+                  <AmountText
+                    amountCentavos={selectedAccount.balance}
+                    hidden={hideBalance}
+                    variant="bodyStrong"
+                    color={colors.primary}
+                    showSign={false}
+                  />
+                )}
               </View>
             </Card>
           ) : null}
@@ -456,6 +516,18 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xl,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  loadErrorContainer: {
+    paddingVertical: spacing.xl,
+    alignItems: 'center',
+    gap: spacing.base,
+  },
+  loadErrorText: {
+    textAlign: 'center',
+  },
+  emptyContainer: {
+    paddingVertical: spacing.xl,
+    alignItems: 'center',
   },
   subtitle: {
     marginBottom: spacing.md,

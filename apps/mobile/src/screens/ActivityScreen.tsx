@@ -9,10 +9,8 @@ import {
   spacing,
   radius,
   fetchTransactionHistory,
-  fetchAccountBalances,
   typeLabel,
   type TransactionHistoryItem,
-  type AccountBalance,
 } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
 import {
@@ -34,29 +32,18 @@ export type ActivityFilter =
   | 'reversal'
   | 'bill_payment';
 
-interface ActivityScreenProps {
-  onExportStatement?: () => void;
-}
-
-export function ActivityScreen({ onExportStatement }: ActivityScreenProps) {
+export function ActivityScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [transactions, setTransactions] = useState<TransactionHistoryItem[]>([]);
-  const [accounts, setAccounts] = useState<AccountBalance[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [selectedFilter, setSelectedFilter] = useState<ActivityFilter>('all');
 
   const loadHistory = useCallback(async () => {
     try {
-      const [txRes, accRes] = await Promise.all([
-        fetchTransactionHistory(supabase),
-        fetchAccountBalances(supabase),
-      ]);
+      const txRes = await fetchTransactionHistory(supabase);
       if (!txRes.error && txRes.data) {
         setTransactions(txRes.data);
-      }
-      if (!accRes.error && accRes.data) {
-        setAccounts(accRes.data);
       }
     } catch (err) {
       console.warn('Failed to fetch activity history:', err);
@@ -136,13 +123,7 @@ export function ActivityScreen({ onExportStatement }: ActivityScreenProps) {
         <View style={styles.headerTitleRow}>
           <Text variant="h1">Activity</Text>
           <Pressable
-            onPress={() => {
-              if (onExportStatement) {
-                onExportStatement();
-              } else {
-                navigation.navigate('ExportStatement');
-              }
-            }}
+            onPress={() => navigation.navigate('ExportStatement')}
             style={styles.exportButton}
             feedbackType="scale"
             accessibilityRole="button"

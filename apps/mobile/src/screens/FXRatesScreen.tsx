@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Info, AlertCircle } from 'lucide-react-native';
 import {
   colors,
   radius,
   spacing,
+  toUserMessage,
   type FXRate,
   type FXPair,
   type FXPeriod,
@@ -15,6 +16,7 @@ import {
 import { Text } from '../components/Text';
 import { Card } from '../components/Card';
 import { FeatureScreen } from '../components/FeatureScreen';
+import { Button } from '../components/Button';
 import { supabase } from '../lib/supabase';
 import {
   FXRatesChart,
@@ -32,15 +34,20 @@ export function FXRatesScreen() {
   const [allRates, setAllRates] = useState<FXRate[]>([]);
   const [loading, setLoading] = useState(true);
   const [isCachedData, setIsCachedData] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [scrubIndex, setScrubIndex] = useState<number | null>(null);
+
+  const requestIdRef = useRef(0);
 
   const currentPairMeta = useMemo(() => {
     return PAIR_OPTIONS.find((p) => p.pair === selectedPair) || PAIR_OPTIONS[0];
   }, [selectedPair]);
 
   const loadFXRates = useCallback(async () => {
+    const currentRequestId = ++requestIdRef.current;
     try {
       setLoading(true);
+      setLoadError(null);
       const { data, error } = await supabase
         .from('fx_rates')
         .select('*')
@@ -48,20 +55,32 @@ export function FXRatesScreen() {
         .eq('quote', 'PHP')
         .order('rate_date', { ascending: true });
 
+      if (requestIdRef.current !== currentRequestId) return;
+
       if (error) {
         console.warn('Failed to load fx rates from Supabase:', error.message);
-        setIsCachedData(true);
+        setAllRates([]);
+        setIsCachedData(false);
+        setLoadError(toUserMessage(error));
       } else if (data && data.length > 0) {
         setAllRates(data as FXRate[]);
         setIsCachedData(false);
+        setLoadError(null);
       } else {
         setAllRates([]);
+        setIsCachedData(false);
+        setLoadError(null);
       }
-    } catch (err) {
+    } catch (err: unknown) {
+      if (requestIdRef.current !== currentRequestId) return;
       console.warn('Error fetching FX rates:', err);
-      setIsCachedData(true);
+      setAllRates([]);
+      setIsCachedData(false);
+      setLoadError(toUserMessage(err));
     } finally {
-      setLoading(false);
+      if (requestIdRef.current === currentRequestId) {
+        setLoading(false);
+      }
     }
   }, [currentPairMeta.base]);
 
@@ -159,8 +178,8 @@ export function FXRatesScreen() {
         </View>
       </Card>
 
-      {/* Cached Data Warning if offline/error */}
-      {isCachedData && (
+      {/* Cached Data Warning if offline/error and cached data displayed */}
+      {isCachedData && allRates.length > 0 && (
         <View style={styles.cachedNotice}>
           <AlertCircle size={16} color={colors.orangeText} />
           <Text
@@ -172,6 +191,26 @@ export function FXRatesScreen() {
           </Text>
         </View>
       )}
+
+      {/* Error state with Try again button */}
+      {loadError ? (
+        <View style={styles.errorContainer}>
+          <AlertCircle size={16} color={colors.redText} />
+          <Text
+            variant="caption"
+            color={colors.redText}
+            accessibilityRole="alert"
+            style={styles.errorText}
+          >
+            {loadError}
+          </Text>
+          <Button
+            title="Try again"
+            variant="secondary"
+            onPress={() => void loadFXRates()}
+          />
+        </View>
+      ) : null}
 
       {/* Pair Selector, Hero Rate Display, Period Selector */}
       <FXRatesHero
@@ -257,6 +296,18 @@ const styles = StyleSheet.create({
   },
   cachedNoticeText: {
     marginLeft: spacing.xs,
+    flex: 1,
+  },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.tintRed,
+    padding: spacing.sm,
+    borderRadius: radius.sm,
+    marginBottom: spacing.md,
+  },
+  errorText: {
     flex: 1,
   },
   calendarNoticeRow: {

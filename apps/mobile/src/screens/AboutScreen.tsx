@@ -26,7 +26,7 @@ export function AboutScreen() {
             Simulated Prototype
           </Text>
         </View>
-        <Text variant="body" color={colors.textSecondary} style={styles.cardBody}>
+        <Text variant="body" color={colors.textSecondary}>
           Davao Bank is a simulated prototype for academic use. It is not a licensed bank
           and holds no real money.
         </Text>
@@ -39,7 +39,7 @@ export function AboutScreen() {
             Brand & License
           </Text>
         </View>
-        <Text variant="body" color={colors.textSecondary} style={styles.cardBody}>
+        <Text variant="body" color={colors.textSecondary}>
           Kadayawan logo used with permission of the Davao City Tourism Operations Office.
         </Text>
         <Text variant="caption" color={colors.textMuted} style={styles.subtext}>
@@ -79,9 +79,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
     marginBottom: spacing.xs,
-  },
-  cardBody: {
-    lineHeight: 22,
   },
   subtext: {
     marginTop: spacing.xs,

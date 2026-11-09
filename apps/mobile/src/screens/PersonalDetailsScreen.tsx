@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../App';
-import { Mail, Check } from 'lucide-react-native';
+import { Mail, Check, AlertCircle } from 'lucide-react-native';
 import {
   colors,
   spacing,
@@ -24,48 +24,74 @@ export function PersonalDetailsScreen() {
   const [fullName, setFullName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    let mounted = true;
-    async function load() {
-      try {
-        setLoading(true);
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (user && mounted) {
-          setUserEmail(user.email ?? null);
-          const { data } = await fetchUserProfile(supabase, user.id);
-          if (data && mounted) {
-            setProfile(data);
-            const fn = data.full_name || '';
-            const ph = data.phone || '';
-            setFullName(fn);
-            setPhoneNumber(ph);
-            setInitialFullName(fn);
-            setInitialPhoneNumber(ph);
-          }
-        }
-      } catch (err: unknown) {
-        console.warn('Failed to load profile:', err);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    }
-    load();
     return () => {
-      mounted = false;
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
     };
   }, []);
 
+  const load = useCallback(async () => {
+    try {
+      setLoading(true);
+      setLoadError(null);
+      const {
+        data: { user },
+        error: userErr,
+      } = await supabase.auth.getUser();
+
+      if (userErr) {
+        setLoadError(toUserMessage(userErr));
+        return;
+      }
+      if (!user) {
+        setLoadError(toUserMessage('Not authenticated'));
+        return;
+      }
+
+      setUserEmail(user.email ?? null);
+      const { data, error: profileErr } = await fetchUserProfile(supabase, user.id);
+
+      if (profileErr) {
+        setLoadError(toUserMessage(profileErr));
+        return;
+      }
+
+      if (data) {
+        setProfile(data);
+        const fn = data.full_name || '';
+        const ph = data.phone || '';
+        setFullName(fn);
+        setPhoneNumber(ph);
+        setInitialFullName(fn);
+        setInitialPhoneNumber(ph);
+      }
+    } catch (err: unknown) {
+      setLoadError(toUserMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
   const isDirty =
-    !loading && (fullName !== initialFullName || phoneNumber !== initialPhoneNumber);
+    !loading &&
+    !saved &&
+    (fullName !== initialFullName || phoneNumber !== initialPhoneNumber);
 
   const handleSave = async () => {
-    if (!profile) return;
+    if (!profile || saving || saved) return;
     if (!fullName.trim()) {
       setErrorMsg('Full name cannot be empty');
       return;
@@ -88,17 +114,23 @@ export function PersonalDetailsScreen() {
 
       if (error) {
         setErrorMsg(toUserMessage(error));
+        setSaving(false);
       } else if (data) {
+        const trimmedName = data.full_name ? data.full_name.trim() : '';
+        const trimmedPhone = data.phone ? data.phone.trim() : '';
         setSuccessMsg('Profile updated successfully');
-        setInitialFullName(data.full_name || '');
-        setInitialPhoneNumber(data.phone || '');
-        setTimeout(() => {
+        setFullName(trimmedName);
+        setPhoneNumber(trimmedPhone);
+        setInitialFullName(trimmedName);
+        setInitialPhoneNumber(trimmedPhone);
+        setSaving(false);
+        setSaved(true);
+        timeoutRef.current = setTimeout(() => {
           navigation.goBack();
         }, 1200);
       }
     } catch (err: unknown) {
       setErrorMsg(toUserMessage(err));
-    } finally {
       setSaving(false);
     }
   };
@@ -113,6 +145,24 @@ export function PersonalDetailsScreen() {
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="small" color={colors.primary} />
+        </View>
+      ) : loadError ? (
+        <View style={styles.loadErrorContainer}>
+          <AlertCircle size={24} color={colors.redText} />
+          <Text
+            variant="body"
+            color={colors.redText}
+            accessibilityRole="alert"
+            style={styles.loadErrorText}
+          >
+            {loadError}
+          </Text>
+          <Button
+            title="Try again"
+            variant="secondary"
+            onPress={() => void load()}
+            style={styles.retryButton}
+          />
         </View>
       ) : (
         <>
@@ -171,6 +221,7 @@ export function PersonalDetailsScreen() {
               title="Save Changes"
               onPress={handleSave}
               loading={saving}
+              disabled={!profile || saving || saved}
               style={styles.saveButton}
             />
           </View>
@@ -189,6 +240,17 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xl,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  loadErrorContainer: {
+    paddingVertical: spacing.xl,
+    alignItems: 'center',
+    gap: spacing.base,
+  },
+  loadErrorText: {
+    textAlign: 'center',
+  },
+  retryButton: {
+    minWidth: 140,
   },
   readOnlyContainer: {
     marginBottom: spacing.xs,
