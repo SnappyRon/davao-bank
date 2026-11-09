@@ -91,7 +91,18 @@ Apply in order, and record the decision in the `STATUS.md` Log:
 ## How the captain runs this (supported mechanisms)
 
 - **Implementers run in Herdr tabs** (`herdr agent start <name> --kind codex|claude|agy`, `herdr agent prompt`, `herdr agent wait --until done --until blocked`, `herdr agent read`). Permission prompts inside an implementer are approved by the owner, not by the captain.
-- **Reviewers run as Claude Code sub agents** (`.claude/agents/*.md`, started by the captain with the Agent tool, in parallel, read-only tools). This is the default.
+- **Reviewers run in their own Herdr tabs, one model per role** (owner decision, 2026-11-10), so the owner can watch them on the dashboard:
+
+  | Herdr agent name   | Role                                  | Model / CLI | Started with (read-only)                                                                    |
+  | ------------------ | ------------------------------------- | ----------- | ------------------------------------------------------------------------------------------- |
+  | `code-reviewer`    | Code Quality Reviewer                 | Claude Code | `herdr agent start code-reviewer --kind claude --pane <p> -- --agent code-quality-reviewer` |
+  | `uiux-reviewer`    | UI/UX Reviewer                        | Codex       | `herdr agent start uiux-reviewer --kind codex --pane <p> -- --sandbox read-only`            |
+  | `backend-reviewer` | Security Reviewer (backend, DB, auth) | Antigravity | `herdr agent start backend-reviewer --kind agy --pane <p> -- --mode plan`                   |
+  | (as needed)        | CI/CD Engineer                        | Claude Code | `--agent ci-cd-engineer`                                                                    |
+
+  The captain sends each one a brief with `herdr agent prompt <name> "Act as the <role> defined in docs/agents/roles/<role>.md. Review commit <hash> … Return the report format in docs/agents/WORKFLOW.md."`, waits with `herdr agent wait`, and reads the report with `herdr agent read`. Codex and Antigravity have no role-locking flag, so their read-only status comes from the sandbox / plan mode plus the brief.
+
+- **Fallback when a model is out of quota:** run that role as a Claude Code sub agent (`.claude/agents/<role>.md` via the Agent tool, read-only tools) and note the substitution in the review log.
 - **Cross-model review (optional):** the same roles exist as Codex custom agents (`.codex/agents/*.toml`). A captain running in Codex can spawn them directly. From Claude Code, the captain can run one non-interactively in read-only mode:
   `codex exec -s read-only "Act as the security-reviewer agent defined in .codex/agents/security-reviewer.toml. Review commit <hash>. Return the report format in docs/agents/WORKFLOW.md."`
   This uses the owner's Codex quota, so use it for high-risk changes only.
