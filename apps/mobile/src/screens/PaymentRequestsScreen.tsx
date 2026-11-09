@@ -1,18 +1,11 @@
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../App';
 import { StepUpSetupLink } from '../components/StepUpSetupLink';
 import { retryStepUp } from '../utils/stepUpRetry';
 import { useTotpPrompt } from '../context/PasswordPromptContext';
 import React, { useState, useEffect, useCallback } from 'react';
-import {
-  View,
-  StyleSheet,
-  ScrollView,
-  RefreshControl,
-  ActivityIndicator,
-  Alert,
-} from 'react-native';
+import { View, StyleSheet, RefreshControl, ActivityIndicator, Alert } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import {
   Send,
@@ -52,28 +45,39 @@ type RequestTab = 'incoming' | 'outgoing';
 
 export function PaymentRequestsScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const route = useRoute<RouteProp<RootStackParamList, 'PaymentRequests'>>();
   const onClose = () => navigation.goBack();
   const [accounts, setAccounts] = useState<AccountBalance[]>([]);
+  const [accountsLoading, setAccountsLoading] = useState(true);
   const [accountError, setAccountError] = useState<string | null>(null);
   const loadAccounts = useCallback(async () => {
+    setAccountsLoading(true);
     const { data, error } = await fetchAccountBalances(supabase);
     if (error) setAccountError(toUserMessage(error));
     else {
       setAccounts(data || []);
       setAccountError(null);
     }
+    setAccountsLoading(false);
   }, []);
   const onPaymentSuccess = loadAccounts;
 
   const promptTotp = useTotpPrompt();
   const { confirmBiometricPayment, hideBalance } = useSettings();
-  const [tab, setTab] = useState<RequestTab>('incoming');
+  const [tab, setTab] = useState<RequestTab>(route.params?.initialTab ?? 'incoming');
   const [incomingRequests, setIncomingRequests] = useState<PaymentRequest[]>([]);
   const [outgoingRequests, setOutgoingRequests] = useState<PaymentRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [requestsError, setRequestsError] = useState<string | null>(null);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (route.params?.initialTab) {
+      setTab(route.params.initialTab);
+    }
+  }, [route.params?.initialTab]);
 
   const loadRequests = useCallback(async () => {
     try {
@@ -96,10 +100,17 @@ export function PaymentRequestsScreen() {
           .order('created_at', { ascending: false }),
       ]);
 
-      if (inRes.data) setIncomingRequests(inRes.data as PaymentRequest[]);
-      if (outRes.data) setOutgoingRequests(outRes.data as PaymentRequest[]);
+      const reqError = inRes.error || outRes.error;
+      if (reqError) {
+        setRequestsError(toUserMessage(reqError));
+      } else {
+        if (inRes.data) setIncomingRequests(inRes.data as PaymentRequest[]);
+        if (outRes.data) setOutgoingRequests(outRes.data as PaymentRequest[]);
+        setRequestsError(null);
+      }
     } catch (err) {
       console.warn('Error loading payment requests:', err);
+      setRequestsError(toUserMessage(err));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -110,13 +121,13 @@ export function PaymentRequestsScreen() {
     setLoading(true);
     setStatusMessage(null);
     void loadAccounts();
-    loadRequests();
+    void loadRequests();
   }, [loadAccounts, loadRequests]);
 
   const onRefresh = () => {
     setRefreshing(true);
     void loadAccounts();
-    loadRequests();
+    void loadRequests();
   };
 
   const handlePay = async (req: PaymentRequest) => {
@@ -280,12 +291,22 @@ export function PaymentRequestsScreen() {
     <FeatureScreen
       isProcessing={Boolean(actionLoadingId)}
       title="Payment requests"
-      contentContainerStyle={{ flexGrow: 1 }}
+      contentContainerStyle={styles.scrollContent}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
       {accountError ? (
-        <View>
-          <Text accessibilityRole="alert">{accountError}</Text>
-          <Button title="Retry accounts" onPress={() => void loadAccounts()} />
+        <View
+          style={[styles.statusBanner, styles.statusBannerError, styles.accountErrorBox]}
+        >
+          <Text
+            variant="caption"
+            color={colors.error}
+            accessibilityRole="alert"
+            style={{ fontFamily: typography.fonts.bold }}
+          >
+            {accountError}
+          </Text>
+          <Button title="Try again" variant="ghost" onPress={() => void loadAccounts()} />
         </View>
       ) : null}
       <View style={styles.container}>
@@ -359,20 +380,35 @@ export function PaymentRequestsScreen() {
           </View>
         )}
 
-        <ScrollView
-          style={styles.listArea}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
-        >
+        <View style={styles.listArea}>
           {loading ? (
             <ActivityIndicator
               size="small"
               color={colors.primary}
               style={{ marginTop: spacing.xl }}
             />
+          ) : requestsError ? (
+            <View style={styles.errorContainer}>
+              <View style={[styles.statusBanner, styles.statusBannerError]}>
+                <Text
+                  variant="caption"
+                  color={colors.error}
+                  accessibilityRole="alert"
+                  style={{ fontFamily: typography.fonts.bold }}
+                >
+                  {requestsError}
+                </Text>
+              </View>
+              <Button
+                title="Try again"
+                variant="secondary"
+                onPress={() => {
+                  setLoading(true);
+                  setRequestsError(null);
+                  void loadRequests();
+                }}
+              />
+            </View>
           ) : tab === 'incoming' ? (
             incomingRequests.length === 0 ? (
               <EmptyState
@@ -406,7 +442,9 @@ export function PaymentRequestsScreen() {
                           color={colors.ink}
                           showSign={false}
                         />
-                        <View style={{ marginTop: 2 }}>{getStatusBadge(req.status)}</View>
+                        <View style={styles.badgeWrapper}>
+                          {getStatusBadge(req.status)}
+                        </View>
                       </View>
                     </View>
 
@@ -422,6 +460,11 @@ export function PaymentRequestsScreen() {
                           title="Pay Now"
                           variant="primary"
                           loading={actionLoadingId === req.id}
+                          disabled={
+                            actionLoadingId === req.id ||
+                            accountsLoading ||
+                            Boolean(accountError)
+                          }
                           onPress={() => handlePay(req)}
                         />
                       </View>
@@ -462,7 +505,9 @@ export function PaymentRequestsScreen() {
                         color={colors.ink}
                         showSign={false}
                       />
-                      <View style={{ marginTop: 2 }}>{getStatusBadge(req.status)}</View>
+                      <View style={styles.badgeWrapper}>
+                        {getStatusBadge(req.status)}
+                      </View>
                     </View>
                   </View>
 
@@ -480,7 +525,7 @@ export function PaymentRequestsScreen() {
               ))}
             </View>
           )}
-        </ScrollView>
+        </View>
       </View>
       <StepUpSetupLink error={statusMessage} onClose={onClose} />
     </FeatureScreen>
@@ -491,6 +536,22 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingBottom: spacing['2xl'],
+  },
+  scrollContent: {
+    flexGrow: 1,
+  },
+  accountErrorBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  errorContainer: {
+    paddingVertical: spacing.xl,
+    gap: spacing.base,
+  },
+  badgeWrapper: {
+    marginTop: spacing.xs,
   },
   tabBar: {
     flexDirection: 'row',

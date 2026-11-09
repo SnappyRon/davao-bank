@@ -2,6 +2,9 @@ import { formatCentavosToPHP } from '../types';
 
 declare const __DEV__: boolean | undefined;
 
+export const RECEIPT_NOT_FOUND_MESSAGE =
+  'Receipt unavailable. This transaction could not be found.';
+
 /**
  * Maps raw backend or Supabase errors to friendly, safe, user-facing copy.
  * Never exposes raw SQL errors, stack traces, or internal database constraints.
@@ -55,6 +58,14 @@ export function toUserMessage(
 
   if (lower.includes('no longer pending')) {
     return 'This request was already paid, declined or cancelled.';
+  }
+
+  if (
+    lower.includes('receipt unavailable') ||
+    lower.includes('receipt not found') ||
+    lower.includes('transaction could not be found')
+  ) {
+    return RECEIPT_NOT_FOUND_MESSAGE;
   }
 
   if (lower.includes('invalid login credentials')) {

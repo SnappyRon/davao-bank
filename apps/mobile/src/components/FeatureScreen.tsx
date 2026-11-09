@@ -38,6 +38,7 @@ export interface FeatureScreenProps {
   footer?: React.ReactNode;
   style?: ViewStyle;
   contentContainerStyle?: ViewStyle;
+  refreshControl?: React.ReactElement;
   /**
    * Receives this screen's back handler so a host `Modal` can route
    * `onRequestClose` (Android back) through the same single guard.
@@ -70,6 +71,7 @@ export function FeatureScreen({
   footer,
   style,
   contentContainerStyle,
+  refreshControl,
   backHandlerRef,
 }: FeatureScreenProps) {
   const insets = useSafeAreaInsets();
@@ -230,6 +232,7 @@ export function FeatureScreen({
           keyboardShouldPersistTaps="handled"
           onScroll={onScroll}
           scrollEventThrottle={16}
+          refreshControl={refreshControl}
         >
           {children}
         </ScrollView>
