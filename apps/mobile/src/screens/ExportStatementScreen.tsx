@@ -28,6 +28,18 @@ import {
 
 type PeriodOption = 'this_month' | 'last_month' | 'last_3_months' | 'custom';
 
+/** A problem with the user's input: its message is already user-facing copy. */
+class StatementInputError extends Error {
+  name = 'StatementInputError';
+}
+
+// Checked by name, not instanceof: Babel's class transform can break instanceof for Error subclasses.
+function errorMessage(err: unknown): string {
+  return err instanceof Error && err.name === 'StatementInputError'
+    ? err.message
+    : toUserMessage(err);
+}
+
 export function ExportStatementScreen() {
   const { hideBalance } = useSettings();
   const [accounts, setAccounts] = useState<AccountBalance[]>([]);
@@ -108,11 +120,11 @@ export function ExportStatementScreen() {
 
   const fetchStatementData = async (): Promise<AccountStatement> => {
     if (!selectedAccount) {
-      throw new Error(toUserMessage('No account selected'));
+      throw new StatementInputError('Choose an account first.');
     }
     const { from, to } = calculateDateRange();
     if (!from || !to) {
-      throw new Error('Please specify both start date and end date (YYYY-MM-DD)');
+      throw new StatementInputError('Enter a start and end date.');
     }
 
     const { data, error: rpcErr } = await supabase.rpc('get_account_statement', {
@@ -121,11 +133,12 @@ export function ExportStatementScreen() {
       p_to: to,
     });
 
+    // Raw errors are mapped once, in the catch blocks below.
     if (rpcErr) {
-      throw new Error(toUserMessage(rpcErr));
+      throw rpcErr;
     }
     if (!data) {
-      throw new Error(toUserMessage('No statement data returned from server'));
+      throw new Error('No statement data returned from server');
     }
 
     return data as AccountStatement;
@@ -259,7 +272,7 @@ export function ExportStatementScreen() {
         Alert.alert('Statement Ready', `Generated PDF statement at: ${uri}`);
       }
     } catch (err: unknown) {
-      setError(toUserMessage(err));
+      setError(errorMessage(err));
     } finally {
       setLoadingPdf(false);
     }
@@ -324,7 +337,7 @@ export function ExportStatementScreen() {
         Alert.alert('Statement Ready', `Generated CSV statement at: ${fileUri}`);
       }
     } catch (err: unknown) {
-      setError(toUserMessage(err));
+      setError(errorMessage(err));
     } finally {
       setLoadingCsv(false);
     }

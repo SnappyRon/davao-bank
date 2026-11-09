@@ -195,15 +195,17 @@ export function FXRatesScreen() {
       {/* Error state with Try again button */}
       {loadError ? (
         <View style={styles.errorContainer}>
-          <AlertCircle size={16} color={colors.redText} />
-          <Text
-            variant="caption"
-            color={colors.redText}
-            accessibilityRole="alert"
-            style={styles.errorText}
-          >
-            {loadError}
-          </Text>
+          <View style={styles.errorRow}>
+            <AlertCircle size={16} color={colors.redText} />
+            <Text
+              variant="caption"
+              color={colors.redText}
+              accessibilityRole="alert"
+              style={styles.errorText}
+            >
+              {loadError}
+            </Text>
+          </View>
           <Button
             title="Try again"
             variant="secondary"
@@ -299,13 +301,16 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   errorContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: spacing.sm,
     backgroundColor: colors.tintRed,
     padding: spacing.sm,
     borderRadius: radius.sm,
     marginBottom: spacing.md,
+  },
+  errorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
   errorText: {
     flex: 1,
