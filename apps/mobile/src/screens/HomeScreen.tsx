@@ -39,7 +39,6 @@ import {
   Pressable,
 } from '../components';
 import { TransferModal } from './TransferModal';
-import { DepositModal } from './DepositModal';
 import { TransactionDetailModal } from './TransactionDetailModal';
 import { SuspendedScreen } from './SuspendedScreen';
 import { PayBillsModal } from './PayBillsModal';
@@ -72,7 +71,6 @@ export function HomeScreen({
 
   // Modals
   const [isTransferOpen, setIsTransferOpen] = useState(false);
-  const [isDepositOpen, setIsDepositOpen] = useState(false);
   const [isPayBillsOpen, setIsPayBillsOpen] = useState(false);
   const [isScheduledOpen, setIsScheduledOpen] = useState(false);
   const [isQROpen, setIsQROpen] = useState(false);
@@ -283,10 +281,10 @@ export function HomeScreen({
             onPress={() => setIsQROpen(true)}
           />
           <ActionTile
-            label="Cash-in"
+            label="Add money"
             color="green"
             icon={<PlusCircle size={24} color={colors.textInverse} />}
-            onPress={() => setIsDepositOpen(true)}
+            onPress={() => navigation.navigate('AddMoney')}
           />
           <ActionTile
             label="Cash-out"
@@ -352,15 +350,6 @@ export function HomeScreen({
           setIsQROpen(true);
         }}
         onTransferSuccess={() => {
-          loadData();
-        }}
-      />
-
-      <DepositModal
-        visible={isDepositOpen}
-        onClose={() => setIsDepositOpen(false)}
-        accounts={accounts}
-        onDepositSuccess={() => {
           loadData();
         }}
       />

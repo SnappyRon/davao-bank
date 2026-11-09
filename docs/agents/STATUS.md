@@ -7,8 +7,10 @@
 - **Active phase:** Phase 7 — UI/UX Refinement & Motion.
 - **Branch:** `phase-7-ui-motion` (branched from tip of `phase-6-5-strong-auth`).
 - **Active prompt:** `Phase-7-Prompt-UI-UX-and-Motion.md`.
-- **Assigned to:** Antigravity (7B).
-- **Exact next step:** 7B.0 (cont.) — Deep links from Inbox rows to transaction receipts/requests, and migrate major features to root native stack screens.
+- **Assigned to:** Codex (7B.0 Add money and Two-step setup handoff completed).
+- **Exact next step:** 7B.0 deep links from Inbox rows + Sheet for quick actions.
+- **Last commit:** this commit, `Phase 7 · Stage 7B.0 — Add money and Two-step setup as stack pages` (previous: `9c4e2bf`).
+- **Blockers for this step:** none.
 
 ## Stage 7B Checklist
 
@@ -16,6 +18,7 @@
   - [x] Root native stack: `NavigationContainer` → native stack → `Tabs` + `FeatureScreen` pages (`presentation: 'card'`).
   - [x] Wire `FloatingTabBar` as `tabBar` on bottom-tab navigator.
   - [x] Cash out moves to root native stack screen; delete `WithdrawModal` Modal wrapper and modal `onBack` path.
+  - [x] Add money and Two-step setup move to root native-stack `FeatureScreen` pages; old modal/component and in-Profile setup path removed.
   - [ ] Deep links from Inbox rows open matching screen (receipt, request).
   - [ ] `Sheet` used for quick actions only (picker, filter, confirmations).
 - [ ] **7B.1 Home**:
@@ -167,6 +170,8 @@ Fix these before 7B:
 - **Follow-up:** add dedicated test accounts so live tests don't conflict with the presenter's real authenticator.
 
 ## Log (newest first)
+
+- **2026-11-10, Codex:** took over and retained Antigravity's uncommitted 7B.0 Add money / Two-step setup work. Fixed Profile navigation, typed StepUpSetupLink with the root stack, and corrected AuthenticatorCode import, button style and Platform import. Both pages use FeatureScreen without onBack. Compared enrollment/verify and deposit handlers against HEAD: authentication calls and deposit payload/error handling preserved; Home refreshes on focus. Checks: typecheck PASS; lint PASS (0 errors, 97 warnings); format:check PASS; unit PASS (15 suites, 84 tests). No obsolete imports remain in src, App.tsx, tests or e2e. Device flow NOT VERIFIED — limited to the four requested local checks. scripts/agent-usage.py excluded.
 
 - **2026-11-09, Claude Code (reviewer):** found that `6441fc0` crashed on launch (no `SafeAreaProvider`) and fixed it in `93cb757`. iOS simulator: Cash out PASS end to end (owner entered the password and code), DB read-only check PASS. **Stage 7A approved.** Maestro moves to the 7B gate.
 

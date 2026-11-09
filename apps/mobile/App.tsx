@@ -37,17 +37,21 @@ import { VerifyEmailScreen } from './src/screens/VerifyEmailScreen';
 import { ForgotPasswordScreen } from './src/screens/ForgotPasswordScreen';
 import { SuspendedScreen } from './src/screens/SuspendedScreen';
 import { CashOutScreen } from './src/screens/CashOutScreen';
+import { AddMoneyScreen } from './src/screens/AddMoneyScreen';
+import { TwoStepSetupScreen } from './src/screens/TwoStepSetupScreen';
 
 export type RootStackParamList = {
   Tabs: undefined;
   CashOut: undefined;
+  AddMoney: undefined;
+  TwoStepSetup: undefined;
 };
 
 export type BottomTabParamList = {
   HomeTab: undefined;
   ActivityTab: undefined;
   InboxTab: undefined;
-  ProfileTab: { setupTwoStep?: boolean } | undefined;
+  ProfileTab: undefined;
 };
 
 const RootStack = createNativeStackNavigator<RootStackParamList>();
@@ -303,12 +307,8 @@ export default function App() {
                         ),
                       }}
                     >
-                      {({ route, navigation }) => (
+                      {() => (
                         <ProfileScreen
-                          setupTwoStep={route.params?.setupTwoStep}
-                          onSetupClosed={() =>
-                            navigation.setParams({ setupTwoStep: false })
-                          }
                           profile={profile}
                           userEmail={session?.user?.email || null}
                           onProfileUpdated={(updated) => setProfile(updated)}
@@ -327,6 +327,22 @@ export default function App() {
               <RootStack.Screen
                 name="CashOut"
                 component={CashOutScreen}
+                options={{
+                  presentation: 'card',
+                  animation: 'slide_from_right',
+                }}
+              />
+              <RootStack.Screen
+                name="AddMoney"
+                component={AddMoneyScreen}
+                options={{
+                  presentation: 'card',
+                  animation: 'slide_from_right',
+                }}
+              />
+              <RootStack.Screen
+                name="TwoStepSetup"
+                component={TwoStepSetupScreen}
                 options={{
                   presentation: 'card',
                   animation: 'slide_from_right',
