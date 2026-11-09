@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, StyleSheet, ScrollView, RefreshControl } from 'react-native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import {
   Send,
   PlusCircle,
@@ -39,7 +40,6 @@ import {
 } from '../components';
 import { TransferModal } from './TransferModal';
 import { DepositModal } from './DepositModal';
-import { WithdrawModal } from './WithdrawModal';
 import { TransactionDetailModal } from './TransactionDetailModal';
 import { SuspendedScreen } from './SuspendedScreen';
 import { PayBillsModal } from './PayBillsModal';
@@ -60,6 +60,7 @@ export function HomeScreen({
   onNavigateToActivity,
   onNavigateToProfile,
 }: HomeScreenProps) {
+  const navigation = useNavigation<any>();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [accounts, setAccounts] = useState<AccountBalance[]>([]);
   const [transactions, setTransactions] = useState<TransactionHistoryItem[]>([]);
@@ -72,7 +73,6 @@ export function HomeScreen({
   // Modals
   const [isTransferOpen, setIsTransferOpen] = useState(false);
   const [isDepositOpen, setIsDepositOpen] = useState(false);
-  const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
   const [isPayBillsOpen, setIsPayBillsOpen] = useState(false);
   const [isScheduledOpen, setIsScheduledOpen] = useState(false);
   const [isQROpen, setIsQROpen] = useState(false);
@@ -148,6 +148,12 @@ export function HomeScreen({
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData])
+  );
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -286,7 +292,7 @@ export function HomeScreen({
             label="Cash-out"
             color="orange"
             icon={<MinusCircle size={24} color={colors.textInverse} />}
-            onPress={() => setIsWithdrawOpen(true)}
+            onPress={() => navigation.navigate('CashOut')}
           />
           <ActionTile
             label="Scheduled"
@@ -355,15 +361,6 @@ export function HomeScreen({
         onClose={() => setIsDepositOpen(false)}
         accounts={accounts}
         onDepositSuccess={() => {
-          loadData();
-        }}
-      />
-
-      <WithdrawModal
-        visible={isWithdrawOpen}
-        onClose={() => setIsWithdrawOpen(false)}
-        accounts={accounts}
-        onWithdrawSuccess={() => {
           loadData();
         }}
       />

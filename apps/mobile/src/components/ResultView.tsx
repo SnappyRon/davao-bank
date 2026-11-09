@@ -108,7 +108,7 @@ export function ResultView({
               <Text variant="caption" color={colors.textSecondary}>
                 {row.label}
               </Text>
-              <Text variant="bodyStrong" color={colors.ink}>
+              <Text variant="bodyStrong" color={colors.ink} style={styles.detailValue}>
                 {row.value}
               </Text>
             </View>
@@ -174,6 +174,10 @@ const styles = StyleSheet.create({
   detailRowBorder: {
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,
+  },
+  detailValue: {
+    flexShrink: 1,
+    textAlign: 'right',
   },
   actionButtons: {
     width: '100%',

@@ -24,3 +24,13 @@ export function typeLabel(type: string): string {
       return type.charAt(0).toUpperCase() + type.slice(1).replace(/_/g, ' ');
   }
 }
+
+/**
+ * Formats a transaction ID (e.g. UUID) into a clean customer reference like "DB-8F04-3910".
+ */
+export function formatReferenceId(id: string): string {
+  if (!id) return '';
+  const cleaned = id.replace(/[^a-zA-Z0-9]/g, '');
+  if (cleaned.length < 8) return `DB-${cleaned.toUpperCase()}`;
+  return `DB-${cleaned.slice(0, 4).toUpperCase()}-${cleaned.slice(4, 8).toUpperCase()}`;
+}

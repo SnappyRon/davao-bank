@@ -7,8 +7,72 @@
 - **Active phase:** Phase 7 — UI/UX Refinement & Motion.
 - **Branch:** `phase-7-ui-motion` (branched from tip of `phase-6-5-strong-auth`).
 - **Active prompt:** `Phase-7-Prompt-UI-UX-and-Motion.md`.
-- **Assigned to:** Antigravity (7B). The 7A fixes were done by Claude Code on 2026-11-09.
-- **Exact next step:** Antigravity starts **Stage 7B**, beginning with 7B.0: move Cash out to a root native-stack page (delete the Modal wrapper and the `onBack` path), wire `FloatingTabBar` as `tabBar`, use `Sheet` for quick actions. Also read "Found during the device check" in `PHASE7_REPORT.md`. The 7B gate must update and run the Maestro flows.
+- **Assigned to:** Antigravity (7B).
+- **Exact next step:** 7B.0 (cont.) — Deep links from Inbox rows to transaction receipts/requests, and migrate major features to root native stack screens.
+
+## Stage 7B Checklist
+
+- [ ] **7B.0 Navigation structure and floating tab bar (D4, D5)**:
+  - [x] Root native stack: `NavigationContainer` → native stack → `Tabs` + `FeatureScreen` pages (`presentation: 'card'`).
+  - [x] Wire `FloatingTabBar` as `tabBar` on bottom-tab navigator.
+  - [x] Cash out moves to root native stack screen; delete `WithdrawModal` Modal wrapper and modal `onBack` path.
+  - [ ] Deep links from Inbox rows open matching screen (receipt, request).
+  - [ ] `Sheet` used for quick actions only (picker, filter, confirmations).
+- [ ] **7B.1 Home**:
+  - [ ] Header: 56 pt, Logo 32, "Maayong adlaw," caption above name in `title`, Avatar 40 with 44 hit area ("Open profile").
+  - [ ] Balance card: radius 24, padding 20, `elevation.card`, pill "Savings •• 8921 ▾" opens account-picker sheet, eyebrow "AVAILABLE BALANCE", `amount` or `display` (>=400 pt), secondary line "All accounts ₱X" when 2+ accounts, eye toggle 44 hit area.
+  - [ ] Actions: 3×2 grid, gap 12. 6 compact tiles with 40 pt color disc and ink labels (14/600).
+  - [ ] Currency Watch: 64 pt row, "USD/PHP ₱63.94", change chip, "Oct 26" / "Not updated since Oct 26".
+  - [ ] Coming up: grouped card up to 3 rows shown only when items exist.
+  - [ ] Recent activity: grouped card with 5 rows and "See all".
+  - [ ] Load error: "Balance unavailable" with retry button (never ₱0.00 on error).
+- [ ] **7B.2 Lists, rows and badges**:
+  - [ ] Transaction row: `minHeight: 64`, padding 12×16, 40 pt disc, title/meta/amount layout, reads `hideBalance`.
+  - [ ] Reversals: "Reversal · Transfer to •• 8720", original row struck through with neutral "Reversed" badge.
+  - [ ] Badges: Completed (receipts only), Pending, Scheduled, Failed, Reversed/Cancelled status colors.
+  - [ ] Activity: search by note/counterparty, account filter, 36 pt chips, scrollable empty state.
+  - [ ] Inbox: type icon, sentence-case title, 2-line message, timestamp on right, 8 pt green unread dot, tap opens related transaction/request, badge count loads on start.
+  - [ ] Receipt (`TransactionDetailModal`): amount + badge centered, standard metadata rows, reference "DB-8F04-3910" with copy button, share via `expo-sharing`.
+- [ ] **7B.3 Profile**:
+  - [ ] Grouped cards: "Money", "Security" (Two-step setup row with On/Off, App lock switch, Confirm with Face ID, Change password), "Settings" (Personal details, Hide balances switch, About).
+  - [ ] Remove floating two-step button; footer has secondary Sign out button and version info.
+  - [ ] Change password via `supabase.auth.updateUser`.
+- [ ] **7B.4 One sequence for every money flow**:
+  - [ ] Input → Review → Authorize → Processing → Result flow.
+  - [ ] Review card on `surfaceSubtle`, radius 16, padding 20, eyebrow "You're sending", rows, footnote.
+  - [ ] Commit button names money ("Send ₱500.00", etc.) and transitions to busy state ("Sending…").
+  - [ ] Pay Bills: 5 steps (merge Amount + When), helper example instead of regex.
+  - [ ] Pay request: review with account picker, masked requester "•• 8921" in biometric prompt.
+  - [ ] Saved recipients: inline edit field instead of `Alert.prompt`, tap opens Transfer pre-filled.
+  - [ ] Export statement: toast "Statement ready" before share sheet.
+  - [ ] Verify email: "I've verified my email" button, 60s cooldown.
+  - [ ] Forgot password copy points to browser reset link.
+- [ ] **7B.5 ResultView**:
+  - [ ] 4 outcomes with dedicated icons, titles, haptics, details card, Done/Share/contextual actions. Everything from server response.
+- [ ] **7B.6 Responsive and accessibility**:
+  - [ ] 360 pt, 400 pt, 440 pt responsive sizing.
+  - [ ] Text scaling: `maxFontSizeMultiplier={1.4}` on amounts/tab labels.
+  - [ ] Roles and labels on all touchables, busy announcement.
+  - [ ] VoiceOver audit pass notes.
+- [ ] **7B.7 Wording**:
+  - [ ] Apply all sentence-case and wording replacements from table.
+  - [ ] No exclamation marks, no IDs, no regexes, no raw status values in money flows.
+- [ ] **7B.8 Copy audit script**:
+  - [ ] Add `scripts/check-copy.mjs` checking for `.toUpperCase()`, `'PHP '`, `!`, unformatted UUIDs; run in CI.
+- [ ] **7B.9 Notification wording**:
+  - [ ] DB migration changing notification text in functions.
+  - [ ] Update live suites and `test:db` assertions.
+- [ ] **7B.10 Carry-overs from device checks**:
+  - [ ] Phase 6 iOS check fixes: large text wrapping, raw regex, completed schedules status, overlay flash, uncertain state exit ("Check status" + "Done").
+  - [ ] Phase 6.5 iOS check fixes: TwoStepSetup FeatureScreen, clean lock screen, optimistic app lock switch, consistent code prompt, "Set up now" verification.
+- [ ] **7B.11 Visible system status everywhere**:
+  - [ ] Skeletons on loading, mascot empty states, descriptive error states + retry, offline banner, processing lock + 2s "Still working" warning, confirmed result via ResultView, background action toasts.
+- [ ] **7B Gate**:
+  - [ ] Screenshots: before/after at 3 widths (375, 402, 440) at 1.0x and 1.4x text.
+  - [ ] Scripts & tests: `check-copy` passes, VoiceOver notes in report.
+  - [ ] Regression: Maestro flows updated and pass.
+  - [ ] Live suites: pass with live DB (customer1 pre-existing MFA noted).
+  - [ ] Device proof: screenshots for item 10 in report.
 
 ## Stage 7A — reviewer findings (2026-11-08, Claude Code)
 

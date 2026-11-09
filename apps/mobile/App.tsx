@@ -6,6 +6,7 @@ import * as ScreenCapture from 'expo-screen-capture';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import {
   useFonts,
   PlusJakartaSans_500Medium,
@@ -19,7 +20,13 @@ import { colors, spacing, fetchUserProfile, type Profile } from '@davao-bank/sha
 import { supabase } from './src/lib/supabase';
 import { AppLockProvider } from './src/context/AppLockContext';
 import { SettingsProvider } from './src/context/SettingsContext';
-import { Logo, Text, PrivacyOverlay, ToastProvider } from './src/components';
+import {
+  Logo,
+  Text,
+  PrivacyOverlay,
+  ToastProvider,
+  FloatingTabBar,
+} from './src/components';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { ActivityScreen } from './src/screens/ActivityScreen';
 import { InboxScreen } from './src/screens/InboxScreen';
@@ -29,6 +36,12 @@ import { SignUpScreen } from './src/screens/SignUpScreen';
 import { VerifyEmailScreen } from './src/screens/VerifyEmailScreen';
 import { ForgotPasswordScreen } from './src/screens/ForgotPasswordScreen';
 import { SuspendedScreen } from './src/screens/SuspendedScreen';
+import { CashOutScreen } from './src/screens/CashOutScreen';
+
+export type RootStackParamList = {
+  Tabs: undefined;
+  CashOut: undefined;
+};
 
 export type BottomTabParamList = {
   HomeTab: undefined;
@@ -37,6 +50,7 @@ export type BottomTabParamList = {
   ProfileTab: { setupTwoStep?: boolean } | undefined;
 };
 
+const RootStack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<BottomTabParamList>();
 
 type AuthScreenState = 'login' | 'signup' | 'verify' | 'forgot';
@@ -86,6 +100,20 @@ export default function App() {
     }
   }, []);
 
+  const loadUnreadCount = useCallback(async () => {
+    try {
+      const { count } = await supabase
+        .from('notifications')
+        .select('*', { count: 'exact', head: true })
+        .eq('read', false);
+      if (typeof count === 'number') {
+        setUnreadCount(count);
+      }
+    } catch {
+      // Non-critical
+    }
+  }, []);
+
   useEffect(() => {
     // 1. Initial session check
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -93,6 +121,7 @@ export default function App() {
       setSession(session);
       if (session?.user) {
         loadProfile(session.user.id);
+        loadUnreadCount();
       }
       setLoading(false);
     });
@@ -104,9 +133,11 @@ export default function App() {
       setSession(session);
       if (session?.user) {
         loadProfile(session.user.id);
+        loadUnreadCount();
       } else {
         setRestoredSession(false);
         setProfile(null);
+        setUnreadCount(0);
       }
       setLoading(false);
     });
@@ -114,7 +145,7 @@ export default function App() {
     return () => {
       subscription.unsubscribe();
     };
-  }, [loadProfile]);
+  }, [loadProfile, loadUnreadCount]);
 
   const isAuthenticated = Boolean(session?.user);
   const isEmailVerified = Boolean(session?.user?.email_confirmed_at);
@@ -207,74 +238,101 @@ export default function App() {
         <SettingsProvider>
           <NavigationContainer>
             <StatusBar style="dark" />
-            <Tab.Navigator
+            <RootStack.Navigator
               screenOptions={{
                 headerShown: false,
-                tabBarStyle: styles.tabBar,
-                tabBarActiveTintColor: colors.primary,
-                tabBarInactiveTintColor: colors.textMuted,
-                tabBarLabelStyle: styles.tabBarLabel,
+                presentation: 'card',
+                animation: 'slide_from_right',
               }}
             >
-              <Tab.Screen
-                name="HomeTab"
-                options={{
-                  tabBarLabel: 'Home',
-                  tabBarIcon: ({ color, size }) => <Home size={size} color={color} />,
-                }}
-              >
-                {({ navigation }) => (
-                  <HomeScreen
-                    onNavigateToActivity={() => navigation.navigate('ActivityTab')}
-                    onNavigateToProfile={() => navigation.navigate('ProfileTab')}
-                  />
-                )}
-              </Tab.Screen>
+              <RootStack.Screen name="Tabs">
+                {() => (
+                  <Tab.Navigator
+                    tabBar={(props) => <FloatingTabBar {...props} />}
+                    screenOptions={{
+                      headerShown: false,
+                    }}
+                  >
+                    <Tab.Screen
+                      name="HomeTab"
+                      options={{
+                        tabBarLabel: 'Home',
+                        tabBarIcon: ({ color, size }) => (
+                          <Home size={size} color={color} />
+                        ),
+                      }}
+                    >
+                      {({ navigation }) => (
+                        <HomeScreen
+                          onNavigateToActivity={() => navigation.navigate('ActivityTab')}
+                          onNavigateToProfile={() => navigation.navigate('ProfileTab')}
+                        />
+                      )}
+                    </Tab.Screen>
 
-              <Tab.Screen
-                name="ActivityTab"
-                component={ActivityScreen}
+                    <Tab.Screen
+                      name="ActivityTab"
+                      component={ActivityScreen}
+                      options={{
+                        tabBarLabel: 'Activity',
+                        tabBarIcon: ({ color, size }) => (
+                          <Receipt size={size} color={color} />
+                        ),
+                      }}
+                    />
+
+                    <Tab.Screen
+                      name="InboxTab"
+                      options={{
+                        tabBarLabel: 'Inbox',
+                        tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
+                        tabBarIcon: ({ color, size }) => (
+                          <Bell size={size} color={color} />
+                        ),
+                      }}
+                    >
+                      {() => <InboxScreen onUnreadCountChange={setUnreadCount} />}
+                    </Tab.Screen>
+
+                    <Tab.Screen
+                      name="ProfileTab"
+                      options={{
+                        tabBarLabel: 'Profile',
+                        tabBarIcon: ({ color, size }) => (
+                          <User size={size} color={color} />
+                        ),
+                      }}
+                    >
+                      {({ route, navigation }) => (
+                        <ProfileScreen
+                          setupTwoStep={route.params?.setupTwoStep}
+                          onSetupClosed={() =>
+                            navigation.setParams({ setupTwoStep: false })
+                          }
+                          profile={profile}
+                          userEmail={session?.user?.email || null}
+                          onProfileUpdated={(updated) => setProfile(updated)}
+                          onSignOut={() => {
+                            setSession(null);
+                            setProfile(null);
+                            setAuthScreen('login');
+                          }}
+                        />
+                      )}
+                    </Tab.Screen>
+                  </Tab.Navigator>
+                )}
+              </RootStack.Screen>
+
+              <RootStack.Screen
+                name="CashOut"
+                component={CashOutScreen}
                 options={{
-                  tabBarLabel: 'Activity',
-                  tabBarIcon: ({ color, size }) => <Receipt size={size} color={color} />,
+                  presentation: 'card',
+                  animation: 'slide_from_right',
                 }}
               />
-
-              <Tab.Screen
-                name="InboxTab"
-                options={{
-                  tabBarLabel: 'Inbox',
-                  tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
-                  tabBarBadgeStyle: styles.badgeStyle,
-                  tabBarIcon: ({ color, size }) => <Bell size={size} color={color} />,
-                }}
-              >
-                {() => <InboxScreen onUnreadCountChange={setUnreadCount} />}
-              </Tab.Screen>
-
-              <Tab.Screen
-                name="ProfileTab"
-                options={{
-                  tabBarLabel: 'Profile',
-                  tabBarIcon: ({ color, size }) => <User size={size} color={color} />,
-                }}
-              >
-                {({ route, navigation }) => (
-                  <ProfileScreen
-                    setupTwoStep={route.params?.setupTwoStep}
-                    onSetupClosed={() => navigation.setParams({ setupTwoStep: false })}
-                    profile={profile}
-                    userEmail={session?.user?.email || null}
-                    onProfileUpdated={(updated) => setProfile(updated)}
-                    onSignOut={() => {
-                      setSession(null);
-                      setProfile(null);
-                      setAuthScreen('login');
-                    }}
-                  />
-                )}
-              </Tab.Screen>
-            </Tab.Navigator>
+            </RootStack.Navigator>
           </NavigationContainer>
 
           <PrivacyOverlay />

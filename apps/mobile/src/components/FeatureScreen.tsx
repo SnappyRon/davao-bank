@@ -7,6 +7,7 @@ import {
   AccessibilityInfo,
   KeyboardAvoidingView,
   Alert,
+  Keyboard,
   type ViewStyle,
   type NativeSyntheticEvent,
   type NativeScrollEvent,
@@ -115,6 +116,7 @@ export function FeatureScreen({
   });
 
   const handleBack = () => {
+    Keyboard.dismiss();
     if (isProcessing) return;
 
     if (step && step > 1 && onPrevStep) {
@@ -165,11 +167,18 @@ export function FeatureScreen({
             />
           ))}
 
-        <View style={styles.headerBar}>
+        <ScrollView
+          scrollEnabled={false}
+          keyboardShouldPersistTaps="always"
+          contentContainerStyle={styles.headerBar}
+        >
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Back"
             disabled={isProcessing}
+            onPressIn={() => {
+              Keyboard.dismiss();
+            }}
             onPress={handleBack}
             style={[styles.backButton, isProcessing && { opacity: 0.3 }]}
             hitSlop={spacing.sm}
@@ -199,7 +208,7 @@ export function FeatureScreen({
           <View style={styles.headerTrailing}>
             {trailingAction || <View style={styles.placeholder} />}
           </View>
-        </View>
+        </ScrollView>
       </View>
 
       {/* Body with keyboard avoidance */}
