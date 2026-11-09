@@ -9,7 +9,7 @@
 - **Active prompt:** `Phase-7-Prompt-UI-UX-and-Motion.md`.
 - **Assigned to:** Codex (usage limit resets 2026-11-10 07:55), reviewed by the captain workflow (`docs/agents/WORKFLOW.md`).
 - **Exact next step:** 7B.0 Sheet for quick actions.
-- **Last commit:** `Phase 7 · Stage 7B.0 — About, Personal details, Export statement and FX rates as stack pages` (previous: `f0342dc`).
+- **Last commit:** `Phase 7 · Fix — f0342dc review follow-ups` (previous: `4758d2a`).
 - **Blockers for this step:** none. Inbox → transaction deep links stay blocked on an owner decision (notifications have no related id).
 
 ## Stage 7B.0 — review of 4ea0296 (2026-11-10, captain + Security, UI/UX, Code Quality reviewers)
@@ -190,6 +190,8 @@ Fix these before 7B:
 - **Follow-up:** add dedicated test accounts so live tests don't conflict with the presenter's real authenticator.
 
 ## Log (newest first)
+
+- **2026-11-10, Antigravity (frontend):** completed follow-ups for f0342dc. In PaymentRequestsScreen.tsx: passed scrollable={false} to both EmptyState uses to prevent nesting ScrollView inside FeatureScreen's ScrollView; stacked account error banner message above a variant="secondary" "Try again" button matching the request error banner layout; extracted bold fontFamily into StyleSheet entry statusBannerText. In ReceiptScreen.tsx: replaced error string comparison with dedicated notFound boolean state for showing/hiding retry button. In packages/shared/src/utils/errors.ts: removed broad matcher from toUserMessage while preserving exported RECEIPT_NOT_FOUND_MESSAGE constant. In receipt_screen.test.tsx: added test case asserting amount is masked with hideBalance: true. Pay/decline/cancel handlers kept byte-identical. All 4 checks pass: typecheck PASS (exit 0), lint PASS (0 errors, 80 warnings), format:check PASS, unit PASS (16 suites, 88 tests).
 
 - **2026-11-10, Antigravity (frontend):** completed Task 2 from 7B.0 plan: converted AboutModal, PersonalDetailsModal, ExportStatementModal, and FXRatesModal into root native-stack pages (AboutScreen, PersonalDetailsScreen, ExportStatementScreen, FXRatesScreen) using FeatureScreen as a stack page (no onBack prop, usePreventRemove owns Back/swipe/Android back, isDirty for PersonalDetails edits, isProcessing during save/export). Registered in App.tsx RootStackParamList ('card', 'slide_from_right'). Callers updated (ProfileScreen, ActivityScreen, HomeScreen) with typed navigation; deleted old *Modal.tsx files. Data calls, validation, and save/export logic kept identical. Theme tokens used throughout. All 4 checks pass: typecheck PASS (exit 0), lint PASS (0 errors, 80 warnings), format:check PASS, unit PASS (16 suites, 87 tests).
 

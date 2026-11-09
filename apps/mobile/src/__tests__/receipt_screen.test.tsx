@@ -32,8 +32,10 @@ jest.mock('../lib/supabase', () => ({
   },
 }));
 
+let mockHideBalance = false;
+
 jest.mock('../context/SettingsContext', () => ({
-  useSettings: () => ({ hideBalance: false }),
+  useSettings: () => ({ hideBalance: mockHideBalance }),
 }));
 
 jest.mock('@davao-bank/shared', () => {
@@ -67,6 +69,7 @@ const sampleTx: TransactionHistoryItem = {
 describe('ReceiptScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockHideBalance = false;
   });
 
   it('renders successfully when transaction is found', async () => {
@@ -78,6 +81,7 @@ describe('ReceiptScreen', () => {
     await render(<ReceiptScreen />);
 
     expect(await screen.findByText('Transfer')).toBeTruthy();
+    expect(screen.getByText('−₱250.00')).toBeTruthy();
     expect(screen.getByText('1234567890')).toBeTruthy();
     expect(screen.getByText('9876543210')).toBeTruthy();
     expect(screen.getByText('DB-TEST-REF')).toBeTruthy();
@@ -88,6 +92,20 @@ describe('ReceiptScreen', () => {
     expect(doneBtn).toBeTruthy();
     fireEvent.press(doneBtn);
     expect(mockGoBack).toHaveBeenCalledTimes(1);
+  });
+
+  it('masks the amount when hideBalance is enabled', async () => {
+    mockHideBalance = true;
+    (fetchTransactionHistory as jest.Mock).mockResolvedValueOnce({
+      data: [sampleTx],
+      error: null,
+    });
+
+    await render(<ReceiptScreen />);
+
+    expect(await screen.findByText('Transfer')).toBeTruthy();
+    expect(screen.getByText('₱••••••')).toBeTruthy();
+    expect(screen.queryByText('−₱250.00')).toBeNull();
   });
 
   it('shows not-found message without "Try again" button when transaction is missing', async () => {

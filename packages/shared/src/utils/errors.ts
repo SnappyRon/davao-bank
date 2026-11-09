@@ -60,14 +60,6 @@ export function toUserMessage(
     return 'This request was already paid, declined or cancelled.';
   }
 
-  if (
-    lower.includes('receipt unavailable') ||
-    lower.includes('receipt not found') ||
-    lower.includes('transaction could not be found')
-  ) {
-    return RECEIPT_NOT_FOUND_MESSAGE;
-  }
-
   if (lower.includes('invalid login credentials')) {
     return "That email and password don't match. Try again.";
   }
