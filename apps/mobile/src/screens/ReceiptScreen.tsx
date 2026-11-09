@@ -1,17 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../App';
-import { useRoute, type RouteProp } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
+import { useSettings } from '../context/SettingsContext';
 import {
   colors,
   spacing,
   radius,
+  typography,
   typeLabel,
   fetchTransactionHistory,
   toUserMessage,
+  RECEIPT_NOT_FOUND_MESSAGE,
   type TransactionHistoryItem,
 } from '@davao-bank/shared';
 import {
@@ -24,9 +26,12 @@ import {
   Card,
 } from '../components';
 
+const SKELETON_HEIGHT = spacing['3xl'] * 4;
+
 export function ReceiptScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { params } = useRoute<RouteProp<RootStackParamList, 'Receipt'>>();
+  const { hideBalance } = useSettings();
   const [transaction, setTransaction] = useState<TransactionHistoryItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -43,7 +48,7 @@ export function ReceiptScreen() {
       else {
         const match = data?.find((item) => item.transaction_id === params.transactionId);
         if (match) setTransaction(match);
-        else setError('Receipt unavailable. This transaction could not be found.');
+        else setError(RECEIPT_NOT_FOUND_MESSAGE);
       }
       setLoading(false);
     });
@@ -56,11 +61,16 @@ export function ReceiptScreen() {
     return (
       <FeatureScreen title="Receipt">
         {loading ? (
-          <Skeleton width="100%" height={160} />
+          <Skeleton width="100%" height={SKELETON_HEIGHT} />
         ) : (
           <>
             <Text accessibilityRole="alert">{error}</Text>
-            <Button title="Try again" onPress={() => setAttempt((value) => value + 1)} />
+            {error !== RECEIPT_NOT_FOUND_MESSAGE ? (
+              <Button
+                title="Try again"
+                onPress={() => setAttempt((value) => value + 1)}
+              />
+            ) : null}
           </>
         )}
       </FeatureScreen>
@@ -100,6 +110,7 @@ export function ReceiptScreen() {
           amountCentavos={transaction.amount}
           direction={isCredit ? 'incoming' : 'outgoing'}
           variant="display"
+          hidden={hideBalance}
           style={styles.heroAmount}
         />
         <Badge
@@ -217,8 +228,7 @@ const styles = StyleSheet.create({
     marginLeft: spacing.md,
   },
   idText: {
-    fontFamily: 'monospace',
-    fontSize: 11,
+    fontSize: typography.caption.fontSize,
   },
   doneButton: {
     marginTop: spacing.md,

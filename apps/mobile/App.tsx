@@ -48,7 +48,7 @@ export type RootStackParamList = {
   AddMoney: undefined;
   TwoStepSetup: undefined;
   Receipt: { transactionId: string; accountId: string };
-  PaymentRequests: undefined;
+  PaymentRequests: { initialTab?: 'incoming' | 'outgoing' } | undefined;
 };
 
 export type BottomTabParamList = {

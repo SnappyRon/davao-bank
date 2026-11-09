@@ -177,7 +177,12 @@ export function InboxScreen({ onUnreadCountChange }: InboxScreenProps) {
                 onPress={() => {
                   if (!item.read) void markAsRead(item.id);
                   if (item.type?.startsWith('payment_request_')) {
-                    navigation.navigate('PaymentRequests');
+                    const initialTab =
+                      item.type === 'payment_request_paid' ||
+                      item.type === 'payment_request_declined'
+                        ? 'outgoing'
+                        : 'incoming';
+                    navigation.navigate('PaymentRequests', { initialTab });
                   }
                   // TODO: transaction links blocked: notifications have no related id (owner decision).
                 }}
