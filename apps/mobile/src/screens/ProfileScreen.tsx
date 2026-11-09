@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { View, StyleSheet, ScrollView, Alert, Switch } from 'react-native';
 import {
   User,
@@ -49,6 +49,11 @@ export function ProfileScreen({
   const [scheduledOpen, setScheduledOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
 
+  // Keep the latest callback in a ref: App passes an inline function, so depending
+  // on it would re-run this effect after every profile update (refetch loop).
+  const onProfileUpdatedRef = useRef(onProfileUpdated);
+  onProfileUpdatedRef.current = onProfileUpdated;
+
   useFocusEffect(
     useCallback(() => {
       let active = true;
@@ -59,8 +64,8 @@ export function ProfileScreen({
           } = await supabase.auth.getUser();
           if (user && active) {
             const { data } = await fetchUserProfile(supabase, user.id);
-            if (data && active && onProfileUpdated) {
-              onProfileUpdated(data);
+            if (data && active) {
+              onProfileUpdatedRef.current?.(data);
             }
           }
         } catch (err) {
@@ -71,7 +76,7 @@ export function ProfileScreen({
       return () => {
         active = false;
       };
-    }, [onProfileUpdated])
+    }, [])
   );
 
   const getInitials = (name?: string | null) => {
