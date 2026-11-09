@@ -19,8 +19,9 @@ Do not start work until you have done all four.
 | **Boss / reviewer** | Claude Code                                         | Writes the phase prompts, reviews every commit, runs device and database checks, applies migrations to the hosted project, keeps this file current. |
 | **Programmers**     | Codex, Antigravity (or any agent the owner assigns) | Implement the active prompt exactly.                                                                                                                |
 | **Designer**        | Agent assigned for design work                      | Design files, theme tokens and visual specs. Changes app code only when the prompt says so.                                                         |
+| **Reviewers**       | CI/CD Engineer, UI/UX, Security, Code Quality       | Read-only specialist reviews requested by the captain. Report findings in the required format; never edit code. See `docs/agents/roles/`.           |
 
-Agents do not hand tasks to each other directly. Work flows through the prompt files, `STATUS.md` and git.
+The boss is the **captain**. The captain delegates implementation to one programmer at a time, routes each commit to the reviewers it needs, verifies their findings, and accepts the work. Programmers and reviewers report to the captain only; they do not hand tasks to each other or act on each other's reports. The full process (routing table, report format, conflict rules) is in **`docs/agents/WORKFLOW.md`**. Work still flows through the prompt files, `STATUS.md` and git.
 
 ## Handoff protocol (mandatory)
 
