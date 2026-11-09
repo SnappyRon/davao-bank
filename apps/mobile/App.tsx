@@ -41,6 +41,10 @@ import { AddMoneyScreen } from './src/screens/AddMoneyScreen';
 import { ReceiptScreen } from './src/screens/ReceiptScreen';
 import { PaymentRequestsScreen } from './src/screens/PaymentRequestsScreen';
 import { TwoStepSetupScreen } from './src/screens/TwoStepSetupScreen';
+import { AboutScreen } from './src/screens/AboutScreen';
+import { PersonalDetailsScreen } from './src/screens/PersonalDetailsScreen';
+import { ExportStatementScreen } from './src/screens/ExportStatementScreen';
+import { FXRatesScreen } from './src/screens/FXRatesScreen';
 
 export type RootStackParamList = {
   Tabs: undefined;
@@ -49,6 +53,10 @@ export type RootStackParamList = {
   TwoStepSetup: undefined;
   Receipt: { transactionId: string; accountId: string };
   PaymentRequests: { initialTab?: 'incoming' | 'outgoing' } | undefined;
+  About: undefined;
+  PersonalDetails: undefined;
+  ExportStatement: undefined;
+  FXRates: undefined;
 };
 
 export type BottomTabParamList = {
@@ -360,6 +368,26 @@ export default function App() {
               <RootStack.Screen
                 name="PaymentRequests"
                 component={PaymentRequestsScreen}
+                options={{ presentation: 'card', animation: 'slide_from_right' }}
+              />
+              <RootStack.Screen
+                name="About"
+                component={AboutScreen}
+                options={{ presentation: 'card', animation: 'slide_from_right' }}
+              />
+              <RootStack.Screen
+                name="PersonalDetails"
+                component={PersonalDetailsScreen}
+                options={{ presentation: 'card', animation: 'slide_from_right' }}
+              />
+              <RootStack.Screen
+                name="ExportStatement"
+                component={ExportStatementScreen}
+                options={{ presentation: 'card', animation: 'slide_from_right' }}
+              />
+              <RootStack.Screen
+                name="FXRates"
+                component={FXRatesScreen}
                 options={{ presentation: 'card', animation: 'slide_from_right' }}
               />
             </RootStack.Navigator>

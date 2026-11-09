@@ -295,18 +295,22 @@ export function PaymentRequestsScreen() {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
       {accountError ? (
-        <View
-          style={[styles.statusBanner, styles.statusBannerError, styles.accountErrorBox]}
-        >
-          <Text
-            variant="caption"
-            color={colors.error}
-            accessibilityRole="alert"
-            style={{ fontFamily: typography.fonts.bold }}
-          >
-            {accountError}
-          </Text>
-          <Button title="Try again" variant="ghost" onPress={() => void loadAccounts()} />
+        <View style={styles.accountErrorBox}>
+          <View style={[styles.statusBanner, styles.statusBannerError]}>
+            <Text
+              variant="caption"
+              color={colors.error}
+              accessibilityRole="alert"
+              style={styles.statusBannerText}
+            >
+              {accountError}
+            </Text>
+          </View>
+          <Button
+            title="Try again"
+            variant="secondary"
+            onPress={() => void loadAccounts()}
+          />
         </View>
       ) : null}
       <View style={styles.container}>
@@ -373,7 +377,7 @@ export function PaymentRequestsScreen() {
                   ? colors.error
                   : colors.primary
               }
-              style={{ fontFamily: typography.fonts.bold }}
+              style={styles.statusBannerText}
             >
               {statusMessage}
             </Text>
@@ -394,7 +398,7 @@ export function PaymentRequestsScreen() {
                   variant="caption"
                   color={colors.error}
                   accessibilityRole="alert"
-                  style={{ fontFamily: typography.fonts.bold }}
+                  style={styles.statusBannerText}
                 >
                   {requestsError}
                 </Text>
@@ -412,6 +416,7 @@ export function PaymentRequestsScreen() {
           ) : tab === 'incoming' ? (
             incomingRequests.length === 0 ? (
               <EmptyState
+                scrollable={false}
                 title="No incoming requests"
                 description="When another Davao Bank customer requests money from you, it will appear here."
               />
@@ -475,6 +480,7 @@ export function PaymentRequestsScreen() {
             )
           ) : outgoingRequests.length === 0 ? (
             <EmptyState
+              scrollable={false}
               title="No outgoing requests"
               description="Payment requests you send to other Davao Bank users will be tracked here."
             />
@@ -540,11 +546,11 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
   },
+  statusBannerText: {
+    fontFamily: typography.fonts.bold,
+  },
   accountErrorBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
+    marginBottom: spacing.base,
   },
   errorContainer: {
     paddingVertical: spacing.xl,

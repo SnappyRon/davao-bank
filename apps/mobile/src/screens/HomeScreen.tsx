@@ -45,7 +45,6 @@ import { SuspendedScreen } from './SuspendedScreen';
 import { PayBillsModal } from './PayBillsModal';
 import { ScheduledPaymentsModal } from './ScheduledPaymentsModal';
 import { QRHubModal } from './QRHubModal';
-import { FXRatesModal } from './FXRatesModal';
 import { HomeBalanceCard } from './home/HomeBalanceCard';
 import { HomeUpcomingPayments } from './home/HomeUpcomingPayments';
 import { HomeRecentActivity } from './home/HomeRecentActivity';
@@ -74,7 +73,6 @@ export function HomeScreen({
   const [isPayBillsOpen, setIsPayBillsOpen] = useState(false);
   const [isScheduledOpen, setIsScheduledOpen] = useState(false);
   const [isQROpen, setIsQROpen] = useState(false);
-  const [isFXOpen, setIsFXOpen] = useState(false);
 
   // QR transfer prefill state
   const [qrPrefillAccount, setQrPrefillAccount] = useState<string | undefined>();
@@ -299,7 +297,7 @@ export function HomeScreen({
         </ActionTileGrid>
 
         {/* Currency Watch Card (§E.2) */}
-        <CurrencyWatchCard onPress={() => setIsFXOpen(true)} />
+        <CurrencyWatchCard onPress={() => navigation.navigate('FXRates')} />
 
         {/* Upcoming Payments Strip */}
         <HomeUpcomingPayments
@@ -389,8 +387,6 @@ export function HomeScreen({
         }}
         onRequestSent={loadData}
       />
-
-      <FXRatesModal visible={isFXOpen} onClose={() => setIsFXOpen(false)} />
     </Screen>
   );
 }

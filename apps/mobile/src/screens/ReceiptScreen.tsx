@@ -35,6 +35,7 @@ export function ReceiptScreen() {
   const [transaction, setTransaction] = useState<TransactionHistoryItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [notFound, setNotFound] = useState(false);
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
@@ -42,13 +43,19 @@ export function ReceiptScreen() {
     setLoading(true);
     setTransaction(null);
     setError(null);
+    setNotFound(false);
     void fetchTransactionHistory(supabase, params.accountId).then(({ data, error }) => {
       if (!active) return;
-      if (error) setError(toUserMessage(error));
-      else {
+      if (error) {
+        setError(toUserMessage(error));
+      } else {
         const match = data?.find((item) => item.transaction_id === params.transactionId);
-        if (match) setTransaction(match);
-        else setError(RECEIPT_NOT_FOUND_MESSAGE);
+        if (match) {
+          setTransaction(match);
+        } else {
+          setNotFound(true);
+          setError(RECEIPT_NOT_FOUND_MESSAGE);
+        }
       }
       setLoading(false);
     });
@@ -65,7 +72,7 @@ export function ReceiptScreen() {
         ) : (
           <>
             <Text accessibilityRole="alert">{error}</Text>
-            {error !== RECEIPT_NOT_FOUND_MESSAGE ? (
+            {!notFound ? (
               <Button
                 title="Try again"
                 onPress={() => setAttempt((value) => value + 1)}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { View, StyleSheet, ScrollView, Alert, Switch } from 'react-native';
 import {
   User,
@@ -11,16 +11,20 @@ import {
   CalendarClock,
   Inbox,
 } from 'lucide-react-native';
-import { colors, spacing, radius, type Profile } from '@davao-bank/shared';
+import {
+  colors,
+  spacing,
+  radius,
+  fetchUserProfile,
+  type Profile,
+} from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
 import { useAppLock } from '../context/AppLockContext';
 import { useSettings } from '../context/SettingsContext';
 import { Screen, Text, Card, Badge, Button, Pressable } from '../components';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../App';
-import { PersonalDetailsModal } from './PersonalDetailsModal';
-import { AboutModal } from './AboutModal';
 import { SavedRecipientsModal } from './SavedRecipientsModal';
 import { ScheduledPaymentsModal } from './ScheduledPaymentsModal';
 
@@ -41,11 +45,39 @@ export function ProfileScreen({
   const appLock = useAppLock();
   const { biometricEnabled, setBiometricEnabled, biometricType, isBiometricSupported } =
     useSettings();
-  const [personalDetailsOpen, setPersonalDetailsOpen] = useState(false);
   const [savedRecipientsOpen, setSavedRecipientsOpen] = useState(false);
   const [scheduledOpen, setScheduledOpen] = useState(false);
-  const [aboutOpen, setAboutOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+
+  // Keep the latest callback in a ref: App passes an inline function, so depending
+  // on it would re-run this effect after every profile update (refetch loop).
+  const onProfileUpdatedRef = useRef(onProfileUpdated);
+  onProfileUpdatedRef.current = onProfileUpdated;
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      async function reloadProfile() {
+        try {
+          const {
+            data: { user },
+          } = await supabase.auth.getUser();
+          if (user && active) {
+            const { data } = await fetchUserProfile(supabase, user.id);
+            if (data && active) {
+              onProfileUpdatedRef.current?.(data);
+            }
+          }
+        } catch (err) {
+          console.warn('Failed to refetch profile on focus:', err);
+        }
+      }
+      void reloadProfile();
+      return () => {
+        active = false;
+      };
+    }, [])
+  );
 
   const getInitials = (name?: string | null) => {
     if (!name) return 'DB';
@@ -131,7 +163,7 @@ export function ProfileScreen({
             feedbackType="highlight"
             accessibilityRole="button"
             accessibilityLabel="Personal Details: Manage your legal name and contact phone"
-            onPress={() => setPersonalDetailsOpen(true)}
+            onPress={() => navigation.navigate('PersonalDetails')}
           >
             <View style={styles.menuIconContainer}>
               <User size={20} color={colors.primary} />
@@ -262,7 +294,7 @@ export function ProfileScreen({
             feedbackType="highlight"
             accessibilityRole="button"
             accessibilityLabel="About Davao Bank: Academic prototype disclosure & brand credits"
-            onPress={() => setAboutOpen(true)}
+            onPress={() => navigation.navigate('About')}
           >
             <View style={styles.menuIconContainer}>
               <Info size={20} color={colors.blueText} />
@@ -306,17 +338,6 @@ export function ProfileScreen({
         title="Two-step verification"
         onPress={() => navigation.navigate('TwoStepSetup')}
       />
-      <PersonalDetailsModal
-        visible={personalDetailsOpen}
-        profile={profile}
-        userEmail={userEmail}
-        onClose={() => setPersonalDetailsOpen(false)}
-        onUpdated={(p) => {
-          if (onProfileUpdated) onProfileUpdated(p);
-        }}
-      />
-
-      <AboutModal visible={aboutOpen} onClose={() => setAboutOpen(false)} />
 
       <SavedRecipientsModal
         visible={savedRecipientsOpen}

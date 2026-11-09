@@ -1,45 +1,51 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, Alert, ScrollView, Platform } from 'react-native';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { View, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
-import {
-  FileText,
-  FileSpreadsheet,
-  Calendar,
-  Check,
-  ChevronDown,
-  AlertCircle,
-} from 'lucide-react-native';
+import { FileText, FileSpreadsheet, AlertCircle } from 'lucide-react-native';
 import {
   colors,
   spacing,
   radius,
   formatCentavosToPHP,
+  fetchAccountBalances,
+  toUserMessage,
   type AccountBalance,
   type AccountStatement,
 } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
-import { BottomSheet, Text, Button, Card, Chip, TextField } from '../components';
-
-interface ExportStatementModalProps {
-  visible: boolean;
-  onClose: () => void;
-  accounts: AccountBalance[];
-  defaultAccountId?: string;
-}
+import { useSettings } from '../context/SettingsContext';
+import {
+  FeatureScreen,
+  Text,
+  Button,
+  Card,
+  Chip,
+  TextField,
+  AmountText,
+} from '../components';
 
 type PeriodOption = 'this_month' | 'last_month' | 'last_3_months' | 'custom';
 
-export function ExportStatementModal({
-  visible,
-  onClose,
-  accounts,
-  defaultAccountId,
-}: ExportStatementModalProps) {
-  const [selectedAccountId, setSelectedAccountId] = useState<string>(
-    defaultAccountId || accounts[0]?.account_id || ''
-  );
+/** A problem with the user's input: its message is already user-facing copy. */
+class StatementInputError extends Error {
+  name = 'StatementInputError';
+}
+
+// Checked by name, not instanceof: Babel's class transform can break instanceof for Error subclasses.
+function errorMessage(err: unknown): string {
+  return err instanceof Error && err.name === 'StatementInputError'
+    ? err.message
+    : toUserMessage(err);
+}
+
+export function ExportStatementScreen() {
+  const { hideBalance } = useSettings();
+  const [accounts, setAccounts] = useState<AccountBalance[]>([]);
+  const [loadingAccounts, setLoadingAccounts] = useState(true);
+  const [accountError, setAccountError] = useState<string | null>(null);
+  const [selectedAccountId, setSelectedAccountId] = useState<string>('');
   const [period, setPeriod] = useState<PeriodOption>('this_month');
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState('');
@@ -47,6 +53,46 @@ export function ExportStatementModal({
   const [loadingPdf, setLoadingPdf] = useState(false);
   const [loadingCsv, setLoadingCsv] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  const loadAccounts = useCallback(async () => {
+    try {
+      if (mountedRef.current) {
+        setLoadingAccounts(true);
+        setAccountError(null);
+      }
+      const { data, error: accErr } = await fetchAccountBalances(supabase);
+      if (!mountedRef.current) return;
+      if (accErr) {
+        setAccountError(toUserMessage(accErr));
+      } else if (data && data.length > 0) {
+        setAccounts(data);
+        setSelectedAccountId(data[0].account_id);
+      } else {
+        setAccounts([]);
+      }
+    } catch (err: unknown) {
+      if (mountedRef.current) {
+        setAccountError(toUserMessage(err));
+      }
+    } finally {
+      if (mountedRef.current) {
+        setLoadingAccounts(false);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadAccounts();
+  }, [loadAccounts]);
 
   const selectedAccount =
     accounts.find((a) => a.account_id === selectedAccountId) || accounts[0];
@@ -73,9 +119,12 @@ export function ExportStatementModal({
   };
 
   const fetchStatementData = async (): Promise<AccountStatement> => {
+    if (!selectedAccount) {
+      throw new StatementInputError('Choose an account first.');
+    }
     const { from, to } = calculateDateRange();
     if (!from || !to) {
-      throw new Error('Please specify both start date and end date (YYYY-MM-DD)');
+      throw new StatementInputError('Enter a start and end date.');
     }
 
     const { data, error: rpcErr } = await supabase.rpc('get_account_statement', {
@@ -84,8 +133,9 @@ export function ExportStatementModal({
       p_to: to,
     });
 
+    // Raw errors are mapped once, in the catch blocks below.
     if (rpcErr) {
-      throw new Error(rpcErr.message);
+      throw rpcErr;
     }
     if (!data) {
       throw new Error('No statement data returned from server');
@@ -222,8 +272,7 @@ export function ExportStatementModal({
         Alert.alert('Statement Ready', `Generated PDF statement at: ${uri}`);
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to export PDF';
-      setError(msg);
+      setError(errorMessage(err));
     } finally {
       setLoadingPdf(false);
     }
@@ -288,149 +337,210 @@ export function ExportStatementModal({
         Alert.alert('Statement Ready', `Generated CSV statement at: ${fileUri}`);
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to export CSV';
-      setError(msg);
+      setError(errorMessage(err));
     } finally {
       setLoadingCsv(false);
     }
   };
 
   return (
-    <BottomSheet visible={visible} onClose={onClose} title="Account Statement">
-      <ScrollView
-        contentContainerStyle={styles.container}
-        keyboardShouldPersistTaps="handled"
-      >
-        <Text variant="caption" color={colors.textSecondary} style={styles.subtitle}>
-          Generate an official reconciled statement with opening & closing balances.
-        </Text>
+    <FeatureScreen
+      title="Account Statement"
+      isProcessing={loadingPdf || loadingCsv}
+      contentContainerStyle={styles.container}
+    >
+      <Text variant="caption" color={colors.textSecondary} style={styles.subtitle}>
+        Generate an official reconciled statement with opening & closing balances.
+      </Text>
 
-        {/* Account Selector */}
-        {accounts.length > 1 && (
-          <View style={styles.section}>
-            <Text variant="label" color={colors.ink} style={styles.sectionTitle}>
-              Select Account
-            </Text>
-            <View style={styles.accountRow}>
-              {accounts.map((acc) => {
-                const isSelected = acc.account_id === selectedAccount.account_id;
-                return (
-                  <Chip
-                    key={acc.account_id}
-                    label={`${acc.type} · ${acc.account_number.slice(-4)}`}
-                    selected={isSelected}
-                    onPress={() => setSelectedAccountId(acc.account_id)}
-                  />
-                );
-              })}
-            </View>
-          </View>
-        )}
-
-        {/* Period Selector */}
-        <View style={styles.section}>
-          <Text variant="label" color={colors.ink} style={styles.sectionTitle}>
-            Statement Period
+      {loadingAccounts ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="small" color={colors.primary} />
+        </View>
+      ) : accountError ? (
+        <View style={styles.loadErrorContainer}>
+          <AlertCircle size={24} color={colors.redText} />
+          <Text
+            variant="body"
+            color={colors.redText}
+            accessibilityRole="alert"
+            style={styles.loadErrorText}
+          >
+            {accountError}
           </Text>
-          <View style={styles.chipGrid}>
-            <Chip
-              label="This Month"
-              selected={period === 'this_month'}
-              onPress={() => setPeriod('this_month')}
-            />
-            <Chip
-              label="Last Month"
-              selected={period === 'last_month'}
-              onPress={() => setPeriod('last_month')}
-            />
-            <Chip
-              label="Last 3 Months"
-              selected={period === 'last_3_months'}
-              onPress={() => setPeriod('last_3_months')}
-            />
-            <Chip
-              label="Custom Range"
-              selected={period === 'custom'}
-              onPress={() => setPeriod('custom')}
-            />
-          </View>
-
-          {period === 'custom' && (
-            <View style={styles.customDateContainer}>
-              <TextField
-                label="Start Date (YYYY-MM-DD)"
-                placeholder="2026-01-01"
-                value={customFrom}
-                onChangeText={setCustomFrom}
-                containerStyle={styles.dateField}
-              />
-              <TextField
-                label="End Date (YYYY-MM-DD)"
-                placeholder="2026-03-31"
-                value={customTo}
-                onChangeText={setCustomTo}
-                containerStyle={styles.dateField}
-              />
+          <Button
+            title="Try again"
+            variant="secondary"
+            onPress={() => void loadAccounts()}
+          />
+        </View>
+      ) : accounts.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Text variant="body" color={colors.textSecondary} align="center">
+            No accounts found.
+          </Text>
+        </View>
+      ) : (
+        <>
+          {/* Account Selector */}
+          {accounts.length > 1 && (
+            <View style={styles.section}>
+              <Text variant="label" color={colors.ink} style={styles.sectionTitle}>
+                Select Account
+              </Text>
+              <View style={styles.accountRow}>
+                {accounts.map((acc) => {
+                  const isSelected = acc.account_id === selectedAccount?.account_id;
+                  const capitalizedType = acc.type
+                    ? acc.type.charAt(0).toUpperCase() + acc.type.slice(1)
+                    : 'Account';
+                  return (
+                    <Chip
+                      key={acc.account_id}
+                      label={`${capitalizedType} •• ${acc.account_number.slice(-4)}`}
+                      selected={isSelected}
+                      onPress={() => setSelectedAccountId(acc.account_id)}
+                    />
+                  );
+                })}
+              </View>
             </View>
           )}
-        </View>
 
-        {/* Selected Account Summary */}
-        <Card variant="subtle" style={styles.summaryCard}>
-          <View style={styles.summaryRow}>
-            <Text variant="caption" color={colors.textSecondary}>
-              Account:
+          {/* Period Selector */}
+          <View style={styles.section}>
+            <Text variant="label" color={colors.ink} style={styles.sectionTitle}>
+              Statement Period
             </Text>
-            <Text variant="bodyStrong" color={colors.ink} tabularNums>
-              {selectedAccount?.account_number}
-            </Text>
-          </View>
-          <View style={styles.summaryRow}>
-            <Text variant="caption" color={colors.textSecondary}>
-              Current Balance:
-            </Text>
-            <Text variant="bodyStrong" color={colors.primary} tabularNums>
-              {formatCentavosToPHP(selectedAccount?.balance || 0)}
-            </Text>
-          </View>
-        </Card>
+            <View style={styles.chipGrid}>
+              <Chip
+                label="This Month"
+                selected={period === 'this_month'}
+                onPress={() => setPeriod('this_month')}
+              />
+              <Chip
+                label="Last Month"
+                selected={period === 'last_month'}
+                onPress={() => setPeriod('last_month')}
+              />
+              <Chip
+                label="Last 3 Months"
+                selected={period === 'last_3_months'}
+                onPress={() => setPeriod('last_3_months')}
+              />
+              <Chip
+                label="Custom Range"
+                selected={period === 'custom'}
+                onPress={() => setPeriod('custom')}
+              />
+            </View>
 
-        {error ? (
-          <View style={styles.errorContainer}>
-            <AlertCircle size={16} color={colors.redText} />
-            <Text variant="caption" color={colors.redText} style={styles.errorText}>
-              {error}
-            </Text>
+            {period === 'custom' && (
+              <View style={styles.customDateContainer}>
+                <TextField
+                  label="Start Date (YYYY-MM-DD)"
+                  placeholder="2026-01-01"
+                  value={customFrom}
+                  onChangeText={setCustomFrom}
+                  containerStyle={styles.dateField}
+                />
+                <TextField
+                  label="End Date (YYYY-MM-DD)"
+                  placeholder="2026-03-31"
+                  value={customTo}
+                  onChangeText={setCustomTo}
+                  containerStyle={styles.dateField}
+                />
+              </View>
+            )}
           </View>
-        ) : null}
 
-        {/* Export Buttons */}
-        <View style={styles.buttonGroup}>
-          <Button
-            title="Download PDF Statement"
-            variant="primary"
-            icon={<FileText size={18} color={colors.textInverse} />}
-            onPress={handleExportPDF}
-            loading={loadingPdf}
-            disabled={loadingCsv}
-          />
-          <Button
-            title="Export CSV Spreadsheet"
-            variant="secondary"
-            icon={<FileSpreadsheet size={18} color={colors.ink} />}
-            onPress={handleExportCSV}
-            loading={loadingCsv}
-            disabled={loadingPdf}
-          />
-        </View>
-      </ScrollView>
-    </BottomSheet>
+          {/* Selected Account Summary */}
+          {selectedAccount ? (
+            <Card variant="subtle" style={styles.summaryCard}>
+              <View style={styles.summaryRow}>
+                <Text variant="caption" color={colors.textSecondary}>
+                  Account:
+                </Text>
+                <Text variant="bodyStrong" color={colors.ink} tabularNums>
+                  {selectedAccount.account_number}
+                </Text>
+              </View>
+              <View style={styles.summaryRow}>
+                <Text variant="caption" color={colors.textSecondary}>
+                  Current Balance:
+                </Text>
+                {selectedAccount.balance == null ? (
+                  <Text variant="bodyStrong" color={colors.ink}>
+                    —
+                  </Text>
+                ) : (
+                  <AmountText
+                    amountCentavos={selectedAccount.balance}
+                    hidden={hideBalance}
+                    variant="bodyStrong"
+                    color={colors.primary}
+                    showSign={false}
+                  />
+                )}
+              </View>
+            </Card>
+          ) : null}
+
+          {error ? (
+            <View style={styles.errorContainer}>
+              <AlertCircle size={16} color={colors.redText} />
+              <Text variant="caption" color={colors.redText} style={styles.errorText}>
+                {error}
+              </Text>
+            </View>
+          ) : null}
+
+          {/* Export Buttons */}
+          <View style={styles.buttonGroup}>
+            <Button
+              title="Download PDF Statement"
+              variant="primary"
+              icon={<FileText size={18} color={colors.textInverse} />}
+              onPress={handleExportPDF}
+              loading={loadingPdf}
+              disabled={loadingCsv || !selectedAccount}
+            />
+            <Button
+              title="Export CSV Spreadsheet"
+              variant="secondary"
+              icon={<FileSpreadsheet size={18} color={colors.ink} />}
+              onPress={handleExportCSV}
+              loading={loadingCsv}
+              disabled={loadingPdf || !selectedAccount}
+            />
+          </View>
+        </>
+      )}
+    </FeatureScreen>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     paddingBottom: spacing.xl,
+  },
+  loadingContainer: {
+    paddingVertical: spacing.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadErrorContainer: {
+    paddingVertical: spacing.xl,
+    alignItems: 'center',
+    gap: spacing.base,
+  },
+  loadErrorText: {
+    textAlign: 'center',
+  },
+  emptyContainer: {
+    paddingVertical: spacing.xl,
+    alignItems: 'center',
   },
   subtitle: {
     marginBottom: spacing.md,
