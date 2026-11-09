@@ -171,6 +171,8 @@ Fix these before 7B:
 
 ## Log (newest first)
 
+- **2026-11-10, Claude Code (reviewer):** moved the team to Herdr; Codex ran as a sub agent in the same workspace. Reviewed `41918e7`: 9 expected files only; re-ran typecheck PASS, lint 0 errors (97 warnings), format PASS, unit 84/84. `executeDeposit` payload, idempotency key lifecycle and the MFA enroll/verify/unenroll calls match the deleted files. No imports of the deleted files remain. **Approved, device check NOT VERIFIED** (Add money and Two-step setup on the iOS simulator still to do). Minor follow-up: `useNavigation<any>()` in `CashOutScreen` and `HomeScreen` (from `9c4e2bf`) should use the root stack type.
+
 - **2026-11-10, Codex:** took over and retained Antigravity's uncommitted 7B.0 Add money / Two-step setup work. Fixed Profile navigation, typed StepUpSetupLink with the root stack, and corrected AuthenticatorCode import, button style and Platform import. Both pages use FeatureScreen without onBack. Compared enrollment/verify and deposit handlers against HEAD: authentication calls and deposit payload/error handling preserved; Home refreshes on focus. Checks: typecheck PASS; lint PASS (0 errors, 97 warnings); format:check PASS; unit PASS (15 suites, 84 tests). No obsolete imports remain in src, App.tsx, tests or e2e. Device flow NOT VERIFIED — limited to the four requested local checks. scripts/agent-usage.py excluded.
 
 - **2026-11-09, Claude Code (reviewer):** found that `6441fc0` crashed on launch (no `SafeAreaProvider`) and fixed it in `93cb757`. iOS simulator: Cash out PASS end to end (owner entered the password and code), DB read-only check PASS. **Stage 7A approved.** Maestro moves to the 7B gate.
