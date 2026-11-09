@@ -8,9 +8,24 @@
 - **Branch:** `phase-7-ui-motion` (branched from tip of `phase-6-5-strong-auth`).
 - **Active prompt:** `Phase-7-Prompt-UI-UX-and-Motion.md`.
 - **Assigned to:** Codex (usage limit resets 2026-11-10 07:55), reviewed by the captain workflow (`docs/agents/WORKFLOW.md`).
-- **Exact next step:** 7B.0 fix round for `4ea0296`, list below ("Stage 7B.0 — review of 4ea0296"). Then: 7B.0 Sheet for quick actions.
+- **Exact next step:** see "Stage 7B.0 — remaining work plan": task 1 (fix round) with `frontend`; task 3 with `codex` after 07:55.
 - **Last commit:** `afe3ca1` (captain workflow and reviewer agents); last code commit `4ea0296`.
 - **Blockers for this step:** none. Inbox → transaction deep links stay blocked on an owner decision (notifications have no related id).
+
+## Stage 7B.0 — remaining work plan (captain, 2026-11-10)
+
+Codex last stopped at `4ea0296` (Receipt and Payment requests as stack pages). Per the D4 table, 9 feature screens are still `BottomSheet` / RN `Modal` wrappers and must become root native-stack `FeatureScreen` pages before `Sheet` is wired for quick actions (pickers and confirmations live inside those pages). Work is split so the two implementers never edit the same screen files; the captain merges `phase-7-frontend` into `phase-7-ui-motion` and resolves `App.tsx` / `STATUS.md` conflicts.
+
+| #   | Task                                                                                                                                         | Files (in scope)                                                                       | Implementer                                                 | Reviewers                       | State                                  |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------- | ------------------------------- | -------------------------------------- |
+| 1   | Fix round for `4ea0296` (items 1–8 above)                                                                                                    | PaymentRequests, Receipt, Inbox, FeatureScreen `refreshControl`                        | `frontend` (Antigravity, worktree)                          | code, ui-ux                     | In progress                            |
+| 2   | Info pages → stack pages: About, Personal details, Export statement, FX rates                                                                | `AboutModal`, `PersonalDetailsModal`, `ExportStatementModal`, `FXRatesModal` + callers | `frontend`                                                  | code, ui-ux                     | Queued after 1                         |
+| 3   | Money pages → stack pages: Send money (Transfer), Pay bills                                                                                  | `TransferModal`, `PayBillsModal` (+ `transfer/`, `pay-bills/`, `bills/`) + callers     | `codex` (main checkout)                                     | code, ui-ux, backend (security) | Queued: Codex usage limit resets 07:55 |
+| 4   | QR (My QR / Scan / Request), Scheduled payments, Saved recipients → stack pages                                                              | `QRHubModal`, `qr/`, `ScheduledPaymentsModal`, `SavedRecipientsModal` + callers        | whoever finishes first (`frontend` if 2 done, else `codex`) | code, ui-ux, backend            | Queued                                 |
+| 5   | `Sheet` for quick actions (account picker, filters, frequency/date, discard/cancel/sign-out confirmations); remove `BottomSheet` when unused | `Sheet`, `BottomSheet`, picker/confirm call sites                                      | `codex`                                                     | code, ui-ux                     | After 2–4                              |
+| 6   | Change password page (7B.3 item, needed by D4 list)                                                                                          | new screen + Profile row                                                               | later, with 7B.3                                            | code, ui-ux, backend            | Later                                  |
+
+Rules: each task is one commit with title `Phase 7 · Stage 7B.0 — <task>`; money handlers and step-up calls byte-identical; reviewers run in their Herdr tabs after each commit; captain re-runs checks before merge. Inbox → transaction deep links stay blocked on the owner's decision.
 
 ## Stage 7B.0 — review of 4ea0296 (2026-11-10, captain + Security, UI/UX, Code Quality reviewers)
 
