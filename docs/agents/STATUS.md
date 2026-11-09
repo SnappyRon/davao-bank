@@ -35,6 +35,17 @@ Follow-ups for `f0342dc` (accepted 2026-11-10; give to `frontend` after task 2, 
 - **Info:** add a `hideBalance: true` case to `receipt_screen.test.tsx`.
 - **Deferred to 7B.7/7B.11:** offline copy "Nothing was sent" is wrong on load-only screens (shared `toUserMessage`; update its test then).
 
+Fix round for `4758d2a` (2026-11-10; Code Quality tab and UI/UX stand-in both found the High independently; `frontend` after its f0342dc follow-ups; one commit `Phase 7 · Fix — 4758d2a review findings`). **Not merged until done.**
+
+- **High — saved name never reaches app state.** Old modal called `onUpdated(data)`; new `PersonalDetailsScreen` doesn't, and `ProfileScreen.tsx:35` ignores `onProfileUpdated`. Fix inside the screens: `ProfileScreen` refetches the profile on focus (`useFocusEffect` + `fetchUserProfile`) and calls `onProfileUpdated(data)`. No `App.tsx` change, no functions in route params.
+- **Medium — PersonalDetails load failure is silent** (`:41-56,68`): show `toUserMessage` error + "Try again"; Save disabled until loaded.
+- **Medium — discard prompt after save** (`:92-97`): also set `fullName`/`phoneNumber` from saved data; keep the 1.2 s timeout in a ref, clear on unmount; keep Save disabled until navigation.
+- **Medium — ExportStatement** (`:38-48,99,236,302,408-412`): all shown errors via `toUserMessage`; retry for account load; empty state when no accounts; `mounted` guard; Current balance respects `hideBalance` and shows "—" not ₱0.00 for null.
+- **Medium — FXRates error state** (`:51-62`): clear or key rates per pair on error; show the "cached" banner only with cached data; "Try again"; ignore stale responses.
+- **Low:** Activity — remove unused `accounts` state + `fetchAccountBalances` call and the dead `onExportStatement` prop (7B.2 re-adds accounts for its filter); About — drop `lineHeight: 22`; Export chip label "Savings •• 8921" not raw `acc.type`.
+- **Low — tests:** RNTL test for `PersonalDetailsScreen` (load error, empty-name validation, save success without discard prompt, save error mapped).
+- Deferred: sentence-case titles/labels and About version text (7B.7), skeletons (7B.11), account/date pickers as `Sheet` (plan task 5), statement-ready toast (7B.4).
+
 ## Stage 7B.0 — review of 4ea0296 (2026-11-10, captain + Security, UI/UX, Code Quality reviewers)
 
 Accepted: no Blocker or High. Money and step-up handlers byte-identical, server RLS scopes the receipt RPC, typecheck/lint (0 errors)/format/unit 84/84 and `test:db` 90/90 pass. Captain spot-checked each item below in the code.
@@ -212,6 +223,8 @@ Fix these before 7B:
 - **Follow-up:** add dedicated test accounts so live tests don't conflict with the presenter's real authenticator.
 
 ## Log (newest first)
+
+- **2026-11-10, Claude Code (captain):** reviewed `4758d2a` (Antigravity `frontend`, task 2 info pages). Captain checks PASS (typecheck, lint 0 errors / 80 warnings, format, unit 87/87). Code Quality (Claude tab) and UI/UX (Claude sub agent for Codex, out of quota) both found the same **High** regression (profile update lost); captain confirmed it in code. **Changes requested, not merged**; fix round recorded above.
 
 - **2026-11-10, Claude Code (captain):** reviewed `f0342dc` (Antigravity `frontend`, fix round for `4ea0296`). Captain re-ran in the worktree: typecheck PASS, lint 0 errors (87 warnings), format PASS, unit 87/87; pay/decline/cancel handlers byte-identical. Reviews: Code Quality (Claude tab) and UI/UX (Claude sub agent substituting for Codex, out of quota) both found no Blocker/High; items 1-8 fixed except two partly (empty-state nested scroll, account banner layout). Accepted and merged into `phase-7-ui-motion`; follow-ups queued above.
 
