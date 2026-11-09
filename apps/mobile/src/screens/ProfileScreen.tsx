@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { View, StyleSheet, ScrollView, Alert, Switch } from 'react-native';
 import {
   User,
@@ -11,14 +11,7 @@ import {
   CalendarClock,
   Inbox,
 } from 'lucide-react-native';
-import {
-  colors,
-  spacing,
-  radius,
-  fetchAccountBalances,
-  type Profile,
-  type AccountBalance,
-} from '@davao-bank/shared';
+import { colors, spacing, radius, type Profile } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
 import { useAppLock } from '../context/AppLockContext';
 import { useSettings } from '../context/SettingsContext';
@@ -30,7 +23,6 @@ import { PersonalDetailsModal } from './PersonalDetailsModal';
 import { AboutModal } from './AboutModal';
 import { SavedRecipientsModal } from './SavedRecipientsModal';
 import { ScheduledPaymentsModal } from './ScheduledPaymentsModal';
-import { PaymentRequestsModal } from './PaymentRequestsModal';
 
 interface ProfileScreenProps {
   profile: Profile | null;
@@ -52,18 +44,8 @@ export function ProfileScreen({
   const [personalDetailsOpen, setPersonalDetailsOpen] = useState(false);
   const [savedRecipientsOpen, setSavedRecipientsOpen] = useState(false);
   const [scheduledOpen, setScheduledOpen] = useState(false);
-  const [requestsOpen, setRequestsOpen] = useState(false);
-  const [accounts, setAccounts] = useState<AccountBalance[]>([]);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
-
-  useEffect(() => {
-    if (requestsOpen) {
-      fetchAccountBalances(supabase).then(({ data }) => {
-        if (data) setAccounts(data);
-      });
-    }
-  }, [requestsOpen]);
 
   const getInitials = (name?: string | null) => {
     if (!name) return 'DB';
@@ -259,7 +241,7 @@ export function ProfileScreen({
             feedbackType="highlight"
             accessibilityRole="button"
             accessibilityLabel="Payment Requests: Review incoming requests and track outgoing requests"
-            onPress={() => setRequestsOpen(true)}
+            onPress={() => navigation.navigate('PaymentRequests')}
           >
             <View style={styles.menuIconContainer}>
               <Inbox size={20} color={colors.primary} />
@@ -344,12 +326,6 @@ export function ProfileScreen({
       <ScheduledPaymentsModal
         visible={scheduledOpen}
         onClose={() => setScheduledOpen(false)}
-      />
-
-      <PaymentRequestsModal
-        visible={requestsOpen}
-        onClose={() => setRequestsOpen(false)}
-        accounts={accounts}
       />
     </Screen>
   );

@@ -1,3 +1,6 @@
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '../../App';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, StyleSheet, SectionList, RefreshControl } from 'react-native';
 import { FileText, SlidersHorizontal } from 'lucide-react-native';
@@ -21,7 +24,6 @@ import {
   Skeleton,
   Pressable,
 } from '../components';
-import { TransactionDetailModal } from './TransactionDetailModal';
 import { ExportStatementModal } from './ExportStatementModal';
 
 export type ActivityFilter =
@@ -38,12 +40,12 @@ interface ActivityScreenProps {
 }
 
 export function ActivityScreen({ onExportStatement }: ActivityScreenProps) {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [transactions, setTransactions] = useState<TransactionHistoryItem[]>([]);
   const [accounts, setAccounts] = useState<AccountBalance[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [selectedFilter, setSelectedFilter] = useState<ActivityFilter>('all');
-  const [selectedTx, setSelectedTx] = useState<TransactionHistoryItem | null>(null);
   const [isExportOpen, setIsExportOpen] = useState(false);
 
   const loadHistory = useCallback(async () => {
@@ -187,7 +189,15 @@ export function ActivityScreen({ onExportStatement }: ActivityScreenProps) {
           keyExtractor={(item) => item.ledger_entry_id || item.transaction_id}
           renderItem={({ item }) => (
             <View style={styles.rowWrapper}>
-              <TransactionRow transaction={item} onPress={() => setSelectedTx(item)} />
+              <TransactionRow
+                transaction={item}
+                onPress={() =>
+                  navigation.navigate('Receipt', {
+                    transactionId: item.transaction_id,
+                    accountId: item.account_id,
+                  })
+                }
+              />
             </View>
           )}
           renderSectionHeader={({ section: { title } }) => (
@@ -212,14 +222,6 @@ export function ActivityScreen({ onExportStatement }: ActivityScreenProps) {
           }
         />
       )}
-
-      {selectedTx ? (
-        <TransactionDetailModal
-          visible={Boolean(selectedTx)}
-          transaction={selectedTx}
-          onClose={() => setSelectedTx(null)}
-        />
-      ) : null}
 
       <ExportStatementModal
         visible={isExportOpen}

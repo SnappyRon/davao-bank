@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, StyleSheet, ScrollView, RefreshControl } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '../../App';
 import {
   Send,
   PlusCircle,
@@ -39,12 +41,10 @@ import {
   Pressable,
 } from '../components';
 import { TransferModal } from './TransferModal';
-import { TransactionDetailModal } from './TransactionDetailModal';
 import { SuspendedScreen } from './SuspendedScreen';
 import { PayBillsModal } from './PayBillsModal';
 import { ScheduledPaymentsModal } from './ScheduledPaymentsModal';
 import { QRHubModal } from './QRHubModal';
-import { PaymentRequestsModal } from './PaymentRequestsModal';
 import { FXRatesModal } from './FXRatesModal';
 import { HomeBalanceCard } from './home/HomeBalanceCard';
 import { HomeUpcomingPayments } from './home/HomeUpcomingPayments';
@@ -59,7 +59,7 @@ export function HomeScreen({
   onNavigateToActivity,
   onNavigateToProfile,
 }: HomeScreenProps) {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [accounts, setAccounts] = useState<AccountBalance[]>([]);
   const [transactions, setTransactions] = useState<TransactionHistoryItem[]>([]);
@@ -74,9 +74,7 @@ export function HomeScreen({
   const [isPayBillsOpen, setIsPayBillsOpen] = useState(false);
   const [isScheduledOpen, setIsScheduledOpen] = useState(false);
   const [isQROpen, setIsQROpen] = useState(false);
-  const [isRequestsOpen, setIsRequestsOpen] = useState(false);
   const [isFXOpen, setIsFXOpen] = useState(false);
-  const [selectedTx, setSelectedTx] = useState<TransactionHistoryItem | null>(null);
 
   // QR transfer prefill state
   const [qrPrefillAccount, setQrPrefillAccount] = useState<string | undefined>();
@@ -234,7 +232,7 @@ export function HomeScreen({
         {pendingRequestsCount > 0 && (
           <Pressable
             style={styles.requestsBanner}
-            onPress={() => setIsRequestsOpen(true)}
+            onPress={() => navigation.navigate('PaymentRequests')}
             feedbackType="highlight"
             accessibilityRole="button"
             accessibilityLabel={`${pendingRequestsCount} Pending Payment Request${pendingRequestsCount > 1 ? 's' : ''}. Tap to review, pay, or decline`}
@@ -315,7 +313,12 @@ export function HomeScreen({
           transactions={transactions}
           hideBalance={hideBalance}
           onNavigateToActivity={onNavigateToActivity}
-          onSelectTransaction={setSelectedTx}
+          onSelectTransaction={(transaction) =>
+            navigation.navigate('Receipt', {
+              transactionId: transaction.transaction_id,
+              accountId: transaction.account_id,
+            })
+          }
         />
 
         {/* Dev Diagnostics */}
@@ -387,22 +390,7 @@ export function HomeScreen({
         onRequestSent={loadData}
       />
 
-      <PaymentRequestsModal
-        visible={isRequestsOpen}
-        onClose={() => setIsRequestsOpen(false)}
-        accounts={accounts}
-        onPaymentSuccess={loadData}
-      />
-
       <FXRatesModal visible={isFXOpen} onClose={() => setIsFXOpen(false)} />
-
-      {selectedTx ? (
-        <TransactionDetailModal
-          visible={Boolean(selectedTx)}
-          transaction={selectedTx}
-          onClose={() => setSelectedTx(null)}
-        />
-      ) : null}
     </Screen>
   );
 }

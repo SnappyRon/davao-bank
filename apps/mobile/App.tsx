@@ -38,6 +38,8 @@ import { ForgotPasswordScreen } from './src/screens/ForgotPasswordScreen';
 import { SuspendedScreen } from './src/screens/SuspendedScreen';
 import { CashOutScreen } from './src/screens/CashOutScreen';
 import { AddMoneyScreen } from './src/screens/AddMoneyScreen';
+import { ReceiptScreen } from './src/screens/ReceiptScreen';
+import { PaymentRequestsScreen } from './src/screens/PaymentRequestsScreen';
 import { TwoStepSetupScreen } from './src/screens/TwoStepSetupScreen';
 
 export type RootStackParamList = {
@@ -45,6 +47,8 @@ export type RootStackParamList = {
   CashOut: undefined;
   AddMoney: undefined;
   TwoStepSetup: undefined;
+  Receipt: { transactionId: string; accountId: string };
+  PaymentRequests: undefined;
 };
 
 export type BottomTabParamList = {
@@ -347,6 +351,16 @@ export default function App() {
                   presentation: 'card',
                   animation: 'slide_from_right',
                 }}
+              />
+              <RootStack.Screen
+                name="Receipt"
+                component={ReceiptScreen}
+                options={{ presentation: 'card', animation: 'slide_from_right' }}
+              />
+              <RootStack.Screen
+                name="PaymentRequests"
+                component={PaymentRequestsScreen}
+                options={{ presentation: 'card', animation: 'slide_from_right' }}
               />
             </RootStack.Navigator>
           </NavigationContainer>

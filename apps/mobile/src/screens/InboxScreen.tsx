@@ -1,3 +1,6 @@
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '../../App';
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, StyleSheet, FlatList, RefreshControl } from 'react-native';
 import { Bell, CheckCheck } from 'lucide-react-native';
@@ -16,6 +19,7 @@ interface InboxScreenProps {
 }
 
 export function InboxScreen({ onUnreadCountChange }: InboxScreenProps) {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
@@ -170,7 +174,13 @@ export function InboxScreen({ onUnreadCountChange }: InboxScreenProps) {
                   styles.notificationCard,
                   !item.read ? styles.unreadCard : undefined,
                 ]}
-                onPress={() => !item.read && markAsRead(item.id)}
+                onPress={() => {
+                  if (!item.read) void markAsRead(item.id);
+                  if (item.type?.startsWith('payment_request_')) {
+                    navigation.navigate('PaymentRequests');
+                  }
+                  // TODO: transaction links blocked: notifications have no related id (owner decision).
+                }}
                 accessibilityLabel={`${displayTitle}, ${item.message}, ${timeStr}`}
               >
                 <View style={styles.cardHeader}>

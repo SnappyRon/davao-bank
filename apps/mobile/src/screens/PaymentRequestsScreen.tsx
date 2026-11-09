@@ -1,3 +1,6 @@
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '../../App';
 import { StepUpSetupLink } from '../components/StepUpSetupLink';
 import { retryStepUp } from '../utils/stepUpRetry';
 import { useTotpPrompt } from '../context/PasswordPromptContext';
@@ -26,6 +29,7 @@ import {
   spacing,
   radius,
   formatCentavosToPHP,
+  fetchAccountBalances,
   generateIdempotencyKey,
   toUserMessage,
   type AccountBalance,
@@ -35,7 +39,7 @@ import {
 import { supabase } from '../lib/supabase';
 import { useSettings } from '../context/SettingsContext';
 import {
-  BottomSheet,
+  FeatureScreen,
   Text,
   Button,
   Badge,
@@ -44,21 +48,23 @@ import {
   Pressable,
 } from '../components';
 
-interface PaymentRequestsModalProps {
-  visible: boolean;
-  onClose: () => void;
-  accounts: AccountBalance[];
-  onPaymentSuccess?: () => void;
-}
-
 type RequestTab = 'incoming' | 'outgoing';
 
-export function PaymentRequestsModal({
-  visible,
-  onClose,
-  accounts,
-  onPaymentSuccess,
-}: PaymentRequestsModalProps) {
+export function PaymentRequestsScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const onClose = () => navigation.goBack();
+  const [accounts, setAccounts] = useState<AccountBalance[]>([]);
+  const [accountError, setAccountError] = useState<string | null>(null);
+  const loadAccounts = useCallback(async () => {
+    const { data, error } = await fetchAccountBalances(supabase);
+    if (error) setAccountError(toUserMessage(error));
+    else {
+      setAccounts(data || []);
+      setAccountError(null);
+    }
+  }, []);
+  const onPaymentSuccess = loadAccounts;
+
   const promptTotp = useTotpPrompt();
   const { confirmBiometricPayment, hideBalance } = useSettings();
   const [tab, setTab] = useState<RequestTab>('incoming');
@@ -101,15 +107,15 @@ export function PaymentRequestsModal({
   }, []);
 
   useEffect(() => {
-    if (visible) {
-      setLoading(true);
-      setStatusMessage(null);
-      loadRequests();
-    }
-  }, [visible, loadRequests]);
+    setLoading(true);
+    setStatusMessage(null);
+    void loadAccounts();
+    loadRequests();
+  }, [loadAccounts, loadRequests]);
 
   const onRefresh = () => {
     setRefreshing(true);
+    void loadAccounts();
     loadRequests();
   };
 
@@ -271,12 +277,17 @@ export function PaymentRequestsModal({
   };
 
   return (
-    <BottomSheet
-      visible={visible}
-      onClose={onClose}
-      dismissible={!actionLoadingId}
-      title="Payment Requests"
+    <FeatureScreen
+      isProcessing={Boolean(actionLoadingId)}
+      title="Payment requests"
+      contentContainerStyle={{ flexGrow: 1 }}
     >
+      {accountError ? (
+        <View>
+          <Text accessibilityRole="alert">{accountError}</Text>
+          <Button title="Retry accounts" onPress={() => void loadAccounts()} />
+        </View>
+      ) : null}
       <View style={styles.container}>
         {/* Tab switch */}
         <View style={styles.tabBar}>
@@ -472,12 +483,13 @@ export function PaymentRequestsModal({
         </ScrollView>
       </View>
       <StepUpSetupLink error={statusMessage} onClose={onClose} />
-    </BottomSheet>
+    </FeatureScreen>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
     paddingBottom: spacing['2xl'],
   },
   tabBar: {
@@ -520,7 +532,7 @@ const styles = StyleSheet.create({
     borderColor: colors.error,
   },
   listArea: {
-    maxHeight: 460,
+    flex: 1,
   },
   itemsList: {
     gap: spacing.base,

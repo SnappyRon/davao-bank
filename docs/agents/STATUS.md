@@ -7,9 +7,9 @@
 - **Active phase:** Phase 7 — UI/UX Refinement & Motion.
 - **Branch:** `phase-7-ui-motion` (branched from tip of `phase-6-5-strong-auth`).
 - **Active prompt:** `Phase-7-Prompt-UI-UX-and-Motion.md`.
-- **Assigned to:** Codex (7B.0 Add money and Two-step setup handoff completed).
-- **Exact next step:** 7B.0 deep links from Inbox rows + Sheet for quick actions.
-- **Last commit:** this commit, `Phase 7 · Stage 7B.0 — Add money and Two-step setup as stack pages` (previous: `9c4e2bf`).
+- **Assigned to:** Codex (7B.0 Receipt and Payment requests completed).
+- **Exact next step:** 7B.0 Sheet for quick actions.
+- **Last commit:** this commit, `Phase 7 · Stage 7B.0 — Receipt and Payment requests as stack pages` (previous: `ce41110`).
 - **Blockers for this step:** none.
 
 ## Stage 7B Checklist
@@ -19,7 +19,8 @@
   - [x] Wire `FloatingTabBar` as `tabBar` on bottom-tab navigator.
   - [x] Cash out moves to root native stack screen; delete `WithdrawModal` Modal wrapper and modal `onBack` path.
   - [x] Add money and Two-step setup move to root native-stack `FeatureScreen` pages; old modal/component and in-Profile setup path removed.
-  - [ ] Deep links from Inbox rows open matching screen (receipt, request).
+  - [x] Receipt and Payment requests as root native-stack pages; callers and Inbox request links updated.
+  - [ ] Deep links from Inbox rows open matching screen (receipt, request): request links implemented; transaction links blocked: notifications have no related id (owner decision).
   - [ ] `Sheet` used for quick actions only (picker, filter, confirmations).
 - [ ] **7B.1 Home**:
   - [ ] Header: 56 pt, Logo 32, "Maayong adlaw," caption above name in `title`, Avatar 40 with 44 hit area ("Open profile").
@@ -170,6 +171,10 @@ Fix these before 7B:
 - **Follow-up:** add dedicated test accounts so live tests don't conflict with the presenter's real authenticator.
 
 ## Log (newest first)
+
+- **2026-11-10, Codex:** resumed after the captain formatted WORKFLOW.md and roles files. Re-ran all four root checks: typecheck PASS (exit 0), lint PASS (0 errors, 87 warnings), format:check PASS, unit PASS (15 suites, 84 tests). Receipt / Payment requests step complete; next: Sheet for quick actions. No device or live-flow verification added. Commit restricted to this task's paths; captain files and scripts/agent-usage.py excluded.
+
+- **2026-11-10, Codex:** took over the next 7B.0 step after `ce41110`. Implemented Receipt (loads via existing history RPC using transaction/account IDs) and PaymentRequests native-stack FeatureScreen pages; updated Home, Activity, Profile and Inbox callers with typed navigation and removed old modal files. Inbox request types open PaymentRequests; transaction notifications only mark as read, with the related-ID gap recorded as a TODO. Compared against `git show HEAD:apps/mobile/src/screens/PaymentRequestsModal.tsx`: pay/decline/cancel handler block is byte-identical, including step-up prompts and RPC calls. FeatureScreen supplies its existing password/code prompt host; shared host and authentication files are unchanged. Checks run: typecheck PASS (exit 0); lint PASS (0 errors, 87 warnings); unit PASS (15 suites, 84 tests); format:check FAIL (only `docs/agents/WORKFLOW.md`, an unrelated file appearing during this task). Stopped without committing or touching that file. Device navigation, scrolling and live password/code/payment flow NOT VERIFIED — no device or hosted actions run. Excluded scripts/agent-usage.py, .claude/ and docs/agents/roles/.
 
 - **2026-11-10, Claude Code (reviewer):** moved the team to Herdr; Codex ran as a sub agent in the same workspace. Reviewed `41918e7`: 9 expected files only; re-ran typecheck PASS, lint 0 errors (97 warnings), format PASS, unit 84/84. `executeDeposit` payload, idempotency key lifecycle and the MFA enroll/verify/unenroll calls match the deleted files. No imports of the deleted files remain. **Approved, device check NOT VERIFIED** (Add money and Two-step setup on the iOS simulator still to do). Minor follow-up: `useNavigation<any>()` in `CashOutScreen` and `HomeScreen` (from `9c4e2bf`) should use the root stack type.
 
