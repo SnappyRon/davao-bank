@@ -7,10 +7,28 @@
 - **Active phase:** Phase 7 — UI/UX Refinement & Motion.
 - **Branch:** `phase-7-ui-motion` (branched from tip of `phase-6-5-strong-auth`).
 - **Active prompt:** `Phase-7-Prompt-UI-UX-and-Motion.md`.
-- **Assigned to:** Codex (7B.0 Receipt and Payment requests completed).
-- **Exact next step:** 7B.0 Sheet for quick actions.
-- **Last commit:** this commit, `Phase 7 · Stage 7B.0 — Receipt and Payment requests as stack pages` (previous: `ce41110`).
-- **Blockers for this step:** none.
+- **Assigned to:** Codex (usage limit resets 2026-11-10 07:55), reviewed by the captain workflow (`docs/agents/WORKFLOW.md`).
+- **Exact next step:** 7B.0 fix round for `4ea0296`, list below ("Stage 7B.0 — review of 4ea0296"). Then: 7B.0 Sheet for quick actions.
+- **Last commit:** `afe3ca1` (captain workflow and reviewer agents); last code commit `4ea0296`.
+- **Blockers for this step:** none. Inbox → transaction deep links stay blocked on an owner decision (notifications have no related id).
+
+## Stage 7B.0 — review of 4ea0296 (2026-11-10, captain + Security, UI/UX, Code Quality reviewers)
+
+Accepted: no Blocker or High. Money and step-up handlers byte-identical, server RLS scopes the receipt RPC, typecheck/lint (0 errors)/format/unit 84/84 and `test:db` 90/90 pass. Captain spot-checked each item below in the code.
+
+Fix round (one commit, title `Phase 7 · Fix — 7B.0 review findings for Receipt and Payment requests`):
+
+1. **Medium — nested scroll.** `PaymentRequestsScreen.tsx:283,362` puts a vertical `ScrollView` + `RefreshControl` inside `FeatureScreen`'s `ScrollView`. Remove the inner `ScrollView`; add an optional `refreshControl` prop to `FeatureScreen` that it passes to its body `ScrollView` (additive; existing pages unchanged).
+2. **Medium — wrong tab from Inbox.** `InboxScreen.tsx:180` always opens Incoming. Add optional route param `initialTab?: 'incoming' | 'outgoing'`; Inbox passes `'outgoing'` for `payment_request_paid` / `payment_request_declined` (sent to the requester) and `'incoming'` otherwise.
+3. **Medium — hidden balance on Receipt.** `ReceiptScreen.tsx:99` `AmountText` ignores `hideBalance`. Read `useSettings().hideBalance` and pass `hidden`. (Captain decision: Security rated it Low, UI/UX Medium; the spec rule "hidden balances stay hidden everywhere" decides it. Owner may overrule.)
+4. **Medium — request load error looks empty.** `PaymentRequestsScreen.tsx:99-106` ignores `inRes.error`/`outRes.error`. Show the error via `toUserMessage` with "Try again" instead of the empty state.
+5. **Low — Pay before accounts load.** Disable "Pay now" while accounts are loading or `accountError` is set, instead of "No active account found…".
+6. **Low — account error block.** Style it with the existing error banner; button copy "Try again".
+7. **Low — Receipt not-found copy.** Move it to `packages/shared/src/utils/errors.ts`; show "Try again" only for fetch errors, not for not-found. Merge the duplicate `@react-navigation/native` import. Replace literals (`160`, `fontSize: 11`, `marginTop: 2`, `flexGrow: 1`) with tokens; drop `fontFamily: 'monospace'`.
+8. **Low — tests.** Add an RNTL test for `ReceiptScreen` (found / not found / error then retry) with `fetchTransactionHistory` mocked.
+9. **Gate item (not this commit):** Maestro `e2e/mobile/stage-0-9-flow-checks.yaml:164,178` asserts "Payment Requests" (now "Payment requests"), and the `50%,5%` tap now hits the header. Update at the 7B gate.
+
+Deferred to their planned steps (not in the fix round): receipt reference/Share/no UUID (7B.2), masked requester in the pay prompt (7B.4), copy fixes and exclamation marks (7B.7), `EmptyState` error states (7B.11), Activity refresh on focus (7B.2), single-transaction RPC (owner decision, DB change), `gestureEnabled: false` while processing on all stack pages (captain to check against the spec in the next review).
 
 ## Stage 7B Checklist
 
@@ -171,6 +189,8 @@ Fix these before 7B:
 - **Follow-up:** add dedicated test accounts so live tests don't conflict with the presenter's real authenticator.
 
 ## Log (newest first)
+
+- **2026-11-10, Claude Code (captain):** set up the captain workflow: `docs/agents/WORKFLOW.md`, four read-only reviewer roles in `docs/agents/roles/`, wrappers in `.claude/agents/` (verified: a fresh Claude session lists all four) and `.codex/agents/` + `.codex/config.toml` (not yet run in Codex: usage limit). First run: Security, UI/UX and Code Quality reviewed `4ea0296` in parallel; captain verified findings and resolved two conflicts (receipt hide-balance severity; Maestro reference, where Code Quality was wrong). Accepted with a fix round (see "Stage 7B.0 — review of 4ea0296").
 
 - **2026-11-10, Codex:** resumed after the captain formatted WORKFLOW.md and roles files. Re-ran all four root checks: typecheck PASS (exit 0), lint PASS (0 errors, 87 warnings), format:check PASS, unit PASS (15 suites, 84 tests). Receipt / Payment requests step complete; next: Sheet for quick actions. No device or live-flow verification added. Commit restricted to this task's paths; captain files and scripts/agent-usage.py excluded.
 
