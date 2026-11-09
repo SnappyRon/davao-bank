@@ -9,7 +9,7 @@
 - **Active prompt:** `Phase-7-Prompt-UI-UX-and-Motion.md`.
 - **Assigned to:** Codex (usage limit resets 2026-11-10 07:55), reviewed by the captain workflow (`docs/agents/WORKFLOW.md`).
 - **Exact next step:** 7B.0 Sheet for quick actions.
-- **Last commit:** `Phase 7 · Fix — 7B.0 review findings for Receipt and Payment requests` (previous: `8ff0d85`, last code commit `4ea0296`).
+- **Last commit:** `Phase 7 · Stage 7B.0 — About, Personal details, Export statement and FX rates as stack pages` (previous: `f0342dc`).
 - **Blockers for this step:** none. Inbox → transaction deep links stay blocked on an owner decision (notifications have no related id).
 
 ## Stage 7B.0 — review of 4ea0296 (2026-11-10, captain + Security, UI/UX, Code Quality reviewers)
@@ -38,6 +38,7 @@ Deferred to their planned steps (not in the fix round): receipt reference/Share/
   - [x] Cash out moves to root native stack screen; delete `WithdrawModal` Modal wrapper and modal `onBack` path.
   - [x] Add money and Two-step setup move to root native-stack `FeatureScreen` pages; old modal/component and in-Profile setup path removed.
   - [x] Receipt and Payment requests as root native-stack pages; callers and Inbox request links updated.
+  - [x] About, Personal details, Export statement and FX rates as root native-stack pages; callers updated, old modal wrappers deleted.
   - [ ] Deep links from Inbox rows open matching screen (receipt, request): request links implemented; transaction links blocked: notifications have no related id (owner decision).
   - [ ] `Sheet` used for quick actions only (picker, filter, confirmations).
 - [ ] **7B.1 Home**:
@@ -189,6 +190,8 @@ Fix these before 7B:
 - **Follow-up:** add dedicated test accounts so live tests don't conflict with the presenter's real authenticator.
 
 ## Log (newest first)
+
+- **2026-11-10, Antigravity (frontend):** completed Task 2 from 7B.0 plan: converted AboutModal, PersonalDetailsModal, ExportStatementModal, and FXRatesModal into root native-stack pages (AboutScreen, PersonalDetailsScreen, ExportStatementScreen, FXRatesScreen) using FeatureScreen as a stack page (no onBack prop, usePreventRemove owns Back/swipe/Android back, isDirty for PersonalDetails edits, isProcessing during save/export). Registered in App.tsx RootStackParamList ('card', 'slide_from_right'). Callers updated (ProfileScreen, ActivityScreen, HomeScreen) with typed navigation; deleted old *Modal.tsx files. Data calls, validation, and save/export logic kept identical. Theme tokens used throughout. All 4 checks pass: typecheck PASS (exit 0), lint PASS (0 errors, 80 warnings), format:check PASS, unit PASS (16 suites, 87 tests).
 
 - **2026-11-10, Antigravity (frontend):** completed 7B.0 fix round for Receipt and Payment requests (items 1-8). Removed nested scroll in PaymentRequestsScreen and added optional `refreshControl` prop to FeatureScreen; added `initialTab` param for PaymentRequests and wired InboxScreen to pass `'outgoing'` for paid/declined notifications and `'incoming'` otherwise; masked receipt amount when `hideBalance` is enabled; added error state with "Try again" retry for request fetch errors; disabled "Pay Now" while accounts are loading or errored (handlers kept byte-identical); styled account error block with error banner and "Try again"; moved receipt not-found copy to `packages/shared/src/utils/errors.ts` (`RECEIPT_NOT_FOUND_MESSAGE`) with "Try again" hidden on not-found, merged duplicate imports, replaced literals (`160`, `fontSize: 11`, `marginTop: 2`, `flexGrow: 1`) with tokens/StyleSheet, and dropped `fontFamily: 'monospace'`; added RNTL test suite for ReceiptScreen (found / not found / error then retry) in `apps/mobile/src/__tests__/receipt_screen.test.tsx`. Root checks: typecheck PASS (exit 0), lint PASS (0 errors, 88 warnings), format:check PASS, unit PASS (16 suites, 87 tests).
 

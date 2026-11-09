@@ -19,8 +19,6 @@ import { Screen, Text, Card, Badge, Button, Pressable } from '../components';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../App';
-import { PersonalDetailsModal } from './PersonalDetailsModal';
-import { AboutModal } from './AboutModal';
 import { SavedRecipientsModal } from './SavedRecipientsModal';
 import { ScheduledPaymentsModal } from './ScheduledPaymentsModal';
 
@@ -34,17 +32,15 @@ interface ProfileScreenProps {
 export function ProfileScreen({
   profile,
   userEmail,
-  onProfileUpdated,
+  onProfileUpdated: _onProfileUpdated,
   onSignOut,
 }: ProfileScreenProps) {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const appLock = useAppLock();
   const { biometricEnabled, setBiometricEnabled, biometricType, isBiometricSupported } =
     useSettings();
-  const [personalDetailsOpen, setPersonalDetailsOpen] = useState(false);
   const [savedRecipientsOpen, setSavedRecipientsOpen] = useState(false);
   const [scheduledOpen, setScheduledOpen] = useState(false);
-  const [aboutOpen, setAboutOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
 
   const getInitials = (name?: string | null) => {
@@ -131,7 +127,7 @@ export function ProfileScreen({
             feedbackType="highlight"
             accessibilityRole="button"
             accessibilityLabel="Personal Details: Manage your legal name and contact phone"
-            onPress={() => setPersonalDetailsOpen(true)}
+            onPress={() => navigation.navigate('PersonalDetails')}
           >
             <View style={styles.menuIconContainer}>
               <User size={20} color={colors.primary} />
@@ -262,7 +258,7 @@ export function ProfileScreen({
             feedbackType="highlight"
             accessibilityRole="button"
             accessibilityLabel="About Davao Bank: Academic prototype disclosure & brand credits"
-            onPress={() => setAboutOpen(true)}
+            onPress={() => navigation.navigate('About')}
           >
             <View style={styles.menuIconContainer}>
               <Info size={20} color={colors.blueText} />
@@ -306,17 +302,6 @@ export function ProfileScreen({
         title="Two-step verification"
         onPress={() => navigation.navigate('TwoStepSetup')}
       />
-      <PersonalDetailsModal
-        visible={personalDetailsOpen}
-        profile={profile}
-        userEmail={userEmail}
-        onClose={() => setPersonalDetailsOpen(false)}
-        onUpdated={(p) => {
-          if (onProfileUpdated) onProfileUpdated(p);
-        }}
-      />
-
-      <AboutModal visible={aboutOpen} onClose={() => setAboutOpen(false)} />
 
       <SavedRecipientsModal
         visible={savedRecipientsOpen}

@@ -24,7 +24,6 @@ import {
   Skeleton,
   Pressable,
 } from '../components';
-import { ExportStatementModal } from './ExportStatementModal';
 
 export type ActivityFilter =
   | 'all'
@@ -46,7 +45,6 @@ export function ActivityScreen({ onExportStatement }: ActivityScreenProps) {
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [selectedFilter, setSelectedFilter] = useState<ActivityFilter>('all');
-  const [isExportOpen, setIsExportOpen] = useState(false);
 
   const loadHistory = useCallback(async () => {
     try {
@@ -142,7 +140,7 @@ export function ActivityScreen({ onExportStatement }: ActivityScreenProps) {
               if (onExportStatement) {
                 onExportStatement();
               } else {
-                setIsExportOpen(true);
+                navigation.navigate('ExportStatement');
               }
             }}
             style={styles.exportButton}
@@ -222,12 +220,6 @@ export function ActivityScreen({ onExportStatement }: ActivityScreenProps) {
           }
         />
       )}
-
-      <ExportStatementModal
-        visible={isExportOpen}
-        onClose={() => setIsExportOpen(false)}
-        accounts={accounts}
-      />
     </Screen>
   );
 }
