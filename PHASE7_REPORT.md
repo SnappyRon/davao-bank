@@ -470,3 +470,15 @@ npm run test:unit   → Test Suites: 25 passed, 25 total
 ```
 
 Deferred (captain): Inbox raw message text / full numbers / reversal UUID and staff reason / hide-balance in messages → 7B.9 wording migration; biller name and transaction deep link → owner DB decision; `toLocaleUpperCase` section headers → 7B.8. Device NOT VERIFIED — captain runs it.
+
+**Fix outside the stage, commit B `Phase 7 · Fix — scope notifications fetch to the signed-in user`:** `packages/shared/src/supabase/client.ts` `fetchNotifications(client, userId?)` always filters `.eq('user_id', …)` — the passed id, or the signed-in user from `client.auth.getUser()`; with no user it returns `Authentication required` without querying (RLS alone would let an admin account read every user's notifications). Signature is backward compatible; the only caller is `InboxScreen` (grep over apps, packages, scripts, e2e). New `packages/shared/src/__tests__/notifications.test.ts` (3 tests).
+
+```text
+npm run typecheck   → admin, mobile, shared: tsc --noEmit, exit 0
+npm run lint        → ✖ 64 problems (0 errors, 64 warnings)
+npm run format:check→ All matched files use Prettier code style!
+npm run test:unit   → Test Suites: 26 passed, 26 total
+                      Tests:       206 passed, 206 total
+```
+
+Hosted behaviour NOT VERIFIED (live suites not run).

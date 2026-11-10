@@ -296,14 +296,29 @@ export async function fetchTransactionHistory(
 
 /**
  * Fetches in-app notifications for the logged-in customer.
+ *
+ * Always filtered to one user: RLS alone would also return every user's rows
+ * to an admin account. Pass `userId` when the caller already has it; otherwise
+ * the signed-in user is read from the client.
  */
 export async function fetchNotifications(
-  client: SupabaseClient
+  client: SupabaseClient,
+  userId?: string
 ): Promise<{ data: Notification[] | null; error: string | null }> {
   try {
+    let ownerId = userId;
+    if (!ownerId) {
+      const { data: auth, error: authError } = await client.auth.getUser();
+      if (authError || !auth?.user) {
+        return { data: null, error: authError?.message || 'Authentication required' };
+      }
+      ownerId = auth.user.id;
+    }
+
     const { data, error } = await client
       .from('notifications')
       .select('*')
+      .eq('user_id', ownerId)
       .order('created_at', { ascending: false });
 
     if (error) {
