@@ -1,20 +1,25 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  AccessibilityInfo,
   Modal,
   View,
   StyleSheet,
   ScrollView,
   KeyboardAvoidingView,
+  Keyboard,
   Platform,
   Dimensions,
+  findNodeHandle,
   type LayoutChangeEvent,
+  type Text as RNText,
   type ViewStyle,
   TouchableWithoutFeedback,
 } from 'react-native';
 import Animated, {
-  Easing,
+  LinearTransition,
   runOnJS,
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
   withSpring,
   withTiming,
@@ -26,8 +31,8 @@ import {
 } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X } from 'lucide-react-native';
-import { colors, motion, radius, spacing } from '@davao-bank/shared';
-import { useReducedMotion } from '../hooks/useReducedMotion';
+import { colors, elevation, motion, radius, size, spacing } from '@davao-bank/shared';
+import { easing } from '../theme/easing';
 import { Text } from './Text';
 import { Pressable } from './Pressable';
 import { PrivacyOverlay } from './PrivacyOverlay';
@@ -36,14 +41,21 @@ import {
   usePasswordPromptHost,
 } from '../context/PasswordPromptContext';
 
-// Motion tokens (Phase 7 motion table). Easing curves mirror `motion.easing`.
-const EASE_STANDARD = Easing.bezier(0.2, 0, 0, 1);
-const EASE_ENTER = Easing.bezier(0, 0, 0, 1);
-const EASE_EXIT = Easing.bezier(0.3, 0, 1, 1);
-
 /** Pattern 5: a swipe closes past 25% of the sheet height or above 1000 pt/s. */
 const SWIPE_CLOSE_FRACTION = 0.25;
 const SWIPE_CLOSE_VELOCITY = 1000;
+
+/** Spec 7A.3: 36×4 drag handle. */
+const HANDLE_WIDTH = 36;
+const HANDLE_HEIGHT = 4;
+const HANDLE_RADIUS = HANDLE_HEIGHT / 2;
+const CLOSE_ICON_SIZE = 20;
+/** Smallest sheet, so a one-line confirmation still reads as a sheet. */
+const SHEET_MIN_HEIGHT = 180;
+/** Close button while the sheet can't be dismissed. */
+const DISABLED_OPACITY = 0.3;
+/** The sheet sits at the bottom edge, so its card shadow is cast upward. */
+const SHEET_SHADOW_OFFSET = { width: 0, height: -elevation.card.shadowOffset.height };
 
 export interface SheetProps {
   visible: boolean;
@@ -71,15 +83,19 @@ export function Sheet({
   style,
 }: SheetProps) {
   const insets = useSafeAreaInsets();
+  // Reanimated's hook knows the setting before the first frame.
   const reduceMotion = useReducedMotion();
   const promptHost = usePasswordPromptHost(visible);
   const [presented, setPresented] = useState(false);
   // The Modal stays mounted after `visible` turns false until the exit
   // animation ends, so the sheet can slide down and the scrim fade out.
   const [modalVisible, setModalVisible] = useState(visible);
+  const [iosKeyboardVisible, setIosKeyboardVisible] = useState(false);
   const shownRef = useRef(false);
   const visibleRef = useRef(visible);
   visibleRef.current = visible;
+  const titleRef = useRef<React.ComponentRef<typeof RNText>>(null);
+  const [swipeRelease, setSwipeRelease] = useState(0);
 
   // 0 = closed, 1 = open. The scrim and the sheet run on separate timings.
   const scrimProgress = useSharedValue(0);
@@ -105,11 +121,11 @@ export function Sheet({
       // fade only, `short`, no movement.
       sheetProgress.value = withTiming(1, {
         duration: reduceMotion ? motion.duration.short : motion.duration.long,
-        easing: reduceMotion ? EASE_STANDARD : EASE_ENTER,
+        easing: reduceMotion ? easing.standard : easing.enter,
       });
       scrimProgress.value = withTiming(1, {
         duration: reduceMotion ? motion.duration.short : motion.duration.medium,
-        easing: reduceMotion ? EASE_STANDARD : EASE_ENTER,
+        easing: reduceMotion ? easing.standard : easing.enter,
       });
       return;
     }
@@ -118,12 +134,42 @@ export function Sheet({
     // Pattern 5: slide down and fade the scrim, `medium`, exit easing.
     // Reduce Motion: fade, `short`.
     const duration = reduceMotion ? motion.duration.short : motion.duration.medium;
-    const easing = reduceMotion ? EASE_STANDARD : EASE_EXIT;
-    scrimProgress.value = withTiming(0, { duration, easing });
-    sheetProgress.value = withTiming(0, { duration, easing }, (finished) => {
+    const curve = reduceMotion ? easing.standard : easing.exit;
+    scrimProgress.value = withTiming(0, { duration, easing: curve });
+    if (!reduceMotion && drag.value > 0) {
+      // After a swipe, fold the finger offset into the exit: drag and progress
+      // run on the same curve, so translateY = e·H + (1 − e)·drag₀ moves
+      // steadily down from the finger's position to 100%, never back up.
+      drag.value = withTiming(0, { duration, easing: curve });
+    }
+    sheetProgress.value = withTiming(0, { duration, easing: curve }, (finished) => {
       if (finished) runOnJS(finishExit)();
     });
-  }, [visible, reduceMotion, finishExit, drag, scrimProgress, sheetProgress]);
+    // Shared values are stable refs, so they are not listed as dependencies.
+  }, [visible, reduceMotion, finishExit]);
+
+  // iOS: KeyboardAvoidingView lifts the footer above the keyboard, so the
+  // home-indicator inset must not be added while it is up.
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return;
+    const show = Keyboard.addListener('keyboardWillShow', () =>
+      setIosKeyboardVisible(true)
+    );
+    const hide = Keyboard.addListener('keyboardWillHide', () =>
+      setIosKeyboardVisible(false)
+    );
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
+
+  // Spec 7A.3: when the sheet opens or the step changes, focus moves to the title.
+  useEffect(() => {
+    if (!presented || !titleRef.current) return;
+    const node = findNodeHandle(titleRef.current);
+    if (node) AccessibilityInfo.setAccessibilityFocus(node);
+  }, [presented, step]);
 
   const handleDismiss = () => {
     if (promptHost.hasPrompt) {
@@ -139,13 +185,32 @@ export function Sheet({
     }
   };
 
+  const springBack = useCallback(() => {
+    drag.value = reduceMotion
+      ? withTiming(0, { duration: motion.duration.short, easing: easing.standard })
+      : withSpring(0, motion.spring.sheet);
+  }, [drag, reduceMotion]);
+
   // The swipe worklet calls a stable function that always runs the latest guard.
   const handleDismissRef = useRef(handleDismiss);
   handleDismissRef.current = handleDismiss;
+  const springBackRef = useRef(springBack);
+  springBackRef.current = springBack;
   const dismissFromSwipe = useCallback(() => {
     if (!visibleRef.current) return;
     handleDismissRef.current();
+    // Batched with the parent's update from the guard, so the next render sees
+    // whether the guard closed the sheet (see the effect below).
+    setSwipeRelease((n) => n + 1);
   }, []);
+  // After a past-threshold swipe: if the guard closed the sheet, the exit
+  // animation continues from the finger; if it declined (pending prompt,
+  // onRequestDismiss confirmation), spring back.
+  useEffect(() => {
+    if (swipeRelease === 0 || !visibleRef.current) return;
+    springBackRef.current();
+  }, [swipeRelease]);
+  const springBackFromSwipe = useCallback(() => springBackRef.current(), []);
 
   const swipe = useMemo(
     () =>
@@ -164,18 +229,12 @@ export function Sheet({
           const pastDistance =
             event.translationY > sheetHeight.value * SWIPE_CLOSE_FRACTION;
           const pastVelocity = event.velocityY > SWIPE_CLOSE_VELOCITY;
-          if (pastDistance || pastVelocity) {
-            // Goes through the same guard as the backdrop, X and Android back.
-            // If the guard closes the sheet, the exit animation takes over from
-            // here; if it doesn't (pending prompt, onRequestDismiss), the sheet
-            // settles back.
-            runOnJS(dismissFromSwipe)();
-          }
-          drag.value = reduceMotion
-            ? withTiming(0, { duration: motion.duration.short, easing: EASE_STANDARD })
-            : withSpring(0, motion.spring.sheet);
+          // Past the threshold: the same guard as the backdrop, X and Android
+          // back decides; the sheet holds at the finger until it does.
+          if (pastDistance || pastVelocity) runOnJS(dismissFromSwipe)();
+          else runOnJS(springBackFromSwipe)();
         }),
-    [dismissible, reduceMotion, dismissFromSwipe, drag, sheetHeight]
+    [dismissible, dismissFromSwipe, springBackFromSwipe, drag, sheetHeight]
   );
 
   const scrimStyle = useAnimatedStyle(() => ({
@@ -197,6 +256,15 @@ export function Sheet({
     };
   }, [reduceMotion]);
 
+  // Pattern 7: height changes between steps animate; none under Reduce Motion.
+  const heightTransition = useMemo(
+    () =>
+      reduceMotion
+        ? undefined
+        : LinearTransition.duration(motion.duration.medium).easing(easing.standard),
+    [reduceMotion]
+  );
+
   const handleSheetLayout = (event: LayoutChangeEvent) => {
     const { height } = event.nativeEvent.layout;
     if (height > 0) sheetHeight.value = height;
@@ -207,11 +275,15 @@ export function Sheet({
       ? `Step ${step} of ${stepCount}`
       : undefined;
 
+  const footerInset = Platform.OS === 'ios' && iosKeyboardVisible ? 0 : insets.bottom;
+
   return (
     <Modal
       testID="bottom-sheet-modal"
       visible={modalVisible}
       onShow={() => {
+        // The Modal can finish presenting after `visible` already went false.
+        if (!visibleRef.current) return;
         shownRef.current = true;
         setPresented(true);
       }}
@@ -221,91 +293,98 @@ export function Sheet({
       accessibilityViewIsModal
     >
       <GestureHandlerRootView style={styles.root}>
-        <View style={styles.root} pointerEvents={visible ? 'auto' : 'none'}>
+        <View
+          style={styles.root}
+          pointerEvents={visible ? 'auto' : 'none'}
+          accessibilityViewIsModal
+        >
           <Animated.View style={[StyleSheet.absoluteFill, styles.scrim, scrimStyle]}>
             <TouchableWithoutFeedback onPress={handleDismiss} accessible={false}>
               <View testID="sheet-backdrop" style={StyleSheet.absoluteFill} />
             </TouchableWithoutFeedback>
           </Animated.View>
 
+          {/* Outer frame: layout transition for height. Inner: slide/fade transform. */}
           <Animated.View
-            style={[styles.sheetFrame, sheetStyle]}
+            style={styles.sheetFrame}
+            layout={heightTransition}
             onLayout={handleSheetLayout}
           >
-            <KeyboardAvoidingView
-              behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-              style={[styles.sheet, style]}
-            >
-              {/* Drag handle + header: swipe down to dismiss */}
-              <GestureDetector gesture={swipe}>
-                <View style={styles.dragArea}>
-                  {/* 36x4 Drag Handle */}
-                  <View style={styles.handleBar} />
-
-                  {/* Header */}
-                  <View style={styles.header}>
-                    <View style={styles.titleBox}>
-                      {stepLabel ? (
-                        <Text variant="caption" color={colors.textSecondary}>
-                          {stepLabel}
-                        </Text>
-                      ) : null}
-                      {title ? (
-                        <Text
-                          variant="title"
-                          color={colors.ink}
-                          accessibilityRole="header"
-                        >
-                          {title}
-                        </Text>
-                      ) : null}
-                    </View>
-
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel="Close"
-                      onPress={handleDismiss}
-                      disabled={!dismissible}
-                      style={[styles.closeBtn, !dismissible && styles.closeBtnDisabled]}
-                      hitSlop={{
-                        top: spacing.sm,
-                        bottom: spacing.sm,
-                        left: spacing.sm,
-                        right: spacing.sm,
-                      }}
-                    >
-                      <X size={20} color={colors.textSecondary} />
-                    </Pressable>
-                  </View>
-                </View>
-              </GestureDetector>
-
-              {/* Body */}
-              <ScrollView
-                style={styles.body}
-                contentContainerStyle={[
-                  styles.contentContainer,
-                  {
-                    paddingBottom: footer ? spacing.base : spacing.xl + insets.bottom,
-                  },
-                ]}
-                keyboardShouldPersistTaps="handled"
+            <Animated.View style={[styles.sheetMotion, sheetStyle]}>
+              <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                style={[styles.sheet, style]}
               >
-                {children}
-              </ScrollView>
+                {/* Drag handle + header: swipe down to dismiss */}
+                <GestureDetector gesture={swipe}>
+                  <View style={styles.dragArea}>
+                    <View style={styles.handleBar} />
 
-              {/* Sticky Footer: 16 + bottom safe-area inset */}
-              {footer ? (
-                <View
-                  style={[styles.footer, { paddingBottom: spacing.base + insets.bottom }]}
+                    <View style={styles.header}>
+                      <View style={styles.titleBox}>
+                        {stepLabel ? (
+                          <Text variant="caption" color={colors.textSecondary}>
+                            {stepLabel}
+                          </Text>
+                        ) : null}
+                        {title ? (
+                          <Text
+                            ref={titleRef}
+                            variant="title"
+                            color={colors.ink}
+                            accessibilityRole="header"
+                          >
+                            {title}
+                          </Text>
+                        ) : null}
+                      </View>
+
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Close"
+                        onPress={handleDismiss}
+                        disabled={!dismissible}
+                        style={[styles.closeBtn, !dismissible && styles.closeBtnDisabled]}
+                        hitSlop={{
+                          top: spacing.sm,
+                          bottom: spacing.sm,
+                          left: spacing.sm,
+                          right: spacing.sm,
+                        }}
+                      >
+                        <X size={CLOSE_ICON_SIZE} color={colors.textSecondary} />
+                      </Pressable>
+                    </View>
+                  </View>
+                </GestureDetector>
+
+                {/* Body */}
+                <ScrollView
+                  style={styles.body}
+                  contentContainerStyle={[
+                    styles.contentContainer,
+                    {
+                      paddingBottom: footer ? spacing.base : spacing.xl + insets.bottom,
+                    },
+                  ]}
+                  keyboardShouldPersistTaps="handled"
                 >
-                  {footer}
-                </View>
-              ) : null}
+                  {children}
+                </ScrollView>
 
-              {/* In-Sheet Confirmation Prompt Host */}
-              <PasswordPromptHost hostId={promptHost.id} ready={presented} />
-            </KeyboardAvoidingView>
+                {/* Sticky Footer: 16 + bottom safe-area inset */}
+                {footer ? (
+                  <View
+                    style={[styles.footer, { paddingBottom: spacing.base + footerInset }]}
+                  >
+                    {footer}
+                  </View>
+                ) : null}
+
+                {/* In-Sheet Confirmation Prompt Host */}
+                <PasswordPromptHost hostId={promptHost.id} ready={presented} />
+              </KeyboardAvoidingView>
+            </Animated.View>
           </Animated.View>
         </View>
       </GestureHandlerRootView>
@@ -325,27 +404,27 @@ const styles = StyleSheet.create({
   sheetFrame: {
     maxHeight: '90%',
   },
+  sheetMotion: {
+    flexShrink: 1,
+  },
   sheet: {
     flexShrink: 1,
     backgroundColor: colors.surface,
     borderTopLeftRadius: radius.xl,
     borderTopRightRadius: radius.xl,
-    minHeight: 180,
+    minHeight: SHEET_MIN_HEIGHT,
     paddingTop: spacing.md,
     overflow: 'hidden',
-    shadowColor: colors.ink,
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 4,
+    ...elevation.card,
+    shadowOffset: SHEET_SHADOW_OFFSET,
   },
   dragArea: {
     paddingBottom: spacing.sm,
   },
   handleBar: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
+    width: HANDLE_WIDTH,
+    height: HANDLE_HEIGHT,
+    borderRadius: HANDLE_RADIUS,
     backgroundColor: colors.borderStrong,
     alignSelf: 'center',
     marginBottom: spacing.md,
@@ -360,13 +439,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   closeBtn: {
-    width: 44,
-    height: 44,
+    width: size.touch,
+    height: size.touch,
     alignItems: 'center',
     justifyContent: 'center',
   },
   closeBtnDisabled: {
-    opacity: 0.3,
+    opacity: DISABLED_OPACITY,
   },
   body: {
     flexGrow: 0,

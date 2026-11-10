@@ -10,13 +10,13 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
-  Easing,
   runOnJS,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react-native';
 import { colors, radius, spacing, motion } from '@davao-bank/shared';
 import { useReducedMotion } from '../hooks/useReducedMotion';
+import { easing } from '../theme/easing';
 import { Text } from './Text';
 import { Pressable } from './Pressable';
 
@@ -129,12 +129,12 @@ function ToastBannerItem({
     // Pattern 12: Fade in and drop 12 pt. Enter timing 250ms.
     opacity.value = withTiming(1, {
       duration: motion.duration.medium,
-      easing: Easing.bezier(0, 0, 0, 1),
+      easing: easing.enter,
     });
     if (!reduceMotion) {
       translateY.value = withTiming(0, {
         duration: motion.duration.medium,
-        easing: Easing.bezier(0, 0, 0, 1),
+        easing: easing.enter,
       });
     }
 

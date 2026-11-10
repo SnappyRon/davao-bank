@@ -31,6 +31,16 @@ jest.mock('react-native-reanimated', () => {
     runOnJS: (fn: any) => fn,
     // Used by react-native-gesture-handler's GestureDetector for worklet gestures.
     useEvent: () => () => {},
+    useReducedMotion: () => false,
+    // Layout transition builder (chainable); layout animations don't run in Jest.
+    LinearTransition: {
+      duration() {
+        return this;
+      },
+      easing() {
+        return this;
+      },
+    },
     Easing: {
       bezier: () => (x: any) => x,
       linear: (x: any) => x,

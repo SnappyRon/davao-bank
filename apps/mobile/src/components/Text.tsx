@@ -24,6 +24,8 @@ export interface TextProps extends RNTextProps {
   tabularNums?: boolean;
   align?: 'left' | 'center' | 'right';
   children?: React.ReactNode;
+  /** React 19 passes `ref` as a prop; it reaches the native Text via `rest`. */
+  ref?: React.Ref<React.ComponentRef<typeof RNText>>;
 }
 
 export function Text({

@@ -8,9 +8,10 @@ type Confirmation = Omit<ConfirmSheetProps, 'visible' | 'onCancel'> & {
 };
 
 /**
- * Shows a ConfirmSheet. The sheet stays mounted while it slides out, and the
- * confirmed action runs once it is hidden, after it has released its
- * password/code host, so step-up prompts open in the screen's own host.
+ * Shows a ConfirmSheet. The sheet stays mounted while it slides out. The
+ * confirmed action runs when the sheet starts closing (`visible` false), after
+ * it has released its password/code host, so step-up prompts open in the
+ * screen's own host.
  */
 export function useConfirmSheet() {
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
