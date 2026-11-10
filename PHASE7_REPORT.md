@@ -482,3 +482,31 @@ npm run test:unit   → Test Suites: 26 passed, 26 total
 ```
 
 Hosted behaviour NOT VERIFIED (live suites not run).
+
+## Stage 7B.3 — Profile (2026-11-10, Claude implementer sub agent)
+
+Implemented spec 7B "### 3. Profile" and plan task 6 (Change password page).
+
+- **Profile** (`apps/mobile/src/screens/ProfileScreen.tsx`): profile card kept (badges now sentence case: "Email verified", "Staff admin"). Below it three grouped cards (`GroupedList`, radius 16, 1 px border, hairlines inset 72, rows 64 pt with a 40 pt disc):
+  - **Money:** Saved recipients, Scheduled payments, Payment requests, Statements (→ `ExportStatement`).
+  - **Security:** Two-step verification (subtitle "On"/"Off" from `supabase.auth.mfa.listFactors()` — a verified TOTP factor means On; read on focus so it updates after the setup screen; no subtitle if the read fails) → `TwoStepSetup`; App lock switch "Lock after 2 minutes in the background" (optimistic: moves at once, reverts and shows the error toast "Couldn't save the app lock setting. Try again." if `setEnabled` rejects — Phase 6.5 carry-over "Slow switch"); "Confirm with {biometricType}" switch (existing `setBiometricEnabled`; a refused turn-off now shows a toast instead of an `Alert`); Change password → new page.
+  - **Settings:** Personal details, Hide balances switch (existing `hideBalance` / `toggleHideBalance`), About.
+  - Floating full-width "Two-step verification" button removed. Footer: "Sign out" (`secondaryDestructive`, same `ConfirmSheet` flow and handler as before), then "Version 1.0.0 · Simulated prototype".
+  - Section titles and the screen title have `accessibilityRole="header"`; switches have role switch, label = row title, hint = subtitle; navigation rows are role button. Side margin 20, `gap: 24`, bottom padding `tabScreenBottomClearance(insets.bottom)`. Profile refetch on focus (`onProfileUpdated` via ref) unchanged.
+- **Change password** (`apps/mobile/src/screens/ChangePasswordScreen.tsx`, route `ChangePassword: undefined`, `presentation: 'card'`, `slide_from_right`): FeatureScreen page with New password and Confirm new password (`secureTextEntry`, `textContentType="newPassword"`, `autoComplete="new-password"`). Client checks mirror `supabase/config.toml` (`minimum_password_length = 10`, `password_requirements = "letters_digits"`): "Use at least 10 characters.", "Include at least one letter and one number.", "Passwords don't match.". `isDirty` while either field has input; `isProcessing` while submitting (blocks Back/swipe). Success → `ResultView` "Password changed" with Done (goBack); fields cleared. The password is kept only in component state; never logged, toasted or stored.
+- **Step-up order for Change password:** (1) `usePasswordPrompt()` — the current password typed into the in-screen prompt (verified by `signInWithPassword`). `confirmMoneyAction` is deliberately not used because it accepts Face ID alone. (2) `supabase.auth.mfa.listFactors()`; if a verified TOTP factor exists, `useTotpPrompt()` (challenge-and-verify, refresh, aal2 check). The code must come after the password, because the password re-sign-in issues a new aal1 session. If the factor list can't be read, the change stops (fails closed). (3) `supabase.auth.updateUser({ password })`, once. Cancel at any step → "Not authorized. Your password was not changed."; `updateUser` is not called. `PasswordPromptContext` and `SettingsContext` are unchanged.
+- **Error mapping gap (no shared change made):** `toUserMessage` has no password-change mappings and its fallback mentions money. The screen maps the auth codes `same_password` → "Choose a password that is different from your current one." and `weak_password` → "Use at least 10 characters with letters and numbers.", uses `toUserMessage` otherwise, and replaces its money fallback with "Could not change your password. Try again.". Offline still reads "You appear to be offline. Nothing was sent." (shared copy, deferred to 7B.7/7B.11). Suggest adding these mappings to `errors.ts` later.
+
+Tests (RNTL, roles): new `profile_screen.test.tsx` (three group headers and every row, switches by role/name, Two-step On and Off + navigation, no floating two-step button, footer caption, Statements → `ExportStatement`, Change password → `ChangePassword`, Hide balances switch calls `toggleHideBalance`, App lock switch optimistic then reverts with the toast on failure); new `change_password_screen.test.tsx` (secure field props; too short / no digit / mismatch block submit with no prompt and no `updateUser`; cancelled password prompt and cancelled code prompt → no `updateUser`; success order `password → listFactors → totp → updateUser` once then Done → goBack; no-factor path skips the code; `same_password` and network errors mapped, raw text never shown). `profile_confirmation.test.tsx`: button name "Sign Out" → "Sign out" only. Fake passwords only (`Fakepass123`).
+
+Checks (repo root):
+
+```text
+npm run typecheck   → admin, mobile, shared: tsc --noEmit, exit 0
+npm run lint        → ✖ 64 problems (0 errors, 64 warnings)
+npm run format:check→ All matched files use Prettier code style!
+npm run test:unit   → Test Suites: 28 passed, 28 total
+                      Tests:       221 passed, 221 total
+```
+
+Device and hosted: **NOT VERIFIED — captain runs it** (Profile layout at 375/402/440 and 1.4x, switch feel, VoiceOver; Change password end to end needs the owner to type the real current password and authenticator code). Maestro `e2e/mobile/main-customer-flow.yaml:108` still taps "Sign Out" (now "Sign out") — update at the 7B gate.

@@ -1,6 +1,7 @@
 import { useConfirmSheet } from '../hooks/useConfirmSheet';
-import React, { useState, useCallback, useRef } from 'react';
-import { View, StyleSheet, ScrollView, Alert, Switch } from 'react-native';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { View, StyleSheet, ScrollView, Switch } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   User,
   Info,
@@ -11,6 +12,11 @@ import {
   Users,
   CalendarClock,
   Inbox,
+  FileText,
+  Lock,
+  ScanFace,
+  KeyRound,
+  EyeOff,
 } from 'lucide-react-native';
 import {
   colors,
@@ -22,16 +28,119 @@ import {
 import { supabase } from '../lib/supabase';
 import { useAppLock } from '../context/AppLockContext';
 import { useSettings } from '../context/SettingsContext';
-import { Screen, Text, Card, Badge, Button, Pressable } from '../components';
+import {
+  Screen,
+  Text,
+  Card,
+  Badge,
+  Button,
+  Pressable,
+  GroupedList,
+  ListHairline,
+  groupedListStyles,
+  LIST_ICON_SIZE,
+  tabScreenBottomClearance,
+  useToast,
+} from '../components';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../App';
+
+export const APP_VERSION_CAPTION = 'Version 1.0.0 · Simulated prototype';
+const APP_LOCK_SAVE_ERROR = "Couldn't save the app lock setting. Try again.";
+const BIOMETRIC_OFF_ERROR = 'Verification is needed to turn this off.';
 
 interface ProfileScreenProps {
   profile: Profile | null;
   userEmail: string | null;
   onProfileUpdated?: (profile: Profile) => void;
   onSignOut?: () => void;
+}
+
+type TwoStepState = 'on' | 'off' | 'unknown';
+
+interface SettingsRowProps {
+  icon: React.ReactNode;
+  iconBackground?: string;
+  title: string;
+  subtitle?: string;
+  onPress?: () => void;
+  /** Switch rows: the row itself is not pressable, the switch is. */
+  switchValue?: boolean;
+  onSwitchChange?: (value: boolean) => void;
+  switchDisabled?: boolean;
+  testID?: string;
+}
+
+function SettingsRow({
+  icon,
+  iconBackground = colors.primaryTint,
+  title,
+  subtitle,
+  onPress,
+  switchValue,
+  onSwitchChange,
+  switchDisabled,
+  testID,
+}: SettingsRowProps) {
+  const body = (
+    <>
+      <View style={[groupedListStyles.disc, { backgroundColor: iconBackground }]}>
+        {icon}
+      </View>
+      <View style={styles.rowText}>
+        <Text variant="bodyStrong" color={colors.ink}>
+          {title}
+        </Text>
+        {subtitle ? (
+          <Text variant="caption" color={colors.textSecondary}>
+            {subtitle}
+          </Text>
+        ) : null}
+      </View>
+    </>
+  );
+
+  if (onSwitchChange) {
+    return (
+      <View style={[groupedListStyles.row, styles.row]} testID={testID}>
+        {body}
+        <Switch
+          accessibilityRole="switch"
+          accessibilityLabel={title}
+          accessibilityHint={subtitle}
+          accessibilityState={{ checked: Boolean(switchValue), disabled: switchDisabled }}
+          value={Boolean(switchValue)}
+          disabled={switchDisabled}
+          onValueChange={onSwitchChange}
+          trackColor={{ false: colors.border, true: colors.primary }}
+          thumbColor={colors.surface}
+        />
+      </View>
+    );
+  }
+
+  return (
+    <Pressable
+      onPress={onPress}
+      feedbackType="highlight"
+      accessibilityRole="button"
+      accessibilityLabel={subtitle ? `${title}, ${subtitle}` : title}
+      style={[groupedListStyles.row, styles.row]}
+      testID={testID}
+    >
+      {body}
+      <ChevronRight size={LIST_ICON_SIZE} color={colors.textMuted} />
+    </Pressable>
+  );
+}
+
+function SectionTitle({ children }: { children: string }) {
+  return (
+    <Text variant="title" color={colors.ink} accessibilityRole="header">
+      {children}
+    </Text>
+  );
 }
 
 export function ProfileScreen({
@@ -42,10 +151,27 @@ export function ProfileScreen({
 }: ProfileScreenProps) {
   const { showConfirmation, confirmSheet } = useConfirmSheet();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const insets = useSafeAreaInsets();
+  const toast = useToast();
   const appLock = useAppLock();
-  const { biometricEnabled, setBiometricEnabled, biometricType, isBiometricSupported } =
-    useSettings();
+  const {
+    biometricEnabled,
+    setBiometricEnabled,
+    biometricType,
+    isBiometricSupported,
+    hideBalance,
+    toggleHideBalance,
+  } = useSettings();
   const [signingOut, setSigningOut] = useState(false);
+  const [twoStep, setTwoStep] = useState<TwoStepState>('unknown');
+
+  // Optimistic App lock switch (Phase 6.5 device check: the switch felt slow).
+  // It moves immediately; if saving fails it reverts and a toast explains.
+  const [appLockValue, setAppLockValue] = useState(appLock.enabled);
+  const appLockSaving = useRef(false);
+  useEffect(() => {
+    if (!appLockSaving.current) setAppLockValue(appLock.enabled);
+  }, [appLock.enabled]);
 
   // Keep the latest callback in a ref: App passes an inline function, so depending
   // on it would re-run this effect after every profile update (refetch loop).
@@ -77,6 +203,50 @@ export function ProfileScreen({
     }, [])
   );
 
+  // Two-step state for the Security row; re-read on focus so it updates after
+  // returning from the setup screen.
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      async function loadTwoStep() {
+        try {
+          const { data, error } = await supabase.auth.mfa.listFactors();
+          if (!active) return;
+          if (error || !data) {
+            setTwoStep('unknown');
+            return;
+          }
+          setTwoStep(data.totp.some((f) => f.status === 'verified') ? 'on' : 'off');
+        } catch {
+          if (active) setTwoStep('unknown');
+        }
+      }
+      void loadTwoStep();
+      return () => {
+        active = false;
+      };
+    }, [])
+  );
+
+  const handleAppLockChange = (value: boolean) => {
+    setAppLockValue(value);
+    appLockSaving.current = true;
+    appLock
+      .setEnabled(value)
+      .catch(() => {
+        setAppLockValue(!value);
+        toast.show(APP_LOCK_SAVE_ERROR, 'error');
+      })
+      .finally(() => {
+        appLockSaving.current = false;
+      });
+  };
+
+  const handleBiometricChange = async (nextVal: boolean) => {
+    const ok = await setBiometricEnabled(nextVal);
+    if (!ok) toast.show(BIOMETRIC_OFF_ERROR, 'error');
+  };
+
   const getInitials = (name?: string | null) => {
     if (!name) return 'DB';
     const parts = name.trim().split(/\s+/);
@@ -106,17 +276,24 @@ export function ProfileScreen({
       },
     });
   };
+
+  const twoStepSubtitle = twoStep === 'on' ? 'On' : twoStep === 'off' ? 'Off' : undefined;
+  const iconSize = LIST_ICON_SIZE;
+
   return (
     <Screen style={styles.screen}>
       <ScrollView
-        contentContainerStyle={styles.container}
+        contentContainerStyle={[
+          styles.container,
+          { paddingBottom: tabScreenBottomClearance(insets.bottom) },
+        ]}
         showsVerticalScrollIndicator={false}
       >
-        <Text variant="h1" style={styles.screenTitle}>
+        <Text variant="h1" accessibilityRole="header">
           Profile
         </Text>
 
-        {/* Profile Card */}
+        {/* Profile card */}
         <Card variant="default" style={styles.profileCard}>
           <View style={styles.avatarContainer}>
             {profile?.full_name ? (
@@ -138,230 +315,155 @@ export function ProfileScreen({
 
             <View style={styles.badgeRow}>
               <Badge
-                label="Email Verified"
+                label="Email verified"
                 variant="success"
                 icon={<CheckCircle2 size={12} color={colors.primary} />}
               />
               {profile?.role === 'admin' ? (
-                <Badge label="Staff Admin" variant="neutral" />
+                <Badge label="Staff admin" variant="neutral" />
               ) : null}
             </View>
           </View>
         </Card>
 
-        {/* Menu Section */}
-        <View style={styles.menuSection}>
-          <Text variant="label" color={colors.textMuted} style={styles.sectionHeader}>
-            ACCOUNT SETTINGS
-          </Text>
-
-          <Pressable
-            style={styles.menuRow}
-            feedbackType="highlight"
-            accessibilityRole="button"
-            accessibilityLabel="Personal Details: Manage your legal name and contact phone"
-            onPress={() => navigation.navigate('PersonalDetails')}
-          >
-            <View style={styles.menuIconContainer}>
-              <User size={20} color={colors.primary} />
-            </View>
-            <View style={styles.menuTextContainer}>
-              <Text variant="bodyStrong" color={colors.ink}>
-                Personal Details
-              </Text>
-              <Text variant="caption" color={colors.textSecondary}>
-                Manage your legal name and contact phone
-              </Text>
-            </View>
-            <ChevronRight size={18} color={colors.textMuted} />
-          </Pressable>
-
-          {/* Saved Recipients Row (§B.1) */}
-          <Pressable
-            style={styles.menuRow}
-            feedbackType="highlight"
-            accessibilityRole="button"
-            accessibilityLabel="Saved Recipients: Manage trusted Davao Bank accounts for fast transfers"
-            onPress={() => navigation.navigate('SavedRecipients')}
-          >
-            <View style={styles.menuIconContainer}>
-              <Users size={20} color={colors.primary} />
-            </View>
-            <View style={styles.menuTextContainer}>
-              <Text variant="bodyStrong" color={colors.ink}>
-                Saved Recipients
-              </Text>
-              <Text variant="caption" color={colors.textSecondary}>
-                Manage trusted Davao Bank accounts for fast transfers
-              </Text>
-            </View>
-            <ChevronRight size={18} color={colors.textMuted} />
-          </Pressable>
-
-          <View style={styles.menuRow}>
-            <Text variant="bodyStrong">App lock</Text>
-            <Switch
-              accessibilityLabel="App lock"
-              value={appLock.enabled}
-              onValueChange={(value) => {
-                void appLock
-                  .setEnabled(value)
-                  .catch(() => Alert.alert('Could not save app lock setting'));
-              }}
+        {/* Money */}
+        <View style={styles.section}>
+          <SectionTitle>Money</SectionTitle>
+          <GroupedList testID="profile-group-money">
+            <SettingsRow
+              icon={<Users size={iconSize} color={colors.primary} />}
+              title="Saved recipients"
+              onPress={() => navigation.navigate('SavedRecipients')}
             />
-          </View>
-          {/* Biometrics Toggle Row (§B.4) */}
-          <View style={styles.menuRow}>
-            <View style={styles.menuIconContainer}>
-              <ShieldCheck size={20} color={colors.green} />
-            </View>
-            <View style={styles.menuTextContainer}>
-              <Text variant="bodyStrong" color={colors.ink}>
-                Confirm with {biometricType}
-              </Text>
-              <Text variant="caption" color={colors.textSecondary}>
-                {isBiometricSupported
-                  ? 'Require biometric confirmation before money moves'
-                  : 'Device biometric hardware not enrolled'}
-              </Text>
-            </View>
-            <Switch
-              value={biometricEnabled}
-              disabled={!isBiometricSupported}
-              onValueChange={async (nextVal) => {
-                const ok = await setBiometricEnabled(nextVal);
-                if (!ok) {
-                  Alert.alert(
-                    'Verification Required',
-                    'Biometric verification is required to turn off payment protection.'
-                  );
-                }
-              }}
-              trackColor={{ false: colors.border, true: colors.primary }}
-              thumbColor={colors.surface}
+            <ListHairline />
+            <SettingsRow
+              icon={<CalendarClock size={iconSize} color={colors.primary} />}
+              title="Scheduled payments"
+              onPress={() => navigation.navigate('ScheduledPayments')}
             />
-          </View>
-
-          {/* Scheduled Payments Row (§C) */}
-          <Pressable
-            style={styles.menuRow}
-            feedbackType="highlight"
-            accessibilityRole="button"
-            accessibilityLabel="Scheduled Payments: View and manage recurring transfers and bill payments"
-            onPress={() => navigation.navigate('ScheduledPayments')}
-          >
-            <View style={styles.menuIconContainer}>
-              <CalendarClock size={20} color={colors.primary} />
-            </View>
-            <View style={styles.menuTextContainer}>
-              <Text variant="bodyStrong" color={colors.ink}>
-                Scheduled Payments
-              </Text>
-              <Text variant="caption" color={colors.textSecondary}>
-                View and manage recurring transfers and bill payments
-              </Text>
-            </View>
-            <ChevronRight size={18} color={colors.textMuted} />
-          </Pressable>
-
-          {/* Payment Requests Row (§D) */}
-          <Pressable
-            style={styles.menuRow}
-            feedbackType="highlight"
-            accessibilityRole="button"
-            accessibilityLabel="Payment Requests: Review incoming requests and track outgoing requests"
-            onPress={() => navigation.navigate('PaymentRequests')}
-          >
-            <View style={styles.menuIconContainer}>
-              <Inbox size={20} color={colors.primary} />
-            </View>
-            <View style={styles.menuTextContainer}>
-              <Text variant="bodyStrong" color={colors.ink}>
-                Payment Requests
-              </Text>
-              <Text variant="caption" color={colors.textSecondary}>
-                Review incoming requests and track outgoing requests
-              </Text>
-            </View>
-            <ChevronRight size={18} color={colors.textMuted} />
-          </Pressable>
-
-          <Pressable
-            style={styles.menuRow}
-            feedbackType="highlight"
-            accessibilityRole="button"
-            accessibilityLabel="About Davao Bank: Academic prototype disclosure & brand credits"
-            onPress={() => navigation.navigate('About')}
-          >
-            <View style={styles.menuIconContainer}>
-              <Info size={20} color={colors.blueText} />
-            </View>
-            <View style={styles.menuTextContainer}>
-              <Text variant="bodyStrong" color={colors.ink}>
-                About Davao Bank
-              </Text>
-              <Text variant="caption" color={colors.textSecondary}>
-                Academic prototype disclosure & brand credits
-              </Text>
-            </View>
-            <ChevronRight size={18} color={colors.textMuted} />
-          </Pressable>
+            <ListHairline />
+            <SettingsRow
+              icon={<Inbox size={iconSize} color={colors.primary} />}
+              title="Payment requests"
+              onPress={() => navigation.navigate('PaymentRequests')}
+            />
+            <ListHairline />
+            <SettingsRow
+              icon={<FileText size={iconSize} color={colors.primary} />}
+              title="Statements"
+              onPress={() => navigation.navigate('ExportStatement')}
+            />
+          </GroupedList>
         </View>
 
-        {/* Sign Out Button */}
-        <View style={styles.signOutContainer}>
+        {/* Security */}
+        <View style={styles.section}>
+          <SectionTitle>Security</SectionTitle>
+          <GroupedList testID="profile-group-security">
+            <SettingsRow
+              icon={<ShieldCheck size={iconSize} color={colors.primary} />}
+              title="Two-step verification"
+              subtitle={twoStepSubtitle}
+              onPress={() => navigation.navigate('TwoStepSetup')}
+            />
+            <ListHairline />
+            <SettingsRow
+              icon={<Lock size={iconSize} color={colors.primary} />}
+              title="App lock"
+              subtitle="Lock after 2 minutes in the background"
+              switchValue={appLockValue}
+              onSwitchChange={handleAppLockChange}
+            />
+            <ListHairline />
+            <SettingsRow
+              icon={<ScanFace size={iconSize} color={colors.primary} />}
+              title={`Confirm with ${biometricType}`}
+              subtitle={
+                isBiometricSupported
+                  ? 'Use before money moves'
+                  : 'Not set up on this device'
+              }
+              switchValue={biometricEnabled}
+              onSwitchChange={(value) => void handleBiometricChange(value)}
+              switchDisabled={!isBiometricSupported}
+            />
+            <ListHairline />
+            <SettingsRow
+              icon={<KeyRound size={iconSize} color={colors.primary} />}
+              title="Change password"
+              onPress={() => navigation.navigate('ChangePassword')}
+            />
+          </GroupedList>
+        </View>
+
+        {/* Settings */}
+        <View style={styles.section}>
+          <SectionTitle>Settings</SectionTitle>
+          <GroupedList testID="profile-group-settings">
+            <SettingsRow
+              icon={<User size={iconSize} color={colors.primary} />}
+              title="Personal details"
+              onPress={() => navigation.navigate('PersonalDetails')}
+            />
+            <ListHairline />
+            <SettingsRow
+              icon={<EyeOff size={iconSize} color={colors.primary} />}
+              title="Hide balances"
+              subtitle="Mask amounts on screen"
+              switchValue={hideBalance}
+              onSwitchChange={() => void toggleHideBalance()}
+            />
+            <ListHairline />
+            <SettingsRow
+              icon={<Info size={iconSize} color={colors.blueText} />}
+              iconBackground={colors.tintBlue}
+              title="About"
+              onPress={() => navigation.navigate('About')}
+            />
+          </GroupedList>
+        </View>
+
+        {/* Footer */}
+        <View style={styles.footer}>
           <Button
-            title="Sign Out"
+            title="Sign out"
             variant="secondaryDestructive"
             icon={<LogOut size={18} color={colors.redText} />}
             onPress={handleSignOut}
             loading={signingOut}
             style={styles.signOutButton}
           />
+          <Text variant="caption" color={colors.textMuted} align="center">
+            {APP_VERSION_CAPTION}
+          </Text>
         </View>
-
-        <Text
-          variant="caption"
-          color={colors.textMuted}
-          align="center"
-          style={styles.disclaimerText}
-        >
-          Davao Bank · Academic Prototype v1.0.0
-        </Text>
       </ScrollView>
 
-      {/* Modals */}
-      <Button
-        title="Two-step verification"
-        onPress={() => navigation.navigate('TwoStepSetup')}
-      />
       {confirmSheet}
     </Screen>
   );
 }
+
+const AVATAR_SIZE = 60;
 
 const styles = StyleSheet.create({
   screen: {
     backgroundColor: colors.canvas,
   },
   container: {
-    padding: spacing.screenSide,
+    paddingHorizontal: spacing.screenSide,
     paddingTop: spacing.base,
-    paddingBottom: spacing['4xl'],
-  },
-  screenTitle: {
-    marginBottom: spacing.base,
+    gap: spacing.xl,
   },
   profileCard: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: spacing.base,
     borderRadius: radius.lg,
-    marginBottom: spacing.xl,
   },
   avatarContainer: {
-    width: 60,
-    height: 60,
+    width: AVATAR_SIZE,
+    height: AVATAR_SIZE,
     borderRadius: radius.pill,
     backgroundColor: colors.primaryTint,
     alignItems: 'center',
@@ -376,48 +478,19 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     marginTop: spacing.xs,
   },
-  menuSection: {
+  section: {
+    gap: spacing.md,
+  },
+  row: {
     backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    paddingVertical: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: spacing.xl,
   },
-  sectionHeader: {
-    paddingHorizontal: spacing.base,
-    paddingTop: spacing.xs,
-    paddingBottom: spacing.xs,
-    letterSpacing: 0.5,
-  },
-  menuRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.base,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-  },
-  menuIconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: radius.md,
-    backgroundColor: colors.surfaceSubtle,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: spacing.md,
-  },
-  menuTextContainer: {
+  rowText: {
     flex: 1,
   },
-  signOutContainer: {
-    marginTop: spacing.sm,
-    marginBottom: spacing.xl,
+  footer: {
+    gap: spacing.base,
   },
   signOutButton: {
     width: '100%',
-  },
-  disclaimerText: {
-    lineHeight: 18,
   },
 });

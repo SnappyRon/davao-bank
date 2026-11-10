@@ -33,14 +33,14 @@ jest.mock('../context/SettingsContext', () => ({
 it('shows a sign-out sheet, cancels without signing out, and signs out only on confirm', async () => {
   const onSignOut = jest.fn();
   await render(<ProfileScreen profile={null} userEmail={null} onSignOut={onSignOut} />);
-  await fireEvent.press(screen.getByRole('button', { name: 'Sign Out' }));
+  await fireEvent.press(screen.getByRole('button', { name: 'Sign out' }));
   let sheet = screen.getByTestId('bottom-sheet-modal');
   expect(within(sheet).getByRole('header', { name: 'Sign out' })).toBeTruthy();
   expect(supabase.auth.signOut).not.toHaveBeenCalled();
   await fireEvent.press(within(sheet).getByRole('button', { name: 'Cancel' }));
   expect(screen.queryByTestId('bottom-sheet-modal')).toBeNull();
   expect(supabase.auth.signOut).not.toHaveBeenCalled();
-  await fireEvent.press(screen.getByRole('button', { name: 'Sign Out' }));
+  await fireEvent.press(screen.getByRole('button', { name: 'Sign out' }));
   sheet = screen.getByTestId('bottom-sheet-modal');
   await fireEvent.press(within(sheet).getByRole('button', { name: 'Sign out' }));
   expect(screen.queryByTestId('bottom-sheet-modal')).toBeNull();

@@ -8,8 +8,8 @@
 - **Branch:** `phase-7-ui-motion` (branched from tip of `phase-6-5-strong-auth`).
 - **Active prompt:** `Phase-7-Prompt-UI-UX-and-Motion.md`.
 - **Assigned to:** captain (Codex out of quota until 2026-11-11 00:52; Antigravity `frontend` and `backend-reviewer` out of quota). Reviewed by the captain workflow (`docs/agents/WORKFLOW.md`).
-- **Exact next step:** Stage 7B.3 Profile (grouped Money / Security / Settings cards, Two-step row On/Off, App lock switch, Face ID, Change password page via `supabase.auth.updateUser` — plan task 6, footer secondary Sign out + version, remove the floating two-step button). Owner: device check of 7B.0–7B.2; decision on the notifications/biller-name migration.
-- **Last commit:** `41c0276` (7B.2 fixes) + captain acceptance docs commit.
+- **Exact next step:** captain reviews 7B.3 (Profile + Change password, plan task 6) and runs the device check; Change password end to end needs the owner to type the real current password and code. Owner: device check of 7B.0–7B.2; decision on the notifications/biller-name migration.
+- **Last commit:** `Phase 7 · Stage 7B.3 — Profile and Change password` (see git log), on top of `fb1ee88`.
 - **Blockers for this step:** none. Inbox → transaction deep links stay blocked on an owner decision (notifications have no related id).
 
 ## Stage 7B.0 — remaining work plan (captain, 2026-11-10)
@@ -24,7 +24,7 @@ Codex last stopped at `4ea0296` (Receipt and Payment requests as stack pages). P
 | 4   | Scheduled payments, Saved recipients → stack pages                                                                                                                          | `ScheduledPaymentsModal`, `SavedRecipientsModal` + Home/Profile callers                                                       | `frontend` (Antigravity, worktree) | code, ui-ux, backend            | Done, merged (`219a300`, `1f8fdbe`) |
 | 5   | `Sheet` for quick actions (account picker, filters, frequency/date, discard/cancel/sign-out confirmations); remove `BottomSheet` when unused                                | `Sheet`, `BottomSheet`, picker/confirm call sites                                                                             | `codex`                            | code, ui-ux                     | Done (captain fixes, see log)       |
 | 5b  | `Sheet` motion to spec: Reanimated scrim fade + slide, swipe-down dismiss (`spring.sheet`), token paddings (Code Quality #3)                                                | `Sheet.tsx` + tests                                                                                                           | captain or `codex`                 | code, ui-ux                     | Done, `ba40903` + `4b453b7`         |
-| 6   | Change password page (7B.3 item, needed by D4 list)                                                                                                                         | new screen + Profile row                                                                                                      | later, with 7B.3                   | code, ui-ux, backend            | Later                               |
+| 6   | Change password page (7B.3 item, needed by D4 list)                                                                                                                         | new screen + Profile row                                                                                                      | Claude implementer (sub agent)     | code, ui-ux, backend            | Done, awaiting review               |
 
 Rules: each task is one commit with title `Phase 7 · Stage 7B.0 — <task>`; money handlers and step-up calls byte-identical; reviewers run in their Herdr tabs after each commit; captain re-runs checks before merge. Inbox → transaction deep links stay blocked on the owner's decision.
 
@@ -92,10 +92,10 @@ Deferred to their planned steps (not in the fix round): receipt reference/Share/
   - [x] Inbox: type icon, sentence-case title, 2-line message, timestamp on right, 8 pt green unread dot, request taps open Payment requests, badge count loads on start.
   - [ ] Inbox: tap on a transaction notification opens the receipt — BLOCKED: notifications have no related transaction id (owner decision); tap only marks as read.
   - [x] Receipt (`TransactionDetailModal`): amount + badge centered, standard metadata rows, reference "DB-8F04-3910" with copy button, share via `expo-sharing`.
-- [ ] **7B.3 Profile**:
-  - [ ] Grouped cards: "Money", "Security" (Two-step setup row with On/Off, App lock switch, Confirm with Face ID, Change password), "Settings" (Personal details, Hide balances switch, About).
-  - [ ] Remove floating two-step button; footer has secondary Sign out button and version info.
-  - [ ] Change password via `supabase.auth.updateUser`.
+- [x] **7B.3 Profile** (awaiting captain review; device NOT VERIFIED):
+  - [x] Grouped cards: "Money", "Security" (Two-step setup row with On/Off, App lock switch, Confirm with Face ID, Change password), "Settings" (Personal details, Hide balances switch, About).
+  - [x] Remove floating two-step button; footer has secondary Sign out button and version info.
+  - [x] Change password via `supabase.auth.updateUser`.
 - [ ] **7B.4 One sequence for every money flow**:
   - [ ] Input → Review → Authorize → Processing → Result flow.
   - [ ] Review card on `surfaceSubtle`, radius 16, padding 20, eyebrow "You're sending", rows, footnote.
@@ -226,6 +226,8 @@ Fix these before 7B:
 - **Follow-up:** add dedicated test accounts so live tests don't conflict with the presenter's real authenticator.
 
 ## Log (newest first)
+
+- **2026-11-10, Claude implementer (sub agent):** Stage 7B.3 Profile and plan task 6. Profile: three grouped cards (Money: Saved recipients, Scheduled payments, Payment requests, Statements; Security: Two-step verification On/Off from `mfa.listFactors` on focus, optimistic App lock switch that reverts with an error toast, Confirm with {biometricType}, Change password; Settings: Personal details, Hide balances switch, About); floating two-step button removed; footer "Sign out" (same ConfirmSheet flow) + "Version 1.0.0 · Simulated prototype"; profile refetch on focus unchanged. New `ChangePasswordScreen` (route `ChangePassword`): client checks (10+ chars, letters and digits, match); step-up order current password prompt (never Face ID alone) → TOTP prompt if a verified factor exists → `supabase.auth.updateUser({ password })` once; success ResultView "Password changed". `PasswordPromptContext`/`SettingsContext`/shared untouched; `toUserMessage` gap for password errors handled with fixed copy in the screen (reported). Tests: new `profile_screen.test.tsx`, `change_password_screen.test.tsx`; `profile_confirmation.test.tsx` button name only. Checks: typecheck exit 0; lint 0 errors (64 warnings); format PASS; unit 28 suites / 221 tests. Device and hosted NOT VERIFIED — captain runs it. Maestro `main-customer-flow.yaml:108` still taps "Sign Out" (7B gate).
 
 - **2026-11-10, Claude Code (captain):** **Stage 7B.2 accepted** (`fabdf1c` + fixes `a611b3c`, `41c0276`; Claude implementer sub agent). Reviews: Code Quality (Claude tab), UI/UX and Security (Claude sub agent stand-ins for Codex and Antigravity, out of quota) — no Blocker/High. Fixed: Inbox mark-as-read race (functional update), bill payments never show the internal billers account ("Biller"), stale Activity account filter, unread-count in-flight overwrite, unread count and `fetchNotifications` scoped to `user_id` (RLS also returns all rows to admins — separate Fix commit `41c0276`, only `InboxScreen` calls it), share file deleted after sharing, copy failure toast, consistent "Money added" / "Bank credits & debits" wording, digit search only for digit queries, inline error above an empty list, reversal receipt title, stale-load and mark-all tests, AsyncStorage cleared between tests (`setupFilesAfterEnv`). Captain re-ran: typecheck exit 0, lint 0 errors (64 warnings), format PASS, unit 26 suites / 206 tests ×2. Open: Inbox message text (PHP, full numbers, reversal UUID + staff reason, hideBalance) → 7B.9 migration; biller name in history RPC and Inbox → transaction deep link → owner decision on one DB migration; `toLocaleUpperCase` headers → 7B.8; hosted check of the `user_id` filters NOT VERIFIED (live suites not run); device NOT VERIFIED.
 
