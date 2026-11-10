@@ -29,6 +29,8 @@ jest.mock('react-native-reanimated', () => {
     withSequence: (...anims: any[]) => anims[anims.length - 1],
     withDelay: (_delay: any, anim: any) => anim,
     runOnJS: (fn: any) => fn,
+    // Used by react-native-gesture-handler's GestureDetector for worklet gestures.
+    useEvent: () => () => {},
     Easing: {
       bezier: () => (x: any) => x,
       linear: (x: any) => x,
