@@ -47,8 +47,14 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../App';
 
 export const APP_VERSION_CAPTION = 'Version 1.0.0 · Simulated prototype';
-const APP_LOCK_SAVE_ERROR = "Couldn't save the app lock setting. Try again.";
-const BIOMETRIC_OFF_ERROR = 'Verification is needed to turn this off.';
+export const APP_LOCK_SAVE_ERROR = "Couldn't save the app lock setting. Try again.";
+export const BIOMETRIC_VERIFY_ERROR = "Couldn't verify it's you. Try again.";
+export const SIGN_OUT_ERROR = "Couldn't sign out. Try again.";
+export const BIOMETRIC_UNSUPPORTED =
+  "Set up Face ID or fingerprint in your phone's settings first.";
+export const SIGN_OUT_MESSAGE = 'Sign out of Davao Bank?';
+export const biometricSaveError = (biometricType: string) =>
+  `Couldn't save the ${biometricType} setting. Try again.`;
 
 interface ProfileScreenProps {
   profile: Profile | null;
@@ -65,7 +71,10 @@ interface SettingsRowProps {
   title: string;
   subtitle?: string;
   onPress?: () => void;
-  /** Switch rows: the row itself is not pressable, the switch is. */
+  /**
+   * Switch rows: the whole row is the touch target and the one accessible
+   * element (role switch); the native Switch is visual only.
+   */
   switchValue?: boolean;
   onSwitchChange?: (value: boolean) => void;
   switchDisabled?: boolean;
@@ -102,21 +111,33 @@ function SettingsRow({
   );
 
   if (onSwitchChange) {
+    const checked = Boolean(switchValue);
     return (
-      <View style={[groupedListStyles.row, styles.row]} testID={testID}>
+      <Pressable
+        onPress={() => onSwitchChange(!checked)}
+        disabled={switchDisabled}
+        feedbackType="highlight"
+        accessibilityRole="switch"
+        accessibilityLabel={title}
+        accessibilityHint={subtitle}
+        accessibilityState={{ checked, disabled: Boolean(switchDisabled) }}
+        style={[groupedListStyles.row, styles.row]}
+        testID={testID}
+      >
         {body}
-        <Switch
-          accessibilityRole="switch"
-          accessibilityLabel={title}
-          accessibilityHint={subtitle}
-          accessibilityState={{ checked: Boolean(switchValue), disabled: switchDisabled }}
-          value={Boolean(switchValue)}
-          disabled={switchDisabled}
-          onValueChange={onSwitchChange}
-          trackColor={{ false: colors.border, true: colors.primary }}
-          thumbColor={colors.surface}
-        />
-      </View>
+        <View
+          pointerEvents="none"
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+        >
+          <Switch
+            value={checked}
+            disabled={switchDisabled}
+            trackColor={{ false: colors.border, true: colors.primary }}
+            thumbColor={colors.surface}
+          />
+        </View>
+      </Pressable>
     );
   }
 
@@ -169,6 +190,10 @@ export function ProfileScreen({
   // It moves immediately; if saving fails it reverts and a toast explains.
   const [appLockValue, setAppLockValue] = useState(appLock.enabled);
   const appLockSaving = useRef(false);
+  const appLockSaveId = useRef(0);
+  // Real stored value, read when the latest save fails.
+  const appLockEnabledRef = useRef(appLock.enabled);
+  appLockEnabledRef.current = appLock.enabled;
   useEffect(() => {
     if (!appLockSaving.current) setAppLockValue(appLock.enabled);
   }, [appLock.enabled]);
@@ -230,21 +255,30 @@ export function ProfileScreen({
 
   const handleAppLockChange = (value: boolean) => {
     setAppLockValue(value);
+    const saveId = ++appLockSaveId.current;
     appLockSaving.current = true;
+    const isLatest = () => saveId === appLockSaveId.current;
     appLock
       .setEnabled(value)
       .catch(() => {
-        setAppLockValue(!value);
+        // Only the latest save reverts, and to the stored value (an earlier
+        // rapid toggle may have saved successfully).
+        if (!isLatest()) return;
+        setAppLockValue(appLockEnabledRef.current);
         toast.show(APP_LOCK_SAVE_ERROR, 'error');
       })
       .finally(() => {
-        appLockSaving.current = false;
+        if (isLatest()) appLockSaving.current = false;
       });
   };
 
   const handleBiometricChange = async (nextVal: boolean) => {
-    const ok = await setBiometricEnabled(nextVal);
-    if (!ok) toast.show(BIOMETRIC_OFF_ERROR, 'error');
+    try {
+      const ok = await setBiometricEnabled(nextVal);
+      if (!ok) toast.show(BIOMETRIC_VERIFY_ERROR, 'error');
+    } catch {
+      toast.show(biometricSaveError(biometricType), 'error');
+    }
   };
 
   const getInitials = (name?: string | null) => {
@@ -257,7 +291,7 @@ export function ProfileScreen({
   const handleSignOut = async () => {
     showConfirmation({
       title: 'Sign out',
-      message: 'Are you sure you want to sign out of Davao Bank?',
+      message: SIGN_OUT_MESSAGE,
       confirmLabel: 'Sign out',
       cancelLabel: 'Cancel',
       destructive: true,
@@ -270,6 +304,7 @@ export function ProfileScreen({
           }
         } catch (err) {
           console.error('Error signing out:', err);
+          toast.show(SIGN_OUT_ERROR, 'error');
         } finally {
           setSigningOut(false);
         }
@@ -379,9 +414,7 @@ export function ProfileScreen({
               icon={<ScanFace size={iconSize} color={colors.primary} />}
               title={`Confirm with ${biometricType}`}
               subtitle={
-                isBiometricSupported
-                  ? 'Use before money moves'
-                  : 'Not set up on this device'
+                isBiometricSupported ? 'Use before money moves' : BIOMETRIC_UNSUPPORTED
               }
               switchValue={biometricEnabled}
               onSwitchChange={(value) => void handleBiometricChange(value)}
@@ -428,7 +461,7 @@ export function ProfileScreen({
           <Button
             title="Sign out"
             variant="secondaryDestructive"
-            icon={<LogOut size={18} color={colors.redText} />}
+            icon={<LogOut size={LIST_ICON_SIZE} color={colors.redText} />}
             onPress={handleSignOut}
             loading={signingOut}
             style={styles.signOutButton}

@@ -510,3 +510,32 @@ npm run test:unit   → Test Suites: 28 passed, 28 total
 ```
 
 Device and hosted: **NOT VERIFIED — captain runs it** (Profile layout at 375/402/440 and 1.4x, switch feel, VoiceOver; Change password end to end needs the owner to type the real current password and authenticator code). Maestro `e2e/mobile/main-customer-flow.yaml:108` still taps "Sign Out" (now "Sign out") — update at the 7B gate.
+
+**Fix round for `c0705d1` (captain-accepted SEC/UX/CQ findings), commit `Phase 7 · Fix — c0705d1 review findings (Profile, Change password)`:**
+
+1. **UX1:** each Profile switch row is a single `Pressable` with `accessibilityRole="switch"`, `accessibilityState {checked, disabled}`, label = title, hint = subtitle; the whole row (64 pt) is the target and toggles on press. The native `Switch` sits in a `pointerEvents="none"` wrapper hidden from accessibility (`accessibilityElementsHidden`, `importantForAccessibility="no-hide-descendants"`), so VoiceOver reads one element.
+2. **UX2:** sign-out sheet message "Sign out of Davao Bank?".
+3. **UX3:** unsupported biometrics subtitle "Set up Face ID or fingerprint in your phone's settings first." (switch disabled).
+4. **SEC2/CQ4:** Change password uses an in-flight ref (set before the first await, holds the run id); only the owning run clears `submitting`.
+5. **UX4/CQ3:** `changePasswordErrorMessage` decides by code and known cases: `same_password`, `weak_password` (`PASSWORD_WEAK`), `insufficient_aal`/`reauthentication_needed` → "Couldn't confirm it's you. Try again.", rate-limit codes → `toUserMessage` rate-limit copy, offline (`AuthRetryableFetchError` or network-failure message) → "You appear to be offline. Your password was not changed."; default "Couldn't change your password. Try again.". No dependence on `toUserMessage`'s money fallback string.
+6. **UX5/UX6:** "Couldn't … Try again." style across both screens (app lock save, biometric verify/save, sign out, two-step load, change failed). `PASSWORD_WEAK` exported and reused in the helper text.
+7. **UX7:** a thrown sign-out shows the toast "Couldn't sign out. Try again." (no raw error); handler otherwise unchanged.
+8. **CQ1:** App lock save counter; only the latest save may revert, and it reverts to the stored value (`appLock.enabled` via ref), not `!value`; only the latest save clears the saving flag.
+9. **CQ2:** biometric handler wrapped in try/catch → "Couldn't save the {biometricType} setting. Try again."; a refused verification → "Couldn't verify it's you. Try again.". `SettingsContext` unchanged.
+10. **Tests:** biometric success / refused / throw; unsupported biometrics disabled + copy; listFactors failure → no subtitle; App lock success; rapid toggles (older failure ignored, latest reverts to stored value, one toast); one switch element per row; sign-out message + failure toast; Change password double tap → one prompt; listFactors error stops before `updateUser`; error mapping by code; offline copy updated.
+11. **UX10:** New password `returnKeyType="next"` (`submitBehavior="submit"`) focuses Confirm; Confirm `returnKeyType="done"` submits. `TextField` gained an optional typed `ref` prop (React 19 ref-as-prop, already spread to the inner `TextInput`).
+12. **UX8:** LogOut icon uses `LIST_ICON_SIZE`. Carry-over: the 60 pt profile avatar literal (`AVATAR_SIZE`) stays as is.
+
+Not done (captain decisions): server-side enforcement of password re-auth (owner decision pending), `signOut({ scope: 'others' })`, re-auth to turn App lock off, code prompt title (7B.10), double `listFactors`.
+
+Checks after the fix round:
+
+```text
+npm run typecheck   → admin, mobile, shared: tsc --noEmit, exit 0
+npm run lint        → ✖ 64 problems (0 errors, 64 warnings)
+npm run format:check→ All matched files use Prettier code style!
+npm run test:unit   → Test Suites: 28 passed, 28 total
+                      Tests:       232 passed, 232 total
+```
+
+Device and hosted: **NOT VERIFIED — captain runs it.**

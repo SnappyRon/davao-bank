@@ -16,6 +16,8 @@ export interface TextFieldProps extends TextInputProps {
   containerStyle?: ViewStyle;
   leftElement?: React.ReactNode;
   rightElement?: React.ReactNode;
+  /** React 19: passed through `rest` to the inner TextInput (focus chaining). */
+  ref?: React.Ref<React.ComponentRef<typeof TextInput>>;
 }
 
 export function TextField({

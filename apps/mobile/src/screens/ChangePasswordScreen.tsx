@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, TextInput } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors, spacing, radius, toUserMessage } from '@davao-bank/shared';
@@ -17,9 +17,12 @@ export const PASSWORD_NEEDS_LETTER_AND_DIGIT =
 export const PASSWORD_MISMATCH = "Passwords don't match.";
 export const PASSWORD_NOT_CHANGED = 'Not authorized. Your password was not changed.';
 export const PASSWORD_SAME = 'Choose a password that is different from your current one.';
-export const PASSWORD_CHANGE_FAILED = 'Could not change your password. Try again.';
-export const TWO_STEP_LOAD_FAILED =
-  'Could not load two-step verification. Please try again.';
+export const PASSWORD_WEAK = `Use at least ${MIN_PASSWORD_LENGTH} characters with letters and numbers.`;
+export const PASSWORD_CHANGE_FAILED = "Couldn't change your password. Try again.";
+export const PASSWORD_OFFLINE =
+  'You appear to be offline. Your password was not changed.';
+export const PASSWORD_REAUTH_FAILED = "Couldn't confirm it's you. Try again.";
+export const TWO_STEP_LOAD_FAILED = "Couldn't load two-step verification. Try again.";
 
 export function validateNewPassword(value: string): string | null {
   if (value.length < MIN_PASSWORD_LENGTH) return PASSWORD_TOO_SHORT;
@@ -28,18 +31,38 @@ export function validateNewPassword(value: string): string | null {
   return null;
 }
 
+const RATE_LIMIT_CODES = new Set([
+  'over_request_rate_limit',
+  'over_email_send_rate_limit',
+  'over_sms_send_rate_limit',
+]);
+const REAUTH_CODES = new Set(['insufficient_aal', 'reauthentication_needed']);
+
+function isOfflineError(error: unknown): boolean {
+  const name = (error as { name?: string } | null)?.name;
+  const message = String((error as { message?: string } | null)?.message || '');
+  const lower = message.toLowerCase();
+  return (
+    name === 'AuthRetryableFetchError' ||
+    lower.includes('network request failed') ||
+    lower.includes('failed to fetch')
+  );
+}
+
 /**
- * `toUserMessage` has no password-change mappings and its fallback talks
- * about money, so known auth error codes get fixed copy here and the money
- * fallback is replaced. Never includes the raw server message.
+ * Password-change errors are decided here by error code and a few known
+ * cases (`toUserMessage` has no password mappings and its fallback is about
+ * money). Rate limits reuse `toUserMessage`'s mapping. Never shows the raw
+ * server message.
  */
-function changePasswordErrorMessage(error: unknown): string {
+export function changePasswordErrorMessage(error: unknown): string {
   const code = (error as { code?: string } | null)?.code;
   if (code === 'same_password') return PASSWORD_SAME;
-  if (code === 'weak_password')
-    return `Use at least ${MIN_PASSWORD_LENGTH} characters with letters and numbers.`;
-  const mapped = toUserMessage(error);
-  return mapped.includes('No money was sent') ? PASSWORD_CHANGE_FAILED : mapped;
+  if (code === 'weak_password') return PASSWORD_WEAK;
+  if (code && REAUTH_CODES.has(code)) return PASSWORD_REAUTH_FAILED;
+  if (code && RATE_LIMIT_CODES.has(code)) return toUserMessage('rate limit');
+  if (isOfflineError(error)) return PASSWORD_OFFLINE;
+  return PASSWORD_CHANGE_FAILED;
 }
 
 export function ChangePasswordScreen() {
@@ -55,6 +78,11 @@ export function ChangePasswordScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const mounted = useRef(true);
+  // Set before the first await so a double tap can't start a second run;
+  // holds the id of the run that owns `submitting`.
+  const inFlight = useRef<number | null>(null);
+  const runSeq = useRef(0);
+  const confirmRef = useRef<React.ComponentRef<typeof TextInput>>(null);
 
   useEffect(() => {
     mounted.current = true;
@@ -67,14 +95,8 @@ export function ChangePasswordScreen() {
 
   const isDirty = !done && (newPassword.length > 0 || confirmPassword.length > 0);
 
-  const stop = (message: string | null) => {
-    if (!mounted.current) return;
-    setFormError(message);
-    setSubmitting(false);
-  };
-
   const handleSubmit = async () => {
-    if (submitting || done) return;
+    if (inFlight.current !== null || done) return;
     const lengthOrCharsError = validateNewPassword(newPassword);
     const mismatchError =
       !lengthOrCharsError && newPassword !== confirmPassword ? PASSWORD_MISMATCH : null;
@@ -83,6 +105,15 @@ export function ChangePasswordScreen() {
     setFormError(null);
     if (lengthOrCharsError || mismatchError) return;
 
+    const runId = ++runSeq.current;
+    inFlight.current = runId;
+    const stop = (message: string | null) => {
+      if (inFlight.current !== runId) return;
+      inFlight.current = null;
+      if (!mounted.current) return;
+      setFormError(message);
+      setSubmitting(false);
+    };
     setSubmitting(true);
     try {
       // 1. Current password, always typed (Face ID alone is not enough to
@@ -126,6 +157,8 @@ export function ChangePasswordScreen() {
         stop(changePasswordErrorMessage(error));
         return;
       }
+      if (inFlight.current !== runId) return;
+      inFlight.current = null;
       setNewPassword('');
       setConfirmPassword('');
       setNewError(null);
@@ -166,8 +199,7 @@ export function ChangePasswordScreen() {
       }
     >
       <Text variant="body" color={colors.textSecondary}>
-        Use at least {MIN_PASSWORD_LENGTH} characters with letters and numbers. You will
-        confirm with your current password first.
+        {`${PASSWORD_WEAK} You will confirm with your current password first.`}
       </Text>
 
       <View style={styles.fields}>
@@ -185,8 +217,12 @@ export function ChangePasswordScreen() {
           autoCapitalize="none"
           autoCorrect={false}
           editable={!submitting}
+          returnKeyType="next"
+          submitBehavior="submit"
+          onSubmitEditing={() => confirmRef.current?.focus()}
         />
         <TextField
+          ref={confirmRef}
           label="Confirm new password"
           value={confirmPassword}
           onChangeText={(value) => {
@@ -200,6 +236,8 @@ export function ChangePasswordScreen() {
           autoCapitalize="none"
           autoCorrect={false}
           editable={!submitting}
+          returnKeyType="done"
+          onSubmitEditing={() => void handleSubmit()}
         />
       </View>
 
