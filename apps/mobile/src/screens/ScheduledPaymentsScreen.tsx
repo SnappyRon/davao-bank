@@ -1,13 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, StyleSheet, Alert } from 'react-native';
-import {
-  Send,
-  Zap,
-  CheckCircle2,
-  XCircle,
-  AlertCircle,
-  ArrowLeft,
-} from 'lucide-react-native';
+import { Send, Zap, CheckCircle2, XCircle, AlertCircle } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import {
   colors,
@@ -31,13 +24,7 @@ import {
   Pressable,
 } from '../components';
 
-interface ScheduledPaymentsScreenProps {
-  onRefresh?: () => void;
-}
-
-export function ScheduledPaymentsScreen({
-  onRefresh,
-}: ScheduledPaymentsScreenProps = {}) {
+export function ScheduledPaymentsScreen() {
   const { hideBalance, confirmBiometricPayment } = useSettings();
 
   const [schedules, setSchedules] = useState<ScheduledPayment[]>([]);
@@ -140,7 +127,6 @@ export function ScheduledPaymentsScreen({
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                 setSelectedSchedule(null);
                 loadSchedules();
-                onRefresh?.();
               }
             } catch (err: any) {
               Alert.alert('Error', toUserMessage(err));
@@ -157,6 +143,8 @@ export function ScheduledPaymentsScreen({
     <FeatureScreen
       title={selectedSchedule ? 'Schedule Details' : 'Scheduled Payments'}
       isProcessing={actionLoading}
+      step={selectedSchedule ? 2 : 1}
+      onPrevStep={() => setSelectedSchedule(null)}
     >
       <View style={styles.content}>
         {loadError ? (
@@ -179,20 +167,6 @@ export function ScheduledPaymentsScreen({
         ) : selectedSchedule ? (
           // Detail View
           <View style={styles.detailContainer}>
-            <Pressable
-              style={styles.backRow}
-              onPress={() => setSelectedSchedule(null)}
-              feedbackType="scale"
-              accessibilityRole="button"
-              accessibilityLabel="Back to All Schedules"
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <ArrowLeft size={18} color={colors.primary} />
-              <Text variant="bodyStrong" color="primary">
-                Back to All Schedules
-              </Text>
-            </Pressable>
-
             <Card style={styles.detailCard}>
               <View style={styles.detailAmountRow}>
                 <Text variant="caption" color="textSecondary">
@@ -476,12 +450,6 @@ const styles = StyleSheet.create({
   },
   detailContainer: {
     gap: spacing.base,
-  },
-  backRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.sm,
   },
   detailCard: {
     padding: spacing.base,
