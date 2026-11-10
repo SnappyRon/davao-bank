@@ -25,8 +25,6 @@ import { Screen, Text, Card, Badge, Button, Pressable } from '../components';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../App';
-import { SavedRecipientsModal } from './SavedRecipientsModal';
-import { ScheduledPaymentsModal } from './ScheduledPaymentsModal';
 
 interface ProfileScreenProps {
   profile: Profile | null;
@@ -45,8 +43,6 @@ export function ProfileScreen({
   const appLock = useAppLock();
   const { biometricEnabled, setBiometricEnabled, biometricType, isBiometricSupported } =
     useSettings();
-  const [savedRecipientsOpen, setSavedRecipientsOpen] = useState(false);
-  const [scheduledOpen, setScheduledOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
 
   // Keep the latest callback in a ref: App passes an inline function, so depending
@@ -185,7 +181,7 @@ export function ProfileScreen({
             feedbackType="highlight"
             accessibilityRole="button"
             accessibilityLabel="Saved Recipients: Manage trusted Davao Bank accounts for fast transfers"
-            onPress={() => setSavedRecipientsOpen(true)}
+            onPress={() => navigation.navigate('SavedRecipients')}
           >
             <View style={styles.menuIconContainer}>
               <Users size={20} color={colors.primary} />
@@ -251,7 +247,7 @@ export function ProfileScreen({
             feedbackType="highlight"
             accessibilityRole="button"
             accessibilityLabel="Scheduled Payments: View and manage recurring transfers and bill payments"
-            onPress={() => setScheduledOpen(true)}
+            onPress={() => navigation.navigate('ScheduledPayments')}
           >
             <View style={styles.menuIconContainer}>
               <CalendarClock size={20} color={colors.primary} />
@@ -337,16 +333,6 @@ export function ProfileScreen({
       <Button
         title="Two-step verification"
         onPress={() => navigation.navigate('TwoStepSetup')}
-      />
-
-      <SavedRecipientsModal
-        visible={savedRecipientsOpen}
-        onClose={() => setSavedRecipientsOpen(false)}
-      />
-
-      <ScheduledPaymentsModal
-        visible={scheduledOpen}
-        onClose={() => setScheduledOpen(false)}
       />
     </Screen>
   );

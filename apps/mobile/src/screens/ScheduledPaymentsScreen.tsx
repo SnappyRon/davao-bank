@@ -1,16 +1,12 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, StyleSheet, ScrollView, Alert } from 'react-native';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { View, StyleSheet, Alert } from 'react-native';
 import {
-  CalendarClock,
   Send,
   Zap,
-  Repeat,
   CheckCircle2,
   XCircle,
   AlertCircle,
   ArrowLeft,
-  Trash2,
-  Clock,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import {
@@ -25,7 +21,7 @@ import {
 import { supabase } from '../lib/supabase';
 import { useSettings } from '../context/SettingsContext';
 import {
-  BottomSheet,
+  FeatureScreen,
   Text,
   Button,
   Card,
@@ -35,37 +31,54 @@ import {
   Pressable,
 } from '../components';
 
-interface ScheduledPaymentsModalProps {
-  visible: boolean;
-  onClose: () => void;
+interface ScheduledPaymentsScreenProps {
   onRefresh?: () => void;
 }
 
-export function ScheduledPaymentsModal({
-  visible,
-  onClose,
+export function ScheduledPaymentsScreen({
   onRefresh,
-}: ScheduledPaymentsModalProps) {
+}: ScheduledPaymentsScreenProps = {}) {
   const { hideBalance, confirmBiometricPayment } = useSettings();
 
   const [schedules, setSchedules] = useState<ScheduledPayment[]>([]);
   const [selectedSchedule, setSelectedSchedule] = useState<ScheduledPayment | null>(null);
   const [runs, setRuns] = useState<ScheduledPaymentRun[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
 
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
   const loadSchedules = useCallback(async () => {
-    setLoading(true);
+    if (mountedRef.current) {
+      setLoading(true);
+      setLoadError(null);
+    }
     try {
       const { data, error } = await supabase.rpc('list_my_scheduled_payments');
 
-      if (data && !error) {
+      if (!mountedRef.current) return;
+      if (error) {
+        setLoadError(toUserMessage(error));
+        setSchedules([]);
+      } else if (data) {
         setSchedules(data as ScheduledPayment[]);
       }
-    } catch {
-      // Fallback
+    } catch (err: unknown) {
+      if (mountedRef.current) {
+        setLoadError(toUserMessage(err));
+        setSchedules([]);
+      }
     } finally {
-      setLoading(false);
+      if (mountedRef.current) {
+        setLoading(false);
+      }
     }
   }, []);
 
@@ -77,6 +90,7 @@ export function ScheduledPaymentsModal({
         .eq('schedule_id', scheduleId)
         .order('created_at', { ascending: false });
 
+      if (!mountedRef.current) return;
       if (data && !error) {
         setRuns(data as ScheduledPaymentRun[]);
       }
@@ -86,12 +100,8 @@ export function ScheduledPaymentsModal({
   };
 
   useEffect(() => {
-    if (visible) {
-      loadSchedules();
-      setSelectedSchedule(null);
-      setRuns([]);
-    }
-  }, [visible, loadSchedules]);
+    void loadSchedules();
+  }, [loadSchedules]);
 
   const handleSelectSchedule = (item: ScheduledPayment) => {
     setSelectedSchedule(item);
@@ -144,17 +154,29 @@ export function ScheduledPaymentsModal({
   };
 
   return (
-    <BottomSheet
-      visible={visible}
-      onClose={onClose}
-      dismissible={!actionLoading}
+    <FeatureScreen
       title={selectedSchedule ? 'Schedule Details' : 'Scheduled Payments'}
+      isProcessing={actionLoading}
     >
-      <ScrollView
-        contentContainerStyle={styles.content}
-        keyboardShouldPersistTaps="handled"
-      >
-        {selectedSchedule ? (
+      <View style={styles.content}>
+        {loadError ? (
+          <View style={styles.loadErrorContainer}>
+            <AlertCircle size={24} color={colors.redText} />
+            <Text
+              variant="body"
+              color={colors.redText}
+              accessibilityRole="alert"
+              style={styles.loadErrorText}
+            >
+              {loadError}
+            </Text>
+            <Button
+              title="Try again"
+              variant="secondary"
+              onPress={() => void loadSchedules()}
+            />
+          </View>
+        ) : selectedSchedule ? (
           // Detail View
           <View style={styles.detailContainer}>
             <Pressable
@@ -180,6 +202,7 @@ export function ScheduledPaymentsModal({
                   amountCentavos={selectedSchedule.amount}
                   variant="display"
                   direction="outgoing"
+                  hidden={hideBalance}
                 />
               </View>
 
@@ -378,6 +401,7 @@ export function ScheduledPaymentsModal({
                       amountCentavos={item.amount}
                       variant="bodyStrong"
                       direction="outgoing"
+                      hidden={hideBalance}
                     />
                     <Badge
                       variant={
@@ -398,18 +422,27 @@ export function ScheduledPaymentsModal({
               <EmptyState
                 title="No scheduled payments"
                 description="Set up recurring transfers or bill payments to manage your finances automatically."
+                scrollable={false}
               />
             )}
           </View>
         )}
-      </ScrollView>
-    </BottomSheet>
+      </View>
+    </FeatureScreen>
   );
 }
 
 const styles = StyleSheet.create({
   content: {
     paddingBottom: spacing['2xl'],
+  },
+  loadErrorContainer: {
+    paddingVertical: spacing.xl,
+    alignItems: 'center',
+    gap: spacing.base,
+  },
+  loadErrorText: {
+    textAlign: 'center',
   },
   listContainer: {
     gap: spacing.md,

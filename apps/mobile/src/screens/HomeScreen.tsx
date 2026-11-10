@@ -43,7 +43,6 @@ import {
 import { TransferModal } from './TransferModal';
 import { SuspendedScreen } from './SuspendedScreen';
 import { PayBillsModal } from './PayBillsModal';
-import { ScheduledPaymentsModal } from './ScheduledPaymentsModal';
 import { QRHubModal } from './QRHubModal';
 import { HomeBalanceCard } from './home/HomeBalanceCard';
 import { HomeUpcomingPayments } from './home/HomeUpcomingPayments';
@@ -71,7 +70,6 @@ export function HomeScreen({
   // Modals
   const [isTransferOpen, setIsTransferOpen] = useState(false);
   const [isPayBillsOpen, setIsPayBillsOpen] = useState(false);
-  const [isScheduledOpen, setIsScheduledOpen] = useState(false);
   const [isQROpen, setIsQROpen] = useState(false);
 
   // QR transfer prefill state
@@ -292,7 +290,7 @@ export function HomeScreen({
             label="Scheduled"
             color="yellow"
             icon={<CalendarClock size={24} color={colors.ink} />}
-            onPress={() => setIsScheduledOpen(true)}
+            onPress={() => navigation.navigate('ScheduledPayments')}
           />
         </ActionTileGrid>
 
@@ -302,7 +300,7 @@ export function HomeScreen({
         {/* Upcoming Payments Strip */}
         <HomeUpcomingPayments
           schedules={upcomingSchedules}
-          onOpenSchedules={() => setIsScheduledOpen(true)}
+          onOpenSchedules={() => navigation.navigate('ScheduledPayments')}
         />
 
         {/* Recent Activity Section */}
@@ -362,12 +360,6 @@ export function HomeScreen({
         onPaymentSuccess={() => {
           loadData();
         }}
-      />
-
-      <ScheduledPaymentsModal
-        visible={isScheduledOpen}
-        onClose={() => setIsScheduledOpen(false)}
-        onRefresh={loadData}
       />
 
       <QRHubModal

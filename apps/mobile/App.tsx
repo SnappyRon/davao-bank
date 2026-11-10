@@ -45,6 +45,8 @@ import { AboutScreen } from './src/screens/AboutScreen';
 import { PersonalDetailsScreen } from './src/screens/PersonalDetailsScreen';
 import { ExportStatementScreen } from './src/screens/ExportStatementScreen';
 import { FXRatesScreen } from './src/screens/FXRatesScreen';
+import { ScheduledPaymentsScreen } from './src/screens/ScheduledPaymentsScreen';
+import { SavedRecipientsScreen } from './src/screens/SavedRecipientsScreen';
 
 export type RootStackParamList = {
   Tabs: undefined;
@@ -57,6 +59,8 @@ export type RootStackParamList = {
   PersonalDetails: undefined;
   ExportStatement: undefined;
   FXRates: undefined;
+  ScheduledPayments: undefined;
+  SavedRecipients: undefined;
 };
 
 export type BottomTabParamList = {
@@ -388,6 +392,16 @@ export default function App() {
               <RootStack.Screen
                 name="FXRates"
                 component={FXRatesScreen}
+                options={{ presentation: 'card', animation: 'slide_from_right' }}
+              />
+              <RootStack.Screen
+                name="ScheduledPayments"
+                component={ScheduledPaymentsScreen}
+                options={{ presentation: 'card', animation: 'slide_from_right' }}
+              />
+              <RootStack.Screen
+                name="SavedRecipients"
+                component={SavedRecipientsScreen}
                 options={{ presentation: 'card', animation: 'slide_from_right' }}
               />
             </RootStack.Navigator>
