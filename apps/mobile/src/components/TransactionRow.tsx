@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import {
   ArrowDownLeft,
   ArrowUpRight,
@@ -25,12 +25,15 @@ export interface TransactionRowProps {
   transaction: TransactionHistoryItem;
   onPress?: () => void;
   hideBalance?: boolean;
+  /** Container overrides, e.g. borderless rows inside a grouped card. */
+  style?: StyleProp<ViewStyle>;
 }
 
 export function TransactionRow({
   transaction,
   onPress,
   hideBalance = false,
+  style,
 }: TransactionRowProps) {
   const isCredit = transaction.direction === 'credit';
   const isReversed = transaction.status === 'reversed';
@@ -122,7 +125,7 @@ export function TransactionRow({
       feedbackType="highlight"
       onPress={onPress}
       disabled={!onPress}
-      style={styles.container}
+      style={[styles.container, style]}
     >
       <View style={[styles.iconCircle, { backgroundColor: iconBg }]}>{icon}</View>
 

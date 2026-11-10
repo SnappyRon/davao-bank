@@ -376,3 +376,34 @@ Ran all test suites in 3 projects.
 Device flows: **NOT VERIFIED — captain runs them.** This task reuses the existing Sheet implementation; its Reanimated/swipe motion patterns and native dismissal timing were not changed or device-verified here.
 
 **Captain review fixes (same commit):** `Sheet` renders `PrivacyOverlay` inside its Modal again (privacy regression from removing `BottomSheet`). `useConfirmSheet` now keeps the sheet mounted with `visible: false` so it can animate out, and runs the confirmed action once the sheet is hidden (its password/code host unregisters on `visible=false`); async actions are caught and mapped with `toUserMessage`. Sheet close label is "Close" and the title uses the `title` style. Added a double-tap/re-open test. Checks after the fixes: typecheck exit 0, lint 0 errors (66 warnings), format PASS, unit 20 suites / 108 tests. Device flows NOT VERIFIED.
+
+## Stage 7B.1 — Home (2026-11-10, Claude implementer sub agent)
+
+Implemented the Home table (spec 7B "Rules for every screen" and "### 1. Home"):
+
+- **Header:** 56 pt, Logo 32, "Maayong adlaw," caption over the first name in `title`, avatar 40 inside a 44 pt `Pressable` labelled "Open profile" (Profile tab, as before).
+- **Balance card:** radius 24, padding 20, `elevation.card`. Pill "Savings •• 8921" opens `AccountPickerSheet` (new, built on `Sheet`; selected row marked; choosing closes it). Cycling removed; the selection is kept by account id across reloads. Eyebrow "AVAILABLE BALANCE"; amount in `amount`, or `display` at 400 pt and wider (`useWindowDimensions`); "All accounts ₱X" with 2+ accounts, masked when balances are hidden; 44 pt eye toggle ("Hide balance" / "Show balance"); amounts capped at `maxFontSizeMultiplier={1.4}`.
+- **Load error:** "Balance unavailable", the `toUserMessage` text and a "Try again" button; never ₱0.00. Pull-to-refresh and focus reload kept.
+- **Actions:** 3×2 grid, gap 12; white tiles with 1 px border, radius 16, padding 12, `minHeight: 96`, 40 pt colour disc (white icon, ink on yellow), ink label 14/600. Transfer blue, Pay bills orange, QR primary, Add money green, Cash out red, Schedule yellow. Same navigation targets.
+- **Currency Watch:** one 64 pt row, "USD/PHP ₱63.94" (2 decimals), percent change chip, "Reference rate · Oct 26", or "Not updated since Oct 26" in muted text when the latest rate is more than 3 days old. With no rate data it now says "Rate unavailable" instead of showing the old hard-coded fallback rate.
+- **Coming up:** only with items; one grouped card (radius 16, 1 px border, hairlines inset 72), up to 3 rows dated "Nov 10 · Monthly"; amounts respect hide-balance.
+- **Recent activity:** one grouped card, 5 rows, "See all". `TransactionRow` itself is unchanged apart from an optional `style` prop used to drop its per-row border inside the card (its restyle is 7B.2).
+- **Screen:** side margin 20, sections `gap: 24` with no stacked margins, spacing tokens only, bottom clearance 16 pt above the floating tab bar (`max(inset, 8) + 8 + 64`, minus the inset Screen's SafeAreaView already pads). Dev diagnostics unchanged.
+
+Outside the listed files, additive only: `AmountText` gained an optional `maxFontSizeMultiplier`; `TransactionRow` gained an optional `style`. No shared package, App.tsx, RPC, money or step-up change.
+
+Tests: new `apps/mobile/src/__tests__/home_screen.test.tsx` (10 tests: balance error + retry with no ₱0.00, picker opens and switches account, "All accounts" only with 2+ accounts, sum and masking, Coming up hidden/shown, FX stale and fresh text, tile labels and targets).
+
+Checks (repo root):
+
+```text
+npm run typecheck   → admin, mobile, shared: tsc --noEmit, exit 0
+npm run lint        → ✖ 65 problems (0 errors, 65 warnings)
+npm run format:check→ All matched files use Prettier code style!
+npm run test:unit   → Test Suites: 22 passed, 22 total
+                      Tests:       130 passed, 130 total
+```
+
+Device: **NOT VERIFIED — captain runs it** (widths 375/402/440, 1.4x text, picker sheet motion, tab-bar clearance).
+
+Known: on a network failure the error line reads `toUserMessage`'s "You appear to be offline. Nothing was sent." — the load-only wording issue already deferred to 7B.7/7B.11.

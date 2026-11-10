@@ -1,85 +1,153 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, useWindowDimensions } from 'react-native';
 import { ChevronDown, Eye, EyeOff } from 'lucide-react-native';
-import { colors, radius, spacing, type AccountBalance } from '@davao-bank/shared';
+import {
+  colors,
+  elevation,
+  formatCentavosToPHP,
+  radius,
+  size,
+  spacing,
+  type AccountBalance,
+} from '@davao-bank/shared';
 import { Text } from '../../components/Text';
 import { AmountText } from '../../components/AmountText';
 import { Skeleton } from '../../components/Skeleton';
 import { Pressable } from '../../components/Pressable';
+import { Button } from '../../components/Button';
+import { formatAccountLabel } from '../../components/AccountPickerSheet';
+
+/** Spec 7B.6: the balance uses `display` at 400 pt and wider, `amount` below. */
+const DISPLAY_AMOUNT_MIN_WIDTH = 400;
+const AMOUNT_MAX_FONT_SCALE = 1.4;
+const SKELETON_HEIGHT = 160;
+const EYE_ICON_SIZE = 20;
+const CHEVRON_SIZE = 16;
 
 interface HomeBalanceCardProps {
   loading: boolean;
+  /** User-facing message (already mapped by `toUserMessage`) when the balance load failed. */
+  error: string | null;
   accounts: AccountBalance[];
-  selectedAccountIndex: number;
+  selectedAccount: AccountBalance | null;
   hideBalance: boolean;
-  onSwitchAccount: () => void;
+  onOpenAccountPicker: () => void;
   onToggleHideBalance: () => void;
+  onRetry: () => void;
 }
 
 export function HomeBalanceCard({
   loading,
+  error,
   accounts,
-  selectedAccountIndex,
+  selectedAccount,
   hideBalance,
-  onSwitchAccount,
+  onOpenAccountPicker,
   onToggleHideBalance,
+  onRetry,
 }: HomeBalanceCardProps) {
-  const currentAccount = accounts[selectedAccountIndex] || accounts[0];
-  const accountTypeLabel = currentAccount?.type
-    ? currentAccount.type.charAt(0).toUpperCase() +
-      currentAccount.type.slice(1).toLowerCase()
-    : 'Account';
+  const { width } = useWindowDimensions();
+  const amountVariant = width >= DISPLAY_AMOUNT_MIN_WIDTH ? 'display' : 'amount';
 
-  if (loading) {
-    return <Skeleton width="100%" height={160} style={styles.cardSkeleton} />;
+  if (loading && !error) {
+    return <Skeleton width="100%" height={SKELETON_HEIGHT} style={styles.cardSkeleton} />;
   }
 
-  return (
-    <View style={styles.balanceCard}>
-      <View style={styles.balanceHeader}>
-        <Pressable
-          style={styles.accountPill}
-          disabled={accounts.length <= 1}
-          onPress={onSwitchAccount}
-          accessibilityRole="button"
-          accessibilityLabel={`Selected account: ${accountTypeLabel} ${currentAccount?.account_number || ''}`}
-        >
-          <Text variant="caption" color={colors.textInverse}>
-            {accountTypeLabel} · {currentAccount?.account_number || '•••• ••••'}
+  // Never show ₱0.00 when the load failed: the card says the balance is unavailable.
+  if (error) {
+    return (
+      <View style={styles.card}>
+        <Text variant="caption" color={colors.primaryTint}>
+          AVAILABLE BALANCE
+        </Text>
+        <View style={styles.errorText}>
+          <Text variant="title" color={colors.textInverse} accessibilityRole="header">
+            Balance unavailable
           </Text>
-          {accounts.length > 1 ? (
-            <ChevronDown size={14} color={colors.textInverse} />
-          ) : null}
-        </Pressable>
+          <Text variant="caption" color={colors.primaryTint}>
+            {error}
+          </Text>
+        </View>
+        <Button title="Try again" variant="secondary" onPress={onRetry} />
+      </View>
+    );
+  }
+
+  const hasMultipleAccounts = accounts.length > 1;
+  const accountLabel = selectedAccount ? formatAccountLabel(selectedAccount) : null;
+  const totalBalance = accounts.reduce((sum, account) => sum + account.balance, 0);
+
+  const pillContent = (
+    <>
+      <Text variant="label" color={colors.textInverse}>
+        {accountLabel ?? 'No account yet'}
+      </Text>
+      {hasMultipleAccounts ? (
+        <ChevronDown size={CHEVRON_SIZE} color={colors.textInverse} />
+      ) : null}
+    </>
+  );
+
+  return (
+    <View style={styles.card}>
+      <View style={styles.headerRow}>
+        {hasMultipleAccounts ? (
+          <Pressable
+            style={styles.accountPill}
+            onPress={onOpenAccountPicker}
+            accessibilityRole="button"
+            accessibilityLabel={`${accountLabel}. Change account`}
+          >
+            {pillContent}
+          </Pressable>
+        ) : (
+          <View style={styles.accountPill}>{pillContent}</View>
+        )}
 
         <Pressable
           onPress={onToggleHideBalance}
           style={styles.eyeButton}
           accessibilityRole="button"
-          accessibilityLabel={
-            hideBalance ? 'Balance hidden. Double tap to reveal' : 'Hide balance'
-          }
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityLabel={hideBalance ? 'Show balance' : 'Hide balance'}
+          hitSlop={0}
         >
           {hideBalance ? (
-            <EyeOff size={20} color={colors.textInverse} />
+            <EyeOff size={EYE_ICON_SIZE} color={colors.textInverse} />
           ) : (
-            <Eye size={20} color={colors.textInverse} />
+            <Eye size={EYE_ICON_SIZE} color={colors.textInverse} />
           )}
         </Pressable>
       </View>
 
-      <View style={styles.balanceAmountContainer}>
-        <Text variant="caption" color={colors.primaryTint} style={styles.balanceSubtext}>
-          Available Balance
+      <View style={styles.amountBlock}>
+        <Text variant="caption" color={colors.primaryTint}>
+          AVAILABLE BALANCE
         </Text>
-        <AmountText
-          amountCentavos={currentAccount?.balance || 0}
-          hidden={hideBalance}
-          variant="display"
-          color={colors.textInverse}
-          showSign={false}
-        />
+        {selectedAccount ? (
+          <AmountText
+            amountCentavos={selectedAccount.balance}
+            hidden={hideBalance}
+            variant={amountVariant}
+            color={colors.textInverse}
+            showSign={false}
+            maxFontSizeMultiplier={AMOUNT_MAX_FONT_SCALE}
+          />
+        ) : (
+          <Text variant="title" color={colors.textInverse}>
+            No account yet
+          </Text>
+        )}
+        {hasMultipleAccounts ? (
+          <Text
+            variant="label"
+            color={colors.primaryTint}
+            maxFontSizeMultiplier={AMOUNT_MAX_FONT_SCALE}
+          >
+            {hideBalance
+              ? 'All accounts ₱••••••'
+              : `All accounts ${formatCentavosToPHP(totalBalance)}`}
+          </Text>
+        ) : null}
       </View>
     </View>
   );
@@ -87,45 +155,42 @@ export function HomeBalanceCard({
 
 const styles = StyleSheet.create({
   cardSkeleton: {
-    borderRadius: radius.xl,
-    marginBottom: spacing.base,
+    borderRadius: radius.lg,
   },
-  balanceCard: {
+  card: {
     backgroundColor: colors.primary,
-    borderRadius: radius.xl,
-    padding: spacing.xl,
-    marginBottom: spacing.base,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
-    elevation: 8,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    gap: spacing.base,
+    ...elevation.card,
   },
-  balanceHeader: {
+  headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.lg,
+    gap: spacing.sm,
   },
   accountPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    flexShrink: 1,
+    backgroundColor: colors.primaryPressed,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
     borderRadius: radius.pill,
   },
   eyeButton: {
-    padding: spacing.xs,
+    width: size.touch,
+    height: size.touch,
     borderRadius: radius.pill,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  balanceAmountContainer: {
+  amountBlock: {
     gap: spacing.xs,
   },
-  balanceSubtext: {
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
+  errorText: {
+    gap: spacing.xs,
   },
 });

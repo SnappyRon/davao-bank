@@ -1,21 +1,44 @@
-import React from 'react';
+import React, { createContext, useContext } from 'react';
 import { StyleSheet, View, type ViewStyle } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { colors, radius, spacing, typography } from '@davao-bank/shared';
+import { colors, radius, spacing } from '@davao-bank/shared';
 import { Text } from './Text';
 import { Pressable } from './Pressable';
 
-export type ActionTileColor = 'blue' | 'green' | 'orange' | 'yellow' | 'primary';
+export type ActionTileColor = 'blue' | 'green' | 'orange' | 'yellow' | 'red' | 'primary';
+
+/** Spec 7B.1: 40 pt colour disc, tile `minHeight: 96`. */
+const DISC_SIZE = 40;
+const TILE_MIN_HEIGHT = 96;
 
 export interface ActionTileProps {
   label: string;
   color: ActionTileColor;
+  /** Icon drawn on the disc: white, or ink on yellow (see `actionTileIconColor`). */
   icon: React.ReactNode;
   onPress: () => void;
   style?: ViewStyle;
 }
 
+/** Tiles size themselves for the grid they sit in (3 columns on Home). */
+const GridColumnsContext = createContext<2 | 3>(2);
+
+const DISC_COLORS: Record<ActionTileColor, string> = {
+  blue: colors.blue,
+  green: colors.green,
+  orange: colors.orange,
+  yellow: colors.yellow,
+  red: colors.red,
+  primary: colors.primary,
+};
+
+/** Festival fills carry white icons, except yellow, which always carries ink. */
+export function actionTileIconColor(color: ActionTileColor): string {
+  return color === 'yellow' ? colors.ink : colors.textInverse;
+}
+
 export function ActionTile({ label, color, icon, onPress, style }: ActionTileProps) {
+  const columns = useContext(GridColumnsContext);
   const handlePress = () => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -25,34 +48,16 @@ export function ActionTile({ label, color, icon, onPress, style }: ActionTilePro
     onPress();
   };
 
-  const getBackgroundColor = () => {
-    switch (color) {
-      case 'blue':
-        return colors.blue;
-      case 'green':
-        return colors.green;
-      case 'orange':
-        return colors.orange;
-      case 'yellow':
-        return colors.yellow;
-      case 'primary':
-        return colors.primary;
-    }
-  };
-
-  const isYellow = color === 'yellow';
-  const textColor = isYellow ? colors.ink : colors.textInverse;
-
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
       feedbackType="scale"
       onPress={handlePress}
-      style={[styles.tile, { backgroundColor: getBackgroundColor() }, style]}
+      style={[styles.tile, columns === 3 ? styles.tileThird : styles.tileHalf, style]}
     >
-      <View style={styles.iconContainer}>{icon}</View>
-      <Text variant="title" color={textColor} style={styles.label}>
+      <View style={[styles.disc, { backgroundColor: DISC_COLORS[color] }]}>{icon}</View>
+      <Text variant="label" color={colors.ink} numberOfLines={2}>
         {label}
       </Text>
     </Pressable>
@@ -74,7 +79,9 @@ export function ActionTileGrid({ children, columns = 2, style }: ActionTileGridP
         style,
       ]}
     >
-      {children}
+      <GridColumnsContext.Provider value={columns}>
+        {children}
+      </GridColumnsContext.Provider>
     </View>
   );
 }
@@ -84,7 +91,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.md,
-    marginVertical: spacing.md,
   },
   gridTwoCol: {
     justifyContent: 'space-between',
@@ -93,23 +99,28 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
   },
   tile: {
-    flexBasis: '48%',
     flexGrow: 1,
-    minHeight: 110,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
+    minHeight: TILE_MIN_HEIGHT,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.md,
+    gap: spacing.sm,
     justifyContent: 'space-between',
-    elevation: 2,
-    shadowColor: colors.ink,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
   },
-  iconContainer: {
-    alignSelf: 'flex-start',
+  // Basis below 1/3 (or 1/2) so the 12 pt gaps fit; flexGrow fills the row.
+  tileThird: {
+    flexBasis: '30%',
   },
-  label: {
-    fontSize: 18,
-    fontFamily: typography.fonts.extraBold,
+  tileHalf: {
+    flexBasis: '45%',
+  },
+  disc: {
+    width: DISC_SIZE,
+    height: DISC_SIZE,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

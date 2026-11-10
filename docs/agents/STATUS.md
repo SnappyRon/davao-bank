@@ -8,8 +8,8 @@
 - **Branch:** `phase-7-ui-motion` (branched from tip of `phase-6-5-strong-auth`).
 - **Active prompt:** `Phase-7-Prompt-UI-UX-and-Motion.md`.
 - **Assigned to:** captain (Codex out of quota until 2026-11-11 00:52; Antigravity `frontend` and `backend-reviewer` out of quota). Reviewed by the captain workflow (`docs/agents/WORKFLOW.md`).
-- **Exact next step:** Stage 7B.1 Home (header, balance card with account-picker `Sheet`, 3×2 actions, Currency Watch, Coming up, Recent activity, load error) — captain writes the brief and assigns it (Codex back after 2026-11-11 00:52, or a Claude implementer). Owner device check of the 7B.0 pages and sheets (open/close motion, swipe-to-dismiss, confirmations, cancel schedule → password).
-- **Last commit:** `4b453b7` (task 5b fixes) + captain acceptance docs commit.
+- **Exact next step:** captain reviews 7B.1 (Home commit `Phase 7 · Stage 7B.1 — Home`; route to UI/UX and Code Quality). Owner device check of the 7B.0 pages and sheets, and of the new Home, still to do.
+- **Last commit:** Stage 7B.1 Home commit (see git log), on top of `66d4139`.
 - **Blockers for this step:** none. Inbox → transaction deep links stay blocked on an owner decision (notifications have no related id).
 
 ## Stage 7B.0 — remaining work plan (captain, 2026-11-10)
@@ -76,14 +76,14 @@ Deferred to their planned steps (not in the fix round): receipt reference/Share/
   - [x] About, Personal details, Export statement and FX rates as root native-stack pages; callers updated, old modal wrappers deleted.
   - [ ] Deep links from Inbox rows open matching screen (receipt, request): request links implemented; transaction links blocked: notifications have no related id (owner decision).
   - [x] `Sheet` used for quick actions only (confirmations wired; account picker/filter sheets arrive with 7B.1/7B.2). `BottomSheet` removed.
-- [ ] **7B.1 Home**:
-  - [ ] Header: 56 pt, Logo 32, "Maayong adlaw," caption above name in `title`, Avatar 40 with 44 hit area ("Open profile").
-  - [ ] Balance card: radius 24, padding 20, `elevation.card`, pill "Savings •• 8921 ▾" opens account-picker sheet, eyebrow "AVAILABLE BALANCE", `amount` or `display` (>=400 pt), secondary line "All accounts ₱X" when 2+ accounts, eye toggle 44 hit area.
-  - [ ] Actions: 3×2 grid, gap 12. 6 compact tiles with 40 pt color disc and ink labels (14/600).
-  - [ ] Currency Watch: 64 pt row, "USD/PHP ₱63.94", change chip, "Oct 26" / "Not updated since Oct 26".
-  - [ ] Coming up: grouped card up to 3 rows shown only when items exist.
-  - [ ] Recent activity: grouped card with 5 rows and "See all".
-  - [ ] Load error: "Balance unavailable" with retry button (never ₱0.00 on error).
+- [x] **7B.1 Home** (implemented, awaiting captain review; device NOT VERIFIED):
+  - [x] Header: 56 pt, Logo 32, "Maayong adlaw," caption above name in `title`, Avatar 40 with 44 hit area ("Open profile").
+  - [x] Balance card: radius 24, padding 20, `elevation.card`, pill "Savings •• 8921 ▾" opens account-picker sheet, eyebrow "AVAILABLE BALANCE", `amount` or `display` (>=400 pt), secondary line "All accounts ₱X" when 2+ accounts, eye toggle 44 hit area.
+  - [x] Actions: 3×2 grid, gap 12. 6 compact tiles with 40 pt color disc and ink labels (14/600).
+  - [x] Currency Watch: 64 pt row, "USD/PHP ₱63.94", change chip, "Oct 26" / "Not updated since Oct 26".
+  - [x] Coming up: grouped card up to 3 rows shown only when items exist.
+  - [x] Recent activity: grouped card with 5 rows and "See all".
+  - [x] Load error: "Balance unavailable" with retry button (never ₱0.00 on error).
 - [ ] **7B.2 Lists, rows and badges**:
   - [ ] Transaction row: `minHeight: 64`, padding 12×16, 40 pt disc, title/meta/amount layout, reads `hideBalance`.
   - [ ] Reversals: "Reversal · Transfer to •• 8720", original row struck through with neutral "Reversed" badge.
@@ -225,6 +225,8 @@ Fix these before 7B:
 - **Follow-up:** add dedicated test accounts so live tests don't conflict with the presenter's real authenticator.
 
 ## Log (newest first)
+
+- **2026-11-10, Claude implementer (sub agent):** Stage 7B.1 Home. Header 56 pt (Logo 32, "Maayong adlaw," caption over the first name in `title`, avatar 40 in a 44 pt "Open profile" button). Balance card radius 24 / padding 20 / `elevation.card`; pill "Savings •• 8921" opens the new `AccountPickerSheet` (built on `Sheet`; rows "Savings •• 8921" + balance respecting hide-balance, selected row marked, choosing closes it); cycling removed; selection kept by account id; eyebrow "AVAILABLE BALANCE"; amount `amount`, `display` at >= 400 pt; "All accounts ₱X" with 2+ accounts (masked when hidden); eye toggle 44 pt, labels "Hide balance" / "Show balance"; amounts capped at 1.4x text. Load error: "Balance unavailable" + `toUserMessage` text + "Try again", never ₱0.00. Actions: 3×2 grid, gap 12, white tiles (1 px border, radius 16, padding 12, minHeight 96, 40 pt disc, ink 14/600 label): Transfer blue, Pay bills orange, QR primary, Add money green, Cash out red (new `red` tile colour), Schedule yellow (ink icon); same targets. Currency Watch: one 64 pt row "USD/PHP ₱63.94", percent chip, "Reference rate · Oct 26" or "Not updated since Oct 26" (> 3 days); "Rate unavailable" instead of the old made-up fallback rate. Coming up: one grouped card (hairlines inset 72), up to 3 rows "Nov 10 · Monthly", hidden when empty. Recent activity: one grouped card, 5 rows, "See all". Screen: side 20, sections gap 24, bottom clearance = floating bar top + 16. Outside the listed files (additive optional props only): `AmountText.maxFontSizeMultiplier`, `TransactionRow.style` (to drop per-row borders inside the grouped card; no redesign). New `home_screen.test.tsx` (10 tests). Checks: typecheck exit 0; lint `✖ 65 problems (0 errors, 65 warnings)`; format `All matched files use Prettier code style!`; unit `Test Suites: 22 passed, 22 total`, `Tests: 130 passed, 130 total`. Device NOT VERIFIED — captain runs it.
 
 - **2026-11-10, Claude Code (captain):** **task 5b accepted** (`ba40903` + fixes `4b453b7`, Claude implementer sub agent; Codex and Antigravity out of quota). Reviews: Code Quality (Claude tab) and UI/UX (Claude sub agent for Codex) — no Blocker/High; both found the swipe-close bounce. Accepted and fixed in `4b453b7`: swipe exit continues from the finger and springs back only when the guard declines; title focus on present/step change; `LinearTransition` for step height; Reanimated `useReducedMotion` in Sheet; shared `theme/easing.ts` from motion tokens (Sheet, Toast); token cleanup and `elevation.card` shadow; iOS keyboard footer inset; `onShow` stale guard; reopen-during-exit test; `useConfirmSheet` comment. Captain checked the swipe-release batching and the out-of-brief `Text.tsx` ref prop / `Toast.tsx` easing swap. Checks re-run by captain: typecheck exit 0, lint 0 errors (66 warnings), format PASS, unit 21 suites / 120 tests. Deferred: `usePanGesture`/`scheduleOnRN` migration with Toast (deprecated APIs, follow-up), old `useReducedMotion` hook removal project-wide (7C), Android keyboard behaviour in Sheet (device check). Device motion, VoiceOver focus and keyboard NOT VERIFIED — owner to try on the simulator.
 

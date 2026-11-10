@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, StyleSheet, ScrollView, RefreshControl } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../App';
@@ -19,6 +20,8 @@ import {
   colors,
   spacing,
   radius,
+  size,
+  toUserMessage,
   fetchUserProfile,
   fetchAccountBalances,
   fetchTransactionHistory,
@@ -39,11 +42,23 @@ import {
   Logo,
   CurrencyWatchCard,
   Pressable,
+  AccountPickerSheet,
+  actionTileIconColor,
 } from '../components';
 import { SuspendedScreen } from './SuspendedScreen';
 import { HomeBalanceCard } from './home/HomeBalanceCard';
 import { HomeUpcomingPayments } from './home/HomeUpcomingPayments';
 import { HomeRecentActivity } from './home/HomeRecentActivity';
+
+/** Spec 7B.1 header: 56 pt tall, avatar 40 inside a 44 pt hit area. */
+const HEADER_HEIGHT = 56;
+const AVATAR_SIZE = 40;
+const TILE_ICON_SIZE = 20;
+/**
+ * Mirrors FloatingTabBar: a 64 pt pill whose bottom edge sits
+ * `max(inset, 8) + 8` above the window bottom.
+ */
+const FLOATING_TAB_BAR_HEIGHT = 64;
 
 interface HomeScreenProps {
   onNavigateToActivity?: () => void;
@@ -58,10 +73,14 @@ export function HomeScreen({
   const [profile, setProfile] = useState<Profile | null>(null);
   const [accounts, setAccounts] = useState<AccountBalance[]>([]);
   const [transactions, setTransactions] = useState<TransactionHistoryItem[]>([]);
-  const [selectedAccountIndex, setSelectedAccountIndex] = useState<number>(0);
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
+  const [accountPickerVisible, setAccountPickerVisible] = useState(false);
   const { hideBalance, toggleHideBalance } = useSettings();
+  const insets = useSafeAreaInsets();
 
   const [loading, setLoading] = useState<boolean>(true);
+  // Set when the balance load fails; the card then reads "Balance unavailable".
+  const [accountsError, setAccountsError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState<boolean>(false);
 
   // Upcoming scheduled payments & Pending requests
@@ -85,7 +104,12 @@ export function HomeScreen({
         ]);
 
         if (profileRes.data) setProfile(profileRes.data);
-        if (accountsRes.data) setAccounts(accountsRes.data);
+        if (accountsRes.error || !accountsRes.data) {
+          setAccountsError(toUserMessage(accountsRes.error));
+        } else {
+          setAccounts(accountsRes.data);
+          setAccountsError(null);
+        }
         if (txRes.data) setTransactions(txRes.data);
 
         try {
@@ -118,6 +142,7 @@ export function HomeScreen({
       }
     } catch (err) {
       console.warn('Error loading Home data:', err);
+      setAccountsError(toUserMessage(err));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -139,6 +164,12 @@ export function HomeScreen({
     loadData();
   };
 
+  const retryBalance = () => {
+    setAccountsError(null);
+    setLoading(true);
+    loadData();
+  };
+
   const getInitials = (name?: string | null) => {
     if (!name) return 'DB';
     const parts = name.trim().split(/\s+/);
@@ -146,11 +177,21 @@ export function HomeScreen({
     return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
   };
 
-  const switchAccount = () => {
-    if (accounts.length > 1) {
-      setSelectedAccountIndex((prev) => (prev + 1) % accounts.length);
-    }
+  const selectedAccount =
+    accounts.find((account) => account.account_id === selectedAccountId) ??
+    accounts[0] ??
+    null;
+
+  const selectAccount = (accountId: string) => {
+    setSelectedAccountId(accountId);
+    setAccountPickerVisible(false);
   };
+
+  // The ScrollView sits inside Screen's SafeAreaView, which already pads the
+  // bottom inset. Content ends 16 pt above the floating tab bar.
+  const tabBarTopFromBottom =
+    Math.max(insets.bottom, spacing.sm) + spacing.sm + FLOATING_TAB_BAR_HEIGHT;
+  const bottomClearance = tabBarTopFromBottom + spacing.base - insets.bottom;
 
   if (profile?.status === 'suspended') {
     return <SuspendedScreen profile={profile} userEmail={null} onRefresh={loadData} />;
@@ -159,7 +200,7 @@ export function HomeScreen({
   return (
     <Screen style={styles.screen}>
       <ScrollView
-        contentContainerStyle={styles.container}
+        contentContainerStyle={[styles.container, { paddingBottom: bottomClearance }]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -169,123 +210,137 @@ export function HomeScreen({
           />
         }
       >
-        {/* Top Greeting Row */}
-        <View style={styles.topBar}>
+        {/* Header: logo, greeting, profile */}
+        <View style={styles.header}>
           <View style={styles.brandRow}>
             <Logo variant="mark" size={32} />
-            <View style={styles.greetingTextContainer}>
+            <View style={styles.greetingText}>
               <Text variant="caption" color={colors.textSecondary}>
                 Maayong adlaw,
               </Text>
-              <Text variant="bodyStrong" color={colors.ink}>
+              <Text variant="title" color={colors.ink} numberOfLines={1}>
                 {profile?.full_name?.split(' ')[0] || 'Customer'}
               </Text>
             </View>
           </View>
 
           <Pressable
-            style={styles.avatarButton}
+            style={styles.avatarHitArea}
             feedbackType="scale"
             accessibilityRole="button"
             accessibilityLabel="Open profile"
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            hitSlop={0}
             onPress={onNavigateToProfile}
           >
-            {profile?.full_name ? (
-              <Text variant="bodyStrong" color={colors.primary}>
-                {getInitials(profile.full_name)}
-              </Text>
-            ) : (
-              <User size={18} color={colors.primary} />
-            )}
+            <View style={styles.avatar}>
+              {profile?.full_name ? (
+                <Text variant="bodyStrong" color={colors.primary}>
+                  {getInitials(profile.full_name)}
+                </Text>
+              ) : (
+                <User size={TILE_ICON_SIZE} color={colors.primary} />
+              )}
+            </View>
           </Pressable>
         </View>
 
-        {/* Hero Balance Card */}
+        {/* Balance card: the one strong surface on Home */}
         <HomeBalanceCard
           loading={loading}
+          error={accountsError}
           accounts={accounts}
-          selectedAccountIndex={selectedAccountIndex}
+          selectedAccount={selectedAccount}
           hideBalance={hideBalance}
-          onSwitchAccount={switchAccount}
+          onOpenAccountPicker={() => setAccountPickerVisible(true)}
           onToggleHideBalance={toggleHideBalance}
+          onRetry={retryBalance}
         />
 
-        {/* Pending Payment Requests Banner */}
+        {/* Pending payment requests */}
         {pendingRequestsCount > 0 && (
           <Pressable
             style={styles.requestsBanner}
             onPress={() => navigation.navigate('PaymentRequests')}
             feedbackType="highlight"
             accessibilityRole="button"
-            accessibilityLabel={`${pendingRequestsCount} Pending Payment Request${pendingRequestsCount > 1 ? 's' : ''}. Tap to review, pay, or decline`}
+            accessibilityLabel={`${pendingRequestsCount} pending payment request${pendingRequestsCount > 1 ? 's' : ''}. Review, pay or decline`}
           >
             <View style={styles.requestsIconBox}>
-              <Inbox size={20} color={colors.primary} />
+              <Inbox size={TILE_ICON_SIZE} color={colors.primary} />
             </View>
-            <View style={{ flex: 1 }}>
-              <Text variant="bodyStrong" color={colors.primary}>
-                {pendingRequestsCount} Pending Payment Request
+            <View style={styles.requestsText}>
+              <Text variant="bodyStrong" color={colors.ink}>
+                {pendingRequestsCount} pending payment request
                 {pendingRequestsCount > 1 ? 's' : ''}
               </Text>
               <Text variant="caption" color={colors.textSecondary}>
-                Tap to review, pay, or decline
+                Review, pay or decline
               </Text>
             </View>
-            <ChevronRight size={18} color={colors.primary} />
+            <ChevronRight size={TILE_ICON_SIZE} color={colors.textMuted} />
           </Pressable>
         )}
 
-        {/* Action Grid: 6 tiles in 3x2 (Final Stages C & D) */}
+        {/* Actions: 3×2 grid */}
         <ActionTileGrid columns={3}>
           <ActionTile
             label="Transfer"
             color="blue"
-            icon={<Send size={24} color={colors.textInverse} />}
+            icon={<Send size={TILE_ICON_SIZE} color={actionTileIconColor('blue')} />}
             onPress={() => navigation.navigate('Transfer')}
           />
           <ActionTile
-            label="Pay Bills"
+            label="Pay bills"
             color="orange"
-            icon={<Zap size={24} color={colors.textInverse} />}
+            icon={<Zap size={TILE_ICON_SIZE} color={actionTileIconColor('orange')} />}
             onPress={() => navigation.navigate('PayBills')}
           />
           <ActionTile
             label="QR"
             color="primary"
-            icon={<QrCode size={24} color={colors.textInverse} />}
+            icon={<QrCode size={TILE_ICON_SIZE} color={actionTileIconColor('primary')} />}
             onPress={() => navigation.navigate('QRHub')}
           />
           <ActionTile
             label="Add money"
             color="green"
-            icon={<PlusCircle size={24} color={colors.textInverse} />}
+            icon={
+              <PlusCircle size={TILE_ICON_SIZE} color={actionTileIconColor('green')} />
+            }
             onPress={() => navigation.navigate('AddMoney')}
           />
           <ActionTile
-            label="Cash-out"
-            color="orange"
-            icon={<MinusCircle size={24} color={colors.textInverse} />}
+            label="Cash out"
+            color="red"
+            icon={
+              <MinusCircle size={TILE_ICON_SIZE} color={actionTileIconColor('red')} />
+            }
             onPress={() => navigation.navigate('CashOut')}
           />
           <ActionTile
-            label="Scheduled"
+            label="Schedule"
             color="yellow"
-            icon={<CalendarClock size={24} color={colors.ink} />}
+            icon={
+              <CalendarClock
+                size={TILE_ICON_SIZE}
+                color={actionTileIconColor('yellow')}
+              />
+            }
             onPress={() => navigation.navigate('ScheduledPayments')}
           />
         </ActionTileGrid>
 
-        {/* Currency Watch Card (§E.2) */}
+        {/* Currency Watch */}
         <CurrencyWatchCard onPress={() => navigation.navigate('FXRates')} />
 
-        {/* Upcoming Payments Strip */}
+        {/* Coming up (only when there are items) */}
         <HomeUpcomingPayments
           schedules={upcomingSchedules}
+          hideBalance={hideBalance}
           onOpenSchedules={() => navigation.navigate('ScheduledPayments')}
         />
 
-        {/* Recent Activity Section */}
+        {/* Recent activity */}
         <HomeRecentActivity
           loading={loading}
           transactions={transactions}
@@ -312,6 +367,15 @@ export function HomeScreen({
           </View>
         ) : null}
       </ScrollView>
+
+      <AccountPickerSheet
+        visible={accountPickerVisible}
+        accounts={accounts}
+        selectedAccountId={selectedAccount?.account_id ?? null}
+        hideBalance={hideBalance}
+        onSelect={selectAccount}
+        onClose={() => setAccountPickerVisible(false)}
+      />
     </Screen>
   );
 }
@@ -321,54 +385,61 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   container: {
-    padding: spacing.base,
-    paddingBottom: spacing['4xl'],
+    paddingHorizontal: spacing.screenSide,
+    gap: spacing.xl,
   },
-  topBar: {
+  header: {
+    minHeight: HEADER_HEIGHT,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.base,
+    gap: spacing.md,
   },
   brandRow: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: spacing.md,
   },
-  greetingTextContainer: {
-    gap: 1,
+  greetingText: {
+    flexShrink: 1,
   },
-  avatarButton: {
-    width: 40,
-    height: 40,
+  avatarHitArea: {
+    width: size.touch,
+    height: size.touch,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatar: {
+    width: AVATAR_SIZE,
+    height: AVATAR_SIZE,
     borderRadius: radius.pill,
     backgroundColor: colors.primaryTint,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: colors.primary,
   },
   requestsBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    backgroundColor: colors.primaryTint,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: colors.primary,
-    borderRadius: radius.lg,
+    borderColor: colors.border,
+    borderRadius: radius.md,
     padding: spacing.base,
-    marginBottom: spacing.base,
   },
   requestsIconBox: {
-    width: 36,
-    height: 36,
+    width: AVATAR_SIZE,
+    height: AVATAR_SIZE,
     borderRadius: radius.pill,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.primaryTint,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  requestsText: {
+    flex: 1,
+  },
   devCard: {
-    marginTop: spacing.xl,
     padding: spacing.sm,
     backgroundColor: colors.surfaceSubtle,
     borderRadius: radius.sm,

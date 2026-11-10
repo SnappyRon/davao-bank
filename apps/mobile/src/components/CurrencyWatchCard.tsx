@@ -1,21 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet } from 'react-native';
-import {
-  TrendingUp,
-  TrendingDown,
-  Minus,
-  ChevronRight,
-  Globe,
-} from 'lucide-react-native';
+import { View, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
+import { TrendingUp, TrendingDown, Minus, ChevronRight } from 'lucide-react-native';
 import {
   colors,
   radius,
   spacing,
   type FXRate,
-  formatFXRate,
   formatFXChange,
   calculateFXSummary,
-  typography,
 } from '@davao-bank/shared';
 import { Text } from './Text';
 import { Badge } from './Badge';
@@ -23,9 +15,60 @@ import { Skeleton } from './Skeleton';
 import { Pressable } from './Pressable';
 import { supabase } from '../lib/supabase';
 
+/** Spec 7B.1: one row, 64 pt tall. */
+const ROW_MIN_HEIGHT = 64;
+const TREND_ICON_SIZE = 12;
+const CHEVRON_SIZE = 18;
+/** A rate older than this many days reads "Not updated since …". */
+const STALE_AFTER_DAYS = 3;
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+const MONTHS = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
+
+/** "2026-10-26" → local midnight of that calendar day, or null if malformed. */
+function parseDateOnly(isoDate: string): Date | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(isoDate);
+  if (!match) return null;
+  const [, y, m, d] = match;
+  return new Date(Number(y), Number(m) - 1, Number(d));
+}
+
+/** "2026-10-26" → "Oct 26". */
+export function formatShortDate(isoDate: string): string {
+  const date = parseDateOnly(isoDate);
+  if (!date) return isoDate;
+  return `${MONTHS[date.getMonth()]} ${date.getDate()}`;
+}
+
+/** True when the rate date is more than 3 calendar days before `now`. */
+export function isRateStale(isoDate: string, now: Date = new Date()): boolean {
+  const date = parseDateOnly(isoDate);
+  if (!date) return false;
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const ageDays = Math.round((today.getTime() - date.getTime()) / MS_PER_DAY);
+  return ageDays > STALE_AFTER_DAYS;
+}
+
+function formatPercentChange(percent: number): string {
+  const sign = percent > 0 ? '+' : percent < 0 ? '−' : '±';
+  return `${sign}${Math.abs(percent).toFixed(2)}%`;
+}
+
 interface CurrencyWatchCardProps {
   onPress: () => void;
-  style?: any;
+  style?: StyleProp<ViewStyle>;
 }
 
 export function CurrencyWatchCard({ onPress, style }: CurrencyWatchCardProps) {
@@ -63,107 +106,115 @@ export function CurrencyWatchCard({ onPress, style }: CurrencyWatchCardProps) {
     };
   }, []);
 
-  const summary = calculateFXSummary(rates);
-
   if (loading) {
     return (
-      <View style={[styles.card, style]}>
-        <Skeleton width="100%" height={74} style={{ borderRadius: radius.md }} />
+      <View style={style}>
+        <Skeleton width="100%" height={ROW_MIN_HEIGHT} style={styles.skeleton} />
       </View>
     );
   }
 
-  // Fallback if no rate data in database yet
-  const latestRate = summary?.latestRate ?? 58.95;
-  const changeValue = summary?.changeValue ?? 0.15;
-  const changePercent = summary?.changePercent ?? 0.26;
-  const direction = summary?.direction ?? 'up';
-  const rateDate = summary?.rateDate ?? '2026-10-26';
+  const summary = calculateFXSummary(rates);
+
+  // No rate yet: say so instead of showing a made-up number.
+  if (!summary) {
+    return (
+      <Pressable
+        style={[styles.row, style]}
+        onPress={onPress}
+        feedbackType="scale"
+        accessibilityRole="button"
+        accessibilityLabel="Currency watch: USD to PHP rate unavailable. Open reference rates"
+      >
+        <View style={styles.textCol}>
+          <Text variant="bodyStrong" color={colors.ink}>
+            USD/PHP
+          </Text>
+          <Text variant="caption" color={colors.textMuted}>
+            Rate unavailable
+          </Text>
+        </View>
+        <ChevronRight size={CHEVRON_SIZE} color={colors.textMuted} />
+      </Pressable>
+    );
+  }
+
+  const { latestRate, changeValue, changePercent, direction, rateDate } = summary;
+  const rateText = `₱${latestRate.toFixed(2)}`;
+  const shortDate = formatShortDate(rateDate);
+  const stale = isRateStale(rateDate);
+  const dateText = stale
+    ? `Not updated since ${shortDate}`
+    : `Reference rate · ${shortDate}`;
 
   const trendIcon =
     direction === 'up' ? (
-      <TrendingUp size={12} color={colors.green} />
+      <TrendingUp size={TREND_ICON_SIZE} color={colors.primary} />
     ) : direction === 'down' ? (
-      <TrendingDown size={12} color={colors.red} />
+      <TrendingDown size={TREND_ICON_SIZE} color={colors.redText} />
     ) : (
-      <Minus size={12} color={colors.textMuted} />
+      <Minus size={TREND_ICON_SIZE} color={colors.textSecondary} />
     );
-
-  const changeText = formatFXChange(changeValue, changePercent);
 
   return (
     <Pressable
-      style={[styles.card, style]}
+      style={[styles.row, style]}
       onPress={onPress}
       feedbackType="scale"
       accessibilityRole="button"
-      accessibilityLabel={`Currency watch: USD to PHP indicative rate ₱${formatFXRate(latestRate, 'USD')}, change ${changeText}, as of ${rateDate}. Double tap to open reference rates.`}
+      accessibilityLabel={`Currency watch: USD/PHP ${rateText}, change ${formatFXChange(changeValue, changePercent)}. ${dateText}. Open reference rates`}
     >
-      <View style={styles.leftCol}>
-        <View style={styles.titleRow}>
-          <Globe size={14} color={colors.primary} />
-          <Text variant="caption" color={colors.textSecondary} style={{ marginLeft: 5 }}>
-            CURRENCY WATCH · USD / PHP
-          </Text>
-        </View>
-
-        <View style={styles.rateRow}>
-          <Text variant="title" color={colors.ink} style={styles.rateText}>
-            ₱{formatFXRate(latestRate, 'USD')}
+      <View style={styles.textCol}>
+        <View style={styles.rateLine}>
+          <Text
+            variant="bodyStrong"
+            color={colors.ink}
+            tabularNums
+            maxFontSizeMultiplier={1.4}
+          >
+            USD/PHP {rateText}
           </Text>
           <Badge
-            label={changeText}
+            label={formatPercentChange(changePercent)}
             variant={
               direction === 'up' ? 'success' : direction === 'down' ? 'danger' : 'neutral'
             }
             icon={trendIcon}
-            style={{ marginLeft: spacing.sm }}
           />
         </View>
-
         <Text variant="caption" color={colors.textMuted}>
-          ECB Reference Rate · {rateDate}
+          {dateText}
         </Text>
       </View>
-
-      <View style={styles.rightCol}>
-        <ChevronRight size={18} color={colors.textMuted} />
-      </View>
+      <ChevronRight size={CHEVRON_SIZE} color={colors.textMuted} />
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
+  skeleton: {
+    borderRadius: radius.md,
+  },
+  row: {
+    minHeight: ROW_MIN_HEIGHT,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingHorizontal: spacing.base,
+    paddingVertical: spacing.sm,
     backgroundColor: colors.surface,
-    borderRadius: radius.lg,
+    borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.border,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm + 2,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginVertical: spacing.sm,
   },
-  leftCol: {
+  textCol: {
     flex: 1,
+    gap: spacing.xs,
   },
-  titleRow: {
+  rateLine: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 2,
-  },
-  rateRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 2,
-  },
-  rateText: {
-    fontFamily: typography.fonts.extraBold,
-    fontSize: 20,
-  },
-  rightCol: {
-    paddingLeft: spacing.sm,
+    flexWrap: 'wrap',
+    gap: spacing.sm,
   },
 });

@@ -1,0 +1,269 @@
+import React from 'react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
+import {
+  fetchAccountBalances,
+  fetchTransactionHistory,
+  fetchUserProfile,
+  fetchHealthCheck,
+  type AccountBalance,
+} from '@davao-bank/shared';
+
+const mockNavigate = jest.fn();
+
+jest.mock('@react-navigation/native', () => ({
+  useNavigation: () => ({ navigate: mockNavigate }),
+  // Home also loads on mount; the focus reload is not needed for these tests.
+  useFocusEffect: jest.fn(),
+  useIsFocused: () => true,
+}));
+
+jest.mock('expo-blur', () => ({ BlurView: () => null }));
+
+jest.mock('react-native-safe-area-context', () => {
+  const { View } = jest.requireActual('react-native');
+  return {
+    SafeAreaView: View,
+    useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+  };
+});
+
+// Per-table results for supabase.from(...) chains (requests, schedules, FX).
+const mockTables: Record<string, { data?: unknown; error: unknown; count?: number }> = {};
+
+jest.mock('../lib/supabase', () => ({
+  supabase: {
+    auth: {
+      getUser: jest.fn(async () => ({ data: { user: { id: 'usr-1' } } })),
+    },
+    from: (table: string) => {
+      const result = mockTables[table] ?? { data: [], error: null, count: 0 };
+      const builder: Record<string, unknown> = {};
+      for (const method of ['select', 'eq', 'order', 'limit']) {
+        builder[method] = () => builder;
+      }
+      builder.then = (
+        resolve: (v: unknown) => unknown,
+        reject: (e: unknown) => unknown
+      ) => Promise.resolve(result).then(resolve, reject);
+      return builder;
+    },
+  },
+}));
+
+let mockHideBalance = false;
+jest.mock('../context/SettingsContext', () => ({
+  useSettings: () => ({ hideBalance: mockHideBalance, toggleHideBalance: jest.fn() }),
+}));
+
+jest.mock('@davao-bank/shared', () => {
+  const actual = jest.requireActual('@davao-bank/shared');
+  return {
+    ...actual,
+    fetchUserProfile: jest.fn(),
+    fetchAccountBalances: jest.fn(),
+    fetchTransactionHistory: jest.fn(),
+    fetchHealthCheck: jest.fn(),
+  };
+});
+
+import { HomeScreen } from '../screens/HomeScreen';
+
+declare const global: { IS_REACT_ACT_ENVIRONMENT?: boolean };
+global.IS_REACT_ACT_ENVIRONMENT = true;
+
+function account(overrides: Partial<AccountBalance>): AccountBalance {
+  return {
+    account_id: 'acc-1',
+    user_id: 'usr-1',
+    account_number: '1078958921',
+    type: 'savings',
+    currency: 'PHP',
+    status: 'active',
+    balance: 1234567,
+    ledger_entry_count: 1,
+    last_activity_at: null,
+    ...overrides,
+  };
+}
+
+const savings = account({});
+const checking = account({
+  account_id: 'acc-2',
+  account_number: '1078957943',
+  type: 'checking',
+  balance: 50000,
+});
+
+/** "YYYY-MM-DD" for `daysAgo` days before today (local time). */
+function isoDaysAgo(daysAgo: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - daysAgo);
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${mm}-${dd}`;
+}
+
+function fxRow(rateDate: string, rate: number) {
+  return { base: 'USD', quote: 'PHP', rate, rate_date: rateDate };
+}
+
+describe('HomeScreen (7B.1)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockHideBalance = false;
+    for (const key of Object.keys(mockTables)) delete mockTables[key];
+    jest.mocked(fetchUserProfile).mockResolvedValue({
+      data: { id: 'usr-1', full_name: 'Juan Dela Cruz', status: 'active' },
+      error: null,
+    } as never);
+    jest.mocked(fetchTransactionHistory).mockResolvedValue({ data: [], error: null });
+    jest.mocked(fetchHealthCheck).mockResolvedValue({ data: null, error: null } as never);
+    jest.mocked(fetchAccountBalances).mockResolvedValue({ data: [savings], error: null });
+  });
+
+  it('shows "Balance unavailable" with Try again, and no ₱0.00, when the balance load fails', async () => {
+    jest.mocked(fetchAccountBalances).mockResolvedValueOnce({
+      data: null,
+      error: 'network request failed',
+    });
+
+    await render(<HomeScreen />);
+
+    expect(await screen.findByText('Balance unavailable')).toBeTruthy();
+    expect(screen.queryByText('₱0.00')).toBeNull();
+    expect(screen.queryByText(/network request failed/)).toBeNull();
+
+    // Retry loads again and shows the real balance.
+    fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
+    expect(await screen.findByText('₱12,345.67')).toBeTruthy();
+    expect(screen.queryByText('Balance unavailable')).toBeNull();
+    expect(fetchAccountBalances).toHaveBeenCalledTimes(2);
+  });
+
+  it('opens the account picker from the pill and switches the displayed account', async () => {
+    jest.mocked(fetchAccountBalances).mockResolvedValue({
+      data: [savings, checking],
+      error: null,
+    });
+
+    await render(<HomeScreen />);
+
+    expect(await screen.findByText('Savings •• 8921')).toBeTruthy();
+    expect(screen.getByText('₱12,345.67')).toBeTruthy();
+
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Savings •• 8921. Change account' })
+    );
+    expect(await screen.findByText('Choose account')).toBeTruthy();
+
+    const checkingRow = screen.getByRole('button', { name: 'Checking •• 7943, ₱500.00' });
+    fireEvent.press(checkingRow);
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Checking •• 7943. Change account' })
+      ).toBeTruthy()
+    );
+    // The card now shows the checking balance as the main amount.
+    expect(
+      screen.queryByRole('button', { name: 'Savings •• 8921. Change account' })
+    ).toBeNull();
+  });
+
+  it('shows "All accounts" only with 2+ accounts', async () => {
+    await render(<HomeScreen />);
+    expect(await screen.findByText('₱12,345.67')).toBeTruthy();
+    expect(screen.queryByText(/All accounts/)).toBeNull();
+    // A single account has no picker to open.
+    expect(screen.queryByRole('button', { name: /Change account/ })).toBeNull();
+  });
+
+  it('sums "All accounts" with 2+ accounts', async () => {
+    jest.mocked(fetchAccountBalances).mockResolvedValue({
+      data: [savings, checking],
+      error: null,
+    });
+    await render(<HomeScreen />);
+    expect(await screen.findByText('All accounts ₱12,845.67')).toBeTruthy();
+  });
+
+  it('masks "All accounts" and the balance when balances are hidden', async () => {
+    mockHideBalance = true;
+    jest.mocked(fetchAccountBalances).mockResolvedValue({
+      data: [savings, checking],
+      error: null,
+    });
+    await render(<HomeScreen />);
+    expect(await screen.findByText('All accounts ₱••••••')).toBeTruthy();
+    expect(screen.queryByText('All accounts ₱12,845.67')).toBeNull();
+    expect(screen.queryByText('₱12,345.67')).toBeNull();
+  });
+
+  it('hides Coming up when there are no scheduled payments', async () => {
+    mockTables.scheduled_payments = { data: [], error: null };
+    await render(<HomeScreen />);
+    expect(await screen.findByText('₱12,345.67')).toBeTruthy();
+    expect(screen.queryByText('Coming up')).toBeNull();
+  });
+
+  it('shows Coming up rows dated like "Nov 10 · Monthly" when items exist', async () => {
+    mockTables.scheduled_payments = {
+      data: [
+        {
+          id: 'sch-1',
+          kind: 'transfer',
+          note: 'Rent',
+          amount: 500000,
+          frequency: 'monthly',
+          next_run_date: '2026-11-10',
+          status: 'active',
+        },
+      ],
+      error: null,
+    };
+    await render(<HomeScreen />);
+    expect(await screen.findByText('Coming up')).toBeTruthy();
+    expect(screen.getByText('Nov 10 · Monthly')).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'Rent, Nov 10 · Monthly' }));
+    expect(mockNavigate).toHaveBeenCalledWith('ScheduledPayments');
+  });
+
+  it('shows "Not updated since" when the latest FX rate is more than 3 days old', async () => {
+    const stale = isoDaysAgo(5);
+    mockTables.fx_rates = {
+      data: [fxRow(stale, 63.94), fxRow(isoDaysAgo(6), 63.8)],
+      error: null,
+    };
+    await render(<HomeScreen />);
+    expect(await screen.findByText('USD/PHP ₱63.94')).toBeTruthy();
+    expect(screen.getByText(/^Not updated since [A-Z][a-z]{2} \d{1,2}$/)).toBeTruthy();
+  });
+
+  it('shows the reference-rate date when the FX rate is fresh', async () => {
+    mockTables.fx_rates = {
+      data: [fxRow(isoDaysAgo(1), 63.94), fxRow(isoDaysAgo(2), 63.8)],
+      error: null,
+    };
+    await render(<HomeScreen />);
+    expect(await screen.findByText('USD/PHP ₱63.94')).toBeTruthy();
+    expect(screen.getByText(/^Reference rate · [A-Z][a-z]{2} \d{1,2}$/)).toBeTruthy();
+    expect(screen.queryByText(/Not updated since/)).toBeNull();
+  });
+
+  it('labels the action tiles in sentence case and keeps their targets', async () => {
+    await render(<HomeScreen />);
+    await screen.findByText('₱12,345.67');
+    const targets: [string, string][] = [
+      ['Transfer', 'Transfer'],
+      ['Pay bills', 'PayBills'],
+      ['QR', 'QRHub'],
+      ['Add money', 'AddMoney'],
+      ['Cash out', 'CashOut'],
+      ['Schedule', 'ScheduledPayments'],
+    ];
+    for (const [label, route] of targets) {
+      fireEvent.press(screen.getByRole('button', { name: label }));
+      expect(mockNavigate).toHaveBeenLastCalledWith(route);
+    }
+  });
+});

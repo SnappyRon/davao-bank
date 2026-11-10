@@ -11,6 +11,8 @@ export interface AmountTextProps {
   color?: string;
   style?: TextStyle;
   showSign?: boolean;
+  /** Caps text scaling on amounts (spec 7B.6: 1.4). */
+  maxFontSizeMultiplier?: number;
 }
 
 export function AmountText({
@@ -21,6 +23,7 @@ export function AmountText({
   color,
   style,
   showSign = true,
+  maxFontSizeMultiplier,
 }: AmountTextProps) {
   if (hidden) {
     return (
@@ -30,6 +33,7 @@ export function AmountText({
         tabularNums
         style={[styles.base, style]}
         accessibilityLabel="Balance hidden"
+        maxFontSizeMultiplier={maxFontSizeMultiplier}
       >
         ₱••••••
       </Text>
@@ -52,7 +56,13 @@ export function AmountText({
   }
 
   return (
-    <Text variant={variant} color={displayColor} tabularNums style={[styles.base, style]}>
+    <Text
+      variant={variant}
+      color={displayColor}
+      tabularNums
+      style={[styles.base, style]}
+      maxFontSizeMultiplier={maxFontSizeMultiplier}
+    >
       {sign}
       {formatted}
     </Text>
