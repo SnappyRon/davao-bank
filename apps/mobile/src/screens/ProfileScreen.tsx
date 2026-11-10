@@ -1,3 +1,4 @@
+import { useConfirmSheet } from '../hooks/useConfirmSheet';
 import React, { useState, useCallback, useRef } from 'react';
 import { View, StyleSheet, ScrollView, Alert, Switch } from 'react-native';
 import {
@@ -39,6 +40,7 @@ export function ProfileScreen({
   onProfileUpdated,
   onSignOut,
 }: ProfileScreenProps) {
+  const { showConfirmation, confirmSheet } = useConfirmSheet();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const appLock = useAppLock();
   const { biometricEnabled, setBiometricEnabled, biometricType, isBiometricSupported } =
@@ -83,28 +85,27 @@ export function ProfileScreen({
   };
 
   const handleSignOut = async () => {
-    Alert.alert('Sign Out', 'Are you sure you want to sign out of Davao Bank?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Sign Out',
-        style: 'destructive',
-        onPress: async () => {
-          setSigningOut(true);
-          try {
-            await supabase.auth.signOut();
-            if (onSignOut) {
-              onSignOut();
-            }
-          } catch (err) {
-            console.error('Error signing out:', err);
-          } finally {
-            setSigningOut(false);
+    showConfirmation({
+      title: 'Sign out',
+      message: 'Are you sure you want to sign out of Davao Bank?',
+      confirmLabel: 'Sign out',
+      cancelLabel: 'Cancel',
+      destructive: true,
+      onConfirm: async () => {
+        setSigningOut(true);
+        try {
+          await supabase.auth.signOut();
+          if (onSignOut) {
+            onSignOut();
           }
-        },
+        } catch (err) {
+          console.error('Error signing out:', err);
+        } finally {
+          setSigningOut(false);
+        }
       },
-    ]);
+    });
   };
-
   return (
     <Screen style={styles.screen}>
       <ScrollView
@@ -334,6 +335,7 @@ export function ProfileScreen({
         title="Two-step verification"
         onPress={() => navigation.navigate('TwoStepSetup')}
       />
+      {confirmSheet}
     </Screen>
   );
 }

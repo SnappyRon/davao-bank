@@ -1,6 +1,6 @@
 import React from 'react';
-import { Alert, Text } from 'react-native';
-import { render, screen, fireEvent } from '@testing-library/react-native';
+import { Text } from 'react-native';
+import { render, screen, fireEvent, act } from '@testing-library/react-native';
 
 const mockGoBack = jest.fn();
 const mockDispatch = jest.fn();
@@ -21,27 +21,15 @@ jest.mock('../lib/supabase', () => ({ supabase: { auth: {} } }));
 
 import { FeatureScreen } from '../components/FeatureScreen';
 
-type AlertButton = { text?: string; onPress?: () => void };
-
-function pressDiscard(alertSpy: jest.SpyInstance) {
-  const buttons = alertSpy.mock.calls[0][2] as AlertButton[];
-  buttons.find((b) => b.text === 'Discard')?.onPress?.();
-}
-
 function lastPreventRemove() {
   const calls = mockPreventRemove.mock.calls;
   return calls[calls.length - 1] as [boolean, (e: unknown) => void];
 }
 
 describe('FeatureScreen single back guard', () => {
-  let alertSpy: jest.SpyInstance;
-
   beforeEach(() => {
     jest.clearAllMocks();
-    alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
   });
-
-  afterEach(() => alertSpy.mockRestore());
 
   describe('modal path (onBack passed)', () => {
     it('never enables usePreventRemove, so the host tab is not blocked', async () => {
@@ -60,12 +48,12 @@ describe('FeatureScreen single back guard', () => {
           <Text>body</Text>
         </FeatureScreen>
       );
-      fireEvent.press(screen.getByRole('button', { name: 'Back' }));
-      expect(alertSpy).toHaveBeenCalledTimes(1);
+      await fireEvent.press(screen.getByRole('button', { name: 'Back' }));
+      expect(screen.getAllByRole('button', { name: 'Discard' })).toHaveLength(1);
       expect(onBack).not.toHaveBeenCalled();
-      pressDiscard(alertSpy);
+      await fireEvent.press(screen.getByRole('button', { name: 'Discard' }));
       expect(onBack).toHaveBeenCalledTimes(1);
-      expect(alertSpy).toHaveBeenCalledTimes(1);
+      expect(screen.queryByRole('button', { name: 'Discard' })).toBeNull();
     });
 
     it('Android back via backHandlerRef uses the same single guard', async () => {
@@ -76,9 +64,9 @@ describe('FeatureScreen single back guard', () => {
           <Text>body</Text>
         </FeatureScreen>
       );
-      ref.current?.();
-      expect(alertSpy).toHaveBeenCalledTimes(1);
-      pressDiscard(alertSpy);
+      await act(async () => ref.current?.());
+      expect(screen.getAllByRole('button', { name: 'Discard' })).toHaveLength(1);
+      await fireEvent.press(screen.getByRole('button', { name: 'Discard' }));
       expect(onBack).toHaveBeenCalledTimes(1);
     });
 
@@ -89,8 +77,8 @@ describe('FeatureScreen single back guard', () => {
           <Text>body</Text>
         </FeatureScreen>
       );
-      fireEvent.press(screen.getByRole('button', { name: 'Back' }));
-      expect(alertSpy).not.toHaveBeenCalled();
+      await fireEvent.press(screen.getByRole('button', { name: 'Back' }));
+      expect(screen.queryByRole('button', { name: 'Discard' })).toBeNull();
       expect(onBack).toHaveBeenCalledTimes(1);
     });
 
@@ -109,10 +97,10 @@ describe('FeatureScreen single back guard', () => {
           <Text>body</Text>
         </FeatureScreen>
       );
-      fireEvent.press(screen.getByRole('button', { name: 'Back' }));
+      await fireEvent.press(screen.getByRole('button', { name: 'Back' }));
       expect(onPrevStep).toHaveBeenCalledTimes(1);
       expect(onBack).not.toHaveBeenCalled();
-      expect(alertSpy).not.toHaveBeenCalled();
+      expect(screen.queryByRole('button', { name: 'Discard' })).toBeNull();
     });
 
     it('processing: Back and Android back are blocked', async () => {
@@ -129,10 +117,10 @@ describe('FeatureScreen single back guard', () => {
           <Text>body</Text>
         </FeatureScreen>
       );
-      fireEvent.press(screen.getByRole('button', { name: 'Back' }));
-      ref.current?.();
+      await fireEvent.press(screen.getByRole('button', { name: 'Back' }));
+      await act(async () => ref.current?.());
       expect(onBack).not.toHaveBeenCalled();
-      expect(alertSpy).not.toHaveBeenCalled();
+      expect(screen.queryByRole('button', { name: 'Discard' })).toBeNull();
     });
   });
 
@@ -146,15 +134,15 @@ describe('FeatureScreen single back guard', () => {
       const [enabled, onPrevent] = lastPreventRemove();
       expect(enabled).toBe(true);
 
-      fireEvent.press(screen.getByRole('button', { name: 'Back' }));
+      await fireEvent.press(screen.getByRole('button', { name: 'Back' }));
       expect(mockGoBack).toHaveBeenCalledTimes(1);
-      expect(alertSpy).not.toHaveBeenCalled();
+      expect(screen.queryByRole('button', { name: 'Discard' })).toBeNull();
 
       // Simulates the navigator calling back for Back / Android back / swipe.
       const action = { type: 'GO_BACK' };
-      onPrevent({ data: { action } });
-      expect(alertSpy).toHaveBeenCalledTimes(1);
-      pressDiscard(alertSpy);
+      await act(async () => onPrevent({ data: { action } }));
+      expect(screen.getAllByRole('button', { name: 'Discard' })).toHaveLength(1);
+      await fireEvent.press(screen.getByRole('button', { name: 'Discard' }));
       expect(mockDispatch).toHaveBeenCalledWith(action);
     });
 
@@ -166,8 +154,8 @@ describe('FeatureScreen single back guard', () => {
       );
       const [enabled, onPrevent] = lastPreventRemove();
       expect(enabled).toBe(true);
-      onPrevent({ data: { action: { type: 'GO_BACK' } } });
-      expect(alertSpy).not.toHaveBeenCalled();
+      await act(async () => onPrevent({ data: { action: { type: 'GO_BACK' } } }));
+      expect(screen.queryByRole('button', { name: 'Discard' })).toBeNull();
       expect(mockDispatch).not.toHaveBeenCalled();
     });
 

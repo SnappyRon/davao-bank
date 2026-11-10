@@ -326,3 +326,53 @@ Format verification (exit 0):
 Checking formatting...
 All matched files use Prettier code style!
 ```
+
+## Stage 7B.0 task 5 — Quick-action confirmations (2026-11-10)
+
+Added ConfirmSheet using existing Sheet and a useConfirmSheet controller. Discard, sign-out, decline/cancel request, cancel schedule and delete recipient now use sheets. Confirmation unmounts the Sheet before invoking the captured callback, releasing its password/code host. FeatureScreen keeps its existing stack vs modal guard ownership and dispatches the captured navigation action on Discard. Native error/app-lock Alerts, rename prompt and statement-ready Alert remain unchanged.
+
+Comparison against `f5c53fa`: the five async confirmation bodies are identical after leading indentation normalization; raw bodies differ only by Prettier indentation after moving properties. PaymentRequests.handlePay is byte-identical. No RPC, authentication/step-up, shared package or route changes. Removed BottomSheet and its export; `rg -n 'BottomSheet' apps/mobile` returns no matches (exit 1). Historical documentation retains the old component name.
+
+All original password/TOTP assertions remain. The two-modal password test explicitly includes hidden trees because Sheet marks both native modal siblings accessibilityViewIsModal. New tests cover ConfirmSheet actions/labels, Profile sign-out only on confirm and the confirmation-to-FeatureScreen password-host handoff. Existing single-back-guard tests now press sheet buttons by role.
+
+Final checks (all exit 0):
+
+```text
+> davao-bank@0.1.0 typecheck
+> npm run typecheck --workspaces --if-present
+
+
+> admin@0.1.0 typecheck
+> tsc --noEmit
+
+
+> mobile@1.0.0 typecheck
+> tsc --noEmit
+
+
+> @davao-bank/shared@0.1.0 typecheck
+> tsc --noEmit
+
+npm run lint
+✖ 66 problems (0 errors, 66 warnings)
+
+> davao-bank@0.1.0 format:check
+> prettier --check "**/*.{ts,tsx,js,jsx,json,md}"
+
+Checking formatting...
+All matched files use Prettier code style!
+
+> davao-bank@0.1.0 test:unit
+> jest
+
+
+Test Suites: 20 passed, 20 total
+Tests:       107 passed, 107 total
+Snapshots:   0 total
+Time:        3.828 s, estimated 4 s
+Ran all test suites in 3 projects.
+```
+
+Device flows: **NOT VERIFIED — captain runs them.** This task reuses the existing Sheet implementation; its Reanimated/swipe motion patterns and native dismissal timing were not changed or device-verified here.
+
+**Captain review fixes (same commit):** `Sheet` renders `PrivacyOverlay` inside its Modal again (privacy regression from removing `BottomSheet`). `useConfirmSheet` now keeps the sheet mounted with `visible: false` so it can animate out, and runs the confirmed action once the sheet is hidden (its password/code host unregisters on `visible=false`); async actions are caught and mapped with `toUserMessage`. Sheet close label is "Close" and the title uses the `title` style. Added a double-tap/re-open test. Checks after the fixes: typecheck exit 0, lint 0 errors (66 warnings), format PASS, unit 20 suites / 108 tests. Device flows NOT VERIFIED.

@@ -15,6 +15,7 @@ import { colors, radius, spacing } from '@davao-bank/shared';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { Text } from './Text';
 import { Pressable } from './Pressable';
+import { PrivacyOverlay } from './PrivacyOverlay';
 import {
   PasswordPromptHost,
   usePasswordPromptHost,
@@ -102,7 +103,7 @@ export function Sheet({
                     </Text>
                   ) : null}
                   {title ? (
-                    <Text variant="h2" color={colors.ink} accessibilityRole="header">
+                    <Text variant="title" color={colors.ink} accessibilityRole="header">
                       {title}
                     </Text>
                   ) : null}
@@ -110,7 +111,7 @@ export function Sheet({
 
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel="Close sheet"
+                  accessibilityLabel="Close"
                   onPress={handleDismiss}
                   disabled={!dismissible}
                   style={[styles.closeBtn, !dismissible && { opacity: 0.3 }]}
@@ -151,6 +152,7 @@ export function Sheet({
           </TouchableWithoutFeedback>
         </View>
       </TouchableWithoutFeedback>
+      <PrivacyOverlay />
     </Modal>
   );
 }

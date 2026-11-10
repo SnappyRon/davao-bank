@@ -1,3 +1,6 @@
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+}));
 import React from 'react';
 import { Button } from 'react-native';
 import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
@@ -6,7 +9,7 @@ import {
   useTotpPrompt,
   PROMPT_UNAVAILABLE,
 } from '../context/PasswordPromptContext';
-import { BottomSheet } from '../components/BottomSheet';
+import { Sheet } from '../components/Sheet';
 import { supabase } from '../lib/supabase';
 import { retryStepUp } from '../utils/stepUpRetry';
 
@@ -44,9 +47,9 @@ it('renders only inside the top sheet; Cancel never authorizes', async () => {
   const result = jest.fn();
   await render(
     <PasswordPromptProvider>
-      <BottomSheet visible onClose={jest.fn()}>
+      <Sheet visible onClose={jest.fn()}>
         <Trigger result={result} />
-      </BottomSheet>
+      </Sheet>
     </PasswordPromptProvider>
   );
   const sheet = screen.getByTestId('bottom-sheet-modal');
@@ -63,9 +66,9 @@ it('fails closed when the sheet does not present within two seconds', async () =
   const result = jest.fn();
   await render(
     <PasswordPromptProvider>
-      <BottomSheet visible onClose={jest.fn()}>
+      <Sheet visible onClose={jest.fn()}>
         <Trigger result={result} />
-      </BottomSheet>
+      </Sheet>
     </PasswordPromptProvider>
   );
   await fireEvent.press(screen.getByText('Request code'));

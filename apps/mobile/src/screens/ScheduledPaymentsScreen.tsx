@@ -1,3 +1,4 @@
+import { useConfirmSheet } from '../hooks/useConfirmSheet';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, StyleSheet, Alert } from 'react-native';
 import { Send, Zap, CheckCircle2, XCircle, AlertCircle } from 'lucide-react-native';
@@ -25,6 +26,7 @@ import {
 } from '../components';
 
 export function ScheduledPaymentsScreen() {
+  const { showConfirmation, confirmSheet } = useConfirmSheet();
   const { hideBalance, confirmBiometricPayment } = useSettings();
 
   const [schedules, setSchedules] = useState<ScheduledPayment[]>([]);
@@ -98,47 +100,43 @@ export function ScheduledPaymentsScreen() {
   const handleCancelSchedule = () => {
     if (!selectedSchedule) return;
 
-    Alert.alert(
-      'Cancel Scheduled Payment',
-      'Are you sure you want to cancel this scheduled payment? Future executions will be stopped.',
-      [
-        { text: 'Keep Active', style: 'cancel' },
-        {
-          text: 'Cancel Payment',
-          style: 'destructive',
-          onPress: async () => {
-            const authRes = await confirmBiometricPayment({
-              title: 'Cancel Scheduled Payment',
-              requireTotp: false,
-              message: 'Confirm your identity to cancel this recurring payment schedule.',
-            });
-            if (!authRes.success) return;
+    showConfirmation({
+      title: 'Cancel scheduled payment',
+      message:
+        'Are you sure you want to cancel this scheduled payment? Future executions will be stopped.',
+      confirmLabel: 'Cancel payment',
+      cancelLabel: 'Keep active',
+      destructive: true,
+      onConfirm: async () => {
+        const authRes = await confirmBiometricPayment({
+          title: 'Cancel Scheduled Payment',
+          requireTotp: false,
+          message: 'Confirm your identity to cancel this recurring payment schedule.',
+        });
+        if (!authRes.success) return;
 
-            setActionLoading(true);
-            try {
-              const { error } = await supabase.rpc('cancel_scheduled_payment', {
-                p_id: selectedSchedule.id,
-                p_reason: 'Cancelled by customer',
-              });
+        setActionLoading(true);
+        try {
+          const { error } = await supabase.rpc('cancel_scheduled_payment', {
+            p_id: selectedSchedule.id,
+            p_reason: 'Cancelled by customer',
+          });
 
-              if (error) {
-                Alert.alert('Error', toUserMessage(error));
-              } else {
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                setSelectedSchedule(null);
-                loadSchedules();
-              }
-            } catch (err: any) {
-              Alert.alert('Error', toUserMessage(err));
-            } finally {
-              setActionLoading(false);
-            }
-          },
-        },
-      ]
-    );
+          if (error) {
+            Alert.alert('Error', toUserMessage(error));
+          } else {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            setSelectedSchedule(null);
+            loadSchedules();
+          }
+        } catch (err: any) {
+          Alert.alert('Error', toUserMessage(err));
+        } finally {
+          setActionLoading(false);
+        }
+      },
+    });
   };
-
   return (
     <FeatureScreen
       title={selectedSchedule ? 'Schedule Details' : 'Scheduled Payments'}
@@ -402,6 +400,7 @@ export function ScheduledPaymentsScreen() {
           </View>
         )}
       </View>
+      {confirmSheet}
     </FeatureScreen>
   );
 }

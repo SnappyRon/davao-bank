@@ -10,7 +10,7 @@ export * from './AmountInput';
 export * from './ActionTile';
 export * from './ListRow';
 export * from './TransactionRow';
-export * from './BottomSheet';
+export * from './ConfirmSheet';
 export * from './EmptyState';
 export * from './Skeleton';
 export * from './Toast';

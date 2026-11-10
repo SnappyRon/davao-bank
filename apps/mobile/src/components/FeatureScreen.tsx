@@ -1,3 +1,4 @@
+import { useConfirmSheet } from '../hooks/useConfirmSheet';
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -6,7 +7,6 @@ import {
   Platform,
   AccessibilityInfo,
   KeyboardAvoidingView,
-  Alert,
   Keyboard,
   type ViewStyle,
   type NativeSyntheticEvent,
@@ -50,13 +50,6 @@ const DISCARD_TITLE = 'Discard changes?';
 const DISCARD_MESSAGE =
   'You have unsaved details. Are you sure you want to discard them?';
 
-function confirmDiscard(onDiscard: () => void) {
-  Alert.alert(DISCARD_TITLE, DISCARD_MESSAGE, [
-    { text: 'Keep editing', style: 'cancel' },
-    { text: 'Discard', style: 'destructive', onPress: onDiscard },
-  ]);
-}
-
 export function FeatureScreen({
   title,
   step,
@@ -74,6 +67,16 @@ export function FeatureScreen({
   refreshControl,
   backHandlerRef,
 }: FeatureScreenProps) {
+  const { showConfirmation, confirmSheet } = useConfirmSheet();
+  const confirmDiscard = (onDiscard: () => void) =>
+    showConfirmation({
+      title: DISCARD_TITLE,
+      message: DISCARD_MESSAGE,
+      confirmLabel: 'Discard',
+      cancelLabel: 'Keep editing',
+      destructive: true,
+      onConfirm: onDiscard,
+    });
   const insets = useSafeAreaInsets();
   let navigation: any;
   try {
@@ -249,6 +252,8 @@ export function FeatureScreen({
           </View>
         ) : null}
       </KeyboardAvoidingView>
+
+      {confirmSheet}
 
       {/* In-Screen Confirmation Prompt Host */}
       <PasswordPromptHost hostId={promptHost.id} ready={isHostReady} />

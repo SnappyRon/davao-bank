@@ -1,3 +1,4 @@
+import { useConfirmSheet } from '../hooks/useConfirmSheet';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import {
@@ -29,6 +30,7 @@ import {
 } from '../components';
 
 export function SavedRecipientsScreen() {
+  const { showConfirmation, confirmSheet } = useConfirmSheet();
   const [recipients, setRecipients] = useState<SavedRecipient[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -159,31 +161,26 @@ export function SavedRecipientsScreen() {
   };
 
   const handleDeleteRecipient = async (recipient: SavedRecipient) => {
-    Alert.alert(
-      'Remove Recipient',
-      `Are you sure you want to remove "${recipient.nickname}" (${recipient.account_number}) from your saved recipients?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: async () => {
-            const { error } = await supabase
-              .from('saved_recipients')
-              .delete()
-              .eq('id', recipient.id);
+    showConfirmation({
+      title: 'Remove recipient',
+      message: `Are you sure you want to remove "${recipient.nickname}" (${recipient.account_number}) from your saved recipients?`,
+      confirmLabel: 'Remove',
+      cancelLabel: 'Cancel',
+      destructive: true,
+      onConfirm: async () => {
+        const { error } = await supabase
+          .from('saved_recipients')
+          .delete()
+          .eq('id', recipient.id);
 
-            if (error) {
-              Alert.alert('Error', toUserMessage(error));
-            } else {
-              loadRecipients();
-            }
-          },
-        },
-      ]
-    );
+        if (error) {
+          Alert.alert('Error', toUserMessage(error));
+        } else {
+          loadRecipients();
+        }
+      },
+    });
   };
-
   const filteredRecipients = recipients.filter((r) => {
     const q = searchQuery.toLowerCase();
     return (
@@ -360,6 +357,7 @@ export function SavedRecipientsScreen() {
           </>
         )}
       </View>
+      {confirmSheet}
     </FeatureScreen>
   );
 }

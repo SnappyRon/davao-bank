@@ -1,3 +1,4 @@
+import { useConfirmSheet } from '../hooks/useConfirmSheet';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../App';
@@ -5,7 +6,7 @@ import { StepUpSetupLink } from '../components/StepUpSetupLink';
 import { retryStepUp } from '../utils/stepUpRetry';
 import { useTotpPrompt } from '../context/PasswordPromptContext';
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, StyleSheet, RefreshControl, ActivityIndicator, Alert } from 'react-native';
+import { View, StyleSheet, RefreshControl, ActivityIndicator } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import {
   Send,
@@ -44,6 +45,7 @@ import {
 type RequestTab = 'incoming' | 'outgoing';
 
 export function PaymentRequestsScreen() {
+  const { showConfirmation, confirmSheet } = useConfirmSheet();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'PaymentRequests'>>();
   const onClose = () => navigation.goBack();
@@ -201,77 +203,69 @@ export function PaymentRequestsScreen() {
   const handleDecline = (req: PaymentRequest) => {
     if (actionLoadingId) return;
     setActionLoadingId(req.id);
-    Alert.alert('Decline this request?', 'The requester will see it as declined.', [
-      {
-        text: 'Keep',
-        style: 'cancel',
-        onPress: () => setActionLoadingId(null),
-      },
-      {
-        text: 'Decline',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            const { error } = await supabase.rpc('decline_payment_request', {
-              p_id: req.id,
-            });
-            if (error) {
-              setStatusMessage(toUserMessage(error.message));
-            } else {
-              try {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              } catch {
-                // Ignore
-              }
-              loadRequests();
+    showConfirmation({
+      title: 'Decline this request?',
+      message: 'The requester will see it as declined.',
+      confirmLabel: 'Decline',
+      cancelLabel: 'Keep',
+      destructive: true,
+      onCancel: () => setActionLoadingId(null),
+      onConfirm: async () => {
+        try {
+          const { error } = await supabase.rpc('decline_payment_request', {
+            p_id: req.id,
+          });
+          if (error) {
+            setStatusMessage(toUserMessage(error.message));
+          } else {
+            try {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            } catch {
+              // Ignore
             }
-          } catch (err: any) {
-            setStatusMessage(toUserMessage(err?.message));
-          } finally {
-            setActionLoadingId(null);
+            loadRequests();
           }
-        },
+        } catch (err: any) {
+          setStatusMessage(toUserMessage(err?.message));
+        } finally {
+          setActionLoadingId(null);
+        }
       },
-    ]);
+    });
   };
-
   const handleCancel = (req: PaymentRequest) => {
     if (actionLoadingId) return;
     setActionLoadingId(req.id);
-    Alert.alert('Cancel this request?', undefined, [
-      {
-        text: 'Keep',
-        style: 'cancel',
-        onPress: () => setActionLoadingId(null),
-      },
-      {
-        text: 'Cancel request',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            const { error } = await supabase.rpc('cancel_payment_request', {
-              p_id: req.id,
-            });
-            if (error) {
-              setStatusMessage(toUserMessage(error.message));
-            } else {
-              try {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              } catch {
-                // Ignore
-              }
-              loadRequests();
+    showConfirmation({
+      title: 'Cancel this request?',
+      message: undefined,
+      confirmLabel: 'Cancel request',
+      cancelLabel: 'Keep',
+      destructive: true,
+      onCancel: () => setActionLoadingId(null),
+      onConfirm: async () => {
+        try {
+          const { error } = await supabase.rpc('cancel_payment_request', {
+            p_id: req.id,
+          });
+          if (error) {
+            setStatusMessage(toUserMessage(error.message));
+          } else {
+            try {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            } catch {
+              // Ignore
             }
-          } catch (err: any) {
-            setStatusMessage(toUserMessage(err?.message));
-          } finally {
-            setActionLoadingId(null);
+            loadRequests();
           }
-        },
+        } catch (err: any) {
+          setStatusMessage(toUserMessage(err?.message));
+        } finally {
+          setActionLoadingId(null);
+        }
       },
-    ]);
+    });
   };
-
   const getStatusBadge = (status: PaymentRequest['status']) => {
     switch (status) {
       case 'pending':
@@ -534,6 +528,7 @@ export function PaymentRequestsScreen() {
         </View>
       </View>
       <StepUpSetupLink error={statusMessage} onClose={onClose} />
+      {confirmSheet}
     </FeatureScreen>
   );
 }

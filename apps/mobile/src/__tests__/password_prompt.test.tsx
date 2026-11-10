@@ -1,9 +1,12 @@
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+}));
 import React from 'react';
 import { AppState, Button, Text } from 'react-native';
 import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { SettingsProvider, useSettings } from '../context/SettingsContext';
-import { BottomSheet } from '../components/BottomSheet';
+import { Sheet } from '../components/Sheet';
 import { PROMPT_UNAVAILABLE } from '../context/PasswordPromptContext';
 import { supabase } from '../lib/supabase';
 
@@ -65,33 +68,52 @@ describe('Password confirmation hosts', () => {
     const result = jest.fn();
     await render(
       <SettingsProvider>
-        <BottomSheet visible onClose={jest.fn()} title="Lower">
+        <Sheet visible onClose={jest.fn()} title="Lower">
           <Text>Lower sheet</Text>
-        </BottomSheet>
-        <BottomSheet visible onClose={jest.fn()} title="Top">
+        </Sheet>
+        <Sheet visible onClose={jest.fn()} title="Top">
           <Trigger result={result} />
-        </BottomSheet>
+        </Sheet>
       </SettingsProvider>
     );
-    const modals = screen.getAllByTestId('bottom-sheet-modal');
+    // Inspect both native-modal trees, including the covered lower sheet.
+    const modals = screen.getAllByTestId('bottom-sheet-modal', {
+      includeHiddenElements: true,
+    });
     await fireEvent(modals[0], 'show');
     await fireEvent(modals[1], 'show');
-    await fireEvent.press(screen.getByText('Request confirmation'));
-    expect(screen.getAllByTestId('password-prompt')).toHaveLength(1);
-    expect(within(modals[1]).getByTestId('password-prompt')).toBeTruthy();
-    expect(within(modals[0]).queryByTestId('password-prompt')).toBeNull();
-    expect(screen.getAllByTestId('bottom-sheet-modal')).toHaveLength(2);
-    await fireEvent(screen.getByTestId('password-prompt'), 'layout', {
-      nativeEvent: { layout: { width: 390, height: 844 } },
-    });
-    await fireEvent.press(screen.getByText('Cancel'));
+    await fireEvent.press(
+      screen.getByText('Request confirmation', { includeHiddenElements: true })
+    );
+    expect(
+      screen.getAllByTestId('password-prompt', { includeHiddenElements: true })
+    ).toHaveLength(1);
+    expect(
+      within(modals[1]).getByTestId('password-prompt', { includeHiddenElements: true })
+    ).toBeTruthy();
+    expect(
+      within(modals[0]).queryByTestId('password-prompt', { includeHiddenElements: true })
+    ).toBeNull();
+    expect(
+      screen.getAllByTestId('bottom-sheet-modal', { includeHiddenElements: true })
+    ).toHaveLength(2);
+    await fireEvent(
+      screen.getByTestId('password-prompt', { includeHiddenElements: true }),
+      'layout',
+      {
+        nativeEvent: { layout: { width: 390, height: 844 } },
+      }
+    );
+    await fireEvent.press(screen.getByText('Cancel', { includeHiddenElements: true }));
     expect(result).toHaveBeenCalledWith({
       success: false,
       cancelled: true,
       error: 'Authentication required',
     });
     expect(supabase.auth.signInWithPassword).not.toHaveBeenCalled();
-    expect(screen.queryByTestId('password-prompt')).toBeNull();
+    expect(
+      screen.queryByTestId('password-prompt', { includeHiddenElements: true })
+    ).toBeNull();
   });
 
   it('fails closed after two seconds when the native sheet never presents the prompt', async () => {
@@ -99,9 +121,9 @@ describe('Password confirmation hosts', () => {
     const result = jest.fn();
     await render(
       <SettingsProvider>
-        <BottomSheet visible onClose={jest.fn()}>
+        <Sheet visible onClose={jest.fn()}>
           <Trigger result={result} />
-        </BottomSheet>
+        </Sheet>
       </SettingsProvider>
     );
     await fireEvent.press(screen.getByText('Request confirmation'));
@@ -158,9 +180,9 @@ describe('Password confirmation hosts', () => {
     const result = jest.fn();
     const tree = (visible: boolean) => (
       <SettingsProvider>
-        <BottomSheet visible={visible} onClose={jest.fn()}>
+        <Sheet visible={visible} onClose={jest.fn()}>
           <Trigger result={result} />
-        </BottomSheet>
+        </Sheet>
       </SettingsProvider>
     );
     const view = await render(tree(true));
