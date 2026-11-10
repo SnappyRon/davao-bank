@@ -1,9 +1,14 @@
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '../../App';
+import { useFeatureAccounts } from '../hooks/useFeatureAccounts';
+import { AccountLoadStatus } from '../components/AccountLoadStatus';
 import { StepUpSetupLink } from '../components/StepUpSetupLink';
 import { retryStepUp } from '../utils/stepUpRetry';
 import { useTotpPrompt } from '../context/PasswordPromptContext';
 import { recoverTransfer, isUncertainTransferError } from '../utils/transferRecovery';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { StyleSheet, ScrollView, Alert } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { AlertCircle } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import {
@@ -22,7 +27,7 @@ import {
 } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
 import { useSettings } from '../context/SettingsContext';
-import { BottomSheet, Text, Card } from '../components';
+import { FeatureScreen, Text, Card } from '../components';
 import {
   TransferRecipientStep,
   type RecipientTab,
@@ -31,29 +36,21 @@ import { TransferAmountStep, type TransferTiming } from './transfer/TransferAmou
 import { TransferReviewStep } from './transfer/TransferReviewStep';
 import { TransferSuccessStep } from './transfer/TransferSuccessStep';
 
-interface TransferModalProps {
-  visible: boolean;
-  onClose: () => void;
-  accounts: AccountBalance[];
-  onTransferSuccess: (result: MoneyOperationResult) => void;
-  initialRecipientAccount?: string;
-  initialAmountCentavos?: number;
-  initialNote?: string;
-  onRequestMoneyPress?: () => void;
-}
-
 type TransferStep = 'recipient' | 'amount' | 'review' | 'success';
 
-export function TransferModal({
-  visible,
-  onClose,
-  accounts,
-  onTransferSuccess,
-  initialRecipientAccount,
-  initialAmountCentavos,
-  initialNote,
-  onRequestMoneyPress,
-}: TransferModalProps) {
+export function TransferScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const onClose = () => navigation.goBack();
+  const { accounts, accountsLoading, accountError, loadAccounts } = useFeatureAccounts();
+  const route = useRoute<RouteProp<RootStackParamList, 'Transfer'>>();
+  const {
+    recipientAccount: initialRecipientAccount,
+    amountCentavos: initialAmountCentavos,
+    note: initialNote,
+  } = route.params ?? {};
+  const onRequestMoneyPress = () =>
+    navigation.replace('QRHub', { initialTab: 'request' });
+
   const promptTotp = useTotpPrompt();
   const { hideBalance, confirmBiometricPayment } = useSettings();
 
@@ -115,7 +112,7 @@ export function TransferModal({
     }
   }, [otherAccounts.length]);
 
-  const prevVisibleRef = useRef(false);
+  const prefillAppliedRef = useRef(false);
 
   // §0.9 Item 5: Regenerate idempotency key whenever payload changes (only before success)
   useEffect(() => {
@@ -125,11 +122,14 @@ export function TransferModal({
   }, [amountStr, recipientAccountNumber, reference, selectedAccountId, step]);
 
   useEffect(() => {
-    const wasVisible = prevVisibleRef.current;
-    prevVisibleRef.current = visible;
-
-    // Reset or apply QR prefill ONLY when visible transitions from false to true
-    if (!wasVisible && visible) {
+    // Apply route prefill once, after the source account is known.
+    if (
+      !prefillAppliedRef.current &&
+      !accountsLoading &&
+      !accountError &&
+      accounts.length > 0
+    ) {
+      prefillAppliedRef.current = true;
       loadSavedRecipients();
       if (initialRecipientAccount) {
         const cleaned = initialRecipientAccount.trim();
@@ -168,45 +168,22 @@ export function TransferModal({
         setIdempotencyKey(generateIdempotencyKey('transfer'));
       }
     }
-  }, [visible]);
+  }, [
+    accountsLoading,
+    accountError,
+    accounts,
+    initialRecipientAccount,
+    initialAmountCentavos,
+    initialNote,
+    selectedAccountId,
+    loadSavedRecipients,
+  ]);
 
-  const resetState = () => {
-    setStep('recipient');
-    setRecipientAccountNumber('');
-    setRecipientNickname('');
-    setAmountStr('');
-    setReference('');
-    setShouldSaveRecipient(false);
-    setSaveNickname('');
-    setTiming('now');
-    setIsScheduledSuccess(false);
-    setErrorMessage(null);
-    setSuccessResult(null);
-    setIdempotencyKey('');
-    onClose();
-  };
+  const resetState = onClose;
 
   // §0.9 Item 2: Confirmation before discarding flow with input on any step
   const hasInput =
     Boolean(recipientAccountNumber || amountStr || reference) && step !== 'success';
-
-  const handleRequestDismiss = () => {
-    if (loading || uncertain) return; // In-flight request cannot be dismissed
-
-    if (step === 'success') {
-      resetState();
-      return;
-    }
-
-    if (hasInput) {
-      Alert.alert('Discard this transfer?', 'Your details will be lost.', [
-        { text: 'Keep editing', style: 'cancel' },
-        { text: 'Discard', style: 'destructive', onPress: resetState },
-      ]);
-    } else {
-      resetState();
-    }
-  };
 
   const handleSelectOwnAccount = (acc: AccountBalance) => {
     setRecipientAccountNumber(acc.account_number);
@@ -389,18 +366,29 @@ export function TransferModal({
       setErrorMessage(null);
       setSuccessResult(data);
       setStep('success');
-      onTransferSuccess(data);
     }
   };
+
+  useEffect(() => {
+    if (step === 'success' && successResult) void loadAccounts();
+  }, [step, successResult, loadAccounts]);
 
   const centavosAmount = phpToCentavos(amountStr);
 
   return (
-    <BottomSheet
-      visible={visible}
-      onClose={resetState}
-      dismissible={!loading && !uncertain}
-      onRequestDismiss={handleRequestDismiss}
+    <FeatureScreen
+      isDirty={hasInput}
+      isProcessing={loading || uncertain}
+      step={
+        step === 'recipient'
+          ? 1
+          : step === 'amount'
+            ? 2
+            : step === 'review'
+              ? 3
+              : undefined
+      }
+      onPrevStep={() => setStep(step === 'review' ? 'amount' : 'recipient')}
       title={
         step === 'recipient'
           ? 'Transfer · Recipient'
@@ -411,108 +399,113 @@ export function TransferModal({
               : 'Transfer Successful'
       }
     >
-      <ScrollView
-        contentContainerStyle={styles.container}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
-        {errorMessage ? (
-          <Card variant="subtle" style={styles.errorCard}>
-            <AlertCircle size={18} color={colors.redText} />
-            <Text variant="caption" color={colors.redText} style={styles.errorText}>
-              {errorMessage}
-            </Text>
-          </Card>
-        ) : null}
+      <AccountLoadStatus
+        loading={accountsLoading}
+        empty={accounts.length === 0}
+        error={accountError}
+        onRetry={loadAccounts}
+      />
+      {(step === 'success' ||
+        (!accountsLoading && !accountError && accounts.length > 0)) && (
+        <View style={styles.container}>
+          {errorMessage ? (
+            <Card variant="subtle" style={styles.errorCard}>
+              <AlertCircle size={18} color={colors.redText} />
+              <Text variant="caption" color={colors.redText} style={styles.errorText}>
+                {errorMessage}
+              </Text>
+            </Card>
+          ) : null}
 
-        {/* STEP 1: RECIPIENT */}
-        {step === 'recipient' && (
-          <TransferRecipientStep
-            recipientTab={recipientTab}
-            onTabChange={setRecipientTab}
-            savedRecipients={savedRecipients}
-            otherAccounts={otherAccounts}
-            selectedAccount={selectedAccount}
-            recipientAccountNumber={recipientAccountNumber}
-            onRecipientAccountChange={(val) => {
-              setRecipientAccountNumber(val);
-              setRecipientNickname('');
-            }}
-            shouldSaveRecipient={shouldSaveRecipient}
-            onShouldSaveChange={setShouldSaveRecipient}
-            saveNickname={saveNickname}
-            onSaveNicknameChange={setSaveNickname}
-            hideBalance={hideBalance}
-            onSelectSaved={handleSelectSavedRecipient}
-            onSelectOwn={handleSelectOwnAccount}
-            onContinue={handleNextFromRecipient}
-            onRequestMoneyPress={onRequestMoneyPress}
-          />
-        )}
+          {/* STEP 1: RECIPIENT */}
+          {step === 'recipient' && (
+            <TransferRecipientStep
+              recipientTab={recipientTab}
+              onTabChange={setRecipientTab}
+              savedRecipients={savedRecipients}
+              otherAccounts={otherAccounts}
+              selectedAccount={selectedAccount}
+              recipientAccountNumber={recipientAccountNumber}
+              onRecipientAccountChange={(val) => {
+                setRecipientAccountNumber(val);
+                setRecipientNickname('');
+              }}
+              shouldSaveRecipient={shouldSaveRecipient}
+              onShouldSaveChange={setShouldSaveRecipient}
+              saveNickname={saveNickname}
+              onSaveNicknameChange={setSaveNickname}
+              hideBalance={hideBalance}
+              onSelectSaved={handleSelectSavedRecipient}
+              onSelectOwn={handleSelectOwnAccount}
+              onContinue={handleNextFromRecipient}
+              onRequestMoneyPress={onRequestMoneyPress}
+            />
+          )}
 
-        {/* STEP 2: AMOUNT */}
-        {step === 'amount' && (
-          <TransferAmountStep
-            amountStr={amountStr}
-            onAmountChange={setAmountStr}
-            reference={reference}
-            onReferenceChange={setReference}
-            selectedAccount={selectedAccount}
-            hideBalance={hideBalance}
-            timing={timing}
-            onTimingChange={setTiming}
-            scheduledDate={scheduledDate}
-            onScheduledDateChange={setScheduledDate}
-            frequency={frequency}
-            onFrequencyChange={setFrequency}
-            maxRunsStr={maxRunsStr}
-            onMaxRunsChange={setMaxRunsStr}
-            onBack={() => setStep('recipient')}
-            onReview={handleNextFromAmount}
-          />
-        )}
+          {/* STEP 2: AMOUNT */}
+          {step === 'amount' && (
+            <TransferAmountStep
+              amountStr={amountStr}
+              onAmountChange={setAmountStr}
+              reference={reference}
+              onReferenceChange={setReference}
+              selectedAccount={selectedAccount}
+              hideBalance={hideBalance}
+              timing={timing}
+              onTimingChange={setTiming}
+              scheduledDate={scheduledDate}
+              onScheduledDateChange={setScheduledDate}
+              frequency={frequency}
+              onFrequencyChange={setFrequency}
+              maxRunsStr={maxRunsStr}
+              onMaxRunsChange={setMaxRunsStr}
+              onBack={() => setStep('recipient')}
+              onReview={handleNextFromAmount}
+            />
+          )}
 
-        {/* STEP 3: REVIEW */}
-        {step === 'review' && (
-          <TransferReviewStep
-            centavosAmount={centavosAmount}
-            selectedAccount={selectedAccount}
-            recipientAccountNumber={recipientAccountNumber}
-            recipientNickname={recipientNickname}
-            reference={reference}
-            timing={timing}
-            scheduledDate={scheduledDate}
-            frequency={frequency}
-            maxRunsStr={maxRunsStr}
-            hideBalance={hideBalance}
-            loading={loading}
-            onBack={() => {
-              if (!uncertain) setStep('amount');
-            }}
-            backDisabled={uncertain}
-            onConfirm={handleConfirmTransfer}
-          />
-        )}
+          {/* STEP 3: REVIEW */}
+          {step === 'review' && (
+            <TransferReviewStep
+              centavosAmount={centavosAmount}
+              selectedAccount={selectedAccount}
+              recipientAccountNumber={recipientAccountNumber}
+              recipientNickname={recipientNickname}
+              reference={reference}
+              timing={timing}
+              scheduledDate={scheduledDate}
+              frequency={frequency}
+              maxRunsStr={maxRunsStr}
+              hideBalance={hideBalance}
+              loading={loading}
+              onBack={() => {
+                if (!uncertain) setStep('amount');
+              }}
+              backDisabled={uncertain}
+              onConfirm={handleConfirmTransfer}
+            />
+          )}
 
-        {/* STEP 4: SUCCESS */}
-        {step === 'success' && (
-          <TransferSuccessStep
-            successResult={successResult}
-            isScheduledSuccess={isScheduledSuccess}
-            timing={timing}
-            scheduledDate={scheduledDate}
-            frequency={frequency}
-            centavosAmount={centavosAmount}
-            recipientNickname={recipientNickname}
-            recipientAccountNumber={recipientAccountNumber}
-            selectedAccountBalance={selectedAccount?.balance || 0}
-            hideBalance={hideBalance}
-            onDone={resetState}
-          />
-        )}
-      </ScrollView>
+          {/* STEP 4: SUCCESS */}
+          {step === 'success' && (
+            <TransferSuccessStep
+              successResult={successResult}
+              isScheduledSuccess={isScheduledSuccess}
+              timing={timing}
+              scheduledDate={scheduledDate}
+              frequency={frequency}
+              centavosAmount={centavosAmount}
+              recipientNickname={recipientNickname}
+              recipientAccountNumber={recipientAccountNumber}
+              selectedAccountBalance={selectedAccount?.balance || 0}
+              hideBalance={hideBalance}
+              onDone={resetState}
+            />
+          )}
+        </View>
+      )}
       <StepUpSetupLink error={errorMessage} onClose={onClose} />
-    </BottomSheet>
+    </FeatureScreen>
   );
 }
 

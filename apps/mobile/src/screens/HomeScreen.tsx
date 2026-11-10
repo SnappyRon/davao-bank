@@ -40,11 +40,8 @@ import {
   CurrencyWatchCard,
   Pressable,
 } from '../components';
-import { TransferModal } from './TransferModal';
 import { SuspendedScreen } from './SuspendedScreen';
-import { PayBillsModal } from './PayBillsModal';
 import { ScheduledPaymentsModal } from './ScheduledPaymentsModal';
-import { QRHubModal } from './QRHubModal';
 import { HomeBalanceCard } from './home/HomeBalanceCard';
 import { HomeUpcomingPayments } from './home/HomeUpcomingPayments';
 import { HomeRecentActivity } from './home/HomeRecentActivity';
@@ -69,15 +66,7 @@ export function HomeScreen({
   const [refreshing, setRefreshing] = useState<boolean>(false);
 
   // Modals
-  const [isTransferOpen, setIsTransferOpen] = useState(false);
-  const [isPayBillsOpen, setIsPayBillsOpen] = useState(false);
   const [isScheduledOpen, setIsScheduledOpen] = useState(false);
-  const [isQROpen, setIsQROpen] = useState(false);
-
-  // QR transfer prefill state
-  const [qrPrefillAccount, setQrPrefillAccount] = useState<string | undefined>();
-  const [qrPrefillAmount, setQrPrefillAmount] = useState<number | undefined>();
-  const [qrPrefillNote, setQrPrefillNote] = useState<string | undefined>();
 
   // Upcoming scheduled payments & Pending requests
   const [upcomingSchedules, setUpcomingSchedules] = useState<ScheduledPayment[]>([]);
@@ -257,24 +246,19 @@ export function HomeScreen({
             label="Transfer"
             color="blue"
             icon={<Send size={24} color={colors.textInverse} />}
-            onPress={() => {
-              setQrPrefillAccount(undefined);
-              setQrPrefillAmount(undefined);
-              setQrPrefillNote(undefined);
-              setIsTransferOpen(true);
-            }}
+            onPress={() => navigation.navigate('Transfer')}
           />
           <ActionTile
             label="Pay Bills"
             color="orange"
             icon={<Zap size={24} color={colors.textInverse} />}
-            onPress={() => setIsPayBillsOpen(true)}
+            onPress={() => navigation.navigate('PayBills')}
           />
           <ActionTile
             label="QR"
             color="primary"
             icon={<QrCode size={24} color={colors.textInverse} />}
-            onPress={() => setIsQROpen(true)}
+            onPress={() => navigation.navigate('QRHub')}
           />
           <ActionTile
             label="Add money"
@@ -334,58 +318,11 @@ export function HomeScreen({
       </ScrollView>
 
       {/* Money Action Modals */}
-      <TransferModal
-        visible={isTransferOpen}
-        onClose={() => {
-          setIsTransferOpen(false);
-          setQrPrefillAccount(undefined);
-          setQrPrefillAmount(undefined);
-          setQrPrefillNote(undefined);
-        }}
-        accounts={accounts}
-        initialRecipientAccount={qrPrefillAccount}
-        initialAmountCentavos={qrPrefillAmount}
-        initialNote={qrPrefillNote}
-        onRequestMoneyPress={() => {
-          setIsTransferOpen(false);
-          setIsQROpen(true);
-        }}
-        onTransferSuccess={() => {
-          loadData();
-        }}
-      />
-
-      <PayBillsModal
-        visible={isPayBillsOpen}
-        onClose={() => setIsPayBillsOpen(false)}
-        accounts={accounts}
-        onPaymentSuccess={() => {
-          loadData();
-        }}
-      />
 
       <ScheduledPaymentsModal
         visible={isScheduledOpen}
         onClose={() => setIsScheduledOpen(false)}
         onRefresh={loadData}
-      />
-
-      <QRHubModal
-        visible={isQROpen}
-        onClose={() => setIsQROpen(false)}
-        accounts={accounts}
-        onScanResult={(res) => {
-          setIsQROpen(false);
-          setQrPrefillAccount(res.accountNumber);
-          setQrPrefillAmount(res.amountCentavos);
-          setQrPrefillNote(res.note);
-          setIsTransferOpen(true);
-        }}
-        onManualTransferFallback={() => {
-          setIsQROpen(false);
-          setIsTransferOpen(true);
-        }}
-        onRequestSent={loadData}
       />
     </Screen>
   );

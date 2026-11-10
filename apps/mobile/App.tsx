@@ -46,9 +46,17 @@ import { PersonalDetailsScreen } from './src/screens/PersonalDetailsScreen';
 import { ExportStatementScreen } from './src/screens/ExportStatementScreen';
 import { FXRatesScreen } from './src/screens/FXRatesScreen';
 
+import { TransferScreen } from './src/screens/TransferScreen';
+import { PayBillsScreen } from './src/screens/PayBillsScreen';
+import { QRHubScreen } from './src/screens/QRHubScreen';
+
 export type RootStackParamList = {
   Tabs: undefined;
   CashOut: undefined;
+  Transfer:
+    { recipientAccount?: string; amountCentavos?: number; note?: string } | undefined;
+  PayBills: undefined;
+  QRHub: { initialTab?: 'my' | 'scan' | 'request' } | undefined;
   AddMoney: undefined;
   TwoStepSetup: undefined;
   Receipt: { transactionId: string; accountId: string };
@@ -388,6 +396,21 @@ export default function App() {
               <RootStack.Screen
                 name="FXRates"
                 component={FXRatesScreen}
+                options={{ presentation: 'card', animation: 'slide_from_right' }}
+              />
+              <RootStack.Screen
+                name="Transfer"
+                component={TransferScreen}
+                options={{ presentation: 'card', animation: 'slide_from_right' }}
+              />
+              <RootStack.Screen
+                name="PayBills"
+                component={PayBillsScreen}
+                options={{ presentation: 'card', animation: 'slide_from_right' }}
+              />
+              <RootStack.Screen
+                name="QRHub"
+                component={QRHubScreen}
                 options={{ presentation: 'card', animation: 'slide_from_right' }}
               />
             </RootStack.Navigator>

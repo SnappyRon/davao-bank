@@ -245,3 +245,84 @@ No password or code was typed by an agent or written to any file.
 - With the amount field focused, the first tap on Back only blurs the field; a second tap is needed. Use `keyboardShouldPersistTaps` on the header path or dismiss and act on the same tap.
 - Wording: the result says "Cash Out Successful" in the header but "Cash-out Prepared" in the body; the Review button says "Authorize Cash-out". Unify the wording and casing in 7B.
 - The result card's Transaction ID wraps under its label at this width.
+
+## Stage 7B.0 task 3 — Transfer, Pay bills and QR stack pages (2026-11-10)
+
+Implemented on `phase-7-ui-motion`, based on `f3b7aaa`. New `TransferScreen`, `PayBillsScreen` and `QRHubScreen` use FeatureScreen without `onBack`, with dirty/processing guards and previous-step navigation. Root routes use the captain's exact params, card presentation and slide-from-right animation. Home navigates directly and retains its focus refresh. QR scan/manual fallback replace Transfer; Request money replaces QRHub with the request tab.
+
+The pages load accounts through `fetchAccountBalances` using `useFeatureAccounts`, with loading, mapped errors, empty state and Try again (`AccountLoadStatus`). Action forms are unavailable until accounts load successfully. Transfer prefill runs once after account loading, preserving the ten-digit and own-account checks and idempotency generation. A success effect refreshes Transfer's receipt balance without resetting its step or request key. Removed all three modal files and migrated `transfer_modal.test.tsx` to `transfer_screen.test.tsx`; all original assertions retained, plus account retry and invalid/self-account prefill cases. Subcomponents in transfer/, pay-bills/ and qr/ are unchanged.
+
+### Exact handler comparison
+
+Compared extracted handler text with `git show HEAD:apps/mobile/src/screens/<Old>Modal.tsx` while HEAD was `f3b7aaa`:
+
+```text
+Transfer.handleSelectOwnAccount: BYTE-IDENTICAL
+Transfer.handleSelectSavedRecipient: BYTE-IDENTICAL
+Transfer.handleNextFromRecipient: BYTE-IDENTICAL
+Transfer.handleNextFromAmount: BYTE-IDENTICAL
+Transfer.handleConfirmTransfer: BYTE-IDENTICAL
+Transfer.executeScheduledTransfer: BYTE-IDENTICAL
+Transfer.executeServerTransfer: BYTE-IDENTICAL except explicitly requested success callback removal
+Transfer: idempotency payload-change effect BYTE-IDENTICAL
+Transfer: StepUpSetupLink JSX BYTE-IDENTICAL; component unchanged
+PayBills.validateReference: BYTE-IDENTICAL
+PayBills.handleSelectBiller: BYTE-IDENTICAL
+PayBills.handleReferenceContinue: BYTE-IDENTICAL
+PayBills.handleAmountContinue: BYTE-IDENTICAL
+PayBills.handleSubmitPayment: BYTE-IDENTICAL except explicitly requested success callback removal
+PayBills: idempotency payload-change effect BYTE-IDENTICAL
+PayBills: StepUpSetupLink JSX BYTE-IDENTICAL; component unchanged
+QRHub.handleSendRequest: BYTE-IDENTICAL except explicitly requested success callback removal
+Payment authentication/RPC/error mapping blocks unchanged; no subcomponent changes.
+```
+
+The explicit success callback removals are the only differences within those handlers: one `onTransferSuccess(data)`, two `onPaymentSuccess()` and one guarded `onRequestSent()` call. Full handlers therefore are not literally byte-identical in those three cases; all remaining bytes match. The QR scan handler preserves parsing/haptics/error handling and replaces its old reset/parent callback with `navigation.replace('Transfer', { recipientAccount, amountCentavos, note })`, as requested. StepUpSetupLink component and JSX are unchanged; its existing `onClose` now goes back through stack navigation. No RPC, server, migration, shared error mapping, authentication helper or money-engine changes.
+
+### Local checks
+
+```text
+npm run typecheck — exit 0
+> davao-bank@0.1.0 typecheck
+> npm run typecheck --workspaces --if-present
+
+
+> admin@0.1.0 typecheck
+> tsc --noEmit
+
+
+> mobile@1.0.0 typecheck
+> tsc --noEmit
+
+
+> @davao-bank/shared@0.1.0 typecheck
+> tsc --noEmit
+
+npm run lint — exit 0
+✖ 75 problems (0 errors, 75 warnings)
+
+npm run test:unit — exit 0
+> davao-bank@0.1.0 test:unit
+> jest
+
+
+Test Suites: 17 passed, 17 total
+Tests:       95 passed, 95 total
+Snapshots:   0 total
+Time:        3.585 s, estimated 4 s
+Ran all test suites in 3 projects.
+```
+
+`rg -n 'TransferModal|PayBillsModal|QRHubModal' apps/mobile` returned no matches (exit 1). No imports of the deleted modules remain.
+
+Device flows, native swipe/Android Back, live password → code → RPC flow and screenshots: **NOT VERIFIED — captain performs device verification per the task brief.** Remaining stage 7B work is outside this task.
+
+Format verification (exit 0):
+
+```text
+> davao-bank@0.1.0 format:check
+> prettier --check "**/*.{ts,tsx,js,jsx,json,md}"
+
+Checking formatting...
+All matched files use Prettier code style!
+```
