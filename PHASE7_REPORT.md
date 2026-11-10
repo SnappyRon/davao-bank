@@ -442,3 +442,31 @@ npm run test:unit   → Test Suites: 25 passed, 25 total
 ```
 
 Device: **NOT VERIFIED — captain runs it** (row layout at 375/402/440 and 1.4x, Activity search/keyboard with the floating bar, share sheet, copy toast, VoiceOver labels).
+
+**Fix round for `fabdf1c` (captain-accepted CQ/UX/SEC findings), commit A `Phase 7 · Fix — fabdf1c review findings (lists, Inbox, Receipt)`:**
+
+1. Inbox mark-as-read: functional `setNotifications(prev => …)`; the badge count is derived from the latest list in one effect after load (load, mark one, mark all), so rapid taps don't revert each other.
+2. Bill payments never show the internal billers account number: rows/meta show the time (or the note), Activity search ignores it, Receipt and the shared text read "To: Biller". Title stays "Bill payment" (biller name needs an RPC change, tracked separately).
+3. Activity keeps previous accounts when the account load fails; the account filter resets to "All accounts" when the chosen account disappears or only one remains.
+4. `useUnreadNotificationCount`: Inbox's `setCount` bumps the request id, so an older in-flight refresh is dropped.
+5. Count query scoped with `.eq('user_id', userId)` (RLS also lets admins see every row).
+6. Receipt: the share file is deleted in `finally` (`FileSystem.deleteAsync(uri, { idempotent: true })`); copy failure → error toast "Couldn't copy the reference. Try again.".
+7. Wording: deposit is "Money added" in rows and in "Reversal · Money added"; adjustments chip "Bank credits & debits", empty "No bank credits or debits yet.".
+8. Activity digit search only when the query matches `/^[\d•\s]+$/` or has 3+ digits.
+9. A failed refresh with an empty filtered list shows the inline error + Try again above the empty state.
+10. Receipt for a reversal finds the original in the same response: "Reversal · Transfer to •• 8720".
+11. Activity section header `letterSpacing` literal → `typography.caption.letterSpacing` (Inbox had no literal).
+12. Tests: stale-load (deferred promise) for Activity and Inbox; two rapid taps with held update queries; Mark all as read asserts the update, `user_id`/`read` filters and count 0; hook user filter and in-flight refresh (fails without the fix); bill payment rows/search/receipt/share; deposit reversal label; digit search rules; account fallback; kept accounts; error above empty state; share file deleted on failure; copy failure toast; reversal receipt title.
+13. `tests/setup/mobile-after-env.ts` (new `setupFilesAfterEnv` entry in `jest.config.js`; `afterEach` isn't available in `setupFiles`) clears the AsyncStorage mock after every test.
+
+Checks after commit A:
+
+```text
+npm run typecheck   → admin, mobile, shared: tsc --noEmit, exit 0
+npm run lint        → ✖ 64 problems (0 errors, 64 warnings)
+npm run format:check→ All matched files use Prettier code style!
+npm run test:unit   → Test Suites: 25 passed, 25 total
+                      Tests:       203 passed, 203 total
+```
+
+Deferred (captain): Inbox raw message text / full numbers / reversal UUID and staff reason / hide-balance in messages → 7B.9 wording migration; biller name and transaction deep link → owner DB decision; `toLocaleUpperCase` section headers → 7B.8. Device NOT VERIFIED — captain runs it.

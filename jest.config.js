@@ -16,6 +16,7 @@ module.exports = {
       displayName: 'mobile',
       preset: 'jest-expo',
       setupFiles: ['<rootDir>/tests/setup/mobile-setup.ts'],
+      setupFilesAfterEnv: ['<rootDir>/tests/setup/mobile-after-env.ts'],
       testMatch: ['<rootDir>/apps/mobile/src/__tests__/**/*.test.(ts|tsx)'],
       transformIgnorePatterns: [
         'node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg|lucide-react-native)',

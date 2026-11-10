@@ -81,7 +81,7 @@ export function describeOriginal(original: TransactionHistoryItem): string {
     case 'bill_payment':
       return 'Bill payment';
     case 'deposit':
-      return 'Add money';
+      return 'Money added';
     case 'withdrawal':
       return 'Cash out';
     case 'adjustment':
@@ -118,8 +118,17 @@ export function transactionTitle(
   }
 }
 
-/** "To •• 7943" / "From •• 8921", or null when there is no counterparty. */
+/**
+ * Bill payments go to the internal billers account; its number is never
+ * shown to customers (rows, receipts or shared text).
+ */
+export function hidesCounterparty(item: TransactionHistoryItem): boolean {
+  return item.type === 'bill_payment';
+}
+
+/** "To •• 7943" / "From •• 8921", or null when there is no counterparty to show. */
 export function counterpartyPhrase(item: TransactionHistoryItem): string | null {
+  if (hidesCounterparty(item)) return null;
   const masked = maskAccountNumber(item.counterparty_account_number);
   if (!masked) return null;
   return item.direction === 'credit' ? `From ${masked}` : `To ${masked}`;

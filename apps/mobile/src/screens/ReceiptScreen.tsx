@@ -32,7 +32,12 @@ import {
   transactionStatusBadge,
   useToast,
 } from '../components';
-import { transactionNote, transactionTitle } from '../utils/transactionDisplay';
+import {
+  findReversalOriginal,
+  hidesCounterparty,
+  transactionNote,
+  transactionTitle,
+} from '../utils/transactionDisplay';
 
 const SKELETON_HEIGHT = spacing['3xl'] * 4;
 const COPY_ICON_SIZE = 18;
@@ -57,24 +62,38 @@ function formatReceiptDate(iso: string): string {
   });
 }
 
+/**
+ * The To/From row. Receipts show the full account number (spec 7B
+ * "Accounts"), except for bill payments: the internal billers account number
+ * is never shown, so the party reads "Biller".
+ */
+export function receiptCounterparty(
+  tx: TransactionHistoryItem
+): { label: string; value: string } | null {
+  if (hidesCounterparty(tx)) return { label: 'To', value: 'Biller' };
+  if (!tx.counterparty_account_number) return null;
+  return {
+    label: tx.direction === 'credit' ? 'From' : 'To',
+    value: tx.counterparty_account_number,
+  };
+}
+
 /** Plain-text receipt for Share receipt; includes the full transaction id. */
 export function buildReceiptText(
   tx: TransactionHistoryItem,
-  options: { hideBalance: boolean }
+  options: { hideBalance: boolean; reversalOf?: TransactionHistoryItem | null }
 ): string {
-  const isCredit = tx.direction === 'credit';
+  const party = receiptCounterparty(tx);
   const status = transactionStatusBadge(tx.status, 'receipt');
   const note = transactionNote(tx);
   const lines = [
     'Davao Bank receipt',
     '',
-    transactionTitle(tx),
+    transactionTitle(tx, options.reversalOf),
     `Amount: ${options.hideBalance ? 'Hidden' : formatCentavosToPHP(tx.amount)}`,
     status ? `Status: ${status.label}` : null,
     `Date & time: ${formatReceiptDate(tx.created_at)}`,
-    tx.counterparty_account_number
-      ? `${isCredit ? 'From' : 'To'}: ${tx.counterparty_account_number}`
-      : null,
+    party ? `${party.label}: ${party.value}` : null,
     note ? `Note: ${note}` : null,
     `Reference no.: ${receiptReference(tx.transaction_id)}`,
     `Transaction ID: ${tx.transaction_id}`,
@@ -121,6 +140,7 @@ export function ReceiptScreen() {
   const { hideBalance } = useSettings();
   const toast = useToast();
   const [transaction, setTransaction] = useState<TransactionHistoryItem | null>(null);
+  const [reversalOf, setReversalOf] = useState<TransactionHistoryItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
@@ -132,6 +152,7 @@ export function ReceiptScreen() {
     let active = true;
     setLoading(true);
     setTransaction(null);
+    setReversalOf(null);
     setError(null);
     setNotFound(false);
     void fetchTransactionHistory(supabase, params.accountId).then(({ data, error }) => {
@@ -142,6 +163,8 @@ export function ReceiptScreen() {
         const match = data?.find((item) => item.transaction_id === params.transactionId);
         if (match) {
           setTransaction(match);
+          // Same title as the list: "Reversal · Transfer to •• 8720".
+          setReversalOf(data ? findReversalOriginal(match, data) : null);
         } else {
           setNotFound(true);
           setError(RECEIPT_NOT_FOUND_MESSAGE);
@@ -180,22 +203,27 @@ export function ReceiptScreen() {
   const note = transactionNote(transaction);
 
   const handleCopyReference = async () => {
-    await Clipboard.setStringAsync(reference);
-    toast.show('Reference copied');
+    try {
+      await Clipboard.setStringAsync(reference);
+      toast.show('Reference copied');
+    } catch {
+      toast.show("Couldn't copy the reference. Try again.", 'error');
+    }
   };
 
   const handleShare = async () => {
     setShareError(null);
     setSharing(true);
+    let uri: string | null = null;
     try {
       if (!(await Sharing.isAvailableAsync())) {
         setShareError('Sharing is not available on this device.');
         return;
       }
-      const uri = `${FileSystem.cacheDirectory}davao-bank-receipt-${reference}.txt`;
+      uri = `${FileSystem.cacheDirectory}davao-bank-receipt-${reference}.txt`;
       await FileSystem.writeAsStringAsync(
         uri,
-        buildReceiptText(transaction, { hideBalance })
+        buildReceiptText(transaction, { hideBalance, reversalOf })
       );
       await Sharing.shareAsync(uri, {
         mimeType: 'text/plain',
@@ -205,6 +233,10 @@ export function ReceiptScreen() {
     } catch (err) {
       setShareError(toUserMessage(err));
     } finally {
+      // The receipt text (with the full id) doesn't stay in the cache.
+      if (uri) {
+        await FileSystem.deleteAsync(uri, { idempotent: true }).catch(() => undefined);
+      }
       setSharing(false);
     }
   };
@@ -212,13 +244,8 @@ export function ReceiptScreen() {
   const rows: { label: string; value: string; trailing?: React.ReactNode }[] = [
     { label: 'Date & time', value: formatReceiptDate(transaction.created_at) },
   ];
-  if (transaction.counterparty_account_number) {
-    // Receipts show the full account number (spec 7B "Accounts").
-    rows.push({
-      label: isCredit ? 'From' : 'To',
-      value: transaction.counterparty_account_number,
-    });
-  }
+  const party = receiptCounterparty(transaction);
+  if (party) rows.push(party);
   if (note) rows.push({ label: 'Note', value: note });
   rows.push({
     label: 'Reference no.',
@@ -255,7 +282,7 @@ export function ReceiptScreen() {
       {/* Amount and status badge, centred together */}
       <View style={styles.hero}>
         <Text variant="label" color={colors.textSecondary} align="center">
-          {transactionTitle(transaction)}
+          {transactionTitle(transaction, reversalOf)}
         </Text>
         <AmountText
           amountCentavos={transaction.amount}

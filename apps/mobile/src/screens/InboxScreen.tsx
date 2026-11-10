@@ -1,7 +1,7 @@
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../App';
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { View, StyleSheet, FlatList, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -174,7 +174,6 @@ export function InboxScreen({ onUnreadCountChange }: InboxScreenProps) {
       setError(null);
       setLoaded(true);
       setNotifications(data);
-      onUnreadCountChange?.(data.filter((n) => !n.read).length);
     } catch (err) {
       if (loadId === loadIdRef.current) setError(toUserMessage(err));
     } finally {
@@ -183,7 +182,14 @@ export function InboxScreen({ onUnreadCountChange }: InboxScreenProps) {
         setRefreshing(false);
       }
     }
-  }, [onUnreadCountChange]);
+  }, []);
+
+  // The tab badge follows the list once it has loaded (load, mark one, mark
+  // all), always derived from the latest state.
+  const unreadCount = notifications.filter((n) => !n.read).length;
+  useEffect(() => {
+    if (loaded) onUnreadCountChange?.(unreadCount);
+  }, [loaded, unreadCount, onUnreadCountChange]);
 
   // Loads on first focus and refreshes each time the tab regains focus.
   useFocusEffect(
@@ -210,9 +216,11 @@ export function InboxScreen({ onUnreadCountChange }: InboxScreenProps) {
         .eq('id', id);
 
       if (!updateError) {
-        const next = notifications.map((n) => (n.id === id ? { ...n, read: true } : n));
-        setNotifications(next);
-        onUnreadCountChange?.(next.filter((n) => !n.read).length);
+        // Functional update: builds on the latest list, so two quick taps
+        // don't undo each other. The badge count follows from the effect below.
+        setNotifications((prev) =>
+          prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+        );
       }
     } catch (err) {
       console.warn('Error marking notification as read:', err);
@@ -235,7 +243,6 @@ export function InboxScreen({ onUnreadCountChange }: InboxScreenProps) {
 
         if (!updateError) {
           setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-          onUnreadCountChange?.(0);
         }
       }
     } catch (err) {
@@ -261,7 +268,6 @@ export function InboxScreen({ onUnreadCountChange }: InboxScreenProps) {
     // notification as read.
   };
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
   const bottomClearance = tabScreenBottomClearance(insets.bottom);
   const refreshControl = (
     <RefreshControl
@@ -324,8 +330,13 @@ export function InboxScreen({ onUnreadCountChange }: InboxScreenProps) {
         refreshControl={refreshControl}
         ListHeaderComponent={
           error ? (
-            <View style={styles.inlineError} accessibilityRole="alert">
-              <Text variant="caption" color={colors.redText} style={styles.flex}>
+            <View style={styles.inlineError}>
+              <Text
+                variant="caption"
+                color={colors.redText}
+                accessibilityRole="alert"
+                style={styles.flex}
+              >
                 {error}
               </Text>
               <Pressable

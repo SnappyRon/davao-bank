@@ -55,6 +55,7 @@ jest.mock('expo-sharing', () => ({
 jest.mock('expo-file-system/legacy', () => ({
   cacheDirectory: 'file:///cache/',
   writeAsStringAsync: jest.fn(async () => undefined),
+  deleteAsync: jest.fn(async () => undefined),
 }));
 
 jest.mock('@davao-bank/shared', () => {
@@ -196,6 +197,94 @@ describe('ReceiptScreen', () => {
     const text = (FileSystem.writeAsStringAsync as jest.Mock).mock.calls[0][1];
     expect(text).toContain('Amount: Hidden');
     expect(text).not.toContain('₱250.00');
+  });
+
+  it('deletes the shared receipt file after sharing (and after a failed share)', async () => {
+    (fetchTransactionHistory as jest.Mock).mockResolvedValueOnce({
+      data: [sampleTx],
+      error: null,
+    });
+    await render(<ReceiptScreen />);
+    await screen.findByText('DB-8F04-3910');
+
+    (Sharing.shareAsync as jest.Mock).mockRejectedValueOnce(new Error('share failed'));
+    await fireEvent.press(screen.getByRole('button', { name: 'Share receipt' }));
+
+    await waitFor(() => {
+      expect(FileSystem.deleteAsync).toHaveBeenCalledTimes(1);
+    });
+    const uri = (FileSystem.writeAsStringAsync as jest.Mock).mock.calls[0][0];
+    expect(FileSystem.deleteAsync).toHaveBeenCalledWith(uri, { idempotent: true });
+    expect(screen.getByRole('alert')).toBeTruthy();
+  });
+
+  it('shows an error toast when copying fails', async () => {
+    (fetchTransactionHistory as jest.Mock).mockResolvedValueOnce({
+      data: [sampleTx],
+      error: null,
+    });
+    (Clipboard.setStringAsync as jest.Mock).mockRejectedValueOnce(new Error('denied'));
+    await render(<ReceiptScreen />);
+    await screen.findByText('DB-8F04-3910');
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Copy reference number' }));
+
+    await waitFor(() => {
+      expect(mockToastShow).toHaveBeenCalledWith(
+        "Couldn't copy the reference. Try again.",
+        'error'
+      );
+    });
+    expect(mockToastShow).not.toHaveBeenCalledWith('Reference copied');
+  });
+
+  it('labels a bill payment party "Biller" without the billers account number', async () => {
+    const bill: TransactionHistoryItem = {
+      ...sampleTx,
+      type: 'bill_payment',
+      counterparty_account_number: '9990001234',
+      reference: null,
+    };
+    (fetchTransactionHistory as jest.Mock).mockResolvedValueOnce({
+      data: [bill],
+      error: null,
+    });
+    await render(<ReceiptScreen />);
+    expect(await screen.findByText('Bill payment')).toBeTruthy();
+    expect(screen.getByText('Biller')).toBeTruthy();
+    expect(screen.queryByText(/9990001234/)).toBeNull();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Share receipt' }));
+    await waitFor(() => expect(FileSystem.writeAsStringAsync).toHaveBeenCalled());
+    const text = (FileSystem.writeAsStringAsync as jest.Mock).mock.calls[0][1];
+    expect(text).toContain('To: Biller');
+    expect(text).not.toContain('9990001234');
+  });
+
+  it('titles a reversal receipt like the list, using the original from the same response', async () => {
+    const reversalTx: TransactionHistoryItem = {
+      ...sampleTx,
+      ledger_entry_id: 'led-rev',
+      transaction_id: '8f043910-1a2b-4c3d-8e9f-0123456789ab',
+      type: 'reversal',
+      direction: 'credit',
+      counterparty_account_number: null,
+      reference: 'Reversal of 3f2a1b4c-5d6e-4f70-8a9b-0c1d2e3f4a5b: wrong account',
+    };
+    const original: TransactionHistoryItem = {
+      ...sampleTx,
+      ledger_entry_id: 'led-orig',
+      transaction_id: '3f2a1b4c-5d6e-4f70-8a9b-0c1d2e3f4a5b',
+      counterparty_account_number: '1022228720',
+      status: 'reversed',
+    };
+    (fetchTransactionHistory as jest.Mock).mockResolvedValueOnce({
+      data: [reversalTx, original],
+      error: null,
+    });
+    await render(<ReceiptScreen />);
+    expect(await screen.findByText('Reversal · Transfer to •• 8720')).toBeTruthy();
+    expect(screen.queryByText(/wrong account/)).toBeNull();
   });
 
   it('shows not-found message without "Try again" button when transaction is missing', async () => {

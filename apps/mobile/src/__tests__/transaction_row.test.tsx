@@ -133,6 +133,30 @@ describe('TransactionRow (7B.2)', () => {
   });
 });
 
+describe('Bill payments (fix round)', () => {
+  const bill: TransactionHistoryItem = {
+    ...sent,
+    type: 'bill_payment',
+    counterparty_account_number: '9990001234',
+    reference: null,
+  };
+
+  it('never shows the internal billers account number', async () => {
+    await render(<TransactionRow transaction={bill} onPress={jest.fn()} />);
+    expect(screen.getByText('Bill payment')).toBeTruthy();
+    expect(screen.getByText('2:41 AM')).toBeTruthy();
+    expect(screen.queryByText(/1234/)).toBeNull();
+    expect(
+      screen.getByRole('button', { name: 'Bill payment, 2:41 AM, minus ₱500.00' })
+    ).toBeTruthy();
+  });
+
+  it('shows the note in the meta when there is one', async () => {
+    await render(<TransactionRow transaction={{ ...bill, reference: 'October' }} />);
+    expect(screen.getByText('October · 2:41 AM')).toBeTruthy();
+  });
+});
+
 describe('Reversals (7B.2)', () => {
   it('reads the original id from the reversal reference format', () => {
     expect(reversedTransactionId(reversal)).toBe(ORIGINAL_ID);
@@ -149,6 +173,19 @@ describe('Reversals (7B.2)', () => {
     expect(screen.getByText('Reversal · Transfer to •• 8720')).toBeTruthy();
     expect(screen.queryByText(new RegExp(ORIGINAL_ID))).toBeNull();
     expect(screen.queryByText(/wrong account/)).toBeNull();
+  });
+
+  it('uses the same deposit label as the row ("Money added")', async () => {
+    const deposit: TransactionHistoryItem = {
+      ...sent,
+      type: 'deposit',
+      direction: 'credit',
+      counterparty_account_number: null,
+    };
+    await render(<TransactionRow transaction={deposit} />);
+    expect(screen.getByText('Money added')).toBeTruthy();
+    await render(<TransactionRow transaction={reversal} reversalOf={deposit} />);
+    expect(screen.getByText('Reversal · Money added')).toBeTruthy();
   });
 
   it('falls back to "Reversal" when the original is not loaded', async () => {

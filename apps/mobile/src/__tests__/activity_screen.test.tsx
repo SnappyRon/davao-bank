@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react-native';
 import {
   fetchAccountBalances,
   fetchTransactionHistory,
@@ -8,12 +8,15 @@ import {
 } from '@davao-bank/shared';
 
 const mockNavigate = jest.fn();
+// The latest focus callback, so a test can simulate the tab regaining focus.
+let mockFocusCallback: (() => void) | null = null;
 
 jest.mock('@react-navigation/native', () => {
   const { useEffect } = jest.requireActual('react');
   return {
     useNavigation: () => ({ navigate: mockNavigate }),
     useFocusEffect: (callback: () => void) => {
+      mockFocusCallback = callback;
       useEffect(() => callback(), [callback]);
     },
     useIsFocused: () => true,
@@ -235,5 +238,122 @@ describe('ActivityScreen (7B.2)', () => {
     await render(<ActivityScreen />);
     expect(await screen.findByText('Reversal · Transfer to •• 8720')).toBeTruthy();
     expect(screen.getByText('Reversed')).toBeTruthy();
+  });
+
+  it('digit search only for number-like queries; text with a stray digit stays text-only', async () => {
+    await render(<ActivityScreen />);
+    await screen.findByText('Sent to •• 7943');
+
+    await fireEvent.changeText(screen.getByLabelText('Search activity'), '•• 7943');
+    expect(screen.getByText('Sent to •• 7943')).toBeTruthy();
+    expect(screen.queryByText('Sent to •• 5555')).toBeNull();
+
+    // "lunch 5" is text: it must not match account digits containing 5.
+    await fireEvent.changeText(screen.getByLabelText('Search activity'), 'lunch 5');
+    expect(screen.getByText('No matches')).toBeTruthy();
+
+    // 3+ digits inside text still search accounts.
+    await fireEvent.changeText(screen.getByLabelText('Search activity'), 'acct 666');
+    expect(screen.getByText('Sent to •• 6666')).toBeTruthy();
+  });
+
+  it('never matches or shows the billers account on bill payments', async () => {
+    (fetchTransactionHistory as jest.Mock).mockResolvedValueOnce({
+      data: [
+        tx({
+          ledger_entry_id: 'le-b',
+          transaction_id: 'tx-b',
+          type: 'bill_payment',
+          counterparty_account_number: '9990001234',
+          reference: null,
+        }),
+      ],
+      error: null,
+    });
+    await render(<ActivityScreen />);
+    expect(await screen.findByText('Bill payment')).toBeTruthy();
+    expect(screen.getByText('Savings · 2:41 AM')).toBeTruthy();
+    expect(screen.queryByText(/1234/)).toBeNull();
+
+    await fireEvent.changeText(screen.getByLabelText('Search activity'), '1234');
+    expect(screen.getByText('No matches')).toBeTruthy();
+  });
+
+  it('uses the bank credit wording for the adjustments chip and its empty text', async () => {
+    await render(<ActivityScreen />);
+    await screen.findByText('Sent to •• 7943');
+    await fireEvent.press(screen.getByRole('button', { name: 'Bank credits & debits' }));
+    expect(screen.getByText('No bank credits or debits yet.')).toBeTruthy();
+  });
+
+  it('keeps the accounts when a refresh fails to load them', async () => {
+    await render(<ActivityScreen />);
+    await screen.findByText('Savings · To •• 7943 · 2:41 AM');
+
+    (fetchAccountBalances as jest.Mock).mockResolvedValueOnce({
+      data: null,
+      error: 'Network request failed',
+    });
+    await act(async () => {
+      mockFocusCallback?.();
+    });
+
+    expect(screen.getByText('Savings · To •• 7943 · 2:41 AM')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Checking •• 4455' })).toBeTruthy();
+  });
+
+  it('falls back to all accounts when the chosen account disappears', async () => {
+    await render(<ActivityScreen />);
+    await screen.findByText('Sent to •• 7943');
+    await fireEvent.press(screen.getByRole('button', { name: 'Checking •• 4455' }));
+    expect(screen.queryByText('Sent to •• 7943')).toBeNull();
+
+    (fetchAccountBalances as jest.Mock).mockResolvedValueOnce({
+      data: [accounts[0]],
+      error: null,
+    });
+    await act(async () => {
+      mockFocusCallback?.();
+    });
+
+    expect(await screen.findByText('Sent to •• 7943')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'All accounts' })).toBeNull();
+  });
+
+  it('shows the refresh error above the empty state when the filtered list is empty', async () => {
+    await render(<ActivityScreen />);
+    await screen.findByText('Sent to •• 7943');
+    await fireEvent.changeText(screen.getByLabelText('Search activity'), 'zzz');
+
+    (fetchTransactionHistory as jest.Mock).mockResolvedValueOnce({
+      data: null,
+      error: 'Network request failed',
+    });
+    await act(async () => {
+      mockFocusCallback?.();
+    });
+
+    expect(screen.getByRole('alert')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
+    expect(screen.getByText('No matches')).toBeTruthy();
+  });
+
+  it('ignores an older load that resolves after a newer one', async () => {
+    let resolveFirst: (value: unknown) => void = () => {};
+    (fetchTransactionHistory as jest.Mock)
+      .mockImplementationOnce(() => new Promise((resolve) => (resolveFirst = resolve)))
+      .mockResolvedValueOnce({ data: [history[1]], error: null });
+
+    await render(<ActivityScreen />);
+    await act(async () => {
+      mockFocusCallback?.();
+    });
+    expect(await screen.findByText('Sent to •• 5555')).toBeTruthy();
+
+    await act(async () => {
+      resolveFirst({ data: [history[0]], error: null });
+    });
+    expect(screen.getByText('Sent to •• 5555')).toBeTruthy();
+    expect(screen.queryByText('Sent to •• 7943')).toBeNull();
   });
 });

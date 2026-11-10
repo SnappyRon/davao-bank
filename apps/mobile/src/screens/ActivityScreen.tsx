@@ -1,7 +1,7 @@
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../App';
-import React, { useState, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { View, StyleSheet, FlatList, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AlertCircle, FileText, Search, SlidersHorizontal } from 'lucide-react-native';
@@ -9,6 +9,7 @@ import {
   colors,
   size,
   spacing,
+  typography,
   fetchAccountBalances,
   fetchTransactionHistory,
   toUserMessage,
@@ -33,6 +34,7 @@ import {
 } from '../components';
 import {
   buildReversalOriginals,
+  hidesCounterparty,
   reversalOriginalFor,
   transactionNote,
 } from '../utils/transactionDisplay';
@@ -58,7 +60,7 @@ const TYPE_FILTERS: { label: string; value: ActivityFilter }[] = [
   { label: 'Bills', value: 'bill_payment' },
   { label: 'Add money', value: 'deposit' },
   { label: 'Cash out', value: 'withdrawal' },
-  { label: 'Adjustments', value: 'adjustment' },
+  { label: 'Bank credits & debits', value: 'adjustment' },
   { label: 'Reversals', value: 'reversal' },
 ];
 
@@ -68,7 +70,7 @@ const FILTERED_EMPTY: Record<Exclude<ActivityFilter, 'all'>, string> = {
   bill_payment: 'No bill payments yet.',
   deposit: 'No money added yet.',
   withdrawal: 'No cash outs yet.',
-  adjustment: 'No adjustments yet.',
+  adjustment: 'No bank credits or debits yet.',
   reversal: 'No reversals yet.',
 };
 
@@ -88,8 +90,16 @@ export function matchesActivitySearch(item: TransactionHistoryItem, query: strin
   if (!q) return true;
   const note = transactionNote(item)?.toLowerCase() ?? '';
   if (note.includes(q)) return true;
+  // Account search only for number-like queries ("7943", "•• 7943") or at
+  // least 3 digits, so text like "rent 2" doesn't match account digits.
   const qDigits = digitsOnly(q);
-  if (qDigits && item.counterparty_account_number) {
+  const numberLike = /^[\d•\s]+$/.test(q) || qDigits.length >= 3;
+  if (
+    numberLike &&
+    qDigits &&
+    item.counterparty_account_number &&
+    !hidesCounterparty(item)
+  ) {
     return item.counterparty_account_number.includes(qDigits);
   }
   return false;
@@ -142,8 +152,9 @@ export function ActivityScreen() {
         setTransactions(txRes.data);
         setLoaded(true);
       }
-      // Accounts only add the prefix and the filter; a failure hides them.
-      setAccounts(accRes.data ?? []);
+      // Accounts only add the prefix and the filter. A failed account load
+      // keeps the accounts we already had.
+      if (!accRes.error && accRes.data) setAccounts(accRes.data);
     } catch (err) {
       if (loadId !== loadIdRef.current) return;
       setError(toUserMessage(err));
@@ -171,6 +182,18 @@ export function ActivityScreen() {
     setLoading(true);
     void loadHistory();
   };
+
+  // The account filter falls back to "All accounts" when the chosen account
+  // disappears or only one account remains (the chips are hidden then).
+  useEffect(() => {
+    if (selectedAccount === ALL_ACCOUNTS) return;
+    if (
+      accounts.length <= 1 ||
+      !accounts.some((account) => account.account_id === selectedAccount)
+    ) {
+      setSelectedAccount(ALL_ACCOUNTS);
+    }
+  }, [accounts, selectedAccount]);
 
   const accountLabels = useMemo(() => {
     const map = new Map<string, string>();
@@ -250,6 +273,31 @@ export function ActivityScreen() {
     };
   })();
 
+  // Shown when a refresh fails after rows have loaded (above the rows, or
+  // above the empty state when the filtered list is empty).
+  const inlineError = error ? (
+    <View style={styles.inlineError}>
+      <Text
+        variant="caption"
+        color={colors.redText}
+        accessibilityRole="alert"
+        style={styles.inlineErrorText}
+      >
+        {error}
+      </Text>
+      <Pressable
+        onPress={retry}
+        accessibilityRole="button"
+        accessibilityLabel="Try again"
+        style={styles.inlineRetry}
+      >
+        <Text variant="label" color={colors.primary}>
+          Try again
+        </Text>
+      </Pressable>
+    </View>
+  ) : null;
+
   const renderBody = () => {
     if (loading) {
       return (
@@ -286,13 +334,16 @@ export function ActivityScreen() {
 
     if (sections.length === 0) {
       return (
-        <EmptyState
-          title={emptyCopy.title}
-          description={emptyCopy.description}
-          icon={<SlidersHorizontal size={EMPTY_ICON_SIZE} color={colors.textMuted} />}
-          refreshControl={refreshControl}
-          style={{ paddingBottom: bottomClearance }}
-        />
+        <View style={styles.flex}>
+          {inlineError ? <View style={styles.listPadding}>{inlineError}</View> : null}
+          <EmptyState
+            title={emptyCopy.title}
+            description={emptyCopy.description}
+            icon={<SlidersHorizontal size={EMPTY_ICON_SIZE} color={colors.textMuted} />}
+            refreshControl={refreshControl}
+            style={{ paddingBottom: bottomClearance }}
+          />
+        </View>
       );
     }
 
@@ -304,29 +355,7 @@ export function ActivityScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         refreshControl={refreshControl}
-        ListHeaderComponent={
-          error ? (
-            <View style={styles.inlineError} accessibilityRole="alert">
-              <Text
-                variant="caption"
-                color={colors.redText}
-                style={styles.inlineErrorText}
-              >
-                {error}
-              </Text>
-              <Pressable
-                onPress={retry}
-                accessibilityRole="button"
-                accessibilityLabel="Try again"
-                style={styles.inlineRetry}
-              >
-                <Text variant="label" color={colors.primary}>
-                  Try again
-                </Text>
-              </Pressable>
-            </View>
-          ) : undefined
-        }
+        ListHeaderComponent={inlineError ?? undefined}
         renderItem={({ item: section }) => (
           <View style={styles.section}>
             <Text
@@ -440,6 +469,9 @@ const styles = StyleSheet.create({
   filters: {
     gap: spacing.sm,
   },
+  flex: {
+    flex: 1,
+  },
   listPadding: {
     paddingHorizontal: spacing.screenSide,
   },
@@ -451,7 +483,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   sectionHeaderText: {
-    letterSpacing: 0.5,
+    letterSpacing: typography.caption.letterSpacing,
   },
   rowSkeleton: {
     borderRadius: 0,
