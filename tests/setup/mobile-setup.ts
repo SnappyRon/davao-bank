@@ -53,3 +53,10 @@ jest.mock('react-native-reanimated', () => {
 });
 
 jest.mock('react-native-worklets', () => ({}), { virtual: true });
+
+// AsyncStorage has no native module under Jest. Components that read
+// SettingsContext (e.g. TransactionRow reads hideBalance itself) pull it in
+// through the components barrel; tests can still override this per file.
+jest.mock('@react-native-async-storage/async-storage', () =>
+  require('@react-native-async-storage/async-storage/jest/async-storage-mock')
+);

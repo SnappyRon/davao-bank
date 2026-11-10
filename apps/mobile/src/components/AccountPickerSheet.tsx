@@ -1,22 +1,15 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Check, Wallet } from 'lucide-react-native';
-import {
-  colors,
-  formatCentavosToPHP,
-  radius,
-  spacing,
-  type AccountBalance,
-} from '@davao-bank/shared';
+import { colors, formatCentavosToPHP, type AccountBalance } from '@davao-bank/shared';
 import { Sheet } from './Sheet';
 import { Text } from './Text';
 import { AmountText } from './AmountText';
 import { Pressable } from './Pressable';
+import { LIST_ICON_SIZE, groupedListStyles } from './GroupedList';
 
-/** 40 pt icon disc; rows are separated by hairlines inset 16 + 40 + 16 = 72. */
-const DISC_SIZE = 40;
-const ICON_SIZE = 20;
-const HAIRLINE_INSET = spacing.base + DISC_SIZE + spacing.base;
+/** 40 pt icon disc; hairlines inset 72 from the shared list metrics. */
+const ICON_SIZE = LIST_ICON_SIZE;
 
 /**
  * Accounts are always written "Savings •• 8921": the type from the account in
@@ -53,7 +46,7 @@ export function AccountPickerSheet({
 }: AccountPickerSheetProps) {
   return (
     <Sheet visible={visible} onClose={onClose} title={title}>
-      <View style={styles.group}>
+      <View style={groupedListStyles.group}>
         {accounts.map((account, index) => {
           const label = formatAccountLabel(account);
           const selected = account.account_id === selectedAccountId;
@@ -68,9 +61,9 @@ export function AccountPickerSheet({
               accessibilityState={{ selected }}
               feedbackType="highlight"
               onPress={() => onSelect(account.account_id)}
-              style={styles.row}
+              style={groupedListStyles.row}
             >
-              <View style={[styles.disc, selected && styles.discSelected]}>
+              <View style={[groupedListStyles.disc, selected && styles.discSelected]}>
                 <Wallet
                   size={ICON_SIZE}
                   color={selected ? colors.textInverse : colors.primary}
@@ -92,7 +85,9 @@ export function AccountPickerSheet({
               <View style={styles.check}>
                 {selected ? <Check size={ICON_SIZE} color={colors.primary} /> : null}
               </View>
-              {index < accounts.length - 1 ? <View style={styles.hairline} /> : null}
+              {index < accounts.length - 1 ? (
+                <View style={groupedListStyles.hairlineAbsolute} />
+              ) : null}
             </Pressable>
           );
         })}
@@ -102,28 +97,8 @@ export function AccountPickerSheet({
 }
 
 const styles = StyleSheet.create({
-  group: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    overflow: 'hidden',
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.base,
-    minHeight: DISC_SIZE + spacing.xl,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.base,
-  },
-  disc: {
-    width: DISC_SIZE,
-    height: DISC_SIZE,
-    borderRadius: radius.pill,
+  discTint: {
     backgroundColor: colors.primaryTint,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   discSelected: {
     backgroundColor: colors.primary,
@@ -134,13 +109,5 @@ const styles = StyleSheet.create({
   check: {
     width: ICON_SIZE,
     alignItems: 'flex-end',
-  },
-  hairline: {
-    position: 'absolute',
-    left: HAIRLINE_INSET,
-    right: 0,
-    bottom: 0,
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: colors.border,
   },
 });

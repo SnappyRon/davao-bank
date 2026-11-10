@@ -1,27 +1,41 @@
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../App';
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, StyleSheet, SectionList, RefreshControl } from 'react-native';
-import { FileText, SlidersHorizontal } from 'lucide-react-native';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
+import { View, StyleSheet, FlatList, RefreshControl } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { AlertCircle, FileText, Search, SlidersHorizontal } from 'lucide-react-native';
 import {
   colors,
+  size,
   spacing,
-  radius,
+  fetchAccountBalances,
   fetchTransactionHistory,
-  typeLabel,
+  toUserMessage,
+  type AccountBalance,
   type TransactionHistoryItem,
 } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
 import {
   Screen,
   Text,
+  TextField,
   FilterChips,
   TransactionRow,
   EmptyState,
   Skeleton,
   Pressable,
+  GroupedList,
+  ListHairline,
+  LIST_ROW_MIN_HEIGHT,
+  formatAccountLabel,
+  tabScreenBottomClearance,
 } from '../components';
+import {
+  buildReversalOriginals,
+  reversalOriginalFor,
+  transactionNote,
+} from '../utils/transactionDisplay';
 
 export type ActivityFilter =
   | 'all'
@@ -32,175 +46,371 @@ export type ActivityFilter =
   | 'reversal'
   | 'bill_payment';
 
+const ALL_ACCOUNTS = 'all';
+const SKELETON_ROWS = 4;
+const HEADER_ICON_SIZE = 18;
+const SEARCH_ICON_SIZE = 18;
+const EMPTY_ICON_SIZE = 36;
+
+const TYPE_FILTERS: { label: string; value: ActivityFilter }[] = [
+  { label: 'All', value: 'all' },
+  { label: 'Transfers', value: 'transfer' },
+  { label: 'Bills', value: 'bill_payment' },
+  { label: 'Add money', value: 'deposit' },
+  { label: 'Cash out', value: 'withdrawal' },
+  { label: 'Adjustments', value: 'adjustment' },
+  { label: 'Reversals', value: 'reversal' },
+];
+
+/** Filtered empty copy (Wording table: "No bill payments yet."). */
+const FILTERED_EMPTY: Record<Exclude<ActivityFilter, 'all'>, string> = {
+  transfer: 'No transfers yet.',
+  bill_payment: 'No bill payments yet.',
+  deposit: 'No money added yet.',
+  withdrawal: 'No cash outs yet.',
+  adjustment: 'No adjustments yet.',
+  reversal: 'No reversals yet.',
+};
+
+/** Type only ("Savings"), used in front of the row meta on Activity. */
+function accountTypeLabel(account: AccountBalance): string {
+  const label = formatAccountLabel(account);
+  return label.split(' •• ')[0];
+}
+
+function digitsOnly(value: string): string {
+  return value.replace(/\D/g, '');
+}
+
+/** Search by note or counterparty account (client-side, over loaded items). */
+export function matchesActivitySearch(item: TransactionHistoryItem, query: string) {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  const note = transactionNote(item)?.toLowerCase() ?? '';
+  if (note.includes(q)) return true;
+  const qDigits = digitsOnly(q);
+  if (qDigits && item.counterparty_account_number) {
+    return item.counterparty_account_number.includes(qDigits);
+  }
+  return false;
+}
+
+interface ActivitySection {
+  title: string;
+  data: TransactionHistoryItem[];
+}
+
+function sectionTitle(iso: string, today: Date, yesterday: Date): string {
+  const txDate = new Date(iso);
+  const txDay = new Date(txDate);
+  txDay.setHours(0, 0, 0, 0);
+  if (txDay.getTime() === today.getTime()) return 'Today';
+  if (txDay.getTime() === yesterday.getTime()) return 'Yesterday';
+  return txDate.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
 export function ActivityScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const insets = useSafeAreaInsets();
   const [transactions, setTransactions] = useState<TransactionHistoryItem[]>([]);
+  const [accounts, setAccounts] = useState<AccountBalance[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [loaded, setLoaded] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
   const [selectedFilter, setSelectedFilter] = useState<ActivityFilter>('all');
+  const [selectedAccount, setSelectedAccount] = useState<string>(ALL_ACCOUNTS);
+  const [query, setQuery] = useState('');
+  const loadIdRef = useRef(0);
 
   const loadHistory = useCallback(async () => {
+    const loadId = ++loadIdRef.current;
     try {
-      const txRes = await fetchTransactionHistory(supabase);
-      if (!txRes.error && txRes.data) {
+      const [txRes, accRes] = await Promise.all([
+        fetchTransactionHistory(supabase),
+        fetchAccountBalances(supabase),
+      ]);
+      if (loadId !== loadIdRef.current) return;
+      if (txRes.error || !txRes.data) {
+        setError(toUserMessage(txRes.error ?? 'Activity could not be loaded.'));
+      } else {
+        setError(null);
         setTransactions(txRes.data);
+        setLoaded(true);
       }
+      // Accounts only add the prefix and the filter; a failure hides them.
+      setAccounts(accRes.data ?? []);
     } catch (err) {
-      console.warn('Failed to fetch activity history:', err);
+      if (loadId !== loadIdRef.current) return;
+      setError(toUserMessage(err));
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (loadId === loadIdRef.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, []);
 
-  useEffect(() => {
-    loadHistory();
-  }, [loadHistory]);
+  // Loads on first focus and refreshes whenever the tab regains focus.
+  useFocusEffect(
+    useCallback(() => {
+      void loadHistory();
+    }, [loadHistory])
+  );
 
   const onRefresh = () => {
     setRefreshing(true);
-    loadHistory();
+    void loadHistory();
   };
 
-  const filterOptions = [
-    { label: 'All', value: 'all' },
-    { label: 'Transfers', value: 'transfer' },
-    { label: 'Bills', value: 'bill_payment' },
-    { label: 'Cash-in', value: 'deposit' },
-    { label: 'Cash-out', value: 'withdrawal' },
-    { label: 'Adjustments', value: 'adjustment' },
-    { label: 'Reversals', value: 'reversal' },
-  ];
+  const retry = () => {
+    setLoading(true);
+    void loadHistory();
+  };
 
-  const filteredTransactions = useMemo(() => {
-    if (selectedFilter === 'all') return transactions;
-    return transactions.filter((t) => t.type === selectedFilter);
-  }, [transactions, selectedFilter]);
+  const accountLabels = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const account of accounts)
+      map.set(account.account_id, accountTypeLabel(account));
+    return map;
+  }, [accounts]);
 
-  // Group transactions by date: Today, Yesterday, or formatted date string
-  const groupedSections = useMemo(() => {
+  const accountOptions = useMemo(
+    () => [
+      { label: 'All accounts', value: ALL_ACCOUNTS },
+      ...accounts.map((account) => ({
+        label: formatAccountLabel(account),
+        value: account.account_id,
+      })),
+    ],
+    [accounts]
+  );
+
+  const originals = useMemo(() => buildReversalOriginals(transactions), [transactions]);
+
+  const filteredTransactions = useMemo(
+    () =>
+      transactions.filter(
+        (t) =>
+          (selectedFilter === 'all' || t.type === selectedFilter) &&
+          (selectedAccount === ALL_ACCOUNTS || t.account_id === selectedAccount) &&
+          matchesActivitySearch(t, query)
+      ),
+    [transactions, selectedFilter, selectedAccount, query]
+  );
+
+  // Group by day: Today, Yesterday, or a date. One grouped card per section.
+  const sections = useMemo<ActivitySection[]>(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
 
-    const groups: { [key: string]: TransactionHistoryItem[] } = {};
-
-    filteredTransactions.forEach((tx) => {
-      const txDate = new Date(tx.created_at);
-      const txDay = new Date(txDate);
-      txDay.setHours(0, 0, 0, 0);
-
-      let header = '';
-      if (txDay.getTime() === today.getTime()) {
-        header = 'Today';
-      } else if (txDay.getTime() === yesterday.getTime()) {
-        header = 'Yesterday';
-      } else {
-        header = txDate.toLocaleDateString('en-US', {
-          month: 'short',
-          day: 'numeric',
-          year: 'numeric',
-        });
+    const order: string[] = [];
+    const groups: Record<string, TransactionHistoryItem[]> = {};
+    for (const tx of filteredTransactions) {
+      const title = sectionTitle(tx.created_at, today, yesterday);
+      if (!groups[title]) {
+        groups[title] = [];
+        order.push(title);
       }
-
-      if (!groups[header]) {
-        groups[header] = [];
-      }
-      groups[header].push(tx);
-    });
-
-    return Object.keys(groups).map((title) => ({
-      title,
-      data: groups[title],
-    }));
+      groups[title].push(tx);
+    }
+    return order.map((title) => ({ title, data: groups[title] }));
   }, [filteredTransactions]);
+
+  const bottomClearance = tabScreenBottomClearance(insets.bottom);
+  const refreshControl = (
+    <RefreshControl
+      refreshing={refreshing}
+      onRefresh={onRefresh}
+      tintColor={colors.primary}
+    />
+  );
+
+  const emptyCopy = (() => {
+    if (query.trim()) {
+      return { title: 'No matches', description: 'Try another note or account number.' };
+    }
+    if (selectedFilter !== 'all') {
+      return { title: 'Nothing here yet', description: FILTERED_EMPTY[selectedFilter] };
+    }
+    if (selectedAccount !== ALL_ACCOUNTS) {
+      const label =
+        accountOptions.find((o) => o.value === selectedAccount)?.label ?? 'this account';
+      return { title: 'No activity yet', description: `No activity on ${label} yet.` };
+    }
+    return {
+      title: 'No activity yet',
+      description: 'Money you send, receive and pay will show here.',
+    };
+  })();
+
+  const renderBody = () => {
+    if (loading) {
+      return (
+        <View style={styles.listPadding}>
+          <GroupedList>
+            {Array.from({ length: SKELETON_ROWS }, (_, index) => (
+              <Skeleton
+                key={index}
+                width="100%"
+                height={LIST_ROW_MIN_HEIGHT}
+                style={styles.rowSkeleton}
+              />
+            ))}
+          </GroupedList>
+        </View>
+      );
+    }
+
+    // A failed load never looks like an empty list. Rows already loaded stay
+    // visible on a failed refresh, with the error above them.
+    if (error && !loaded) {
+      return (
+        <EmptyState
+          title="Activity unavailable"
+          description={error}
+          icon={<AlertCircle size={EMPTY_ICON_SIZE} color={colors.redText} />}
+          actionTitle="Try again"
+          onAction={retry}
+          refreshControl={refreshControl}
+          style={{ paddingBottom: bottomClearance }}
+        />
+      );
+    }
+
+    if (sections.length === 0) {
+      return (
+        <EmptyState
+          title={emptyCopy.title}
+          description={emptyCopy.description}
+          icon={<SlidersHorizontal size={EMPTY_ICON_SIZE} color={colors.textMuted} />}
+          refreshControl={refreshControl}
+          style={{ paddingBottom: bottomClearance }}
+        />
+      );
+    }
+
+    return (
+      <FlatList
+        data={sections}
+        keyExtractor={(section) => section.title}
+        contentContainerStyle={[styles.listContent, { paddingBottom: bottomClearance }]}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        refreshControl={refreshControl}
+        ListHeaderComponent={
+          error ? (
+            <View style={styles.inlineError} accessibilityRole="alert">
+              <Text
+                variant="caption"
+                color={colors.redText}
+                style={styles.inlineErrorText}
+              >
+                {error}
+              </Text>
+              <Pressable
+                onPress={retry}
+                accessibilityRole="button"
+                accessibilityLabel="Try again"
+                style={styles.inlineRetry}
+              >
+                <Text variant="label" color={colors.primary}>
+                  Try again
+                </Text>
+              </Pressable>
+            </View>
+          ) : undefined
+        }
+        renderItem={({ item: section }) => (
+          <View style={styles.section}>
+            <Text
+              variant="caption"
+              color={colors.textSecondary}
+              accessibilityRole="header"
+              style={styles.sectionHeaderText}
+            >
+              {section.title.toLocaleUpperCase('en-US')}
+            </Text>
+            <GroupedList>
+              {section.data.map((item, index) => (
+                <View key={item.ledger_entry_id || item.transaction_id}>
+                  <TransactionRow
+                    transaction={item}
+                    reversalOf={reversalOriginalFor(item, originals)}
+                    accountLabel={accountLabels.get(item.account_id)}
+                    onPress={() =>
+                      navigation.navigate('Receipt', {
+                        transactionId: item.transaction_id,
+                        accountId: item.account_id,
+                      })
+                    }
+                  />
+                  {index < section.data.length - 1 ? <ListHairline /> : null}
+                </View>
+              ))}
+            </GroupedList>
+          </View>
+        )}
+      />
+    );
+  };
 
   return (
     <Screen style={styles.screen}>
       <View style={styles.header}>
         <View style={styles.headerTitleRow}>
-          <Text variant="h1">Activity</Text>
+          <Text variant="h1" accessibilityRole="header">
+            Activity
+          </Text>
           <Pressable
             onPress={() => navigation.navigate('ExportStatement')}
             style={styles.exportButton}
             feedbackType="scale"
             accessibilityRole="button"
             accessibilityLabel="Export statement"
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <FileText size={18} color={colors.primary} />
-            <Text variant="bodyStrong" color={colors.primary}>
+            <FileText size={HEADER_ICON_SIZE} color={colors.primary} />
+            <Text variant="label" color={colors.primary}>
               Statement
             </Text>
           </Pressable>
         </View>
 
-        <FilterChips
-          options={filterOptions}
-          selectedValue={selectedFilter}
-          onSelect={(val) => setSelectedFilter(val as ActivityFilter)}
+        <TextField
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Search by note or account"
+          accessibilityLabel="Search activity"
+          autoCapitalize="none"
+          autoCorrect={false}
+          returnKeyType="search"
+          clearButtonMode="while-editing"
+          leftElement={<Search size={SEARCH_ICON_SIZE} color={colors.textMuted} />}
         />
+
+        <View style={styles.filters}>
+          <FilterChips
+            options={TYPE_FILTERS}
+            selectedValue={selectedFilter}
+            onSelect={(val) => setSelectedFilter(val as ActivityFilter)}
+          />
+          {accounts.length > 1 ? (
+            <FilterChips
+              options={accountOptions}
+              selectedValue={selectedAccount}
+              onSelect={(val) => setSelectedAccount(val)}
+            />
+          ) : null}
+        </View>
       </View>
 
-      {loading ? (
-        <View style={styles.skeletonContainer}>
-          <Skeleton width="100%" height={68} style={styles.skeletonItem} />
-          <Skeleton width="100%" height={68} style={styles.skeletonItem} />
-          <Skeleton width="100%" height={68} style={styles.skeletonItem} />
-          <Skeleton width="100%" height={68} style={styles.skeletonItem} />
-        </View>
-      ) : groupedSections.length === 0 ? (
-        <EmptyState
-          title="No transactions yet"
-          description={
-            selectedFilter === 'all'
-              ? 'Your completed money operations and ledger activity will appear here.'
-              : `No activity found under ${typeLabel(selectedFilter)}.`
-          }
-          icon={<SlidersHorizontal size={36} color={colors.textMuted} />}
-          style={styles.emptyContainer}
-        />
-      ) : (
-        <SectionList
-          sections={groupedSections}
-          keyExtractor={(item) => item.ledger_entry_id || item.transaction_id}
-          renderItem={({ item }) => (
-            <View style={styles.rowWrapper}>
-              <TransactionRow
-                transaction={item}
-                onPress={() =>
-                  navigation.navigate('Receipt', {
-                    transactionId: item.transaction_id,
-                    accountId: item.account_id,
-                  })
-                }
-              />
-            </View>
-          )}
-          renderSectionHeader={({ section: { title } }) => (
-            <View style={styles.sectionHeader}>
-              <Text
-                variant="caption"
-                color={colors.textSecondary}
-                style={styles.sectionHeaderText}
-              >
-                {title.toUpperCase()}
-              </Text>
-            </View>
-          )}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor={colors.primary}
-            />
-          }
-        />
-      )}
+      {renderBody()}
     </Screen>
   );
 }
@@ -212,47 +422,50 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: spacing.screenSide,
     paddingTop: spacing.base,
-    paddingBottom: spacing.sm,
+    paddingBottom: spacing.md,
+    gap: spacing.md,
   },
   headerTitleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.md,
   },
   exportButton: {
+    minHeight: size.touch,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.pill,
-    backgroundColor: colors.primaryTint,
+  },
+  filters: {
+    gap: spacing.sm,
+  },
+  listPadding: {
+    paddingHorizontal: spacing.screenSide,
   },
   listContent: {
     paddingHorizontal: spacing.screenSide,
-    paddingBottom: spacing['3xl'],
+    gap: spacing.xl,
   },
-  sectionHeader: {
-    paddingTop: spacing.base,
-    paddingBottom: spacing.xs,
-    backgroundColor: colors.canvas,
+  section: {
+    gap: spacing.sm,
   },
   sectionHeaderText: {
     letterSpacing: 0.5,
   },
-  rowWrapper: {
-    marginVertical: 4,
+  rowSkeleton: {
+    borderRadius: 0,
   },
-  skeletonContainer: {
-    padding: spacing.screenSide,
-    gap: spacing.md,
+  inlineError: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
-  skeletonItem: {
-    borderRadius: radius.md,
+  inlineErrorText: {
+    flex: 1,
   },
-  emptyContainer: {
-    marginTop: spacing['3xl'],
-    paddingHorizontal: spacing.screenSide,
+  inlineRetry: {
+    minHeight: size.touch,
+    justifyContent: 'center',
   },
 });

@@ -11,155 +11,147 @@ import {
 } from 'lucide-react-native';
 import {
   colors,
-  radius,
-  spacing,
-  typeLabel,
+  formatCentavosToPHP,
   type TransactionHistoryItem,
 } from '@davao-bank/shared';
+import { useSettings } from '../context/SettingsContext';
+import {
+  counterpartyPhrase,
+  formatRowTime,
+  transactionNote,
+  transactionTitle,
+} from '../utils/transactionDisplay';
 import { Text } from './Text';
 import { AmountText } from './AmountText';
-import { Badge } from './Badge';
+import { Badge, transactionStatusBadge } from './Badge';
 import { Pressable } from './Pressable';
+import { LIST_ICON_SIZE, groupedListStyles } from './GroupedList';
+
+/** Amounts cap text scaling at 1.4 (spec 7B.6). */
+const AMOUNT_MAX_SCALE = 1.4;
 
 export interface TransactionRowProps {
   transaction: TransactionHistoryItem;
   onPress?: () => void;
-  hideBalance?: boolean;
-  /** Container overrides, e.g. borderless rows inside a grouped card. */
+  /**
+   * The original transaction a reversal row reverses, when it is loaded.
+   * Turns the title into "Reversal · Transfer to •• 8720".
+   */
+  reversalOf?: TransactionHistoryItem | null;
+  /** Account prefix for the meta line (Activity): "Savings · To •• 7943". */
+  accountLabel?: string;
+  /** Container overrides. */
   style?: StyleProp<ViewStyle>;
 }
 
+function rowIcon(item: TransactionHistoryItem): { icon: React.ReactNode; bg: string } {
+  const isCredit = item.direction === 'credit';
+  switch (item.type) {
+    case 'deposit':
+      return {
+        icon: <PlusCircle size={LIST_ICON_SIZE} color={colors.primary} />,
+        bg: colors.primaryTint,
+      };
+    case 'withdrawal':
+      return {
+        icon: <MinusCircle size={LIST_ICON_SIZE} color={colors.orangeText} />,
+        bg: colors.tintOrange,
+      };
+    case 'transfer':
+      return isCredit
+        ? {
+            icon: <ArrowDownLeft size={LIST_ICON_SIZE} color={colors.primary} />,
+            bg: colors.primaryTint,
+          }
+        : {
+            icon: <ArrowUpRight size={LIST_ICON_SIZE} color={colors.blueText} />,
+            bg: colors.tintBlue,
+          };
+    case 'bill_payment':
+      return {
+        icon: <Receipt size={LIST_ICON_SIZE} color={colors.orangeText} />,
+        bg: colors.tintOrange,
+      };
+    case 'reversal':
+      return {
+        icon: <RotateCcw size={LIST_ICON_SIZE} color={colors.textSecondary} />,
+        bg: colors.surfaceSubtle,
+      };
+    case 'adjustment':
+      return {
+        icon: <Sliders size={LIST_ICON_SIZE} color={colors.blueText} />,
+        bg: colors.tintBlue,
+      };
+    default:
+      return {
+        icon: <Receipt size={LIST_ICON_SIZE} color={colors.ink} />,
+        bg: colors.surfaceSubtle,
+      };
+  }
+}
+
+/**
+ * Spec 7B.2 transaction row: minHeight 64, padding 12×16, 40 pt disc, title
+ * (`bodyStrong`) over the meta line (caption, muted), amount (`bodyStrong`,
+ * tabular) on the right. The row reads `hideBalance` itself.
+ */
 export function TransactionRow({
   transaction,
   onPress,
-  hideBalance = false,
+  reversalOf,
+  accountLabel,
   style,
 }: TransactionRowProps) {
+  const { hideBalance } = useSettings();
   const isCredit = transaction.direction === 'credit';
   const isReversed = transaction.status === 'reversed';
 
-  // Format short title & subtitle per Proposal §A.4
-  const getDisplayDetails = () => {
-    switch (transaction.type) {
-      case 'deposit':
-        return {
-          title: 'Cash-in',
-          subtitle: transaction.reference ? `Ref: ${transaction.reference}` : 'Deposit',
-          icon: <PlusCircle size={22} color={colors.green} />,
-          iconBg: colors.tintBlue,
-        };
-      case 'withdrawal':
-        return {
-          title: 'Cash-out',
-          subtitle: transaction.reference
-            ? `Ref: ${transaction.reference}`
-            : 'Withdrawal',
-          icon: <MinusCircle size={22} color={colors.orange} />,
-          iconBg: colors.tintOrange,
-        };
-      case 'transfer':
-        if (isCredit) {
-          return {
-            title: 'Transfer in',
-            subtitle: transaction.counterparty_account_number
-              ? `From ${transaction.counterparty_account_number}`
-              : `Ref: ${transaction.reference || 'Transfer'}`,
-            icon: <ArrowDownLeft size={22} color={colors.primary} />,
-            iconBg: colors.primaryTint,
-          };
-        } else {
-          return {
-            title: 'Transfer out',
-            subtitle: transaction.counterparty_account_number
-              ? `To ${transaction.counterparty_account_number}`
-              : `Ref: ${transaction.reference || 'Transfer'}`,
-            icon: <ArrowUpRight size={22} color={colors.ink} />,
-            iconBg: colors.surfaceSubtle,
-          };
-        }
-      case 'reversal':
-        return {
-          title: 'Reversal',
-          subtitle: transaction.reference || 'Admin adjustment',
-          icon: <RotateCcw size={22} color={colors.redText} />,
-          iconBg: colors.tintRed,
-        };
-      case 'adjustment':
-        return {
-          title: 'Adjustment',
-          subtitle: transaction.reference || 'Balance correction',
-          icon: <Sliders size={22} color={colors.blueText} />,
-          iconBg: colors.tintBlue,
-        };
-      case 'bill_payment':
-        return {
-          title: 'Bill payment',
-          subtitle: transaction.reference
-            ? `Ref: ${transaction.reference}`
-            : 'Bill payment',
-          icon: <Receipt size={22} color={colors.primary} />,
-          iconBg: colors.primaryTint,
-        };
-      default:
-        return {
-          title: typeLabel(transaction.type),
-          subtitle: transaction.reference || 'Transaction',
-          icon: <Receipt size={22} color={colors.ink} />,
-          iconBg: colors.surfaceSubtle,
-        };
-    }
-  };
+  const title = transactionTitle(transaction, reversalOf);
+  const time = formatRowTime(transaction.created_at);
+  const detail = counterpartyPhrase(transaction) ?? transactionNote(transaction);
+  const meta = [accountLabel, detail, time].filter(Boolean).join(' · ');
 
-  const { title, subtitle, icon, iconBg } = getDisplayDetails();
+  const badge = transactionStatusBadge(transaction.status, 'list');
+  const { icon, bg } = rowIcon(transaction);
 
-  // Format time
-  const timeStr = new Date(transaction.created_at).toLocaleTimeString('en-US', {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  const amountLabel = hideBalance
+    ? 'amount hidden'
+    : `${isCredit ? 'plus' : 'minus'} ${formatCentavosToPHP(transaction.amount)}`;
+  const a11yLabel = [title, meta, amountLabel, badge?.label].filter(Boolean).join(', ');
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${title}, ${subtitle}, ${timeStr}`}
+      accessibilityLabel={a11yLabel}
       feedbackType="highlight"
       onPress={onPress}
       disabled={!onPress}
-      style={[styles.container, style]}
+      style={[groupedListStyles.row, styles.container, style]}
     >
-      <View style={[styles.iconCircle, { backgroundColor: iconBg }]}>{icon}</View>
+      <View style={[groupedListStyles.disc, { backgroundColor: bg }]}>{icon}</View>
 
-      <View style={styles.detailsContainer}>
-        <View style={styles.topRow}>
-          <Text variant="bodyStrong" color={colors.ink} numberOfLines={1}>
-            {title}
-          </Text>
-          <AmountText
-            amountCentavos={transaction.amount}
-            direction={isCredit ? 'incoming' : 'outgoing'}
-            variant="bodyStrong"
-            hidden={hideBalance}
-            showSign
-          />
-        </View>
+      <View style={styles.text}>
+        <Text variant="bodyStrong" color={colors.ink} numberOfLines={1}>
+          {title}
+        </Text>
+        <Text variant="caption" color={colors.textMuted} numberOfLines={1}>
+          {meta}
+        </Text>
+      </View>
 
-        <View style={styles.bottomRow}>
-          <Text
-            variant="caption"
-            color={colors.textSecondary}
-            numberOfLines={1}
-            style={styles.subtitle}
-          >
-            {subtitle} · {timeStr}
-          </Text>
-          {transaction.status === 'reversed' ? (
-            <Badge label="Reversed" variant="danger" />
-          ) : transaction.status === 'pending' ? (
-            <Badge label="Pending" variant="warning" />
-          ) : transaction.status === 'failed' ? (
-            <Badge label="Failed" variant="danger" />
-          ) : null}
-        </View>
+      <View style={styles.trailing}>
+        <AmountText
+          amountCentavos={transaction.amount}
+          direction={isCredit ? 'incoming' : 'outgoing'}
+          color={isReversed ? colors.textMuted : undefined}
+          variant="bodyStrong"
+          hidden={hideBalance}
+          maxFontSizeMultiplier={AMOUNT_MAX_SCALE}
+          style={isReversed ? styles.struck : undefined}
+        />
+        {badge ? (
+          <Badge label={badge.label} variant={badge.variant} style={styles.badge} />
+        ) : null}
       </View>
     </Pressable>
   );
@@ -167,39 +159,18 @@ export function TransactionRow({
 
 const styles = StyleSheet.create({
   container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.base,
     backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
   },
-  iconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: radius.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: spacing.md,
-  },
-  detailsContainer: {
+  text: {
     flex: 1,
   },
-  topRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
+  trailing: {
+    alignItems: 'flex-end',
   },
-  bottomRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  badge: {
+    alignSelf: 'flex-end',
   },
-  subtitle: {
-    flex: 1,
-    marginRight: spacing.sm,
+  struck: {
+    textDecorationLine: 'line-through',
   },
 });

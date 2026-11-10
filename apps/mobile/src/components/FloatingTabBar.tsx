@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import * as Haptics from 'expo-haptics';
 import { BlurView } from 'expo-blur';
-import { colors, typography } from '@davao-bank/shared';
+import { colors, spacing, typography } from '@davao-bank/shared';
 import { Text } from './Text';
 import { Pressable } from './Pressable';
 
@@ -14,6 +14,20 @@ export const FLOATING_TAB_BAR_HEIGHT = 64;
 /** Distance from the window bottom to the pill's bottom edge: `max(inset, 8) + 8`. */
 export function floatingTabBarBottomOffset(safeAreaBottom: number): number {
   return Math.max(safeAreaBottom, 8) + 8;
+}
+
+/**
+ * Bottom padding for a tab screen's scroll content placed inside `Screen`
+ * (whose SafeAreaView already pads the bottom inset): the last item ends
+ * 16 pt above the floating bar (spec 7B "Bottom clearance").
+ */
+export function tabScreenBottomClearance(safeAreaBottom: number): number {
+  return (
+    floatingTabBarBottomOffset(safeAreaBottom) +
+    FLOATING_TAB_BAR_HEIGHT +
+    spacing.base -
+    safeAreaBottom
+  );
 }
 
 export function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarProps) {

@@ -392,7 +392,6 @@ export function HomeScreen({
           error={transactionsError}
           onRetry={retryLoad}
           transactions={transactions}
-          hideBalance={hideBalance}
           onNavigateToActivity={onNavigateToActivity}
           onSelectTransaction={(transaction) =>
             navigation.navigate('Receipt', {

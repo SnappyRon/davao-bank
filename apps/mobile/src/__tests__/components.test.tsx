@@ -6,6 +6,11 @@ import { TransactionRow } from '../components/TransactionRow';
 import { EmptyState } from '../components/EmptyState';
 import type { TransactionHistoryItem } from '@davao-bank/shared';
 
+// TransactionRow reads hideBalance from SettingsContext itself (spec 7B.2).
+jest.mock('../context/SettingsContext', () => ({
+  useSettings: () => ({ hideBalance: false }),
+}));
+
 describe('Mobile Core UI Components', () => {
   describe('Button', () => {
     it('renders button title and fires onPress', async () => {
@@ -81,11 +86,12 @@ describe('Mobile Core UI Components', () => {
       const onPress = jest.fn();
       await render(<TransactionRow transaction={mockTransfer} onPress={onPress} />);
 
-      expect(screen.getByText('Transfer in')).toBeTruthy();
+      expect(screen.getByText('Received from •• 2222')).toBeTruthy();
       expect(screen.getByText('+₱500.00')).toBeTruthy();
-      expect(screen.getByText(/From 1022222222/)).toBeTruthy();
+      expect(screen.getByText(/From •• 2222/)).toBeTruthy();
+      expect(screen.queryByText(/1022222222/)).toBeNull();
 
-      fireEvent.press(screen.getByText('Transfer in'));
+      fireEvent.press(screen.getByText('Received from •• 2222'));
       expect(onPress).toHaveBeenCalledTimes(1);
     });
 

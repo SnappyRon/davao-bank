@@ -247,7 +247,9 @@ describe('HomeScreen (7B.1)', () => {
     await render(<HomeScreen />);
     expect(await screen.findByText('Coming up')).toBeTruthy();
     expect(screen.getByText('Nov 10 · Monthly')).toBeTruthy();
-    fireEvent.press(screen.getByRole('button', { name: 'Rent, Nov 10 · Monthly' }));
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Rent, Nov 10 · Monthly, ₱5,000.00' })
+    );
     expect(mockNavigate).toHaveBeenCalledWith('ScheduledPayments');
   });
 

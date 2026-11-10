@@ -3,7 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { Zap, Send, ChevronRight } from 'lucide-react-native';
 import {
   colors,
-  radius,
+  formatCentavosToPHP,
   size,
   spacing,
   type ScheduledPayment,
@@ -13,14 +13,12 @@ import { Text } from '../../components/Text';
 import { AmountText } from '../../components/AmountText';
 import { Pressable } from '../../components/Pressable';
 import { formatShortDate } from '../../components/CurrencyWatchCard';
+import { LIST_ICON_SIZE, groupedListStyles } from '../../components/GroupedList';
 
-/** Spec 7B.1: up to 3 rows in one grouped card; hairlines inset 72. */
+/** Spec 7B.1: up to 3 rows in one grouped card; hairlines inset 72 (shared metrics). */
 const MAX_ROWS = 3;
-const DISC_SIZE = 40;
-const ICON_SIZE = 20;
+const ICON_SIZE = LIST_ICON_SIZE;
 const CHEVRON_SIZE = 16;
-const ROW_MIN_HEIGHT = 64;
-const HAIRLINE_INSET = spacing.base + DISC_SIZE + spacing.base;
 
 const FREQUENCY_LABELS: Record<ScheduledPaymentFrequency, string> = {
   once: 'One time',
@@ -74,22 +72,25 @@ export function HomeUpcomingPayments({
         </Pressable>
       </View>
 
-      <View style={styles.group}>
+      <View style={groupedListStyles.group}>
         {rows.map((sched, index) => {
           const title = scheduleTitle(sched);
           const meta = `${formatShortDate(sched.next_run_date)} · ${FREQUENCY_LABELS[sched.frequency] ?? sched.frequency}`;
+          const amountLabel = hideBalance
+            ? 'amount hidden'
+            : formatCentavosToPHP(sched.amount);
           return (
             <Pressable
               key={sched.id}
-              style={styles.row}
+              style={groupedListStyles.row}
               onPress={onOpenSchedules}
               feedbackType="highlight"
               accessibilityRole="button"
-              accessibilityLabel={`${title}, ${meta}`}
+              accessibilityLabel={`${title}, ${meta}, ${amountLabel}`}
             >
               <View
                 style={[
-                  styles.disc,
+                  groupedListStyles.disc,
                   {
                     backgroundColor:
                       sched.kind === 'bill' ? colors.tintOrange : colors.tintBlue,
@@ -118,7 +119,9 @@ export function HomeUpcomingPayments({
                 showSign={false}
                 maxFontSizeMultiplier={1.4}
               />
-              {index < rows.length - 1 ? <View style={styles.hairline} /> : null}
+              {index < rows.length - 1 ? (
+                <View style={groupedListStyles.hairlineAbsolute} />
+              ) : null}
             </Pressable>
           );
         })}
@@ -142,37 +145,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.xs,
   },
-  group: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    overflow: 'hidden',
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.base,
-    minHeight: ROW_MIN_HEIGHT,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.base,
-  },
-  disc: {
-    width: DISC_SIZE,
-    height: DISC_SIZE,
-    borderRadius: radius.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   rowText: {
     flex: 1,
-  },
-  hairline: {
-    position: 'absolute',
-    left: HAIRLINE_INSET,
-    right: 0,
-    bottom: 0,
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: colors.border,
   },
 });

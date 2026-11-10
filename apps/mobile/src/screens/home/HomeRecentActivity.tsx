@@ -1,26 +1,28 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { ChevronRight } from 'lucide-react-native';
-import {
-  colors,
-  radius,
-  size,
-  spacing,
-  type TransactionHistoryItem,
-} from '@davao-bank/shared';
+import { colors, size, spacing, type TransactionHistoryItem } from '@davao-bank/shared';
 import { Text } from '../../components/Text';
 import { TransactionRow } from '../../components/TransactionRow';
 import { EmptyState } from '../../components/EmptyState';
 import { Skeleton } from '../../components/Skeleton';
 import { Pressable } from '../../components/Pressable';
 import { Button } from '../../components/Button';
+import {
+  GroupedList,
+  ListHairline,
+  LIST_ROW_MIN_HEIGHT,
+  groupedListStyles,
+} from '../../components/GroupedList';
+import {
+  buildReversalOriginals,
+  reversalOriginalFor,
+} from '../../utils/transactionDisplay';
 
-/** Spec 7B.1: one grouped card with 5 rows; hairlines inset 72. */
+/** Spec 7B.1: one grouped card with 5 rows; hairlines inset 72 (shared metrics). */
 const MAX_ROWS = 5;
 const SKELETON_ROWS = 3;
-const ROW_SKELETON_HEIGHT = 64;
 const CHEVRON_SIZE = 16;
-const HAIRLINE_INSET = 72;
 
 interface HomeRecentActivityProps {
   loading: boolean;
@@ -28,7 +30,6 @@ interface HomeRecentActivityProps {
   error: string | null;
   onRetry: () => void;
   transactions: TransactionHistoryItem[];
-  hideBalance: boolean;
   onNavigateToActivity?: () => void;
   onSelectTransaction: (tx: TransactionHistoryItem) => void;
 }
@@ -38,11 +39,13 @@ export function HomeRecentActivity({
   error,
   onRetry,
   transactions,
-  hideBalance,
   onNavigateToActivity,
   onSelectTransaction,
 }: HomeRecentActivityProps) {
   const rows = transactions.slice(0, MAX_ROWS);
+  // Reversal titles look up the original among everything loaded, not only
+  // the 5 rows shown.
+  const originals = useMemo(() => buildReversalOriginals(transactions), [transactions]);
 
   return (
     <View style={styles.section}>
@@ -67,7 +70,7 @@ export function HomeRecentActivity({
       </View>
 
       {error && !loading ? (
-        <View style={[styles.group, styles.errorBox]}>
+        <View style={[groupedListStyles.group, styles.errorBox]}>
           <Text variant="bodyStrong" color={colors.ink}>
             Activity unavailable
           </Text>
@@ -77,16 +80,16 @@ export function HomeRecentActivity({
           <Button title="Try again" variant="secondary" onPress={onRetry} />
         </View>
       ) : loading ? (
-        <View style={styles.group}>
+        <GroupedList>
           {Array.from({ length: SKELETON_ROWS }, (_, index) => (
             <Skeleton
               key={index}
               width="100%"
-              height={ROW_SKELETON_HEIGHT}
+              height={LIST_ROW_MIN_HEIGHT}
               style={styles.rowSkeleton}
             />
           ))}
-        </View>
+        </GroupedList>
       ) : rows.length === 0 ? (
         <EmptyState
           title="No activity yet"
@@ -94,19 +97,18 @@ export function HomeRecentActivity({
           scrollable={false}
         />
       ) : (
-        <View style={styles.group}>
+        <GroupedList>
           {rows.map((item, index) => (
             <View key={item.ledger_entry_id || item.transaction_id}>
               <TransactionRow
                 transaction={item}
-                hideBalance={hideBalance}
+                reversalOf={reversalOriginalFor(item, originals)}
                 onPress={() => onSelectTransaction(item)}
-                style={styles.groupedRow}
               />
-              {index < rows.length - 1 ? <View style={styles.hairline} /> : null}
+              {index < rows.length - 1 ? <ListHairline /> : null}
             </View>
           ))}
-        </View>
+        </GroupedList>
       )}
     </View>
   );
@@ -127,29 +129,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.xs,
   },
-  group: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    overflow: 'hidden',
-  },
   errorBox: {
     padding: spacing.base,
     gap: spacing.sm,
   },
-  // The row keeps its own layout (restyled in 7B.2); inside the grouped card
-  // it drops its per-row border and radius.
-  groupedRow: {
-    borderWidth: 0,
-    borderRadius: 0,
-  },
   rowSkeleton: {
     borderRadius: 0,
-  },
-  hairline: {
-    marginLeft: HAIRLINE_INSET,
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: colors.border,
   },
 });

@@ -20,6 +20,7 @@ import { colors, spacing, fetchUserProfile, type Profile } from '@davao-bank/sha
 import { supabase } from './src/lib/supabase';
 import { AppLockProvider } from './src/context/AppLockContext';
 import { SettingsProvider } from './src/context/SettingsContext';
+import { useUnreadNotificationCount } from './src/hooks/useUnreadNotificationCount';
 import {
   Logo,
   Text,
@@ -97,7 +98,6 @@ export default function App() {
   const [loading, setLoading] = useState<boolean>(true);
   const [authScreen, setAuthScreen] = useState<AuthScreenState>('login');
   const [targetEmail, setTargetEmail] = useState<string>('');
-  const [unreadCount, setUnreadCount] = useState<number>(0);
 
   useEffect(() => {
     if (Platform.OS === 'android') {
@@ -128,20 +128,6 @@ export default function App() {
     }
   }, []);
 
-  const loadUnreadCount = useCallback(async () => {
-    try {
-      const { count } = await supabase
-        .from('notifications')
-        .select('*', { count: 'exact', head: true })
-        .eq('read', false);
-      if (typeof count === 'number') {
-        setUnreadCount(count);
-      }
-    } catch {
-      // Non-critical
-    }
-  }, []);
-
   useEffect(() => {
     // 1. Initial session check
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -149,7 +135,6 @@ export default function App() {
       setSession(session);
       if (session?.user) {
         loadProfile(session.user.id);
-        loadUnreadCount();
       }
       setLoading(false);
     });
@@ -161,11 +146,9 @@ export default function App() {
       setSession(session);
       if (session?.user) {
         loadProfile(session.user.id);
-        loadUnreadCount();
       } else {
         setRestoredSession(false);
         setProfile(null);
-        setUnreadCount(0);
       }
       setLoading(false);
     });
@@ -173,7 +156,13 @@ export default function App() {
     return () => {
       subscription.unsubscribe();
     };
-  }, [loadProfile, loadUnreadCount]);
+  }, [loadProfile]);
+
+  // Inbox badge: loads at start / sign-in and on returning to the foreground,
+  // not only after Inbox is opened. Signing out resets it to 0.
+  const { count: unreadCount, setCount: setUnreadCount } = useUnreadNotificationCount(
+    session?.user?.id ?? null
+  );
 
   const isAuthenticated = Boolean(session?.user);
   const isEmailVerified = Boolean(session?.user?.email_confirmed_at);

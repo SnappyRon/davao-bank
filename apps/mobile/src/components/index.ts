@@ -24,3 +24,4 @@ export * from './Sheet';
 export * from './FloatingTabBar';
 export * from './ResultView';
 export * from './AccountPickerSheet';
+export * from './GroupedList';
