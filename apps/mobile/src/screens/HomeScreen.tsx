@@ -41,7 +41,6 @@ import {
   Pressable,
 } from '../components';
 import { SuspendedScreen } from './SuspendedScreen';
-import { ScheduledPaymentsModal } from './ScheduledPaymentsModal';
 import { HomeBalanceCard } from './home/HomeBalanceCard';
 import { HomeUpcomingPayments } from './home/HomeUpcomingPayments';
 import { HomeRecentActivity } from './home/HomeRecentActivity';
@@ -64,9 +63,6 @@ export function HomeScreen({
 
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
-
-  // Modals
-  const [isScheduledOpen, setIsScheduledOpen] = useState(false);
 
   // Upcoming scheduled payments & Pending requests
   const [upcomingSchedules, setUpcomingSchedules] = useState<ScheduledPayment[]>([]);
@@ -276,7 +272,7 @@ export function HomeScreen({
             label="Scheduled"
             color="yellow"
             icon={<CalendarClock size={24} color={colors.ink} />}
-            onPress={() => setIsScheduledOpen(true)}
+            onPress={() => navigation.navigate('ScheduledPayments')}
           />
         </ActionTileGrid>
 
@@ -286,7 +282,7 @@ export function HomeScreen({
         {/* Upcoming Payments Strip */}
         <HomeUpcomingPayments
           schedules={upcomingSchedules}
-          onOpenSchedules={() => setIsScheduledOpen(true)}
+          onOpenSchedules={() => navigation.navigate('ScheduledPayments')}
         />
 
         {/* Recent Activity Section */}
@@ -316,14 +312,6 @@ export function HomeScreen({
           </View>
         ) : null}
       </ScrollView>
-
-      {/* Money Action Modals */}
-
-      <ScheduledPaymentsModal
-        visible={isScheduledOpen}
-        onClose={() => setIsScheduledOpen(false)}
-        onRefresh={loadData}
-      />
     </Screen>
   );
 }

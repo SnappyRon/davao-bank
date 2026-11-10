@@ -1,14 +1,14 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, StyleSheet, FlatList, Alert, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { View, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import {
   Users,
   Plus,
   Trash2,
   Edit2,
   Search,
-  Check,
   X,
   CreditCard,
+  AlertCircle,
 } from 'lucide-react-native';
 import {
   colors,
@@ -19,67 +19,72 @@ import {
 } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
 import {
-  BottomSheet,
+  FeatureScreen,
   Text,
   Button,
   TextField,
   Card,
   EmptyState,
-  Badge,
   Pressable,
 } from '../components';
 
-interface SavedRecipientsModalProps {
-  visible: boolean;
-  onClose: () => void;
-  onSelectRecipient?: (accountNumber: string, nickname: string) => void;
-}
-
-export function SavedRecipientsModal({
-  visible,
-  onClose,
-  onSelectRecipient,
-}: SavedRecipientsModalProps) {
+export function SavedRecipientsScreen() {
   const [recipients, setRecipients] = useState<SavedRecipient[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Add / Edit State
   const [isAdding, setIsAdding] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
   const [newAccountNumber, setNewAccountNumber] = useState('');
   const [newNickname, setNewNickname] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
   const loadRecipients = useCallback(async () => {
-    try {
+    if (mountedRef.current) {
       setLoading(true);
+      setLoadError(null);
+    }
+    try {
       const { data, error } = await supabase
         .from('saved_recipients')
         .select('*')
         .order('created_at', { ascending: false });
 
+      if (!mountedRef.current) return;
       if (error) {
-        console.warn('Error fetching saved recipients:', error);
+        setLoadError(toUserMessage(error));
+        setRecipients([]);
       } else {
         setRecipients(data || []);
       }
-    } catch (err) {
-      console.warn('Failed to load saved recipients:', err);
+    } catch (err: unknown) {
+      if (mountedRef.current) {
+        setLoadError(toUserMessage(err));
+        setRecipients([]);
+      }
     } finally {
-      setLoading(false);
+      if (mountedRef.current) {
+        setLoading(false);
+      }
     }
   }, []);
 
   useEffect(() => {
-    if (visible) {
-      loadRecipients();
-      setIsAdding(false);
-      setEditingId(null);
-      setFormError(null);
-    }
-  }, [visible, loadRecipients]);
+    void loadRecipients();
+  }, [loadRecipients]);
+
+  const isDirty =
+    isAdding && (newAccountNumber.trim().length > 0 || newNickname.trim().length > 0);
 
   const handleAddRecipient = async () => {
     const acc = newAccountNumber.trim();
@@ -187,9 +192,26 @@ export function SavedRecipientsModal({
   });
 
   return (
-    <BottomSheet visible={visible} onClose={onClose} title="Saved Recipients">
+    <FeatureScreen title="Saved Recipients" isDirty={isDirty} isProcessing={submitting}>
       <View style={styles.container}>
-        {isAdding ? (
+        {loadError ? (
+          <View style={styles.loadErrorContainer}>
+            <AlertCircle size={24} color={colors.redText} />
+            <Text
+              variant="body"
+              color={colors.redText}
+              accessibilityRole="alert"
+              style={styles.loadErrorText}
+            >
+              {loadError}
+            </Text>
+            <Button
+              title="Try again"
+              variant="secondary"
+              onPress={() => void loadRecipients()}
+            />
+          </View>
+        ) : isAdding ? (
           <Card variant="elevated" style={styles.formCard}>
             <View style={styles.formHeader}>
               <Text variant="title" color={colors.ink}>
@@ -289,24 +311,12 @@ export function SavedRecipientsModal({
                 }
                 actionTitle={searchQuery ? undefined : 'Add Recipient'}
                 onAction={searchQuery ? undefined : () => setIsAdding(true)}
+                scrollable={false}
               />
             ) : (
-              <FlatList
-                data={filteredRecipients}
-                keyExtractor={(item) => item.id}
-                contentContainerStyle={styles.listContent}
-                keyboardShouldPersistTaps="handled"
-                renderItem={({ item }) => (
-                  <Card
-                    variant="elevated"
-                    style={styles.recipientRow}
-                    onPress={() => {
-                      if (onSelectRecipient) {
-                        onSelectRecipient(item.account_number, item.nickname);
-                        onClose();
-                      }
-                    }}
-                  >
+              <View style={styles.listContent}>
+                {filteredRecipients.map((item) => (
+                  <Card key={item.id} variant="elevated" style={styles.recipientRow}>
                     <View style={styles.rowMain}>
                       <View style={styles.iconCircle}>
                         <CreditCard size={18} color={colors.primary} />
@@ -344,20 +354,27 @@ export function SavedRecipientsModal({
                       </Pressable>
                     </View>
                   </Card>
-                )}
-              />
+                ))}
+              </View>
             )}
           </>
         )}
       </View>
-    </BottomSheet>
+    </FeatureScreen>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     paddingBottom: spacing.lg,
-    maxHeight: 520,
+  },
+  loadErrorContainer: {
+    paddingVertical: spacing.xl,
+    alignItems: 'center',
+    gap: spacing.base,
+  },
+  loadErrorText: {
+    textAlign: 'center',
   },
   headerRow: {
     flexDirection: 'row',
