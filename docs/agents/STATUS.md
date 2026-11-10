@@ -8,8 +8,8 @@
 - **Branch:** `phase-7-ui-motion` (branched from tip of `phase-6-5-strong-auth`).
 - **Active prompt:** `Phase-7-Prompt-UI-UX-and-Motion.md`.
 - **Assigned to:** captain (Codex out of quota until 2026-11-11 00:52; Antigravity `frontend` and `backend-reviewer` out of quota). Reviewed by the captain workflow (`docs/agents/WORKFLOW.md`).
-- **Exact next step:** captain reviews the 7B.2 fix round for `fabdf1c` (two commits: review findings + notifications fetch scoped to the user; see Log). Inbox → transaction deep link still blocked on the owner decision. Owner device check of the 7B.0 pages/sheets, the new Home and the 7B.2 lists.
-- **Last commit:** `Phase 7 · Fix — fabdf1c review findings (lists, Inbox, Receipt)` + `Phase 7 · Fix — scope notifications fetch to the signed-in user` (see git log).
+- **Exact next step:** Stage 7B.3 Profile (grouped Money / Security / Settings cards, Two-step row On/Off, App lock switch, Face ID, Change password page via `supabase.auth.updateUser` — plan task 6, footer secondary Sign out + version, remove the floating two-step button). Owner: device check of 7B.0–7B.2; decision on the notifications/biller-name migration.
+- **Last commit:** `41c0276` (7B.2 fixes) + captain acceptance docs commit.
 - **Blockers for this step:** none. Inbox → transaction deep links stay blocked on an owner decision (notifications have no related id).
 
 ## Stage 7B.0 — remaining work plan (captain, 2026-11-10)
@@ -226,6 +226,8 @@ Fix these before 7B:
 - **Follow-up:** add dedicated test accounts so live tests don't conflict with the presenter's real authenticator.
 
 ## Log (newest first)
+
+- **2026-11-10, Claude Code (captain):** **Stage 7B.2 accepted** (`fabdf1c` + fixes `a611b3c`, `41c0276`; Claude implementer sub agent). Reviews: Code Quality (Claude tab), UI/UX and Security (Claude sub agent stand-ins for Codex and Antigravity, out of quota) — no Blocker/High. Fixed: Inbox mark-as-read race (functional update), bill payments never show the internal billers account ("Biller"), stale Activity account filter, unread-count in-flight overwrite, unread count and `fetchNotifications` scoped to `user_id` (RLS also returns all rows to admins — separate Fix commit `41c0276`, only `InboxScreen` calls it), share file deleted after sharing, copy failure toast, consistent "Money added" / "Bank credits & debits" wording, digit search only for digit queries, inline error above an empty list, reversal receipt title, stale-load and mark-all tests, AsyncStorage cleared between tests (`setupFilesAfterEnv`). Captain re-ran: typecheck exit 0, lint 0 errors (64 warnings), format PASS, unit 26 suites / 206 tests ×2. Open: Inbox message text (PHP, full numbers, reversal UUID + staff reason, hideBalance) → 7B.9 migration; biller name in history RPC and Inbox → transaction deep link → owner decision on one DB migration; `toLocaleUpperCase` headers → 7B.8; hosted check of the `user_id` filters NOT VERIFIED (live suites not run); device NOT VERIFIED.
 
 - **2026-11-10, Claude implementer (sub agent):** commit B `Phase 7 · Fix — scope notifications fetch to the signed-in user` (Fix outside the stage, captain-approved; the only `packages/shared` change). `fetchNotifications(client, userId?)` now always filters `.eq('user_id', …)`: it uses the passed id, otherwise `client.auth.getUser()`; no user → `{ data: null, error: 'Authentication required' }` without querying. Backward compatible: the only caller (`InboxScreen`) is unchanged; no admin or script callers (grep). New `packages/shared/src/__tests__/notifications.test.ts` (3 tests). Checks: typecheck exit 0; lint `✖ 64 problems (0 errors, 64 warnings)`; format `All matched files use Prettier code style!`; unit `Test Suites: 26 passed, 26 total`, `Tests: 206 passed, 206 total`. Live suites not run (no hosted access needed for this read filter) — NOT VERIFIED on hosted.
 
