@@ -47,7 +47,6 @@ export function PayBillsScreen() {
   const [refError, setRefError] = useState<string | null>(null);
 
   const [amountStr, setAmountStr] = useState('');
-  const [selectedAccountId] = useState<string>(accounts[0]?.account_id || '');
 
   // When / Scheduling options
   const [timing, setTiming] = useState<PaymentTiming>('now');
@@ -62,8 +61,7 @@ export function PayBillsScreen() {
   const [receiptTxId, setReceiptTxId] = useState<string | null>(null);
   const [serverResult, setServerResult] = useState<any>(null);
 
-  const selectedAccount =
-    accounts.find((a) => a.account_id === selectedAccountId) || accounts[0];
+  const selectedAccount = accounts[0];
 
   useEffect(() => {
     loadBillers();
@@ -95,7 +93,7 @@ export function PayBillsScreen() {
     if (step !== 'success') {
       setIdempotencyKey(generateIdempotencyKey('bill_payment'));
     }
-  }, [amountStr, reference, selectedBiller?.id, selectedAccountId, step]);
+  }, [amountStr, reference, selectedBiller?.id, selectedAccount?.account_id, step]);
 
   const hasInput =
     Boolean(selectedBiller || reference || amountStr) && step !== 'success';
@@ -247,6 +245,7 @@ export function PayBillsScreen() {
 
   return (
     <FeatureScreen
+      stepCount={step === 'success' ? undefined : 5}
       isDirty={hasInput}
       isProcessing={loading}
       step={

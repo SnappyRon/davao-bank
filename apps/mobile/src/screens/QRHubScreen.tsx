@@ -3,7 +3,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../App';
 import { useFeatureAccounts } from '../hooks/useFeatureAccounts';
 import { AccountLoadStatus } from '../components/AccountLoadStatus';
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useCameraPermissions } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
@@ -44,6 +44,14 @@ export function QRHubScreen() {
   const [scanned, setScanned] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
 
+  const scanErrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (scanErrorTimerRef.current !== null) clearTimeout(scanErrorTimerRef.current);
+    },
+    []
+  );
+
   // Request Money state
   const [reqPayerAccount, setReqPayerAccount] = useState('');
   const [reqAmountStr, setReqAmountStr] = useState('');
@@ -78,7 +86,9 @@ export function QRHubScreen() {
       }
       setScanError(parsed.error || "This isn't a Davao Bank QR code");
       setScanned(true);
-      setTimeout(() => {
+      if (scanErrorTimerRef.current !== null) clearTimeout(scanErrorTimerRef.current);
+      scanErrorTimerRef.current = setTimeout(() => {
+        scanErrorTimerRef.current = null;
         setScanned(false);
         setScanError(null);
       }, 2500);
@@ -153,7 +163,11 @@ export function QRHubScreen() {
 
   return (
     <FeatureScreen
-      isDirty={!reqSuccess && Boolean(reqPayerAccount || reqAmountStr || reqNote)}
+      isDirty={
+        tab === 'request' &&
+        !reqSuccess &&
+        Boolean(reqPayerAccount || reqAmountStr || reqNote)
+      }
       isProcessing={reqLoading}
       title="Davao Bank QR & Request"
     >

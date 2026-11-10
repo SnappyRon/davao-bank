@@ -16,11 +16,13 @@ export function AccountLoadStatus({
   onRetry: () => void;
 }) {
   if (loading) return <Text accessibilityRole="progressbar">Loading accounts…</Text>;
-  if (!error && !empty) return null;
+  if (!error) {
+    return empty ? <Text color={colors.textMuted}>You have no accounts yet.</Text> : null;
+  }
   return (
     <View style={styles.container}>
       <Text accessibilityRole="alert" color={colors.redText}>
-        {error || 'No accounts available.'}
+        {error}
       </Text>
       <Button title="Try again" variant="secondary" onPress={onRetry} />
     </View>

@@ -10,17 +10,21 @@ import {
   executeTransfer,
   generateIdempotencyKey,
   fetchAccountBalances,
+  MAX_QR_AMOUNT_CENTAVOS,
+  MAX_QR_NOTE_LENGTH,
 } from '@davao-bank/shared';
+import type { RootStackParamList } from '../../App';
 import type { AccountBalance } from '@davao-bank/shared';
 
 const mockGoBack = jest.fn();
-const mockRouteParams = {
+const mockReplace = jest.fn();
+let mockRouteParams: RootStackParamList['Transfer'] = {
   recipientAccount: '1099999999',
   amountCentavos: 50000,
   note: 'Lunch split',
 };
 jest.mock('@react-navigation/native', () => ({
-  useNavigation: () => ({ goBack: mockGoBack, replace: jest.fn() }),
+  useNavigation: () => ({ goBack: mockGoBack, replace: mockReplace }),
   useRoute: () => ({ params: mockRouteParams }),
   useIsFocused: () => true,
   usePreventRemove: jest.fn(),
@@ -97,6 +101,11 @@ describe('TransferScreen - F1 State & Receipt Guarantees', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockRouteParams = {
+      recipientAccount: '1099999999',
+      amountCentavos: 50000,
+      note: 'Lunch split',
+    };
     jest
       .mocked(fetchAccountBalances)
       .mockResolvedValue({ data: initialAccounts, error: null });
@@ -127,6 +136,7 @@ describe('TransferScreen - F1 State & Receipt Guarantees', () => {
     // Should now be on Success step
     expect(screen.getByText('Transfer Sent')).toBeTruthy();
     expect(screen.getByText('Balance now')).toBeTruthy();
+    expect(screen.queryByText('Loading accounts…')).toBeNull();
 
     const keyCalls = jest.mocked(generateIdempotencyKey).mock.calls.length;
     const submittedKey = jest.mocked(executeTransfer).mock.calls[0][1].idempotency_key;
@@ -181,8 +191,8 @@ describe('TransferScreen - F1 State & Receipt Guarantees', () => {
   ])(
     'rejects QR prefill recipient %s after loading the source account',
     async (recipient, message) => {
-      const previousRecipient = mockRouteParams.recipientAccount;
-      mockRouteParams.recipientAccount = recipient;
+      const previousRecipient = mockRouteParams!.recipientAccount;
+      mockRouteParams!.recipientAccount = recipient;
       try {
         await render(<TransferScreen />);
         expect(await screen.findByText(message)).toBeTruthy();
@@ -190,10 +200,66 @@ describe('TransferScreen - F1 State & Receipt Guarantees', () => {
         expect(screen.queryByRole('button', { name: 'Authorize Transfer' })).toBeNull();
         expect(executeTransfer).not.toHaveBeenCalled();
       } finally {
-        mockRouteParams.recipientAccount = previousRecipient;
+        mockRouteParams!.recipientAccount = previousRecipient;
       }
     }
   );
+
+  it('opens Recipient with no params and replaces the page for Request money', async () => {
+    mockRouteParams = undefined;
+    await render(<TransferScreen />);
+    const requestMoney = await screen.findByRole('button', {
+      name: 'Need to receive funds? Request money instead',
+    });
+    expect(screen.getByText('Transfer · Recipient')).toBeTruthy();
+    expect(screen.getByText('Step 1 of 3')).toBeTruthy();
+    fireEvent.press(requestMoney);
+    expect(mockReplace).toHaveBeenCalledWith('QRHub', { initialTab: 'request' });
+  });
+
+  it.each([1.5, MAX_QR_AMOUNT_CENTAVOS + 1])(
+    'opens Amount for invalid prefill amount %s',
+    async (amountCentavos) => {
+      mockRouteParams = {
+        recipientAccount: '1099999999',
+        amountCentavos,
+        note: 'Drop this note too',
+      };
+      await render(<TransferScreen />);
+      expect(await screen.findByText('Transfer · Amount')).toBeTruthy();
+      expect(screen.getByText('Step 2 of 3')).toBeTruthy();
+      expect(screen.queryByDisplayValue('Drop this note too')).toBeNull();
+      expect(executeTransfer).not.toHaveBeenCalled();
+    }
+  );
+
+  it('drops overlength notes and opens Amount', async () => {
+    mockRouteParams = {
+      recipientAccount: '1099999999',
+      amountCentavos: 50000,
+      note: 'x'.repeat(MAX_QR_NOTE_LENGTH + 1),
+    };
+    await render(<TransferScreen />);
+    expect(await screen.findByText('Transfer · Amount')).toBeTruthy();
+    expect(screen.queryByDisplayValue(mockRouteParams.note!)).toBeNull();
+    expect(executeTransfer).not.toHaveBeenCalled();
+  });
+
+  it('keeps success and the last balance without an alert when the refresh fails', async () => {
+    await render(<TransferScreen />);
+    await screen.findByText('Transfer · Review');
+    jest
+      .mocked(fetchAccountBalances)
+      .mockResolvedValueOnce({ data: null, error: 'Network request failed' });
+    fireEvent.press(screen.getByRole('button', { name: 'Authorize Transfer' }));
+    expect(await screen.findByText('Transfer Sent')).toBeTruthy();
+    await waitFor(() => expect(fetchAccountBalances).toHaveBeenCalledTimes(2));
+    expect(screen.getByText('₱50,000.00')).toBeTruthy();
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
+    expect(screen.queryByText('Loading accounts…')).toBeNull();
+    expect(executeTransfer).toHaveBeenCalledTimes(1);
+  });
 
   it('shows checking status and retains the request key after a dropped response', async () => {
     jest.mocked(executeTransfer).mockClear();

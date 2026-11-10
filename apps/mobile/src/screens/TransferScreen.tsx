@@ -19,6 +19,8 @@ import {
   phpToCentavos,
   generateIdempotencyKey,
   executeTransfer,
+  MAX_QR_AMOUNT_CENTAVOS,
+  MAX_QR_NOTE_LENGTH,
   toUserMessage,
   type AccountBalance,
   type MoneyOperationResult,
@@ -38,6 +40,7 @@ import { TransferSuccessStep } from './transfer/TransferSuccessStep';
 
 type TransferStep = 'recipient' | 'amount' | 'review' | 'success';
 
+// Never add Transfer to a React Navigation linking config: the davaobank app scheme matches QR payloads.
 export function TransferScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const onClose = () => navigation.goBack();
@@ -56,7 +59,6 @@ export function TransferScreen() {
 
   const [step, setStep] = useState<TransferStep>('recipient');
   const [recipientTab, setRecipientTab] = useState<RecipientTab>('saved');
-  const [selectedAccountId] = useState<string>(accounts[0]?.account_id || '');
   const [recipientAccountNumber, setRecipientAccountNumber] = useState('');
   const [recipientNickname, setRecipientNickname] = useState('');
   const [amountStr, setAmountStr] = useState('');
@@ -86,8 +88,7 @@ export function TransferScreen() {
   const [successResult, setSuccessResult] = useState<MoneyOperationResult | null>(null);
   const [idempotencyKey, setIdempotencyKey] = useState<string>('');
 
-  const selectedAccount =
-    accounts.find((a) => a.account_id === selectedAccountId) || accounts[0];
+  const selectedAccount = accounts[0];
 
   const otherAccounts = accounts.filter(
     (a) => a.account_id !== selectedAccount?.account_id
@@ -119,7 +120,7 @@ export function TransferScreen() {
     if (step !== 'success') {
       setIdempotencyKey(generateIdempotencyKey('transfer'));
     }
-  }, [amountStr, recipientAccountNumber, reference, selectedAccountId, step]);
+  }, [amountStr, recipientAccountNumber, reference, selectedAccount?.account_id, step]);
 
   useEffect(() => {
     // Apply route prefill once, after the source account is known.
@@ -134,8 +135,7 @@ export function TransferScreen() {
       if (initialRecipientAccount) {
         const cleaned = initialRecipientAccount.trim();
         setRecipientAccountNumber(cleaned);
-        const currentSource =
-          accounts.find((a) => a.account_id === selectedAccountId) || accounts[0];
+        const currentSource = selectedAccount;
         // §0.9 Item 3: recipient checks on QR prefill (10 digits, not same account)
         if (cleaned.length !== 10 || !/^\d{10}$/.test(cleaned)) {
           setErrorMessage('Invalid QR recipient account: must be exactly 10 digits.');
@@ -143,7 +143,14 @@ export function TransferScreen() {
         } else if (currentSource && cleaned === currentSource.account_number) {
           setErrorMessage('Cannot transfer to the same account');
           setStep('recipient');
-        } else if (initialAmountCentavos && initialAmountCentavos > 0) {
+        } else if (
+          typeof initialAmountCentavos === 'number' &&
+          Number.isInteger(initialAmountCentavos) &&
+          initialAmountCentavos > 0 &&
+          initialAmountCentavos <= MAX_QR_AMOUNT_CENTAVOS &&
+          (initialNote === undefined ||
+            (typeof initialNote === 'string' && initialNote.length <= MAX_QR_NOTE_LENGTH))
+        ) {
           setAmountStr((initialAmountCentavos / 100).toFixed(2));
           if (initialNote) setReference(initialNote);
           // §0.9 Item 3: Generate idempotency key on QR prefill path too
@@ -175,7 +182,7 @@ export function TransferScreen() {
     initialRecipientAccount,
     initialAmountCentavos,
     initialNote,
-    selectedAccountId,
+    selectedAccount,
     loadSavedRecipients,
   ]);
 
@@ -377,6 +384,7 @@ export function TransferScreen() {
 
   return (
     <FeatureScreen
+      stepCount={step === 'success' ? undefined : 3}
       isDirty={hasInput}
       isProcessing={loading || uncertain}
       step={
@@ -399,12 +407,14 @@ export function TransferScreen() {
               : 'Transfer Successful'
       }
     >
-      <AccountLoadStatus
-        loading={accountsLoading}
-        empty={accounts.length === 0}
-        error={accountError}
-        onRetry={loadAccounts}
-      />
+      {step !== 'success' && (
+        <AccountLoadStatus
+          loading={accountsLoading}
+          empty={accounts.length === 0}
+          error={accountError}
+          onRetry={loadAccounts}
+        />
+      )}
       {(step === 'success' ||
         (!accountsLoading && !accountError && accounts.length > 0)) && (
         <View style={styles.container}>
