@@ -407,3 +407,5 @@ npm run test:unit   → Test Suites: 22 passed, 22 total
 Device: **NOT VERIFIED — captain runs it** (widths 375/402/440, 1.4x text, picker sheet motion, tab-bar clearance).
 
 Known: on a network failure the error line reads `toUserMessage`'s "You appear to be offline. Nothing was sent." — the load-only wording issue already deferred to 7B.7/7B.11.
+
+**Fix round for `ee43efa` (captain-accepted CQ/UX findings):** auth error → "Balance unavailable"; stable account order (savings first); Recent activity error + retry; 44 pt "See all"; stale-load guard and a single load on mount; health check isolated; Currency Watch refetches on refresh/focus; "Amount hidden" label and `AmountText` reuse for "All accounts"; skeleton height matches the card; tab-bar height/offset exported from `FloatingTabBar`; fresh FX date "Oct 26". Checks: typecheck exit 0; lint `✖ 65 problems (0 errors, 65 warnings)`; format `All matched files use Prettier code style!`; unit `Test Suites: 22 passed, 22 total`, `Tests: 143 passed, 143 total`. Device NOT VERIFIED — captain runs it.

@@ -8,6 +8,14 @@ import { colors, typography } from '@davao-bank/shared';
 import { Text } from './Text';
 import { Pressable } from './Pressable';
 
+/** Height of the floating pill (spec 7B.0: 64 pt). */
+export const FLOATING_TAB_BAR_HEIGHT = 64;
+
+/** Distance from the window bottom to the pill's bottom edge: `max(inset, 8) + 8`. */
+export function floatingTabBarBottomOffset(safeAreaBottom: number): number {
+  return Math.max(safeAreaBottom, 8) + 8;
+}
+
 export function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const [keyboardVisible, setKeyboardVisible] = useState(false);
@@ -43,7 +51,7 @@ export function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarP
 
   return (
     <View
-      style={[styles.wrapper, { bottom: Math.max(insets.bottom, 8) + 8 }]}
+      style={[styles.wrapper, { bottom: floatingTabBarBottomOffset(insets.bottom) }]}
       accessibilityRole="tablist"
     >
       <View style={styles.pillContainer}>
@@ -148,7 +156,7 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   pillContainer: {
-    height: 64,
+    height: FLOATING_TAB_BAR_HEIGHT,
     borderRadius: 32,
     overflow: 'hidden',
     borderWidth: 1,

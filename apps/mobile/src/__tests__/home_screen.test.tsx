@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react-native';
 import {
   fetchAccountBalances,
   fetchTransactionHistory,
@@ -10,14 +10,28 @@ import {
 
 const mockNavigate = jest.fn();
 
-jest.mock('@react-navigation/native', () => ({
-  useNavigation: () => ({ navigate: mockNavigate }),
-  // Home also loads on mount; the focus reload is not needed for these tests.
-  useFocusEffect: jest.fn(),
-  useIsFocused: () => true,
-}));
+// The latest focus callback, so a test can simulate the screen regaining focus.
+let mockFocusCallback: (() => void) | null = null;
+
+jest.mock('@react-navigation/native', () => {
+  const { useEffect } = jest.requireActual('react');
+  return {
+    useNavigation: () => ({ navigate: mockNavigate }),
+    // Like the real hook, it runs on first focus (mount).
+    useFocusEffect: (callback: () => void) => {
+      mockFocusCallback = callback;
+      useEffect(() => callback(), [callback]);
+    },
+    useIsFocused: () => true,
+  };
+});
 
 jest.mock('expo-blur', () => ({ BlurView: () => null }));
+jest.mock('expo-haptics', () => ({
+  impactAsync: jest.fn(),
+  selectionAsync: jest.fn(),
+  ImpactFeedbackStyle: { Light: 'light' },
+}));
 
 jest.mock('react-native-safe-area-context', () => {
   const { View } = jest.requireActual('react-native');
@@ -108,6 +122,14 @@ function fxRow(rateDate: string, rate: number) {
 }
 
 describe('HomeScreen (7B.1)', () => {
+  // Let the rest of a load (requests, schedules, FX, health) finish inside
+  // act before the next test renders, so updates never overlap tests.
+  afterEach(async () => {
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
     mockHideBalance = false;
@@ -195,6 +217,7 @@ describe('HomeScreen (7B.1)', () => {
     });
     await render(<HomeScreen />);
     expect(await screen.findByText('All accounts ₱••••••')).toBeTruthy();
+    expect(screen.getByLabelText('All accounts, amount hidden')).toBeTruthy();
     expect(screen.queryByText('All accounts ₱12,845.67')).toBeNull();
     expect(screen.queryByText('₱12,345.67')).toBeNull();
   });
@@ -246,24 +269,135 @@ describe('HomeScreen (7B.1)', () => {
     };
     await render(<HomeScreen />);
     expect(await screen.findByText('USD/PHP ₱63.94')).toBeTruthy();
-    expect(screen.getByText(/^Reference rate · [A-Z][a-z]{2} \d{1,2}$/)).toBeTruthy();
+    expect(screen.getByText(/^[A-Z][a-z]{2} \d{1,2}$/)).toBeTruthy();
+    expect(screen.queryByText(/Reference rate/)).toBeNull();
     expect(screen.queryByText(/Not updated since/)).toBeNull();
   });
 
-  it('labels the action tiles in sentence case and keeps their targets', async () => {
+  it.each([
+    ['Transfer', 'Transfer'],
+    ['Pay bills', 'PayBills'],
+    ['QR', 'QRHub'],
+    ['Add money', 'AddMoney'],
+    ['Cash out', 'CashOut'],
+    ['Schedule', 'ScheduledPayments'],
+  ])('action tile "%s" opens %s', async (label, route) => {
     await render(<HomeScreen />);
     await screen.findByText('₱12,345.67');
-    const targets: [string, string][] = [
-      ['Transfer', 'Transfer'],
-      ['Pay bills', 'PayBills'],
-      ['QR', 'QRHub'],
-      ['Add money', 'AddMoney'],
-      ['Cash out', 'CashOut'],
-      ['Schedule', 'ScheduledPayments'],
-    ];
-    for (const [label, route] of targets) {
-      fireEvent.press(screen.getByRole('button', { name: label }));
-      expect(mockNavigate).toHaveBeenLastCalledWith(route);
-    }
+    await fireEvent.press(screen.getByRole('button', { name: label }));
+    expect(mockNavigate).toHaveBeenLastCalledWith(route);
+  });
+
+  it('shows "Balance unavailable" (not "No account yet") when there is no signed-in user', async () => {
+    const { supabase } = jest.requireMock('../lib/supabase');
+    jest.mocked(supabase.auth.getUser).mockResolvedValueOnce({
+      data: { user: null },
+      error: { message: 'Auth session missing' },
+    });
+    await render(<HomeScreen />);
+    expect(await screen.findByText('Balance unavailable')).toBeTruthy();
+    expect(screen.queryByText('No account yet')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
+    expect(fetchAccountBalances).not.toHaveBeenCalled();
+  });
+
+  it('defaults to the savings account whatever order the rows come in', async () => {
+    jest.mocked(fetchAccountBalances).mockResolvedValue({
+      data: [checking, savings],
+      error: null,
+    });
+    await render(<HomeScreen />);
+    expect(
+      await screen.findByRole('button', { name: 'Savings •• 8921. Change account' })
+    ).toBeTruthy();
+  });
+
+  it('keeps the chosen account after a focus reload', async () => {
+    jest.mocked(fetchAccountBalances).mockResolvedValue({
+      data: [savings, checking],
+      error: null,
+    });
+    await render(<HomeScreen />);
+    fireEvent.press(
+      await screen.findByRole('button', { name: 'Savings •• 8921. Change account' })
+    );
+    fireEvent.press(
+      await screen.findByRole('button', { name: 'Checking •• 7943, ₱500.00' })
+    );
+    await screen.findByRole('button', { name: 'Checking •• 7943. Change account' });
+
+    await act(async () => {
+      mockFocusCallback?.();
+    });
+
+    await waitFor(() => expect(fetchAccountBalances).toHaveBeenCalledTimes(2));
+    expect(
+      screen.getByRole('button', { name: 'Checking •• 7943. Change account' })
+    ).toBeTruthy();
+  });
+
+  it('loads once on mount', async () => {
+    await render(<HomeScreen />);
+    await screen.findByText('₱12,345.67');
+    expect(fetchAccountBalances).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows an activity error with Try again instead of "No activity yet"', async () => {
+    jest.mocked(fetchTransactionHistory).mockResolvedValueOnce({
+      data: null,
+      error: 'network request failed',
+    });
+    await render(<HomeScreen />);
+    expect(await screen.findByText('Activity unavailable')).toBeTruthy();
+    expect(screen.queryByText('No activity yet')).toBeNull();
+    // The balance still loaded.
+    expect(screen.getByText('₱12,345.67')).toBeTruthy();
+
+    fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
+    expect(await screen.findByText('No activity yet')).toBeTruthy();
+    expect(screen.queryByText('Activity unavailable')).toBeNull();
+  });
+
+  it('does not show "Balance unavailable" when the dev health check throws', async () => {
+    jest.mocked(fetchHealthCheck).mockRejectedValueOnce(new Error('boom'));
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    await render(<HomeScreen />);
+    expect(await screen.findByText('₱12,345.67')).toBeTruthy();
+    await waitFor(() => expect(fetchHealthCheck).toHaveBeenCalled());
+    expect(screen.queryByText('Balance unavailable')).toBeNull();
+    warn.mockRestore();
+  });
+
+  it('ignores a stale load that finishes after a newer one', async () => {
+    let resolveFirst: (v: { data: AccountBalance[]; error: null }) => void = () => {};
+    jest
+      .mocked(fetchAccountBalances)
+      .mockImplementationOnce(() => new Promise((resolve) => (resolveFirst = resolve)))
+      .mockResolvedValueOnce({ data: [savings], error: null });
+    await render(<HomeScreen />);
+    await act(async () => {
+      mockFocusCallback?.();
+    });
+    expect(await screen.findByText('₱12,345.67')).toBeTruthy();
+
+    await act(async () => {
+      resolveFirst({ data: [account({ balance: 100 })], error: null });
+    });
+    expect(screen.getByText('₱12,345.67')).toBeTruthy();
+    expect(screen.queryByText('₱1.00')).toBeNull();
+  });
+
+  it('refetches Currency Watch on a focus reload', async () => {
+    const { supabase } = jest.requireMock('../lib/supabase');
+    const fromSpy = jest.spyOn(supabase, 'from');
+    await render(<HomeScreen />);
+    await screen.findByText('₱12,345.67');
+    const fxCalls = () => fromSpy.mock.calls.filter(([t]) => t === 'fx_rates').length;
+    await waitFor(() => expect(fxCalls()).toBe(1));
+    await act(async () => {
+      mockFocusCallback?.();
+    });
+    await waitFor(() => expect(fxCalls()).toBe(2));
+    fromSpy.mockRestore();
   });
 });

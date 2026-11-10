@@ -32,7 +32,7 @@ export function AmountText({
         color={color || colors.ink}
         tabularNums
         style={[styles.base, style]}
-        accessibilityLabel="Balance hidden"
+        accessibilityLabel="Amount hidden"
         maxFontSizeMultiplier={maxFontSizeMultiplier}
       >
         ₱••••••

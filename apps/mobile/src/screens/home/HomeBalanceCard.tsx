@@ -4,9 +4,9 @@ import { ChevronDown, Eye, EyeOff } from 'lucide-react-native';
 import {
   colors,
   elevation,
-  formatCentavosToPHP,
   radius,
   size,
+  typography,
   spacing,
   type AccountBalance,
 } from '@davao-bank/shared';
@@ -20,7 +20,23 @@ import { formatAccountLabel } from '../../components/AccountPickerSheet';
 /** Spec 7B.6: the balance uses `display` at 400 pt and wider, `amount` below. */
 const DISPLAY_AMOUNT_MIN_WIDTH = 400;
 const AMOUNT_MAX_FONT_SCALE = 1.4;
-const SKELETON_HEIGHT = 160;
+const EYE_BUTTON_SIZE = size.touch;
+/**
+ * Skeleton height = the loaded card: padding 20 × 2, header row (44 pt eye
+ * button), gap 16, eyebrow + gap 4 + amount, and the optional
+ * "All accounts" line (gap 4 + label).
+ */
+function balanceCardHeight(amountLineHeight: number, withTotalLine: boolean): number {
+  return (
+    spacing.lg * 2 +
+    EYE_BUTTON_SIZE +
+    spacing.base +
+    typography.caption.lineHeight +
+    spacing.xs +
+    amountLineHeight +
+    (withTotalLine ? spacing.xs + typography.label.lineHeight : 0)
+  );
+}
 const EYE_ICON_SIZE = 20;
 const CHEVRON_SIZE = 16;
 
@@ -49,8 +65,19 @@ export function HomeBalanceCard({
   const { width } = useWindowDimensions();
   const amountVariant = width >= DISPLAY_AMOUNT_MIN_WIDTH ? 'display' : 'amount';
 
+  const hasMultipleAccounts = accounts.length > 1;
+
   if (loading && !error) {
-    return <Skeleton width="100%" height={SKELETON_HEIGHT} style={styles.cardSkeleton} />;
+    return (
+      <Skeleton
+        width="100%"
+        height={balanceCardHeight(
+          typography[amountVariant].lineHeight,
+          hasMultipleAccounts
+        )}
+        style={styles.cardSkeleton}
+      />
+    );
   }
 
   // Never show ₱0.00 when the load failed: the card says the balance is unavailable.
@@ -73,7 +100,6 @@ export function HomeBalanceCard({
     );
   }
 
-  const hasMultipleAccounts = accounts.length > 1;
   const accountLabel = selectedAccount ? formatAccountLabel(selectedAccount) : null;
   const totalBalance = accounts.reduce((sum, account) => sum + account.balance, 0);
 
@@ -142,10 +168,16 @@ export function HomeBalanceCard({
             variant="label"
             color={colors.primaryTint}
             maxFontSizeMultiplier={AMOUNT_MAX_FONT_SCALE}
+            accessibilityLabel={hideBalance ? 'All accounts, amount hidden' : undefined}
           >
-            {hideBalance
-              ? 'All accounts ₱••••••'
-              : `All accounts ${formatCentavosToPHP(totalBalance)}`}
+            All accounts{' '}
+            <AmountText
+              amountCentavos={totalBalance}
+              hidden={hideBalance}
+              variant="label"
+              color={colors.primaryTint}
+              showSign={false}
+            />
           </Text>
         ) : null}
       </View>
@@ -181,8 +213,8 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
   },
   eyeButton: {
-    width: size.touch,
-    height: size.touch,
+    width: EYE_BUTTON_SIZE,
+    height: EYE_BUTTON_SIZE,
     borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { View, StyleSheet, ScrollView, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -44,6 +44,8 @@ import {
   Pressable,
   AccountPickerSheet,
   actionTileIconColor,
+  FLOATING_TAB_BAR_HEIGHT,
+  floatingTabBarBottomOffset,
 } from '../components';
 import { SuspendedScreen } from './SuspendedScreen';
 import { HomeBalanceCard } from './home/HomeBalanceCard';
@@ -55,10 +57,16 @@ const HEADER_HEIGHT = 56;
 const AVATAR_SIZE = 40;
 const TILE_ICON_SIZE = 20;
 /**
- * Mirrors FloatingTabBar: a 64 pt pill whose bottom edge sits
- * `max(inset, 8) + 8` above the window bottom.
+ * The default account must not depend on the order the view returns rows in:
+ * savings first, then by account number.
  */
-const FLOATING_TAB_BAR_HEIGHT = 64;
+function sortAccounts(list: AccountBalance[]): AccountBalance[] {
+  return [...list].sort(
+    (a, b) =>
+      (a.type === 'savings' ? 0 : 1) - (b.type === 'savings' ? 0 : 1) ||
+      a.account_number.localeCompare(b.account_number)
+  );
+}
 
 interface HomeScreenProps {
   onNavigateToActivity?: () => void;
@@ -81,6 +89,12 @@ export function HomeScreen({
   const [loading, setLoading] = useState<boolean>(true);
   // Set when the balance load fails; the card then reads "Balance unavailable".
   const [accountsError, setAccountsError] = useState<string | null>(null);
+  // Set when recent activity fails to load; the section then offers a retry.
+  const [transactionsError, setTransactionsError] = useState<string | null>(null);
+  // Bumped by every reload after the first so Currency Watch refetches too.
+  const [fxRefreshKey, setFxRefreshKey] = useState(0);
+  // Mount and focus can overlap; only the newest load may write state.
+  const loadIdRef = useRef(0);
   const [refreshing, setRefreshing] = useState<boolean>(false);
 
   // Upcoming scheduled payments & Pending requests
@@ -91,37 +105,62 @@ export function HomeScreen({
   const [health, setHealth] = useState<HealthCheck | null>(null);
 
   const loadData = useCallback(async () => {
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+    const loadId = ++loadIdRef.current;
+    const isCurrent = () => loadId === loadIdRef.current;
+    if (loadId > 1) setFxRefreshKey((key) => key + 1);
 
-      if (user) {
+    try {
+      let userId: string;
+      try {
+        const { data, error } = await supabase.auth.getUser();
+        if (error || !data?.user) {
+          if (isCurrent()) setAccountsError(toUserMessage(error ?? 'Not authenticated'));
+          return;
+        }
+        userId = data.user.id;
+      } catch (err) {
+        if (isCurrent()) setAccountsError(toUserMessage(err));
+        return;
+      }
+
+      try {
         const [profileRes, accountsRes, txRes] = await Promise.all([
-          fetchUserProfile(supabase, user.id),
+          fetchUserProfile(supabase, userId),
           fetchAccountBalances(supabase),
           fetchTransactionHistory(supabase),
         ]);
+        if (!isCurrent()) return;
 
         if (profileRes.data) setProfile(profileRes.data);
         if (accountsRes.error || !accountsRes.data) {
           setAccountsError(toUserMessage(accountsRes.error));
         } else {
-          setAccounts(accountsRes.data);
+          setAccounts(sortAccounts(accountsRes.data));
           setAccountsError(null);
         }
-        if (txRes.data) setTransactions(txRes.data);
-
-        try {
-          const { count } = await supabase
-            .from('payment_requests')
-            .select('*', { count: 'exact', head: true })
-            .eq('payer_user_id', user.id)
-            .eq('status', 'pending');
-          setPendingRequestsCount(count || 0);
-        } catch {
-          // Non-critical
+        if (txRes.error || !txRes.data) {
+          setTransactionsError(toUserMessage(txRes.error));
+        } else {
+          setTransactions(txRes.data);
+          setTransactionsError(null);
         }
+      } catch (err) {
+        if (!isCurrent()) return;
+        console.warn('Error loading Home balances:', err);
+        setAccountsError(toUserMessage(err));
+        setTransactionsError(toUserMessage(err));
+        return;
+      }
+
+      try {
+        const { count } = await supabase
+          .from('payment_requests')
+          .select('*', { count: 'exact', head: true })
+          .eq('payer_user_id', userId)
+          .eq('status', 'pending');
+        if (isCurrent()) setPendingRequestsCount(count || 0);
+      } catch {
+        // Non-critical
       }
 
       try {
@@ -131,28 +170,31 @@ export function HomeScreen({
           .eq('status', 'active')
           .order('next_run_date', { ascending: true })
           .limit(3);
-        if (schedData) setUpcomingSchedules(schedData as ScheduledPayment[]);
+        if (schedData && isCurrent()) {
+          setUpcomingSchedules(schedData as ScheduledPayment[]);
+        }
       } catch {
         // Non-critical
       }
 
       if (__DEV__) {
-        const { data: healthData } = await fetchHealthCheck(supabase);
-        if (healthData) setHealth(healthData);
+        // Dev-only diagnostics: a failure here never affects the balance card.
+        try {
+          const { data: healthData } = await fetchHealthCheck(supabase);
+          if (healthData && isCurrent()) setHealth(healthData);
+        } catch (err) {
+          console.warn('Dev health check failed:', err);
+        }
       }
-    } catch (err) {
-      console.warn('Error loading Home data:', err);
-      setAccountsError(toUserMessage(err));
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (isCurrent()) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, []);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
-
+  // Focus also fires on first mount, so this is the only load trigger.
   useFocusEffect(
     useCallback(() => {
       loadData();
@@ -164,8 +206,9 @@ export function HomeScreen({
     loadData();
   };
 
-  const retryBalance = () => {
+  const retryLoad = () => {
     setAccountsError(null);
+    setTransactionsError(null);
     setLoading(true);
     loadData();
   };
@@ -190,7 +233,7 @@ export function HomeScreen({
   // The ScrollView sits inside Screen's SafeAreaView, which already pads the
   // bottom inset. Content ends 16 pt above the floating tab bar.
   const tabBarTopFromBottom =
-    Math.max(insets.bottom, spacing.sm) + spacing.sm + FLOATING_TAB_BAR_HEIGHT;
+    floatingTabBarBottomOffset(insets.bottom) + FLOATING_TAB_BAR_HEIGHT;
   const bottomClearance = tabBarTopFromBottom + spacing.base - insets.bottom;
 
   if (profile?.status === 'suspended') {
@@ -253,7 +296,7 @@ export function HomeScreen({
           hideBalance={hideBalance}
           onOpenAccountPicker={() => setAccountPickerVisible(true)}
           onToggleHideBalance={toggleHideBalance}
-          onRetry={retryBalance}
+          onRetry={retryLoad}
         />
 
         {/* Pending payment requests */}
@@ -331,7 +374,10 @@ export function HomeScreen({
         </ActionTileGrid>
 
         {/* Currency Watch */}
-        <CurrencyWatchCard onPress={() => navigation.navigate('FXRates')} />
+        <CurrencyWatchCard
+          refreshKey={fxRefreshKey}
+          onPress={() => navigation.navigate('FXRates')}
+        />
 
         {/* Coming up (only when there are items) */}
         <HomeUpcomingPayments
@@ -343,6 +389,8 @@ export function HomeScreen({
         {/* Recent activity */}
         <HomeRecentActivity
           loading={loading}
+          error={transactionsError}
+          onRetry={retryLoad}
           transactions={transactions}
           hideBalance={hideBalance}
           onNavigateToActivity={onNavigateToActivity}

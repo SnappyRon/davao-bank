@@ -58,7 +58,7 @@ export function AccountPickerSheet({
           const label = formatAccountLabel(account);
           const selected = account.account_id === selectedAccountId;
           const balanceLabel = hideBalance
-            ? 'balance hidden'
+            ? 'amount hidden'
             : formatCentavosToPHP(account.balance);
           return (
             <Pressable

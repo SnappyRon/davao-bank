@@ -4,6 +4,7 @@ import { Zap, Send, ChevronRight } from 'lucide-react-native';
 import {
   colors,
   radius,
+  size,
   spacing,
   type ScheduledPayment,
   type ScheduledPaymentFrequency,
@@ -136,6 +137,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   seeAllButton: {
+    minHeight: size.touch,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,

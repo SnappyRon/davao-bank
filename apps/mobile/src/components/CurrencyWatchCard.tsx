@@ -68,10 +68,16 @@ function formatPercentChange(percent: number): string {
 
 interface CurrencyWatchCardProps {
   onPress: () => void;
+  /** Change it to refetch (Home bumps it on pull-to-refresh and focus). */
+  refreshKey?: number;
   style?: StyleProp<ViewStyle>;
 }
 
-export function CurrencyWatchCard({ onPress, style }: CurrencyWatchCardProps) {
+export function CurrencyWatchCard({
+  onPress,
+  refreshKey = 0,
+  style,
+}: CurrencyWatchCardProps) {
   const [rates, setRates] = useState<FXRate[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -104,7 +110,7 @@ export function CurrencyWatchCard({ onPress, style }: CurrencyWatchCardProps) {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [refreshKey]);
 
   if (loading) {
     return (
@@ -143,9 +149,7 @@ export function CurrencyWatchCard({ onPress, style }: CurrencyWatchCardProps) {
   const rateText = `₱${latestRate.toFixed(2)}`;
   const shortDate = formatShortDate(rateDate);
   const stale = isRateStale(rateDate);
-  const dateText = stale
-    ? `Not updated since ${shortDate}`
-    : `Reference rate · ${shortDate}`;
+  const dateText = stale ? `Not updated since ${shortDate}` : shortDate;
 
   const trendIcon =
     direction === 'up' ? (
