@@ -2,6 +2,7 @@
 module.exports = {
   projects: [
     {
+      modulePathIgnorePatterns: ['<rootDir>/.claude/'],
       displayName: 'shared',
       testEnvironment: 'node',
       testMatch: ['<rootDir>/packages/shared/src/__tests__/**/*.test.ts'],
@@ -13,6 +14,7 @@ module.exports = {
       },
     },
     {
+      modulePathIgnorePatterns: ['<rootDir>/.claude/'],
       displayName: 'mobile',
       preset: 'jest-expo',
       setupFiles: ['<rootDir>/tests/setup/mobile-setup.ts'],
@@ -28,6 +30,7 @@ module.exports = {
       },
     },
     {
+      modulePathIgnorePatterns: ['<rootDir>/.claude/'],
       displayName: 'admin',
       testEnvironment: 'jsdom',
       testMatch: ['<rootDir>/apps/admin/src/__tests__/**/*.test.(ts|tsx)'],

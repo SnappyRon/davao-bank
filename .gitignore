@@ -43,3 +43,6 @@ offline_currency_poc_results/
 # Local browser test artifacts
 test-results/
 playwright-report/
+
+# Agent git worktrees (Claude Code)
+.claude/worktrees/

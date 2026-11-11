@@ -13,6 +13,7 @@ export default tseslint.config(
       '**/build/**',
       '**/supabase/.temp/**',
       '**/next-env.d.ts',
+      '.claude/**',
     ],
   },
   js.configs.recommended,
