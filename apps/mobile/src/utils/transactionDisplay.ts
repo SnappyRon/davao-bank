@@ -104,7 +104,7 @@ export function transactionTitle(
       }
       return masked ? `Sent to ${masked}` : 'Money sent';
     case 'bill_payment':
-      return 'Bill payment';
+      return item.biller_name ? `Bill payment · ${item.biller_name}` : 'Bill payment';
     case 'deposit':
       return 'Money added';
     case 'withdrawal':

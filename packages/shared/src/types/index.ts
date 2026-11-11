@@ -99,6 +99,8 @@ export interface Notification {
   message: string;
   read: boolean;
   created_at: string;
+  /** The transaction this notice is about (set by the server; null for account notices). */
+  related_transaction_id?: string | null;
 }
 
 // --- Balance Read-Model ---
@@ -129,6 +131,8 @@ export interface TransactionHistoryItem {
   reference: string | null;
   counterparty_account_number: string | null;
   created_at: string;
+  /** Biller display name, bill_payment rows only (null otherwise). */
+  biller_name?: string | null;
 }
 
 export interface TransferParams {

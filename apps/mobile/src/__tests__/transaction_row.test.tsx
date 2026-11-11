@@ -155,6 +155,17 @@ describe('Bill payments (fix round)', () => {
     await render(<TransactionRow transaction={{ ...bill, reference: 'October' }} />);
     expect(screen.getByText('October · 2:41 AM')).toBeTruthy();
   });
+
+  it('titles the row with the biller name when history has it (7B.9)', async () => {
+    await render(
+      <TransactionRow
+        transaction={{ ...bill, biller_name: 'Apo Fiber' }}
+        onPress={jest.fn()}
+      />
+    );
+    expect(screen.getByText('Bill payment · Apo Fiber')).toBeTruthy();
+    expect(screen.queryByText(/1234/)).toBeNull();
+  });
 });
 
 describe('Reversals (7B.2)', () => {

@@ -635,3 +635,286 @@ npx jest --modulePathIgnorePatterns='<rootDir>/.claude/'
 ```
 
 Device: NOT VERIFIED — captain runs it (Transfer / Pay bills / Add money / Cash out with 1 and 2 accounts, Pay request with the password and code prompts, Verify email refresh, Export toast over the share sheet).
+
+## Stage 7B.9 — Notification wording, related transaction and biller name (2026-11-11, Claude implementer sub agent)
+
+Owner-approved scope (2026-11-11): one migration, `supabase/migrations/20261111000000_phase7_notifications.sql`. **Not applied to hosted**: the captain applies it after review.
+
+### Migration
+
+1. `notifications.related_transaction_id uuid null references transactions(id) on delete set null` + index `idx_notifications_related_transaction_id`. The notifications policies are row-based (`user_id = auth.uid()` for select/update, `is_admin()` for select), so they cover the new column; no policy changed.
+2. All 13 functions whose latest definition inserts a notification are re-created from that latest definition. Only the notification insert statements differ: new wording, plus `related_transaction_id` where the function has just written the transaction (`_transfer_core`, `deposit`, `withdraw`, `admin_adjust_balance`, `admin_reverse_transaction` → the reversal transaction, `pay_payment_request`). `create or replace` keeps owner and grants; security definer, `search_path`, step-up guards and every other line are byte-identical (verification below).
+3. `get_account_transactions` gains a trailing nullable `biller_name text` (bill_payment rows only, via `bill_payments` → `billers`; both are 1:1 left joins, so no extra rows). The return type changes, so it is dropped and re-created with the same body, `security definer`, `search_path` and caller scoping `(public.is_admin() or a.user_id = v_caller_id)`, then `revoke execute … from public, anon` + `grant execute … to authenticated` (the state after `20261104000000_phase6_stage_b_security.sql`). No other database object references it.
+
+New wording. The spec table rows are used exactly. Other notices follow the same rules: sentence case, ₱, "•• 1234", no ids, no staff reasons, no raw database errors.
+
+| Function                           | Type                        | New text                                                                                                                                                                                                                                                                                                      |
+| ---------------------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `_transfer_core`                   | transfer_out                | You sent ₱500.00 to •• 7943. Note: … (note only when a reference was passed)                                                                                                                                                                                                                                  |
+| `_transfer_core`                   | transfer_in                 | You received ₱500.00 from •• 8921.                                                                                                                                                                                                                                                                            |
+| `_transfer_core`                   | bill_payment                | You paid ₱500.00 to Apo Fiber.                                                                                                                                                                                                                                                                                |
+| `deposit`                          | deposit                     | You added ₱500.00 to •• 8921.                                                                                                                                                                                                                                                                                 |
+| `withdraw`                         | withdrawal                  | You cashed out ₱500.00 from •• 8921.                                                                                                                                                                                                                                                                          |
+| `admin_adjust_balance`             | balance_adjustment          | We added ₱500.00 to your account. / We deducted ₱500.00 from your account.                                                                                                                                                                                                                                    |
+| `admin_reverse_transaction`        | transaction_reversed        | Your transfer of ₱300.00 to •• 8720 was reversed. Receiver: A transfer of ₱300.00 from •• 8921 was reversed. Others: Your bill payment of ₱X was reversed. / Money you added (₱X) was reversed. / Your cash out of ₱X was reversed. / A bank adjustment of ₱X was reversed. Still one row per affected owner. |
+| `admin_set_account_status`         | account_alert               | Your account is active again. / Your account •• 8921 is on hold. You can't send or receive money with it until our team reviews it. / Your account •• 8921 is now closed.                                                                                                                                     |
+| `admin_set_user_status`            | account_alert               | Your account is active again. / Your account is on hold. You can't send or receive money until our team reviews it.                                                                                                                                                                                           |
+| `admin_open_account`               | account_opened              | We opened a new savings account for you: •• 1234.                                                                                                                                                                                                                                                             |
+| `cancel_scheduled_payment` (staff) | scheduled_payment_cancelled | Your scheduled payment of ₱500.00 was cancelled by our team.                                                                                                                                                                                                                                                  |
+| `create_payment_request`           | payment_request_received    | •• 8921 requested ₱500.00 from you. Note: …                                                                                                                                                                                                                                                                   |
+| `decline_payment_request`          | payment_request_declined    | •• 7943 declined your request for ₱500.00.                                                                                                                                                                                                                                                                    |
+| `pay_payment_request`              | payment_request_paid        | •• 7943 paid your request for ₱500.00.                                                                                                                                                                                                                                                                        |
+| `run_due_scheduled_payments`       | scheduled_payment_failed    | Your scheduled payment of ₱500.00 on Nov 11 didn't go through. (+ " Your balance was too low." for insufficient funds; the raw `sqlerrm` is no longer shown)                                                                                                                                                  |
+
+The new text also fixes the old adjustment message, which used integer division (`(p_amount / 100)::numeric(12,2)` dropped the centavos).
+
+### Function diff verification
+
+Method: a script extracts every `create or replace function` from all earlier migrations (the latest definition per name and argument list wins) and from the new migration. It removes every `insert into public.notifications … ;` statement (and `--` comment lines directly above it) from both, then compares the rest byte for byte. A separate pass confirmed that these 13 are exactly the functions whose latest definition inserts a notification. No migration drops a function.
+
+```text
+IDENTICAL outside notification inserts | public._transfer_core | latest prior: 20261023220000_phase5_stage_c_schedules_bills.sql | inserts 3 -> 3
+IDENTICAL outside notification inserts | public.deposit | latest prior: 20261023184000_phase4_fixes.sql | inserts 1 -> 1
+IDENTICAL outside notification inserts | public.withdraw | latest prior: 20261110000000_phase6_5_step_up.sql | inserts 1 -> 1
+IDENTICAL outside notification inserts | public.admin_adjust_balance | latest prior: 20261110000000_phase6_5_step_up.sql | inserts 1 -> 1
+IDENTICAL outside notification inserts | public.admin_reverse_transaction | latest prior: 20261110000000_phase6_5_step_up.sql | inserts 1 -> 1
+IDENTICAL outside notification inserts | public.admin_set_account_status | latest prior: 20261110000000_phase6_5_step_up.sql | inserts 1 -> 1
+IDENTICAL outside notification inserts | public.admin_set_user_status | latest prior: 20261110000000_phase6_5_step_up.sql | inserts 1 -> 1
+IDENTICAL outside notification inserts | public.admin_open_account | latest prior: 20261110000000_phase6_5_step_up.sql | inserts 1 -> 1
+IDENTICAL outside notification inserts | public.cancel_scheduled_payment | latest prior: 20261023220000_phase5_stage_c_schedules_bills.sql | inserts 1 -> 1
+IDENTICAL outside notification inserts | public.create_payment_request | latest prior: 20261024090000_phase5_stage_d_qr_requests.sql | inserts 1 -> 1
+IDENTICAL outside notification inserts | public.decline_payment_request | latest prior: 20261024090000_phase5_stage_d_qr_requests.sql | inserts 1 -> 1
+IDENTICAL outside notification inserts | public.pay_payment_request | latest prior: 20261110000000_phase6_5_step_up.sql | inserts 1 -> 1
+IDENTICAL outside notification inserts | public.run_due_scheduled_payments | latest prior: 20261023220000_phase5_stage_c_schedules_bills.sql | inserts 1 -> 1
+DIFFERENT outside notification inserts | public.get_account_transactions | latest prior: 20261023220000_phase5_stage_c_schedules_bills.sql | inserts 0 -> 0   (intended: biller_name column + 2 joins)
+```
+
+Full diff of each function against its latest earlier definition (unified, no context lines). Every hunk is inside a notification insert, except in `get_account_transactions`:
+
+```diff
+--- 20261023220000_phase5_stage_c_schedules_bills.sql:public._transfer_core
++++ 20261111000000_phase7_notifications.sql:public._transfer_core
+@@ -209 +209 @@
+-    insert into public.notifications (user_id, type, message)
++    insert into public.notifications (user_id, type, message, related_transaction_id)
+@@ -213,2 +213,3 @@
+-      'You paid PHP ' || trim(to_char(p_amount / 100.0, 'FM999,999,990.00')) ||
+-      ' for ' || v_clean_ref || '.'
++      'You paid ₱' || trim(to_char(p_amount / 100.0, 'FM999,999,990.00')) ||
++      coalesce(' to ' || (select b.name from public.billers b where b.account_id = v_to_acc.id), '') || '.',
++      v_tx_id
+@@ -217 +218 @@
+-    insert into public.notifications (user_id, type, message)
++    insert into public.notifications (user_id, type, message, related_transaction_id)
+@@ -221,2 +222,4 @@
+-      'You transferred PHP ' || trim(to_char(p_amount / 100.0, 'FM999,999,990.00')) ||
+-      ' to account ' || v_to_acc.account_number || ' (Ref: ' || v_clean_ref || ').'
++      'You sent ₱' || trim(to_char(p_amount / 100.0, 'FM999,999,990.00')) ||
++      ' to •• ' || right(v_to_acc.account_number, 4) || '.' ||
++      coalesce(' Note: ' || nullif(trim(p_reference), ''), ''),
++      v_tx_id
+@@ -225 +228 @@
+-    insert into public.notifications (user_id, type, message)
++    insert into public.notifications (user_id, type, message, related_transaction_id)
+@@ -229,2 +232,3 @@
+-      'You received PHP ' || trim(to_char(p_amount / 100.0, 'FM999,999,990.00')) ||
+-      ' from account ' || v_from_acc.account_number || ' (Ref: ' || v_clean_ref || ').'
++      'You received ₱' || trim(to_char(p_amount / 100.0, 'FM999,999,990.00')) ||
++      ' from •• ' || right(v_from_acc.account_number, 4) || '.',
++      v_tx_id
+
+--- 20261023184000_phase4_fixes.sql:public.deposit
++++ 20261111000000_phase7_notifications.sql:public.deposit
+@@ -124 +124 @@
+-  insert into public.notifications (user_id, type, message)
++  insert into public.notifications (user_id, type, message, related_transaction_id)
+@@ -128,2 +128,3 @@
+-    'Deposit of PHP ' || trim(to_char(p_amount / 100.0, 'FM999,999,990.00')) ||
+-    ' credited to account ' || v_acc.account_number || '.'
++    'You added ₱' || trim(to_char(p_amount / 100.0, 'FM999,999,990.00')) ||
++    ' to •• ' || right(v_acc.account_number, 4) || '.',
++    v_tx_id
+
+--- 20261110000000_phase6_5_step_up.sql:public.withdraw
++++ 20261111000000_phase7_notifications.sql:public.withdraw
+@@ -136 +136 @@
+-  insert into public.notifications (user_id, type, message)
++  insert into public.notifications (user_id, type, message, related_transaction_id)
+@@ -140,2 +140,3 @@
+-    'Withdrawal of PHP ' || trim(to_char(p_amount / 100.0, 'FM999,999,990.00')) ||
+-    ' debited from account ' || v_acc.account_number || '.'
++    'You cashed out ₱' || trim(to_char(p_amount / 100.0, 'FM999,999,990.00')) ||
++    ' from •• ' || right(v_acc.account_number, 4) || '.',
++    v_tx_id
+
+--- 20261110000000_phase6_5_step_up.sql:public.admin_adjust_balance
++++ 20261111000000_phase7_notifications.sql:public.admin_adjust_balance
+@@ -136 +136 @@
+-  insert into public.notifications (user_id, type, message)
++  insert into public.notifications (user_id, type, message, related_transaction_id)
+@@ -140 +140,7 @@
+-    'Staff adjustment: ' || upper(p_direction) || ' ' || (p_amount / 100)::numeric(12,2) || ' PHP on account ' || v_account.account_number || '. Reason: ' || v_clean_reason
++    case
++      when p_direction = 'credit' then
++        'We added ₱' || trim(to_char(p_amount / 100.0, 'FM999,999,990.00')) || ' to your account.'
++      else
++        'We deducted ₱' || trim(to_char(p_amount / 100.0, 'FM999,999,990.00')) || ' from your account.'
++    end,
++    v_tx_id
+
+--- 20261110000000_phase6_5_step_up.sql:public.admin_reverse_transaction
++++ 20261111000000_phase7_notifications.sql:public.admin_reverse_transaction
+@@ -187,2 +187,4 @@
+-  insert into public.notifications (user_id, type, message)
+-  select distinct
++  -- One notification per affected owner (as before). An owner of both sides
++  -- of a transfer gets the sender's wording. No ids or staff reason.
++  insert into public.notifications (user_id, type, message, related_transaction_id)
++  select distinct on (a.user_id)
+@@ -191 +193,21 @@
+-    'Transaction ' || p_transaction_id || ' was reversed by administration. Reason: ' || v_clean_reason
++    case
++      when v_orig_tx.type = 'transfer' and a.id = v_orig_transfer.from_account then
++        'Your transfer of ₱' || trim(to_char(v_orig_transfer.amount / 100.0, 'FM999,999,990.00')) ||
++        ' to •• ' || right((select x.account_number from public.accounts x where x.id = v_orig_transfer.to_account), 4) ||
++        ' was reversed.'
++      when v_orig_tx.type = 'transfer' then
++        'A transfer of ₱' || trim(to_char(v_orig_transfer.amount / 100.0, 'FM999,999,990.00')) ||
++        ' from •• ' || right((select x.account_number from public.accounts x where x.id = v_orig_transfer.from_account), 4) ||
++        ' was reversed.'
++      when v_orig_tx.type = 'bill_payment' and a.id = v_orig_transfer.from_account then
++        'Your bill payment of ₱' || trim(to_char(v_orig_transfer.amount / 100.0, 'FM999,999,990.00')) || ' was reversed.'
++      when v_orig_tx.type = 'bill_payment' then
++        'A bill payment of ₱' || trim(to_char(v_orig_transfer.amount / 100.0, 'FM999,999,990.00')) || ' was reversed.'
++      when v_orig_tx.type = 'deposit' then
++        'Money you added (₱' || trim(to_char((select le.amount from public.ledger_entries le where le.transaction_id = p_transaction_id and le.account_id = a.id limit 1) / 100.0, 'FM999,999,990.00')) || ') was reversed.'
++      when v_orig_tx.type = 'withdrawal' then
++        'Your cash out of ₱' || trim(to_char((select le.amount from public.ledger_entries le where le.transaction_id = p_transaction_id and le.account_id = a.id limit 1) / 100.0, 'FM999,999,990.00')) || ' was reversed.'
++      else
++        'A bank adjustment of ₱' || trim(to_char((select le.amount from public.ledger_entries le where le.transaction_id = p_transaction_id and le.account_id = a.id limit 1) / 100.0, 'FM999,999,990.00')) || ' was reversed.'
++    end,
++    v_reversal_tx_id
+@@ -193 +215,2 @@
+-  where a.id = any(v_affected_account_ids);
++  where a.id = any(v_affected_account_ids)
++  order by a.user_id, (a.id = v_orig_transfer.from_account) desc nulls last;
+
+--- 20261110000000_phase6_5_step_up.sql:public.admin_set_account_status
++++ 20261111000000_phase7_notifications.sql:public.admin_set_account_status
+@@ -95 +95,6 @@
+-    'Your Davao Bank account (' || v_account.account_number || ') status has been updated to ' || upper(p_status) || '. Reason: ' || v_clean_reason
++    case p_status
++      when 'active' then 'Your account is active again.'
++      when 'frozen' then 'Your account •• ' || right(v_account.account_number, 4) ||
++        ' is on hold. You can''t send or receive money with it until our team reviews it.'
++      else 'Your account •• ' || right(v_account.account_number, 4) || ' is now closed.'
++    end
+
+--- 20261110000000_phase6_5_step_up.sql:public.admin_set_user_status
++++ 20261111000000_phase7_notifications.sql:public.admin_set_user_status
+@@ -67 +67,4 @@
+-    'Your Davao Bank profile status has been changed to ' || upper(p_status) || '. Reason: ' || v_clean_reason
++    case p_status
++      when 'active' then 'Your account is active again.'
++      else 'Your account is on hold. You can''t send or receive money until our team reviews it.'
++    end
+
+--- 20261110000000_phase6_5_step_up.sql:public.admin_open_account
++++ 20261111000000_phase7_notifications.sql:public.admin_open_account
+@@ -74 +74 @@
+-    'A new ' || upper(p_type) || ' account (' || v_account_number || ') has been opened for you by bank administration.'
++    'We opened a new ' || p_type || ' account for you: •• ' || right(v_account_number, 4) || '.'
+
+--- 20261023220000_phase5_stage_c_schedules_bills.sql:public.cancel_scheduled_payment
++++ 20261111000000_phase7_notifications.sql:public.cancel_scheduled_payment
+@@ -52,2 +52,2 @@
+-      'Your scheduled payment of PHP ' || trim(to_char(v_sched.amount / 100.0, 'FM999,999,990.00')) ||
+-      ' was cancelled by bank staff.' || coalesce(' Reason: ' || p_reason, '')
++      'Your scheduled payment of ₱' || trim(to_char(v_sched.amount / 100.0, 'FM999,999,990.00')) ||
++      ' was cancelled by our team.'
+
+--- 20261024090000_phase5_stage_d_qr_requests.sql:public.create_payment_request
++++ 20261111000000_phase7_notifications.sql:public.create_payment_request
+@@ -141,2 +141,3 @@
+-    'You received a payment request of PHP ' || trim(to_char(p_amount / 100.0, 'FM999,999,990.00')) ||
+-    ' from account ' || v_req_acc.account_number || coalesce(' · ' || v_clean_note, '')
++    '•• ' || right(v_req_acc.account_number, 4) || ' requested ₱' ||
++    trim(to_char(p_amount / 100.0, 'FM999,999,990.00')) || ' from you.' ||
++    coalesce(' Note: ' || v_clean_note, '')
+
+--- 20261024090000_phase5_stage_d_qr_requests.sql:public.decline_payment_request
++++ 20261111000000_phase7_notifications.sql:public.decline_payment_request
+@@ -50,2 +50,2 @@
+-    'Your payment request of PHP ' || trim(to_char(v_req.amount / 100.0, 'FM999,999,990.00')) ||
+-    ' was declined.'
++    '•• ' || right(v_req.payer_account_number, 4) || ' declined your request for ₱' ||
++    trim(to_char(v_req.amount / 100.0, 'FM999,999,990.00')) || '.'
+
+--- 20261110000000_phase6_5_step_up.sql:public.pay_payment_request
++++ 20261111000000_phase7_notifications.sql:public.pay_payment_request
+@@ -122 +122 @@
+-  insert into public.notifications (user_id, type, message)
++  insert into public.notifications (user_id, type, message, related_transaction_id)
+@@ -126,2 +126,3 @@
+-    'Your payment request of PHP ' || trim(to_char(v_req.amount / 100.0, 'FM999,999,990.00')) ||
+-    ' was paid by account ' || v_from_acc.account_number
++    '•• ' || right(v_from_acc.account_number, 4) || ' paid your request for ₱' ||
++    trim(to_char(v_req.amount / 100.0, 'FM999,999,990.00')) || '.',
++    v_tx_id
+
+--- 20261023220000_phase5_stage_c_schedules_bills.sql:public.run_due_scheduled_payments
++++ 20261111000000_phase7_notifications.sql:public.run_due_scheduled_payments
+@@ -111,2 +111,3 @@
+-          'Scheduled payment of PHP ' || trim(to_char(v_sched.amount / 100.0, 'FM999,999,990.00')) ||
+-          ' failed on ' || v_sched.next_run_date::text || ': ' || v_err_msg
++          'Your scheduled payment of ₱' || trim(to_char(v_sched.amount / 100.0, 'FM999,999,990.00')) ||
++          ' on ' || to_char(v_sched.next_run_date, 'Mon FMDD') || ' didn''t go through.' ||
++          case when v_err_msg ilike '%insufficient funds%' then ' Your balance was too low.' else '' end
+
+--- 20261023220000_phase5_stage_c_schedules_bills.sql:public.get_account_transactions
++++ 20261111000000_phase7_notifications.sql:public.get_account_transactions
+@@ -16 +16,2 @@
+-  created_at timestamptz
++  created_at timestamptz,
++  biller_name text
+@@ -46 +47,2 @@
+-    t.created_at
++    t.created_at,
++    case when t.type = 'bill_payment' then bl.name else null end as biller_name
+@@ -52,0 +55,2 @@
++  left join public.bill_payments bp on bp.transaction_id = t.id
++  left join public.billers bl on bl.id = bp.biller_id
+
+```
+
+### App and shared changes
+
+- `packages/shared/src/types/index.ts`: `Notification.related_transaction_id?: string | null`, `TransactionHistoryItem.biller_name?: string | null`. `fetchNotifications` (`select('*')`) and `fetchTransactionHistory` (RPC) need no change.
+- `InboxScreen`: a tap on a notification with `related_transaction_id` marks it read and opens Receipt. Receipt needs an account id, so Inbox loads the caller's history (`get_account_transactions`, scoped on the server to the caller's accounts) and picks the caller's row for that transaction: the credit side for money received or added, otherwise the debit side. If the transaction isn't in the caller's history, nothing opens and a toast says "This receipt isn't available.". A ref blocks double taps. Notifications without an id (older rows, account notices) only mark read. Request notices still open Payment requests (unchanged). The owner-decision TODO is removed. `App.tsx` and the Receipt route params are unchanged.
+- `utils/transactionDisplay.ts`: a bill row with `biller_name` reads "Bill payment · Apo Fiber" (otherwise "Bill payment"). `ReceiptScreen`: To row and share text show the biller name ("Apo Fiber"), with "Biller" as the fallback.
+- Tests: Inbox deep link → Receipt (with mark-as-read), id not in the caller's history → no navigation, no id → mark read only, credit/debit row choice; bill row title with the biller name; Receipt To row and share text with the biller name.
+
+### test:db (PGlite) additions
+
+28 new checks: wording and related id for deposit, transfer out/in, transfer reversal (sender and receiver), bill payment, bill reversal, cash-out reversal and money-added reversal (both in rolled-back transactions, because one-sided reversals would break the zero-sum reconciliation), withdraw, credit/debit adjustment, request received/paid/declined, user and account status, account opened, staff schedule cancel, scheduled failure. Also: no notification contains PHP, a UUID, a 10-digit account number or a staff reason; RLS still hides another user's notifications, including by related id; history returns `biller_name` only on the caller's own bill rows (null elsewhere, nothing for another user's account); anon cannot execute `get_account_transactions`.
+
+Live suites: no `scripts/test-*.ts` assertion checks notification text (grep for the old phrases, `notifications` and the notification types found none), so none needed updating.
+
+### Checks
+
+```text
+npm run typecheck    → exit 0 (admin, mobile, shared: tsc --noEmit)
+npm run lint         → ✖ 64 problems (0 errors, 64 warnings)
+npm run format:check → All matched files use Prettier code style!
+npm run test:unit    → Test Suites: 28 passed, 28 total
+                       Tests:       238 passed, 238 total
+npm run test:db      → 118 passed, 0 failed
+```
+
+### Notes for review
+
+- **Security, Info:** the existing "Users can update own notifications" policy lets a customer update any column of their own rows, now including `related_transaction_id`. Pointing it at someone else's transaction exposes nothing, because Inbox resolves the receipt only through the caller-scoped history RPC (tested). The same policy already allows editing `message`/`type`. A column grant (`update (read)`) would close it; that is a policy/grant change outside this scope, so it is left for the captain.
+- Notifications written before the migration keep their old text and have no related id (tap marks read only).
+- In `_transfer_core` the bill payment text looks up the biller name inside the insert (`select b.name from billers where account_id = v_to_acc.id`); if none is found the text is "You paid ₱X.".
+
+NOT VERIFIED: migration on hosted (not applied, by rule); live suites (they need the migration applied); device check of the Inbox → Receipt deep link and bill titles.

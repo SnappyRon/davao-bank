@@ -261,6 +261,30 @@ describe('ReceiptScreen', () => {
     expect(text).not.toContain('9990001234');
   });
 
+  it('shows the biller name as the To party when history has it (7B.9)', async () => {
+    const bill: TransactionHistoryItem = {
+      ...sampleTx,
+      type: 'bill_payment',
+      counterparty_account_number: '9990001234',
+      reference: null,
+      biller_name: 'Apo Fiber',
+    };
+    (fetchTransactionHistory as jest.Mock).mockResolvedValueOnce({
+      data: [bill],
+      error: null,
+    });
+    await render(<ReceiptScreen />);
+    expect(await screen.findByText('Bill payment · Apo Fiber')).toBeTruthy();
+    expect(screen.getByText('Apo Fiber')).toBeTruthy();
+    expect(screen.queryByText('Biller')).toBeNull();
+    expect(screen.queryByText(/9990001234/)).toBeNull();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Share receipt' }));
+    await waitFor(() => expect(FileSystem.writeAsStringAsync).toHaveBeenCalled());
+    const text = (FileSystem.writeAsStringAsync as jest.Mock).mock.calls[0][1];
+    expect(text).toContain('To: Apo Fiber');
+  });
+
   it('titles a reversal receipt like the list, using the original from the same response', async () => {
     const reversalTx: TransactionHistoryItem = {
       ...sampleTx,
