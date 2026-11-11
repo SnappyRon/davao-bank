@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { MinusCircle, AlertCircle } from 'lucide-react-native';
+import { AlertCircle } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import {
   colors,
@@ -29,9 +29,13 @@ import {
   TextField,
   Button,
   Card,
-  AmountText,
   ResultView,
+  ReviewCard,
+  AccountStep,
+  RecipientChip,
+  formatAccountLabel,
 } from '../components';
+import { commitButtonLabel } from '../utils/moneyFlow';
 
 export function CashOutScreen() {
   const navigation = useNavigation<any>();
@@ -42,7 +46,7 @@ export function CashOutScreen() {
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
   const [amountStr, setAmountStr] = useState('');
   const [reference, setReference] = useState('');
-  const [step, setStep] = useState<'input' | 'review' | 'success'>('input');
+  const [step, setStep] = useState<'source' | 'input' | 'review' | 'success'>('input');
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successResult, setSuccessResult] = useState<MoneyOperationResult | null>(null);
@@ -57,6 +61,8 @@ export function CashOutScreen() {
         if (!selectedAccountId) {
           setSelectedAccountId(data[0].account_id);
         }
+        // Spec 7B.4: with 2+ accounts the account picker comes first.
+        if (data.length >= 2) setStep('source');
       }
     });
   }, []);
@@ -157,14 +163,21 @@ export function CashOutScreen() {
 
   const centavosAmount = phpToCentavos(amountStr);
 
+  const hasMultipleAccounts = accounts.length >= 2;
+  const inputSteps = hasMultipleAccounts
+    ? (['source', 'input', 'review'] as const)
+    : (['input', 'review'] as const);
+  const stepIndex = (inputSteps as readonly string[]).indexOf(step);
+
   return (
     <FeatureScreen
-      title={
-        step === 'input' ? 'Cash out' : step === 'review' ? 'Review cash out' : 'Cash out'
-      }
-      step={step === 'input' ? 1 : step === 'review' ? 2 : undefined}
-      stepCount={step === 'success' ? undefined : 2}
-      onPrevStep={() => setStep('input')}
+      title="Cash out"
+      step={stepIndex >= 0 ? stepIndex + 1 : undefined}
+      stepCount={step === 'success' ? undefined : inputSteps.length}
+      onPrevStep={() => {
+        setErrorMessage(null);
+        setStep(inputSteps[Math.max(stepIndex - 1, 0)]);
+      }}
       isDirty={hasInput}
       isProcessing={loading}
       footer={
@@ -177,17 +190,16 @@ export function CashOutScreen() {
         ) : step === 'review' ? (
           <View style={styles.footerRow}>
             <Button
-              title={`Cash out ${formatCentavosToPHP(centavosAmount)}`}
+              title={commitButtonLabel('cashOut', centavosAmount, loading)}
               onPress={handleConfirmWithdraw}
               loading={loading}
-              icon={<MinusCircle size={18} color={colors.textInverse} />}
               style={styles.actionButton}
             />
           </View>
         ) : null
       }
     >
-      {errorMessage ? (
+      {errorMessage && step !== 'input' ? (
         <Card variant="subtle" style={styles.errorCard}>
           <AlertCircle size={18} color={colors.redText} />
           <Text variant="caption" color={colors.redText} style={styles.errorText}>
@@ -196,14 +208,32 @@ export function CashOutScreen() {
         </Card>
       ) : null}
 
+      {step === 'source' && (
+        <AccountStep
+          heading="Cash out from"
+          accounts={accounts}
+          selectedAccountId={selectedAccount?.account_id ?? null}
+          hideBalance={hideBalance}
+          onSelect={(accountId) => {
+            setSelectedAccountId(accountId);
+            setErrorMessage(null);
+            setStep('input');
+          }}
+        />
+      )}
+
       {step === 'input' && (
         <View style={styles.stepContainer}>
+          {selectedAccount ? (
+            <RecipientChip label={`From ${formatAccountLabel(selectedAccount)}`} />
+          ) : null}
           <AmountInput
             label="Amount"
             value={amountStr}
             onChangeText={setAmountStr}
             presetAmounts={[500, 1000, 2000, 5000]}
             helperText={`Available: ${hideBalance ? '₱••••••' : formatCentavosToPHP(selectedAccount?.balance || 0)}`}
+            error={errorMessage || undefined}
           />
 
           <TextField
@@ -216,56 +246,25 @@ export function CashOutScreen() {
       )}
 
       {step === 'review' && (
-        <View style={styles.stepContainer}>
-          <Card variant="subtle" style={styles.reviewCard}>
-            <View style={styles.reviewHeader}>
-              <Text variant="caption" color={colors.textMuted}>
-                You're cashing out
-              </Text>
-              <AmountText
-                amountCentavos={centavosAmount}
-                direction="outgoing"
-                variant="display"
-                showSign={false}
-              />
-            </View>
-
-            <View style={styles.reviewRow}>
-              <Text variant="body" color={colors.textSecondary}>
-                From account
-              </Text>
-              <Text variant="bodyStrong" tabularNums color={colors.ink}>
-                {selectedAccount?.account_number}
-              </Text>
-            </View>
-
-            <View style={styles.reviewRow}>
-              <Text variant="body" color={colors.textSecondary}>
-                Balance after
-              </Text>
-              <AmountText
-                amountCentavos={(selectedAccount?.balance || 0) - centavosAmount}
-                hidden={hideBalance}
-                variant="bodyStrong"
-                color={colors.ink}
-                showSign={false}
-              />
-            </View>
-
-            <View style={styles.reviewRow}>
-              <Text variant="body" color={colors.textSecondary}>
-                Fee
-              </Text>
-              <Text variant="bodyStrong" color={colors.ink}>
-                Free
-              </Text>
-            </View>
-
-            <Text variant="caption" color={colors.textMuted} align="center">
-              Simulated money — no real funds move.
-            </Text>
-          </Card>
-        </View>
+        <ReviewCard
+          eyebrow="You're cashing out"
+          amountCentavos={centavosAmount}
+          rows={[
+            {
+              label: 'From',
+              value: selectedAccount ? formatAccountLabel(selectedAccount) : '',
+            },
+            { label: 'Note', value: reference.trim() },
+            {
+              label: 'Balance after',
+              value: hideBalance
+                ? '₱••••••'
+                : formatCentavosToPHP((selectedAccount?.balance || 0) - centavosAmount),
+              valueAccessibilityLabel: hideBalance ? 'Amount hidden' : undefined,
+            },
+            { label: 'Fee', value: 'Free' },
+          ]}
+        />
       )}
 
       {step === 'success' && successResult && (
@@ -335,22 +334,5 @@ const styles = StyleSheet.create({
   },
   errorText: {
     flex: 1,
-  },
-  reviewCard: {
-    padding: spacing.lg,
-    borderRadius: radius.md,
-    gap: spacing.md,
-  },
-  reviewHeader: {
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-    gap: spacing.xs,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-  },
-  reviewRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
   },
 });

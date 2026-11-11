@@ -25,6 +25,70 @@ export function formatAccountLabel(
   return `${typeLabel} •• ${last4}`;
 }
 
+export interface AccountListProps {
+  accounts: AccountBalance[];
+  selectedAccountId: string | null;
+  hideBalance: boolean;
+  onSelect: (accountId: string) => void;
+}
+
+/** One grouped card of accounts ("Savings •• 8921" + balance), selected one checked. */
+export function AccountList({
+  accounts,
+  selectedAccountId,
+  hideBalance,
+  onSelect,
+}: AccountListProps) {
+  return (
+    <View style={groupedListStyles.group}>
+      {accounts.map((account, index) => {
+        const label = formatAccountLabel(account);
+        const selected = account.account_id === selectedAccountId;
+        const balanceLabel = hideBalance
+          ? 'amount hidden'
+          : formatCentavosToPHP(account.balance);
+        return (
+          <Pressable
+            key={account.account_id}
+            accessibilityRole="button"
+            accessibilityLabel={`${label}, ${balanceLabel}`}
+            accessibilityState={{ selected }}
+            feedbackType="highlight"
+            onPress={() => onSelect(account.account_id)}
+            style={groupedListStyles.row}
+          >
+            <View style={[groupedListStyles.disc, selected && styles.discSelected]}>
+              <Wallet
+                size={ICON_SIZE}
+                color={selected ? colors.textInverse : colors.primary}
+              />
+            </View>
+            <View style={styles.rowText}>
+              <Text variant="bodyStrong" color={colors.ink} numberOfLines={1}>
+                {label}
+              </Text>
+              <AmountText
+                amountCentavos={account.balance}
+                hidden={hideBalance}
+                variant="caption"
+                color={colors.textSecondary}
+                showSign={false}
+                maxFontSizeMultiplier={1.4}
+              />
+            </View>
+            <View style={styles.check}>
+              {selected ? <Check size={ICON_SIZE} color={colors.primary} /> : null}
+            </View>
+            {index < accounts.length - 1 ? (
+              <View style={groupedListStyles.hairlineAbsolute} />
+            ) : null}
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
 export interface AccountPickerSheetProps {
   visible: boolean;
   accounts: AccountBalance[];
@@ -46,60 +110,17 @@ export function AccountPickerSheet({
 }: AccountPickerSheetProps) {
   return (
     <Sheet visible={visible} onClose={onClose} title={title}>
-      <View style={groupedListStyles.group}>
-        {accounts.map((account, index) => {
-          const label = formatAccountLabel(account);
-          const selected = account.account_id === selectedAccountId;
-          const balanceLabel = hideBalance
-            ? 'amount hidden'
-            : formatCentavosToPHP(account.balance);
-          return (
-            <Pressable
-              key={account.account_id}
-              accessibilityRole="button"
-              accessibilityLabel={`${label}, ${balanceLabel}`}
-              accessibilityState={{ selected }}
-              feedbackType="highlight"
-              onPress={() => onSelect(account.account_id)}
-              style={groupedListStyles.row}
-            >
-              <View style={[groupedListStyles.disc, selected && styles.discSelected]}>
-                <Wallet
-                  size={ICON_SIZE}
-                  color={selected ? colors.textInverse : colors.primary}
-                />
-              </View>
-              <View style={styles.rowText}>
-                <Text variant="bodyStrong" color={colors.ink} numberOfLines={1}>
-                  {label}
-                </Text>
-                <AmountText
-                  amountCentavos={account.balance}
-                  hidden={hideBalance}
-                  variant="caption"
-                  color={colors.textSecondary}
-                  showSign={false}
-                  maxFontSizeMultiplier={1.4}
-                />
-              </View>
-              <View style={styles.check}>
-                {selected ? <Check size={ICON_SIZE} color={colors.primary} /> : null}
-              </View>
-              {index < accounts.length - 1 ? (
-                <View style={groupedListStyles.hairlineAbsolute} />
-              ) : null}
-            </Pressable>
-          );
-        })}
-      </View>
+      <AccountList
+        accounts={accounts}
+        selectedAccountId={selectedAccountId}
+        hideBalance={hideBalance}
+        onSelect={onSelect}
+      />
     </Sheet>
   );
 }
 
 const styles = StyleSheet.create({
-  discTint: {
-    backgroundColor: colors.primaryTint,
-  },
   discSelected: {
     backgroundColor: colors.primary,
   },

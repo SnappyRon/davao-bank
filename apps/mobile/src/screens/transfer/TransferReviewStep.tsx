@@ -1,18 +1,13 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import { Send, Calendar } from 'lucide-react-native';
 import {
-  colors,
-  radius,
-  spacing,
+  formatCentavosToPHP,
   type AccountBalance,
   type ScheduledPaymentFrequency,
 } from '@davao-bank/shared';
-import { Text } from '../../components/Text';
-import { Button } from '../../components/Button';
-import { Card } from '../../components/Card';
-import { AmountText } from '../../components/AmountText';
-import type { TransferTiming } from './TransferAmountStep';
+import { ReviewCard } from '../../components/ReviewCard';
+import { formatAccountLabel } from '../../components/AccountPickerSheet';
+import { formatWhen } from '../../utils/moneyFlow';
+import { recipientLabel, type TransferTiming } from './TransferAmountStep';
 
 interface TransferReviewStepProps {
   centavosAmount: number;
@@ -25,12 +20,11 @@ interface TransferReviewStepProps {
   frequency: ScheduledPaymentFrequency;
   maxRunsStr: string;
   hideBalance: boolean;
-  loading: boolean;
-  backDisabled?: boolean;
-  onBack: () => void;
-  onConfirm: () => void;
+  /** Opens the account picker (only passed with 2+ accounts). */
+  onChangeSource?: () => void;
 }
 
+/** Spec 7B.4 Review: the commit button lives in the screen's sticky footer. */
 export function TransferReviewStep({
   centavosAmount,
   selectedAccount,
@@ -42,156 +36,37 @@ export function TransferReviewStep({
   frequency,
   maxRunsStr,
   hideBalance,
-  loading,
-  backDisabled = false,
-  onBack,
-  onConfirm,
+  onChangeSource,
 }: TransferReviewStepProps) {
+  const balanceAfter = (selectedAccount?.balance || 0) - centavosAmount;
   return (
-    <View style={styles.stepContainer}>
-      <Card variant="subtle" style={styles.reviewCard}>
-        <View style={styles.reviewHeader}>
-          <Text variant="caption" color={colors.textMuted}>
-            TOTAL AMOUNT
-          </Text>
-          <AmountText
-            amountCentavos={centavosAmount}
-            direction="outgoing"
-            variant="display"
-          />
-        </View>
-
-        <View style={styles.reviewRow}>
-          <Text variant="body" color={colors.textSecondary}>
-            From
-          </Text>
-          <Text variant="bodyStrong" tabularNums color={colors.ink}>
-            {selectedAccount?.account_number}
-          </Text>
-        </View>
-
-        <View style={styles.reviewRow}>
-          <Text variant="body" color={colors.textSecondary}>
-            To
-          </Text>
-          <Text variant="bodyStrong" tabularNums color={colors.ink}>
-            {recipientNickname
-              ? `${recipientNickname} (${recipientAccountNumber})`
-              : recipientAccountNumber}
-          </Text>
-        </View>
-
-        {reference ? (
-          <View style={styles.reviewRow}>
-            <Text variant="body" color={colors.textSecondary}>
-              Note
-            </Text>
-            <Text variant="bodyStrong" color={colors.ink}>
-              {reference}
-            </Text>
-          </View>
-        ) : null}
-
-        {/* Timing info (§C.4) */}
-        {timing !== 'now' && (
-          <View style={styles.reviewRow}>
-            <Text variant="body" color={colors.textSecondary}>
-              {timing === 'recurring' ? 'Starts' : 'Scheduled'}
-            </Text>
-            <Text variant="bodyStrong" color={colors.ink}>
-              {scheduledDate}
-            </Text>
-          </View>
-        )}
-        {timing === 'recurring' && (
-          <View style={styles.reviewRow}>
-            <Text variant="body" color={colors.textSecondary}>
-              Frequency
-            </Text>
-            <Text variant="bodyStrong" color={colors.ink}>
-              {frequency.charAt(0).toUpperCase() + frequency.slice(1)}
-              {maxRunsStr ? ` · ${maxRunsStr} runs` : ''}
-            </Text>
-          </View>
-        )}
-
-        {timing === 'now' && (
-          <View style={styles.reviewRow}>
-            <Text variant="body" color={colors.textSecondary}>
-              Projected Balance
-            </Text>
-            <AmountText
-              amountCentavos={(selectedAccount?.balance || 0) - centavosAmount}
-              hidden={hideBalance}
-              variant="bodyStrong"
-              color={colors.ink}
-              showSign={false}
-            />
-          </View>
-        )}
-      </Card>
-
-      <View style={styles.navRow}>
-        <Button
-          title="Back"
-          variant="ghost"
-          onPress={onBack}
-          disabled={loading || backDisabled}
-          style={styles.backButton}
-        />
-        <Button
-          title={
+    <ReviewCard
+      eyebrow={timing === 'now' ? "You're sending" : "You're scheduling"}
+      amountCentavos={centavosAmount}
+      rows={[
+        {
+          label: 'From',
+          value: selectedAccount ? formatAccountLabel(selectedAccount) : '',
+          onPress: onChangeSource,
+        },
+        { label: 'To', value: recipientLabel(recipientAccountNumber, recipientNickname) },
+        { label: 'Note', value: reference.trim() },
+        {
+          label: 'When',
+          value: formatWhen(timing, scheduledDate, frequency, maxRunsStr),
+        },
+        {
+          label: 'Balance after',
+          value:
             timing === 'now'
-              ? 'Authorize Transfer'
-              : timing === 'recurring'
-                ? 'Schedule Recurring'
-                : 'Schedule Transfer'
-          }
-          onPress={onConfirm}
-          loading={loading}
-          icon={
-            timing === 'now' ? (
-              <Send size={18} color={colors.textInverse} />
-            ) : (
-              <Calendar size={18} color={colors.textInverse} />
-            )
-          }
-          style={styles.forwardButton}
-        />
-      </View>
-    </View>
+              ? hideBalance
+                ? '₱••••••'
+                : formatCentavosToPHP(balanceAfter)
+              : '',
+          valueAccessibilityLabel: hideBalance ? 'Amount hidden' : undefined,
+        },
+        { label: 'Fee', value: 'Free' },
+      ]}
+    />
   );
 }
-
-const styles = StyleSheet.create({
-  stepContainer: {
-    gap: spacing.base,
-  },
-  reviewCard: {
-    padding: spacing.base,
-    borderRadius: radius.lg,
-    gap: spacing.md,
-  },
-  reviewHeader: {
-    alignItems: 'center',
-    paddingBottom: spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-  },
-  reviewRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  navRow: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    marginTop: spacing.md,
-  },
-  backButton: {
-    flex: 1,
-  },
-  forwardButton: {
-    flex: 2,
-  },
-});

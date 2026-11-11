@@ -36,7 +36,9 @@ export function ForgotPasswordScreen({ onNavigateToLogin }: ForgotPasswordScreen
       if (error) {
         setErrorMessage(toUserMessage(error));
       } else {
-        setMessage('Password reset instructions have been sent to your email address.');
+        setMessage(
+          'Check your email. Open the link in the email to set a new password, then sign in here.'
+        );
       }
     } catch (err: unknown) {
       setErrorMessage(toUserMessage(err));
@@ -65,8 +67,8 @@ export function ForgotPasswordScreen({ onNavigateToLogin }: ForgotPasswordScreen
               Reset password
             </Text>
             <Text variant="body" color={colors.textSecondary}>
-              Enter your registered email and we'll send you instructions to reset your
-              password.
+              Enter your email and we'll send you a reset link. Open the link in the email
+              to set a new password, then sign in here.
             </Text>
           </View>
 
@@ -90,7 +92,7 @@ export function ForgotPasswordScreen({ onNavigateToLogin }: ForgotPasswordScreen
 
           <View style={styles.form}>
             <TextField
-              label="Email Address"
+              label="Email"
               value={email}
               onChangeText={setEmail}
               placeholder="name@example.com"
@@ -100,7 +102,7 @@ export function ForgotPasswordScreen({ onNavigateToLogin }: ForgotPasswordScreen
             />
 
             <Button
-              title="Send Reset Instructions"
+              title="Send reset link"
               onPress={handleReset}
               loading={loading}
               icon={<KeyRound size={18} color={colors.textInverse} />}
@@ -108,7 +110,7 @@ export function ForgotPasswordScreen({ onNavigateToLogin }: ForgotPasswordScreen
             />
 
             <Button
-              title="Back to Sign In"
+              title="Back to sign in"
               variant="ghost"
               icon={<ArrowLeft size={18} color={colors.primary} />}
               onPress={onNavigateToLogin}

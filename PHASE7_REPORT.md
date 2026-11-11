@@ -539,3 +539,99 @@ npm run test:unit   → Test Suites: 28 passed, 28 total
 ```
 
 Device and hosted: **NOT VERIFIED — captain runs it.**
+
+## Stage 7B.4 — Money flow sequence (2026-11-11, Claude implementer sub agent)
+
+**Spec:** Phase 7 prompt § "4. One sequence for every money flow". Input → Review → Authorize → Processing → Result. ResultView itself is unchanged (7B.5).
+
+### What changed
+
+| Item                 | Change                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Review card          | New `components/ReviewCard.tsx`: `surfaceSubtle`, radius 16, padding 20; eyebrow ("You're sending / paying / adding / cashing out / scheduling") above the amount in `amount`, **no sign**, capped at 1.4×, `adjustsFontSizeToFit` (min 0.7); rows From / To / Note / When / Balance after / Fee "Free" (rows without a value are left out); footnote "Simulated money — no real funds move.". A row with `onPress` is a 44 pt button "From: Savings •• 8921. Change account" (account picker).                                                           |
+| Sequence             | Transfer, Pay bills, Add money, Cash out (and the scheduled variants) use one `FeatureScreen` per flow with a fixed title ("Send money", "Pay bills", "Add money", "Cash out") and "Step n of m"; Back goes to the previous step; Continue and the commit button sit in the sticky footer (in-body Back/Review buttons removed).                                                                                                                                                                                                                          |
+| Account picker first | New `components/AccountStep.tsx` (grouped list shared with `AccountPickerSheet` via a new exported `AccountList`). With **2+ accounts** the account step is step 1 ("Send from", "Pay from", "Add to", "Cash out from"); with one account there is no extra step. Review's From row opens `AccountPickerSheet` in Transfer, Pay bills and Pay request when there are 2+ accounts (needed for the QR prefill path that lands on Review). A change on Review re-checks the earlier rules (same account → Recipient step, not enough balance → Amount step). |
+| Recipient chip       | New `components/RecipientChip.tsx` at the top of the amount step: "To Mama · •• 7943", "To Apo Fiber Internet (demo)", "To / From Savings •• 8921".                                                                                                                                                                                                                                                                                                                                                                                                       |
+| Inline validation    | Amount errors render under the amount field (Transfer, Add money, Cash out; Pay bills already did). Reference errors stay under the field.                                                                                                                                                                                                                                                                                                                                                                                                                |
+| Commit button        | `utils/moneyFlow.ts` `commitButtonLabel`: "Send ₱500.00" / "Sending…", "Add ₱500.00" / "Adding…", "Cash out ₱500.00" / "Cashing out…", "Pay ₱1,250.00" / "Paying…", "Schedule ₱500.00" / "Scheduling…". Button keeps its full width (no size shift) with `busy` state.                                                                                                                                                                                                                                                                                    |
+| Pay bills            | Amount and When merged into one step; helper "e.g. 10 digits, on your bill" from `describeReferenceFormat` (8 digits, "11 digits starting with 09", else "e.g. the number on your bill"); the validation error no longer prints the pattern ("Check the subscriber no.: e.g. 10 digits, on your bill").                                                                                                                                                                                                                                                   |
+| Pay a request        | "Pay" now opens the standard Review (eyebrow "You're paying", From with picker for 2+ accounts, Note, When "Now", Fee "Free"); the commit is "Pay ₱500.00" / "Paying…"; Back returns to the list. The prompt message no longer contains the requester's account UUID.                                                                                                                                                                                                                                                                                     |
+| Saved recipients     | `Alert.prompt` replaced by an inline `TextField` + Save / Cancel in the row; 1–40 characters checked inline; same `saved_recipients.update({ nickname }).eq('id', id)`; errors via `toUserMessage` inline. Tapping a recipient opens `Transfer` with `{ recipientAccount }` (existing route param, validated by TransferScreen). Account numbers in the list and the remove confirmation are masked "•• 7943"; icon buttons are 44 pt.                                                                                                                    |
+| Export statement     | `toast.show('Statement ready')` just before the share sheet (PDF and CSV).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| Verify email         | "I've verified my email" calls `supabase.auth.refreshSession()`; App's existing `onAuthStateChange` → `email_confirmed_at` gate re-runs. No session (sign-up without one) → back to sign in (same gate). Resend: 60 s cooldown after a send, disabled, label "Resend in 42 s". Copy per the wording table.                                                                                                                                                                                                                                                |
+| Forgot password      | "Open the link in the email to set a new password, then sign in here." (subtitle and success); no in-app reset screen.                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| Copy touched         | Sentence case on labels in these flows ("Amount", "Note (optional)" with "e.g. Rent", "When", "Account number", "My accounts", "New account", "Back to sign in"); Add money's pre-filled "Online Top-up" removed (wording table). Transfer's Recipient step shows "From Savings •• 8921" instead of the full number and raw type.                                                                                                                                                                                                                         |
+
+### Money handler comparison against `efab4fd`
+
+Script: extracts each `const <handler> = …` body from `git show efab4fd:<path>` and the working file and compares the text exactly.
+
+```
+IDENTICAL  TransferScreen.tsx::handleNextFromRecipient
+IDENTICAL  TransferScreen.tsx::handleNextFromAmount
+IDENTICAL  TransferScreen.tsx::handleConfirmTransfer
+IDENTICAL  TransferScreen.tsx::executeScheduledTransfer
+IDENTICAL  TransferScreen.tsx::executeServerTransfer
+IDENTICAL  TransferScreen.tsx::idempotency-key effect
+IDENTICAL  PayBillsScreen.tsx::handleSubmitPayment
+IDENTICAL  PayBillsScreen.tsx::handleReferenceContinue
+IDENTICAL  PayBillsScreen.tsx::handleSelectBiller
+IDENTICAL  PayBillsScreen.tsx::idempotency-key effect
+IDENTICAL  AddMoneyScreen.tsx::handleProceedToReview
+IDENTICAL  AddMoneyScreen.tsx::handleConfirmDeposit
+IDENTICAL  AddMoneyScreen.tsx::idempotency-key effect
+IDENTICAL  CashOutScreen.tsx::handleProceedToReview
+IDENTICAL  CashOutScreen.tsx::handleConfirmWithdraw
+IDENTICAL  CashOutScreen.tsx::executeServerWithdraw
+IDENTICAL  CashOutScreen.tsx::idempotency-key effect
+DIFFERENT  PaymentRequestsScreen.tsx::handlePay        (2 intended changes, below)
+IDENTICAL  PaymentRequestsScreen.tsx::handleDecline
+IDENTICAL  PaymentRequestsScreen.tsx::handleCancel
+IDENTICAL  SavedRecipientsScreen.tsx::handleAddRecipient
+DIFFERENT  SavedRecipientsScreen.tsx::handleDeleteRecipient (confirmation text only: masked number)
+DIFFERENT  ExportStatementScreen.tsx::handleExportPDF  (+ toast.show('Statement ready') before share)
+DIFFERENT  ExportStatementScreen.tsx::handleExportCSV  (+ toast.show('Statement ready') before share)
+```
+
+`handlePay` diff (the only change in a money handler; both required by the spec):
+
+```diff
+-  const handlePay = async (req: PaymentRequest) => {
++  const handlePay = async (req: PaymentRequest, chosenAccount?: AccountBalance) => {
+-    const sourceAcc = accounts.find((a) => a.balance >= req.amount) || accounts[0];
++    const sourceAcc =
++      chosenAccount ?? (accounts.find((a) => a.balance >= req.amount) || accounts[0]);
+-      message: `Confirm payment of ₱${(req.amount / 100).toFixed(2)} to account ${req.requester_account}`,
++      message: `Confirm payment of ${formatCentavosToPHP(req.amount)} from ${formatAccountLabel(sourceAcc)} for this request`,
+```
+
+The `pay_payment_request` payload object, the idempotency key creation, the busy guard, the authorization result handling, `retryStepUp`, error mapping and success handling are unchanged. Without a chosen account the source rule is the same as before. Prompt titles are unchanged everywhere. No change to `packages/shared`, `supabase/`, `App.tsx`, `PasswordPromptContext` or `SettingsContext`.
+
+### Decisions
+
+1. **Account picker as a step (2+ accounts).** The spec says the picker "comes first" and Pay bills goes "from 6 to 5 steps"; that count only works with the account step: account, biller, reference, amount & when, review = **5**. With one account Pay bills has 4 steps (no account step), Transfer 3 (4 with 2+ accounts), Add money / Cash out 2 (3).
+2. **Requester masking.** The payer cannot read the requester's account number: `payment_requests.requester_account` is the account UUID and accounts RLS returns own accounts only. The prompt now shows no UUID and names the payer's source account ("from Checking •• 4321 for this request"); Review's To row reads "Payment request". Showing the requester as "•• 8921" needs one DB change (e.g. the last 4 digits on the request) — **owner/captain decision**.
+3. Pay request Review closes after the handler finishes; the outcome (paid / not authorized / error) shows in the list's existing status banner.
+4. Resend cooldown starts after a successful resend (not on mount).
+5. Error and auth-cancel strings inside handlers are unchanged (handler invariant); wording-table changes for them stay with 7B.7. Transfer's "uncertain" exit stays with 7B.10.
+
+### Tests
+
+New: `money_flow_review.test.tsx` (Review card: no sign, rows, omitted empty rows, footnote, picker row; all commit/busy labels; reference helper never contains regex characters; When row), `pay_bills_screen.test.tsx` (5 steps with 2 accounts and 4 with one, amount & when on one step, biller chip, helper and error without regex, unchanged prompt and `pay_bill` payload from the chosen account, "Schedule ₱500.00" → "Scheduling…" with `create_scheduled_payment`), `add_money_cash_out.test.tsx` (account step only with 2+ accounts, Review card, "Add ₱500.00" → "Adding…", "Cash out ₱500.00" → "Cashing out…", unchanged prompt and payloads, inline validation, cancelled authorization moves no money), `requests_and_recipients.test.tsx` (Pay request Review + picker, prompt contains "•• 4321" and no UUID, unchanged `pay_payment_request` payload from the chosen account, cancel pays nothing, no picker with one account; inline rename validation + same update query, Cancel, tap → `navigate('Transfer', { recipientAccount })`), `statement_and_auth_copy.test.tsx` (toast before share for PDF and CSV; refreshSession; signed-out → sign in; cooldown "Resend in 60 s" → "Resend in 42 s" → "Resend email", disabled while cooling; forgot-password copy). `transfer_screen.test.tsx`: titles and button names updated to the new copy/steps (same RPC/key assertions kept); new tests for the Review card, unchanged prompt + payload + prompt-before-RPC order + "Sending…", cancelled authorization, paying from the account chosen in step 1, inline amount error, one account with no account step and "Schedule ₱500.00".
+
+### Checks (repo root)
+
+```
+npm run typecheck      → exit 0 (all workspaces)
+npm run lint           → ✖ 128 problems (0 errors, 128 warnings)
+                         64 of them are in .claude/worktrees/agent-afdecd8cbf94b22ea (another agent's locked
+                         worktree, not this change); npx eslint . --ignore-pattern '.claude/**' → ✖ 64 problems (0 errors, 64 warnings)
+npm run format:check   → All matched files use Prettier code style!
+npm run test:unit      → Test Suites: 26 failed, 7 passed — every mobile suite fails to start with a Haste
+                         "@davao-bank/shared … several different files" collision caused by the same
+                         .claude/worktrees copy (not a test failure).
+npx jest --modulePathIgnorePatterns='<rootDir>/.claude/'
+                       → Test Suites: 33 passed, 33 total; Tests: 267 passed, 267 total (run twice)
+```
+
+Device: NOT VERIFIED — captain runs it (Transfer / Pay bills / Add money / Cash out with 1 and 2 accounts, Pay request with the password and code prompts, Verify email refresh, Export toast over the share sheet).

@@ -1,0 +1,167 @@
+jest.mock('../context/PasswordPromptContext', () => ({
+  ...jest.requireActual('../context/PasswordPromptContext'),
+  useTotpPrompt: () => async () => ({ success: true }),
+}));
+jest.mock('../components/StepUpSetupLink', () => ({ StepUpSetupLink: () => null }));
+import React from 'react';
+import { render, screen, fireEvent, act } from '@testing-library/react-native';
+import {
+  executeDeposit,
+  executeWithdraw,
+  fetchAccountBalances,
+  type AccountBalance,
+} from '@davao-bank/shared';
+
+jest.mock('@react-navigation/native', () => ({
+  useNavigation: () => ({ goBack: jest.fn() }),
+  useIsFocused: () => true,
+  usePreventRemove: jest.fn(),
+}));
+jest.mock('expo-blur', () => ({ BlurView: () => null }));
+jest.mock('expo-haptics', () => ({
+  notificationAsync: jest.fn(),
+  NotificationFeedbackType: { Success: 'success', Error: 'error' },
+}));
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+}));
+jest.mock('../lib/supabase', () => ({ supabase: {} }));
+jest.mock('@davao-bank/shared', () => ({
+  ...jest.requireActual('@davao-bank/shared'),
+  fetchAccountBalances: jest.fn(),
+  executeDeposit: jest.fn(),
+  executeWithdraw: jest.fn(),
+}));
+const mockConfirmBiometricPayment = jest.fn();
+jest.mock('../context/SettingsContext', () => ({
+  useSettings: () => ({
+    hideBalance: false,
+    confirmBiometricPayment: mockConfirmBiometricPayment,
+  }),
+}));
+
+import { AddMoneyScreen } from '../screens/AddMoneyScreen';
+import { CashOutScreen } from '../screens/CashOutScreen';
+
+const account = (
+  id: string,
+  num: string,
+  type: AccountBalance['type'],
+  balance: number
+): AccountBalance => ({
+  account_id: id,
+  user_id: 'u',
+  account_number: num,
+  type,
+  currency: 'PHP',
+  status: 'active',
+  balance,
+  ledger_entry_count: 0,
+  last_activity_at: null,
+});
+const SAVINGS = account('acc-s', '1012348921', 'savings', 500000);
+const CHECKING = account('acc-c', '1087654321', 'checking', 200000);
+
+function pending() {
+  let resolve!: (v: unknown) => void;
+  const promise = new Promise((r) => {
+    resolve = r;
+  });
+  return { promise, resolve };
+}
+
+describe('Add money and Cash out (spec 7B.4)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockConfirmBiometricPayment.mockResolvedValue({ success: true });
+  });
+
+  it('Add money: no account step with one account, Review card, "Add ₱500.00" → "Adding…"', async () => {
+    jest.mocked(fetchAccountBalances).mockResolvedValue({ data: [SAVINGS], error: null });
+    const call = pending();
+    jest.mocked(executeDeposit).mockReturnValue(call.promise as never);
+    await render(<AddMoneyScreen />);
+    expect(await screen.findByLabelText('To Savings •• 8921')).toBeTruthy();
+    expect(screen.getByText('Step 1 of 2')).toBeTruthy();
+    // The pre-filled "Online Top-up" note is gone.
+    expect(screen.queryByDisplayValue('Online Top-up')).toBeNull();
+    await fireEvent.changeText(screen.getByPlaceholderText('0.00'), '500');
+    await fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
+    expect(screen.getByText("You're adding")).toBeTruthy();
+    expect(screen.getByText('₱500.00')).toBeTruthy();
+    expect(screen.getByText('Simulated money — no real funds move.')).toBeTruthy();
+    await act(async () => {
+      fireEvent.press(screen.getByRole('button', { name: 'Add ₱500.00' }));
+    });
+    expect(screen.getByRole('button', { name: 'Adding…' })).toBeTruthy();
+    expect(jest.mocked(executeDeposit).mock.calls[0][1]).toEqual({
+      account: 'acc-s',
+      amount: 50000,
+      idempotency_key: expect.any(String),
+      reference: 'Online Cash-in',
+    });
+    await act(async () => {
+      call.resolve({ data: null, error: 'boom' });
+    });
+  });
+
+  it('Add money: inline amount validation', async () => {
+    jest.mocked(fetchAccountBalances).mockResolvedValue({ data: [SAVINGS], error: null });
+    await render(<AddMoneyScreen />);
+    await screen.findByLabelText('To Savings •• 8921');
+    await fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
+    expect(screen.getByText('Amount must be greater than ₱0.00')).toBeTruthy();
+    expect(screen.getByText('Step 1 of 2')).toBeTruthy();
+  });
+
+  it('Cash out: account step first with 2+ accounts, then "Cash out ₱500.00" → "Cashing out…"', async () => {
+    jest
+      .mocked(fetchAccountBalances)
+      .mockResolvedValue({ data: [SAVINGS, CHECKING], error: null });
+    const call = pending();
+    jest.mocked(executeWithdraw).mockReturnValue(call.promise as never);
+    await render(<CashOutScreen />);
+    expect(await screen.findByText('Step 1 of 3')).toBeTruthy();
+    expect(screen.getByText('Cash out from')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: /^Checking •• 4321/ }));
+    expect(screen.getByLabelText('From Checking •• 4321')).toBeTruthy();
+    await fireEvent.changeText(screen.getByPlaceholderText('0.00'), '500');
+    await fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
+    expect(screen.getByText("You're cashing out")).toBeTruthy();
+    expect(screen.getByText('Step 3 of 3')).toBeTruthy();
+    await act(async () => {
+      fireEvent.press(screen.getByRole('button', { name: 'Cash out ₱500.00' }));
+    });
+    expect(screen.getByRole('button', { name: 'Cashing out…' })).toBeTruthy();
+    expect(mockConfirmBiometricPayment).toHaveBeenCalledWith({
+      title: 'Authorize Cash-Out',
+      message: 'Confirm cash-out of ₱500.00 from account 1087654321',
+    });
+    expect(jest.mocked(executeWithdraw).mock.calls[0][1]).toEqual({
+      account: 'acc-c',
+      amount: 50000,
+      idempotency_key: expect.any(String),
+      reference: 'ATM Withdrawal',
+    });
+    await act(async () => {
+      call.resolve({ data: null, error: 'boom' });
+    });
+  });
+
+  it('Cash out: cancelled authorization moves no money', async () => {
+    jest.mocked(fetchAccountBalances).mockResolvedValue({ data: [SAVINGS], error: null });
+    mockConfirmBiometricPayment.mockResolvedValueOnce({
+      success: false,
+      cancelled: true,
+    });
+    await render(<CashOutScreen />);
+    await screen.findByLabelText('From Savings •• 8921');
+    await fireEvent.changeText(screen.getByPlaceholderText('0.00'), '500');
+    await fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
+    await act(async () => {
+      fireEvent.press(screen.getByRole('button', { name: 'Cash out ₱500.00' }));
+    });
+    expect(executeWithdraw).not.toHaveBeenCalled();
+    expect(screen.getByText('Not authorized. Nothing was sent.')).toBeTruthy();
+  });
+});

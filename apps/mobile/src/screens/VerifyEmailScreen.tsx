@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
 import {
   Mail,
@@ -6,6 +6,7 @@ import {
   ArrowLeft,
   CheckCircle2,
   AlertCircle,
+  MailCheck,
 } from 'lucide-react-native';
 import { colors, spacing, radius, toUserMessage } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
@@ -16,13 +17,54 @@ interface VerifyEmailScreenProps {
   onNavigateToLogin: () => void;
 }
 
+/** Seconds before another verification email can be requested (spec 7B.4). */
+export const RESEND_COOLDOWN_SECONDS = 60;
+
 export function VerifyEmailScreen({ email, onNavigateToLogin }: VerifyEmailScreenProps) {
   const [resending, setResending] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // One tick per second while cooling down.
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const timer = setTimeout(() => setCooldown((s) => s - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [cooldown]);
+
+  /**
+   * Refreshes the session so a confirmed email reaches the app. App's
+   * `onAuthStateChange` then re-runs the gate (`email_confirmed_at`), so the
+   * user moves on without anything else here. Signed out (sign-up without a
+   * session): sign in instead, which runs the same gate.
+   */
+  const handleVerified = async () => {
+    setChecking(true);
+    setMessage(null);
+    setError(null);
+    try {
+      const { data, error: refreshError } = await supabase.auth.refreshSession();
+      const session = data?.session;
+      if (refreshError || !session) {
+        onNavigateToLogin();
+        return;
+      }
+      if (!session.user?.email_confirmed_at) {
+        setError(
+          "Your email isn't verified yet. Tap the link in the email, then try again."
+        );
+      }
+    } catch (err: unknown) {
+      setError(toUserMessage(err));
+    } finally {
+      setChecking(false);
+    }
+  };
+
   const handleResend = async () => {
-    if (!email) return;
+    if (!email || cooldown > 0) return;
     setResending(true);
     setMessage(null);
     setError(null);
@@ -36,7 +78,8 @@ export function VerifyEmailScreen({ email, onNavigateToLogin }: VerifyEmailScree
       if (resendError) {
         setError(toUserMessage(resendError));
       } else {
-        setMessage('A new verification email has been sent. Please check your inbox.');
+        setMessage('We sent a new verification email. Check your inbox.');
+        setCooldown(RESEND_COOLDOWN_SECONDS);
       }
     } catch (err: unknown) {
       setError(toUserMessage(err));
@@ -80,7 +123,7 @@ export function VerifyEmailScreen({ email, onNavigateToLogin }: VerifyEmailScree
             align="center"
             style={styles.hintText}
           >
-            Click the link inside the email to activate your Davao Bank simulated account.
+            Tap the link in the email, then come back and tap "I've verified".
           </Text>
 
           {message ? (
@@ -103,16 +146,30 @@ export function VerifyEmailScreen({ email, onNavigateToLogin }: VerifyEmailScree
 
           <View style={styles.buttonGroup}>
             <Button
-              title="Resend Verification Email"
-              variant="secondary"
-              icon={<RefreshCw size={18} color={colors.ink} />}
-              onPress={handleResend}
-              loading={resending}
+              title="I've verified my email"
+              icon={<MailCheck size={18} color={colors.textInverse} />}
+              onPress={() => void handleVerified()}
+              loading={checking}
               style={styles.button}
             />
 
             <Button
-              title="Back to Sign In"
+              title={cooldown > 0 ? `Resend in ${cooldown} s` : 'Resend email'}
+              variant="secondary"
+              icon={
+                <RefreshCw
+                  size={18}
+                  color={cooldown > 0 ? colors.textMuted : colors.ink}
+                />
+              }
+              onPress={handleResend}
+              loading={resending}
+              disabled={cooldown > 0}
+              style={styles.button}
+            />
+
+            <Button
+              title="Back to sign in"
               variant="ghost"
               icon={<ArrowLeft size={18} color={colors.primary} />}
               onPress={onNavigateToLogin}

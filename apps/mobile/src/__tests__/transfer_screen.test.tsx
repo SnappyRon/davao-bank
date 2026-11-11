@@ -66,10 +66,11 @@ jest.mock('@davao-bank/shared', () => {
 });
 
 // Mock settings context
+const mockConfirmBiometricPayment = jest.fn();
 jest.mock('../context/SettingsContext', () => ({
   useSettings: () => ({
     hideBalance: false,
-    confirmBiometricPayment: jest.fn().mockResolvedValue({ success: true }),
+    confirmBiometricPayment: mockConfirmBiometricPayment,
   }),
 }));
 
@@ -101,6 +102,7 @@ describe('TransferScreen - F1 State & Receipt Guarantees', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockConfirmBiometricPayment.mockResolvedValue({ success: true });
     mockRouteParams = {
       recipientAccount: '1099999999',
       amountCentavos: 50000,
@@ -116,7 +118,7 @@ describe('TransferScreen - F1 State & Receipt Guarantees', () => {
     const { rerender } = await render(<TransferScreen />);
 
     // Should land on Review step directly due to valid QR prefill with amount
-    expect(await screen.findByText('Transfer · Review')).toBeTruthy();
+    expect(await screen.findByText("You're sending")).toBeTruthy();
 
     let resolveAccounts!: (
       value: Awaited<ReturnType<typeof fetchAccountBalances>>
@@ -130,7 +132,7 @@ describe('TransferScreen - F1 State & Receipt Guarantees', () => {
 
     // Confirm transfer
     await act(async () => {
-      fireEvent.press(screen.getByText('Authorize Transfer'));
+      fireEvent.press(screen.getByRole('button', { name: 'Send ₱500.00' }));
     });
 
     // Should now be on Success step
@@ -167,8 +169,8 @@ describe('TransferScreen - F1 State & Receipt Guarantees', () => {
     expect(screen.getByText('Transfer Sent')).toBeTruthy();
     expect(screen.getByText('Balance now')).toBeTruthy();
     expect(screen.getByText('₱49,500.00')).toBeTruthy();
-    expect(screen.queryByText('Transfer · Review')).toBeNull();
-    expect(screen.queryByText('Transfer · Recipient')).toBeNull();
+    expect(screen.queryByText("You're sending")).toBeNull();
+    expect(screen.queryByText('Step 2 of 4')).toBeNull();
   });
   it('waits for accounts, maps load errors and retries before enabling transfer', async () => {
     jest
@@ -178,9 +180,9 @@ describe('TransferScreen - F1 State & Receipt Guarantees', () => {
     expect(
       await screen.findByText('You appear to be offline. Nothing was sent.')
     ).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Authorize Transfer' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Send ₱/ })).toBeNull();
     fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
-    expect(await screen.findByText('Transfer · Review')).toBeTruthy();
+    expect(await screen.findByText("You're sending")).toBeTruthy();
     expect(fetchAccountBalances).toHaveBeenCalledTimes(2);
     expect(executeTransfer).not.toHaveBeenCalled();
   });
@@ -196,8 +198,8 @@ describe('TransferScreen - F1 State & Receipt Guarantees', () => {
       try {
         await render(<TransferScreen />);
         expect(await screen.findByText(message)).toBeTruthy();
-        expect(screen.getByText('Transfer · Recipient')).toBeTruthy();
-        expect(screen.queryByRole('button', { name: 'Authorize Transfer' })).toBeNull();
+        expect(screen.getByText('Step 2 of 4')).toBeTruthy();
+        expect(screen.queryByRole('button', { name: /^Send ₱/ })).toBeNull();
         expect(executeTransfer).not.toHaveBeenCalled();
       } finally {
         mockRouteParams!.recipientAccount = previousRecipient;
@@ -208,11 +210,14 @@ describe('TransferScreen - F1 State & Receipt Guarantees', () => {
   it('opens Recipient with no params and replaces the page for Request money', async () => {
     mockRouteParams = undefined;
     await render(<TransferScreen />);
+    // 2+ accounts: the source account picker comes first (spec 7B.4).
+    expect(await screen.findByText('Step 1 of 4')).toBeTruthy();
+    expect(screen.getByText('Send from')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: /^Checking •• 4321/ }));
     const requestMoney = await screen.findByRole('button', {
       name: 'Need to receive funds? Request money instead',
     });
-    expect(screen.getByText('Transfer · Recipient')).toBeTruthy();
-    expect(screen.getByText('Step 1 of 3')).toBeTruthy();
+    expect(screen.getByText('Step 2 of 4')).toBeTruthy();
     fireEvent.press(requestMoney);
     expect(mockReplace).toHaveBeenCalledWith('QRHub', { initialTab: 'request' });
   });
@@ -226,8 +231,8 @@ describe('TransferScreen - F1 State & Receipt Guarantees', () => {
         note: 'Drop this note too',
       };
       await render(<TransferScreen />);
-      expect(await screen.findByText('Transfer · Amount')).toBeTruthy();
-      expect(screen.getByText('Step 2 of 3')).toBeTruthy();
+      expect(await screen.findByText('Step 3 of 4')).toBeTruthy();
+      expect(screen.getByLabelText('To •• 9999')).toBeTruthy();
       expect(screen.queryByDisplayValue('Drop this note too')).toBeNull();
       expect(executeTransfer).not.toHaveBeenCalled();
     }
@@ -240,18 +245,18 @@ describe('TransferScreen - F1 State & Receipt Guarantees', () => {
       note: 'x'.repeat(MAX_QR_NOTE_LENGTH + 1),
     };
     await render(<TransferScreen />);
-    expect(await screen.findByText('Transfer · Amount')).toBeTruthy();
+    expect(await screen.findByText('Step 3 of 4')).toBeTruthy();
     expect(screen.queryByDisplayValue(mockRouteParams.note!)).toBeNull();
     expect(executeTransfer).not.toHaveBeenCalled();
   });
 
   it('keeps success and the last balance without an alert when the refresh fails', async () => {
     await render(<TransferScreen />);
-    await screen.findByText('Transfer · Review');
+    await screen.findByText("You're sending");
     jest
       .mocked(fetchAccountBalances)
       .mockResolvedValueOnce({ data: null, error: 'Network request failed' });
-    fireEvent.press(screen.getByRole('button', { name: 'Authorize Transfer' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Send ₱500.00' }));
     expect(await screen.findByText('Transfer Sent')).toBeTruthy();
     await waitFor(() => expect(fetchAccountBalances).toHaveBeenCalledTimes(2));
     expect(screen.getByText('₱50,000.00')).toBeTruthy();
@@ -267,7 +272,7 @@ describe('TransferScreen - F1 State & Receipt Guarantees', () => {
       .mocked(executeTransfer)
       .mockResolvedValueOnce({ data: null, error: 'TypeError: Network request failed' });
     await render(<TransferScreen />);
-    await fireEvent.press(await screen.findByText('Authorize Transfer'));
+    await fireEvent.press(await screen.findByRole('button', { name: 'Send ₱500.00' }));
     await waitFor(() => expect(screen.getByText('Checking status…')).toBeTruthy());
     await waitFor(() => expect(screen.getByText('Transfer Sent')).toBeTruthy(), {
       timeout: 3000,
@@ -276,5 +281,125 @@ describe('TransferScreen - F1 State & Receipt Guarantees', () => {
     expect(calls).toHaveLength(2);
     expect(calls[0][1]).toEqual(calls[1][1]);
     expect(screen.queryByText('Checking status…')).toBeNull();
+  });
+
+  // ---- Stage 7B.4: one sequence for every money flow ----
+
+  it('shows the standard Review card: no sign, rows, fee and footnote', async () => {
+    await render(<TransferScreen />);
+    expect(await screen.findByText("You're sending")).toBeTruthy();
+    expect(screen.getByText('Step 4 of 4')).toBeTruthy();
+    expect(screen.getByText('₱500.00')).toBeTruthy();
+    expect(screen.queryByText('−₱500.00')).toBeNull();
+    expect(screen.getByText('Savings •• 5678')).toBeTruthy();
+    expect(screen.getByText('•• 9999')).toBeTruthy();
+    expect(screen.getByText('Lunch split')).toBeTruthy();
+    expect(screen.getByText('Now')).toBeTruthy();
+    expect(screen.getByText('₱49,500.00')).toBeTruthy();
+    expect(screen.getByText('Free')).toBeTruthy();
+    expect(screen.getByText('Simulated money — no real funds move.')).toBeTruthy();
+    // Full recipient number never appears on Review.
+    expect(screen.queryByText(/1099999999/)).toBeNull();
+  });
+
+  it('keeps the prompt and the RPC payload, and shows "Sending…" while busy', async () => {
+    let resolveTransfer!: (v: unknown) => void;
+    jest.mocked(executeTransfer).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveTransfer = resolve;
+        }) as never
+    );
+    await render(<TransferScreen />);
+    await screen.findByText("You're sending");
+    await act(async () => {
+      fireEvent.press(screen.getByRole('button', { name: 'Send ₱500.00' }));
+    });
+    expect(screen.getByRole('button', { name: 'Sending…' })).toBeTruthy();
+    // Authorize before money moves, with the unchanged prompt.
+    expect(mockConfirmBiometricPayment).toHaveBeenCalledWith({
+      title: 'Authorize Transfer',
+      message: 'Confirm transfer of ₱500.00 to account 1099999999',
+    });
+    expect(mockConfirmBiometricPayment.mock.invocationCallOrder[0]).toBeLessThan(
+      jest.mocked(executeTransfer).mock.invocationCallOrder[0]
+    );
+    expect(jest.mocked(executeTransfer).mock.calls[0][1]).toEqual({
+      from_account: 'acc-1111-2222',
+      to_account_number: '1099999999',
+      amount: 50000,
+      idempotency_key: expect.any(String),
+      reference: 'Lunch split',
+    });
+    await act(async () => {
+      resolveTransfer({
+        data: { id: 'tx-1', transaction_id: 'tx-1', amount: 50000, status: 'completed' },
+        error: null,
+      });
+    });
+    expect(await screen.findByText('Transfer Sent')).toBeTruthy();
+  });
+
+  it('does not move money when authorization is cancelled', async () => {
+    mockConfirmBiometricPayment.mockResolvedValueOnce({
+      success: false,
+      cancelled: true,
+    });
+    await render(<TransferScreen />);
+    await screen.findByText("You're sending");
+    await act(async () => {
+      fireEvent.press(screen.getByRole('button', { name: 'Send ₱500.00' }));
+    });
+    expect(executeTransfer).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Send ₱500.00' })).toBeTruthy();
+  });
+
+  it('pays from the account chosen in the first step (2+ accounts)', async () => {
+    mockRouteParams = undefined;
+    await render(<TransferScreen />);
+    expect(await screen.findByText('Step 1 of 4')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: /^Checking •• 4321/ }));
+    await fireEvent.press(screen.getByRole('button', { name: 'New account' }));
+    await fireEvent.changeText(
+      screen.getByPlaceholderText('e.g. 1020441785'),
+      '1099999999'
+    );
+    await fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
+    expect(await screen.findByText('Step 3 of 4')).toBeTruthy();
+    expect(screen.getByLabelText('To •• 9999')).toBeTruthy();
+    await fireEvent.changeText(screen.getByPlaceholderText('0.00'), '250');
+    await fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
+    expect(await screen.findByText('Checking •• 4321')).toBeTruthy();
+    await act(async () => {
+      fireEvent.press(screen.getByRole('button', { name: 'Send ₱250.00' }));
+    });
+    expect(jest.mocked(executeTransfer).mock.calls[0][1]).toMatchObject({
+      from_account: 'acc-3333-4444',
+      amount: 25000,
+    });
+  });
+
+  it('shows amount validation inline under the field', async () => {
+    mockRouteParams = { recipientAccount: '1099999999' };
+    await render(<TransferScreen />);
+    expect(await screen.findByText('Step 3 of 4')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
+    expect(screen.getByText('Amount must be greater than ₱0.00')).toBeTruthy();
+    expect(screen.getByText('Step 3 of 4')).toBeTruthy();
+  });
+
+  it('skips the account step with one account and names a scheduled commit', async () => {
+    jest
+      .mocked(fetchAccountBalances)
+      .mockResolvedValue({ data: [initialAccounts[0]], error: null });
+    mockRouteParams = { recipientAccount: '1099999999' };
+    await render(<TransferScreen />);
+    expect(await screen.findByText('Step 2 of 3')).toBeTruthy();
+    await fireEvent.changeText(screen.getByPlaceholderText('0.00'), '500');
+    await fireEvent.press(screen.getByRole('button', { name: 'Later' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
+    expect(await screen.findByText("You're scheduling")).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Schedule ₱500.00' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Change account/ })).toBeNull();
   });
 });

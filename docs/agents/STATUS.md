@@ -8,8 +8,8 @@
 - **Branch:** `phase-7-ui-motion` (branched from tip of `phase-6-5-strong-auth`).
 - **Active prompt:** `Phase-7-Prompt-UI-UX-and-Motion.md`.
 - **Assigned to:** captain (Codex out of quota until 2026-11-11 00:52; Antigravity `frontend` and `backend-reviewer` out of quota). Reviewed by the captain workflow (`docs/agents/WORKFLOW.md`).
-- **Exact next step:** Stage 7B.4 One sequence for every money flow (Input → Review → Authorize → Processing → Result; review card; commit button names the money; Pay bills 5 steps; Pay request review; Saved recipients inline edit + tap opens Transfer; Export toast; Verify email; Forgot password copy). Owner: device check of 7B.0–7B.3; decisions (a) password change re-auth client-only vs server-enforced, (b) live aal2 test on hosted, (c) notifications/biller-name migration.
-- **Last commit:** `b3efad6` (7B.3 fixes) + captain acceptance docs commit.
+- **Exact next step:** captain reviews Stage 7B.4 (commit `Phase 7 · Stage 7B.4 — One sequence for every money flow`; reviewers UI/UX, Security, Code Quality — money flow screens). Captain decision needed: requester "•• 8921" in the pay-request prompt needs the requester's account number (not readable by the payer; DB change). Owner: device check of 7B.0–7B.4.
+- **Last commit:** Stage 7B.4 commit (see git log; on top of `c40d7b5`).
 - **Blockers for this step:** none. Owner decisions 2026-11-11: password change re-auth stays app-only; DB migration for notification related transaction id + biller name approved (in progress, captain applies after review).
 
 ## Stage 7B.0 — remaining work plan (captain, 2026-11-10)
@@ -96,16 +96,16 @@ Deferred to their planned steps (not in the fix round): receipt reference/Share/
   - [x] Grouped cards: "Money", "Security" (Two-step setup row with On/Off, App lock switch, Confirm with Face ID, Change password), "Settings" (Personal details, Hide balances switch, About).
   - [x] Remove floating two-step button; footer has secondary Sign out button and version info.
   - [x] Change password via `supabase.auth.updateUser`.
-- [ ] **7B.4 One sequence for every money flow**:
-  - [ ] Input → Review → Authorize → Processing → Result flow.
-  - [ ] Review card on `surfaceSubtle`, radius 16, padding 20, eyebrow "You're sending", rows, footnote.
-  - [ ] Commit button names money ("Send ₱500.00", etc.) and transitions to busy state ("Sending…").
-  - [ ] Pay Bills: 5 steps (merge Amount + When), helper example instead of regex.
-  - [ ] Pay request: review with account picker, masked requester "•• 8921" in biometric prompt.
-  - [ ] Saved recipients: inline edit field instead of `Alert.prompt`, tap opens Transfer pre-filled.
-  - [ ] Export statement: toast "Statement ready" before share sheet.
-  - [ ] Verify email: "I've verified my email" button, 60s cooldown.
-  - [ ] Forgot password copy points to browser reset link.
+- [ ] **7B.4 One sequence for every money flow** (awaiting captain review; device NOT VERIFIED):
+  - [x] Input → Review → Authorize → Processing → Result flow (account step first with 2+ accounts, recipient/biller chip, inline validation, sticky footer).
+  - [x] Review card on `surfaceSubtle`, radius 16, padding 20, eyebrow "You're sending", rows, footnote.
+  - [x] Commit button names money ("Send ₱500.00", etc.) and transitions to busy state ("Sending…").
+  - [x] Pay Bills: 5 steps (merge Amount + When; 5 with the 2+-accounts account step, 4 with one account), helper example instead of regex.
+  - [ ] Pay request: review with account picker done; prompt shows no UUID (source "•• 4321") — requester "•• 8921" NOT possible without a DB change (captain/owner decision).
+  - [x] Saved recipients: inline edit field instead of `Alert.prompt`, tap opens Transfer pre-filled.
+  - [x] Export statement: toast "Statement ready" before share sheet.
+  - [x] Verify email: "I've verified my email" button, 60s cooldown.
+  - [x] Forgot password copy points to browser reset link.
 - [ ] **7B.5 ResultView**:
   - [ ] 4 outcomes with dedicated icons, titles, haptics, details card, Done/Share/contextual actions. Everything from server response.
 - [ ] **7B.6 Responsive and accessibility**:
@@ -226,6 +226,8 @@ Fix these before 7B:
 - **Follow-up:** add dedicated test accounts so live tests don't conflict with the presenter's real authenticator.
 
 ## Log (newest first)
+
+- **2026-11-11, Claude implementer (sub agent):** Stage 7B.4 One sequence for every money flow (resumed the uncommitted partial work after the session ended; kept all of it). New `ReviewCard` (surfaceSubtle, radius 16, padding 20, eyebrow, `amount` with no sign capped 1.4×, rows From/To/Note/When/Balance after/Fee "Free", footnote), `AccountStep` + exported `AccountList` (shared with `AccountPickerSheet`), `RecipientChip`, `utils/moneyFlow.ts` (commit/busy labels, When row, reference helper). Transfer, Pay bills, Add money, Cash out: fixed titles + "Step n of m", account step first with 2+ accounts, chip on the amount step, inline amount errors, Continue/commit in the sticky footer ("Send ₱500.00"/"Sending…", "Pay"/"Paying…", "Add"/"Adding…", "Cash out"/"Cashing out…", "Schedule"/"Scheduling…"), Review From row opens the picker with 2+ accounts. Pay bills: Amount + When merged (5 steps with 2+ accounts, 4 with one), helper "e.g. 10 digits, on your bill", error no longer prints the regex. Pay request: standard Review with picker; prompt has no UUID. Saved recipients: inline rename (1–40 inline, same update query), tap → `navigate('Transfer', { recipientAccount })`, masked numbers. Export: "Statement ready" toast before share. Verify email: `refreshSession()` + gate re-run via App's `onAuthStateChange`, 60 s resend cooldown "Resend in 42 s". Forgot password copy. **Handler comparison vs `efab4fd` (exact text):** Transfer `handleNextFromRecipient`, `handleNextFromAmount`, `handleConfirmTransfer`, `executeScheduledTransfer`, `executeServerTransfer`, key effect; Pay bills `handleSubmitPayment`, `handleReferenceContinue`, `handleSelectBiller`, key effect; Add money `handleProceedToReview`, `handleConfirmDeposit`, key effect; Cash out `handleProceedToReview`, `handleConfirmWithdraw`, `executeServerWithdraw`, key effect; requests `handleDecline`, `handleCancel`; recipients `handleAddRecipient` — all IDENTICAL. `handlePay` DIFFERENT by exactly the two spec changes (optional chosen account used for `p_from_account` with the old default; prompt message without the UUID) — payload object, key, guards, retryStepUp and error mapping unchanged. Export handlers gain one `toast.show` line; delete-recipient confirmation text masked. Decision: requester's account number is not readable by the payer (UUID + own-accounts RLS), so "•• 8921" for the requester needs a DB change. Checks: typecheck exit 0; lint 0 errors (64 warnings in the repo + 64 in another agent's `.claude/worktrees/agent-afdecd8cbf94b22ea` copy, 128 total); format PASS; `npm run test:unit` fails to start mobile suites because of that worktree (Haste duplicate `@davao-bank/shared`); with `--modulePathIgnorePatterns='<rootDir>/.claude/'`: 33 suites / 267 tests pass (×2). Details in `PHASE7_REPORT.md`. Device NOT VERIFIED — captain runs it.
 
 - **2026-11-11, Owner + Claude Code (captain):** owner decisions: (a) Change password re-auth stays **app-only** (`secure_password_change` stays false); (b) live aal2 test approved; (c) one DB migration approved for a notification → related transaction id (Inbox → receipt deep link) and the biller name in transaction history. **Live probe (customer2, temporary authenticator, same-password update so nothing changed):** aal2 session → `422 same_password`; password-only sign-in with a verified factor (aal1) → **`401 insufficient_aal`**. So hosted Supabase already requires aal2 for a password change when an authenticator is enrolled; the remaining gap is accounts without two-step (accepted, documented). Cleanup verified: customer2 has 0 factors. Probe script was temporary, not committed; no secrets printed.
 

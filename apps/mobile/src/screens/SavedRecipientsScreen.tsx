@@ -1,5 +1,9 @@
 import { useConfirmSheet } from '../hooks/useConfirmSheet';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '../../App';
+import { maskAccountNumber } from '../utils/transactionDisplay';
 import { View, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import {
   Users,
@@ -10,11 +14,13 @@ import {
   X,
   CreditCard,
   AlertCircle,
+  ChevronRight,
 } from 'lucide-react-native';
 import {
   colors,
   spacing,
   radius,
+  size,
   toUserMessage,
   type SavedRecipient,
 } from '@davao-bank/shared';
@@ -31,6 +37,7 @@ import {
 
 export function SavedRecipientsScreen() {
   const { showConfirmation, confirmSheet } = useConfirmSheet();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [recipients, setRecipients] = useState<SavedRecipient[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -42,6 +49,13 @@ export function SavedRecipientsScreen() {
   const [newNickname, setNewNickname] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
+  // Inline rename (spec 7B.4: replaces the iOS-only Alert.prompt)
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editNickname, setEditNickname] = useState('');
+  const [editOriginal, setEditOriginal] = useState('');
+  const [editError, setEditError] = useState<string | null>(null);
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const mountedRef = useRef(true);
   useEffect(() => {
@@ -86,7 +100,8 @@ export function SavedRecipientsScreen() {
   }, [loadRecipients]);
 
   const isDirty =
-    isAdding && (newAccountNumber.trim().length > 0 || newNickname.trim().length > 0);
+    (isAdding && (newAccountNumber.trim().length > 0 || newNickname.trim().length > 0)) ||
+    (editingId !== null && editNickname !== editOriginal);
 
   const handleAddRecipient = async () => {
     const acc = newAccountNumber.trim();
@@ -128,42 +143,53 @@ export function SavedRecipientsScreen() {
     }
   };
 
-  const handleUpdateNickname = async (id: string, currentNick: string) => {
-    Alert.prompt(
-      'Edit Nickname',
-      'Enter a new nickname for this recipient:',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Save',
-          onPress: async (updatedNick?: string) => {
-            const clean = updatedNick?.trim();
-            if (!clean || clean.length > 40) {
-              Alert.alert('Invalid Nickname', 'Nickname must be 1 to 40 characters.');
-              return;
-            }
-            const { error } = await supabase
-              .from('saved_recipients')
-              .update({ nickname: clean })
-              .eq('id', id);
+  const startEditing = (item: SavedRecipient) => {
+    setEditingId(item.id);
+    setEditNickname(item.nickname);
+    setEditOriginal(item.nickname);
+    setEditError(null);
+  };
 
-            if (error) {
-              Alert.alert('Error', toUserMessage(error));
-            } else {
-              loadRecipients();
-            }
-          },
-        },
-      ],
-      'plain-text',
-      currentNick
-    );
+  const cancelEditing = () => {
+    setEditingId(null);
+    setEditError(null);
+  };
+
+  const handleUpdateNickname = async (id: string) => {
+    const clean = editNickname.trim();
+    if (!clean || clean.length > 40) {
+      setEditError('Nickname must be 1 to 40 characters.');
+      return;
+    }
+    setSavingEdit(true);
+    setEditError(null);
+    try {
+      const { error } = await supabase
+        .from('saved_recipients')
+        .update({ nickname: clean })
+        .eq('id', id);
+      if (!mountedRef.current) return;
+      if (error) {
+        setEditError(toUserMessage(error));
+      } else {
+        setEditingId(null);
+        loadRecipients();
+      }
+    } catch (err: unknown) {
+      if (mountedRef.current) setEditError(toUserMessage(err));
+    } finally {
+      if (mountedRef.current) setSavingEdit(false);
+    }
+  };
+
+  const openTransfer = (item: SavedRecipient) => {
+    navigation.navigate('Transfer', { recipientAccount: item.account_number });
   };
 
   const handleDeleteRecipient = async (recipient: SavedRecipient) => {
     showConfirmation({
       title: 'Remove recipient',
-      message: `Are you sure you want to remove "${recipient.nickname}" (${recipient.account_number}) from your saved recipients?`,
+      message: `Remove "${recipient.nickname}" (${maskAccountNumber(recipient.account_number)}) from your saved recipients?`,
       confirmLabel: 'Remove',
       cancelLabel: 'Cancel',
       destructive: true,
@@ -189,7 +215,11 @@ export function SavedRecipientsScreen() {
   });
 
   return (
-    <FeatureScreen title="Saved Recipients" isDirty={isDirty} isProcessing={submitting}>
+    <FeatureScreen
+      title="Saved recipients"
+      isDirty={isDirty}
+      isProcessing={submitting || savingEdit}
+    >
       <View style={styles.container}>
         {loadError ? (
           <View style={styles.loadErrorContainer}>
@@ -306,52 +336,95 @@ export function SavedRecipientsScreen() {
                     ? 'Try searching with a different name or number.'
                     : 'Save your frequent transfer recipients for 1-tap transfers.'
                 }
-                actionTitle={searchQuery ? undefined : 'Add Recipient'}
+                actionTitle={searchQuery ? undefined : 'Add recipient'}
                 onAction={searchQuery ? undefined : () => setIsAdding(true)}
                 scrollable={false}
               />
             ) : (
               <View style={styles.listContent}>
-                {filteredRecipients.map((item) => (
-                  <Card key={item.id} variant="elevated" style={styles.recipientRow}>
-                    <View style={styles.rowMain}>
-                      <View style={styles.iconCircle}>
-                        <CreditCard size={18} color={colors.primary} />
+                {filteredRecipients.map((item) =>
+                  editingId === item.id ? (
+                    <Card key={item.id} variant="elevated" style={styles.editCard}>
+                      <TextField
+                        label="Nickname"
+                        value={editNickname}
+                        onChangeText={(val) => {
+                          setEditNickname(val);
+                          if (editError) setEditError(null);
+                        }}
+                        maxLength={40}
+                        autoFocus
+                        error={editError}
+                        helperText={`${maskAccountNumber(item.account_number)} · 1 to 40 characters`}
+                        returnKeyType="done"
+                        onSubmitEditing={() => void handleUpdateNickname(item.id)}
+                      />
+                      <View style={styles.buttonRow}>
+                        <Button
+                          title="Cancel"
+                          variant="secondary"
+                          onPress={cancelEditing}
+                          disabled={savingEdit}
+                          style={styles.halfBtn}
+                        />
+                        <Button
+                          title="Save"
+                          onPress={() => void handleUpdateNickname(item.id)}
+                          loading={savingEdit}
+                          style={styles.halfBtn}
+                        />
                       </View>
-                      <View style={styles.infoCol}>
-                        <Text variant="bodyStrong" color={colors.ink}>
-                          {item.nickname}
-                        </Text>
-                        <Text variant="caption" color={colors.textSecondary} tabularNums>
-                          {item.account_number}
-                        </Text>
-                      </View>
-                    </View>
+                    </Card>
+                  ) : (
+                    <Card key={item.id} variant="elevated" style={styles.recipientRow}>
+                      <Pressable
+                        onPress={() => openTransfer(item)}
+                        feedbackType="highlight"
+                        accessibilityRole="button"
+                        accessibilityLabel={`Send money to ${item.nickname}, ${maskAccountNumber(item.account_number)}`}
+                        style={styles.rowMain}
+                      >
+                        <View style={styles.iconCircle}>
+                          <CreditCard size={18} color={colors.primary} />
+                        </View>
+                        <View style={styles.infoCol}>
+                          <Text variant="bodyStrong" color={colors.ink}>
+                            {item.nickname}
+                          </Text>
+                          <Text
+                            variant="caption"
+                            color={colors.textSecondary}
+                            tabularNums
+                          >
+                            {maskAccountNumber(item.account_number)}
+                          </Text>
+                        </View>
+                        <ChevronRight size={18} color={colors.textMuted} />
+                      </Pressable>
 
-                    <View style={styles.actionRow}>
-                      <Pressable
-                        onPress={() => handleUpdateNickname(item.id, item.nickname)}
-                        style={styles.iconBtn}
-                        feedbackType="scale"
-                        accessibilityRole="button"
-                        accessibilityLabel="Edit nickname"
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      >
-                        <Edit2 size={16} color={colors.textSecondary} />
-                      </Pressable>
-                      <Pressable
-                        onPress={() => handleDeleteRecipient(item)}
-                        style={styles.iconBtn}
-                        feedbackType="scale"
-                        accessibilityRole="button"
-                        accessibilityLabel="Delete recipient"
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      >
-                        <Trash2 size={16} color={colors.redText} />
-                      </Pressable>
-                    </View>
-                  </Card>
-                ))}
+                      <View style={styles.actionRow}>
+                        <Pressable
+                          onPress={() => startEditing(item)}
+                          style={styles.iconBtn}
+                          feedbackType="scale"
+                          accessibilityRole="button"
+                          accessibilityLabel={`Rename ${item.nickname}`}
+                        >
+                          <Edit2 size={18} color={colors.textSecondary} />
+                        </Pressable>
+                        <Pressable
+                          onPress={() => handleDeleteRecipient(item)}
+                          style={styles.iconBtn}
+                          feedbackType="scale"
+                          accessibilityRole="button"
+                          accessibilityLabel={`Remove ${item.nickname}`}
+                        >
+                          <Trash2 size={18} color={colors.redText} />
+                        </Pressable>
+                      </View>
+                    </Card>
+                  )
+                )}
               </View>
             )}
           </>
@@ -426,7 +499,15 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   iconBtn: {
-    padding: spacing.xs,
+    minWidth: size.touch,
+    minHeight: size.touch,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  editCard: {
+    padding: spacing.md,
+    borderRadius: radius.md,
+    gap: spacing.sm,
   },
   loaderContainer: {
     paddingVertical: spacing.xl,

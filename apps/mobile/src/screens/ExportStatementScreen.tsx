@@ -24,6 +24,7 @@ import {
   Chip,
   TextField,
   AmountText,
+  useToast,
 } from '../components';
 
 type PeriodOption = 'this_month' | 'last_month' | 'last_3_months' | 'custom';
@@ -42,6 +43,7 @@ function errorMessage(err: unknown): string {
 
 export function ExportStatementScreen() {
   const { hideBalance } = useSettings();
+  const toast = useToast();
   const [accounts, setAccounts] = useState<AccountBalance[]>([]);
   const [loadingAccounts, setLoadingAccounts] = useState(true);
   const [accountError, setAccountError] = useState<string | null>(null);
@@ -263,6 +265,8 @@ export function ExportStatementScreen() {
       `;
 
       const { uri } = await Print.printToFileAsync({ html });
+      // Spec 7B.4: tell the user the file is ready before the share sheet opens.
+      toast.show('Statement ready');
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(uri, {
           UTI: '.pdf',
@@ -328,6 +332,7 @@ export function ExportStatementScreen() {
         encoding: FileSystem.EncodingType.UTF8,
       });
 
+      toast.show('Statement ready');
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(fileUri, {
           UTI: 'public.comma-separated-values-text',

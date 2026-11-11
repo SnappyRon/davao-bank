@@ -9,7 +9,6 @@ import {
 } from '@davao-bank/shared';
 import { Text } from '../../components/Text';
 import { TextField } from '../../components/TextField';
-import { Button } from '../../components/Button';
 import { Chip } from '../../components/Chip';
 import { Pressable } from '../../components/Pressable';
 
@@ -24,8 +23,6 @@ interface WhenStepProps {
   onFrequencyChange: (freq: ScheduledPaymentFrequency) => void;
   maxRunsStr: string;
   onMaxRunsChange: (runs: string) => void;
-  onBack: () => void;
-  onContinue: () => void;
 }
 
 export function WhenStep({
@@ -37,13 +34,11 @@ export function WhenStep({
   onFrequencyChange,
   maxRunsStr,
   onMaxRunsChange,
-  onBack,
-  onContinue,
 }: WhenStepProps) {
   return (
     <View style={styles.stepContainer}>
       <Text variant="label" style={styles.sectionHeader}>
-        Choose Payment Timing
+        When
       </Text>
 
       <Pressable
@@ -52,13 +47,13 @@ export function WhenStep({
         feedbackType="scale"
         accessibilityRole="button"
         accessibilityState={{ selected: timing === 'now' }}
-        accessibilityLabel="Pay Now: Execute payment immediately"
+        accessibilityLabel="Pay now: pay the bill right away"
       >
         <Zap size={22} color={timing === 'now' ? colors.primary : colors.textSecondary} />
         <View style={styles.timingTextContainer}>
-          <Text variant="bodyStrong">Pay Now</Text>
+          <Text variant="bodyStrong">Pay now</Text>
           <Text variant="caption" color="textSecondary">
-            Execute payment immediately
+            Pay the bill right away
           </Text>
         </View>
       </Pressable>
@@ -69,14 +64,14 @@ export function WhenStep({
         feedbackType="scale"
         accessibilityRole="button"
         accessibilityState={{ selected: timing === 'later' }}
-        accessibilityLabel="Schedule for Later: Pay once on a future date"
+        accessibilityLabel="Later: pay once on a future date"
       >
         <Calendar
           size={22}
           color={timing === 'later' ? colors.primary : colors.textSecondary}
         />
         <View style={styles.timingTextContainer}>
-          <Text variant="bodyStrong">Schedule for Later</Text>
+          <Text variant="bodyStrong">Later</Text>
           <Text variant="caption" color="textSecondary">
             Pay once on a future date
           </Text>
@@ -89,16 +84,16 @@ export function WhenStep({
         feedbackType="scale"
         accessibilityRole="button"
         accessibilityState={{ selected: timing === 'recurring' }}
-        accessibilityLabel="Recurring Payment: Repeat weekly or monthly automatically"
+        accessibilityLabel="Recurring: repeat weekly or monthly"
       >
         <Repeat
           size={22}
           color={timing === 'recurring' ? colors.primary : colors.textSecondary}
         />
         <View style={styles.timingTextContainer}>
-          <Text variant="bodyStrong">Recurring Payment</Text>
+          <Text variant="bodyStrong">Recurring</Text>
           <Text variant="caption" color="textSecondary">
-            Repeat weekly or monthly automatically
+            Repeat weekly or monthly
           </Text>
         </View>
       </Pressable>
@@ -106,11 +101,11 @@ export function WhenStep({
       {timing !== 'now' && (
         <View style={styles.scheduleConfigBox}>
           <TextField
-            label="Execution Date (YYYY-MM-DD)"
+            label="Date (YYYY-MM-DD)"
             value={scheduledDate}
             onChangeText={onScheduledDateChange}
             placeholder="YYYY-MM-DD"
-            helperText="Date when the payment will execute (Asia/Manila time)"
+            helperText="Philippine time"
           />
 
           {timing === 'recurring' && (
@@ -132,27 +127,17 @@ export function WhenStep({
               </View>
 
               <TextField
-                label="Max Executions (optional)"
+                label="Number of payments (optional)"
                 value={maxRunsStr}
                 onChangeText={onMaxRunsChange}
                 placeholder="e.g. 12"
                 keyboardType="numeric"
-                helperText="Stops automatically after this number of runs"
+                helperText="Stops after this many payments"
               />
             </>
           )}
         </View>
       )}
-
-      <View style={styles.buttonRow}>
-        <Button title="Back" variant="ghost" onPress={onBack} style={styles.halfButton} />
-        <Button
-          title="Continue"
-          variant="primary"
-          onPress={onContinue}
-          style={styles.halfButton}
-        />
-      </View>
     </View>
   );
 }
@@ -197,13 +182,5 @@ const styles = StyleSheet.create({
   freqChipsRow: {
     flexDirection: 'row',
     gap: spacing.sm,
-  },
-  buttonRow: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    marginTop: spacing.base,
-  },
-  halfButton: {
-    flex: 1,
   },
 });

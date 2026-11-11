@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Users, BookmarkCheck, UserCheck, CreditCard } from 'lucide-react-native';
+import { Users, BookmarkCheck, UserCheck } from 'lucide-react-native';
 import {
   colors,
   radius,
@@ -14,9 +14,11 @@ import { Text } from '../../components/Text';
 import { TextField } from '../../components/TextField';
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
-import { AmountText } from '../../components/AmountText';
 import { Chip } from '../../components/Chip';
 import { Pressable } from '../../components/Pressable';
+import { RecipientChip } from '../../components/RecipientChip';
+import { formatAccountLabel } from '../../components/AccountPickerSheet';
+import { maskAccountNumber } from '../../utils/transactionDisplay';
 
 export type RecipientTab = 'saved' | 'my_accounts' | 'new';
 
@@ -68,13 +70,13 @@ export function TransferRecipientStep({
         />
         {otherAccounts.length > 0 && (
           <Chip
-            label="My Accounts"
+            label="My accounts"
             selected={recipientTab === 'my_accounts'}
             onPress={() => onTabChange('my_accounts')}
           />
         )}
         <Chip
-          label="New Account"
+          label="New account"
           selected={recipientTab === 'new'}
           onPress={() => onTabChange('new')}
         />
@@ -88,7 +90,7 @@ export function TransferRecipientStep({
                 No saved recipients yet. Enter a new account number below.
               </Text>
               <Button
-                title="Enter New Account"
+                title="Enter an account number"
                 variant="ghost"
                 onPress={() => onTabChange('new')}
               />
@@ -110,7 +112,7 @@ export function TransferRecipientStep({
                       {rec.nickname}
                     </Text>
                     <Text variant="caption" color={colors.textSecondary} tabularNums>
-                      {rec.account_number}
+                      {maskAccountNumber(rec.account_number)}
                     </Text>
                   </View>
                 </Card>
@@ -123,7 +125,7 @@ export function TransferRecipientStep({
       {recipientTab === 'my_accounts' && (
         <View style={styles.tabContent}>
           <Text variant="caption" color={colors.textSecondary}>
-            Own-account shortcut — transfer funds between your Davao Bank accounts:
+            Move money between your own accounts.
           </Text>
           <View style={styles.recipientList}>
             {otherAccounts.map((acc) => (
@@ -138,10 +140,11 @@ export function TransferRecipientStep({
                 </View>
                 <View style={styles.recipientInfo}>
                   <Text variant="bodyStrong" color={colors.ink}>
-                    {acc.type.toUpperCase()} ACCOUNT
+                    {formatAccountLabel(acc)}
                   </Text>
                   <Text variant="caption" color={colors.textSecondary} tabularNums>
-                    {acc.account_number} · Available: {formatCentavosToPHP(acc.balance)}
+                    Available:{' '}
+                    {hideBalance ? '₱••••••' : formatCentavosToPHP(acc.balance)}
                   </Text>
                 </View>
               </Card>
@@ -153,7 +156,7 @@ export function TransferRecipientStep({
       {recipientTab === 'new' && (
         <View style={styles.tabContent}>
           <TextField
-            label="Recipient Account Number"
+            label="Account number"
             value={recipientAccountNumber}
             onChangeText={onRecipientAccountChange}
             placeholder="e.g. 1020441785"
@@ -186,7 +189,7 @@ export function TransferRecipientStep({
 
           {shouldSaveRecipient && (
             <TextField
-              label="Recipient Nickname"
+              label="Nickname"
               value={saveNickname}
               onChangeText={onSaveNicknameChange}
               placeholder="e.g. Davao Landlord, Sister"
@@ -196,31 +199,9 @@ export function TransferRecipientStep({
         </View>
       )}
 
-      {/* Source Account Info */}
-      <View style={styles.sourceSelector}>
-        <Text variant="label" color={colors.textSecondary} style={styles.fieldLabel}>
-          From Account
-        </Text>
-        <Card variant="subtle" style={styles.accountCard}>
-          <CreditCard size={20} color={colors.primary} />
-          <View style={styles.accountInfo}>
-            <Text variant="bodyStrong" tabularNums color={colors.ink}>
-              {selectedAccount?.account_number} ({selectedAccount?.type})
-            </Text>
-            <View style={styles.balanceRow}>
-              <Text variant="caption" color={colors.textSecondary}>
-                Available:{' '}
-              </Text>
-              <AmountText
-                amountCentavos={selectedAccount?.balance || 0}
-                hidden={hideBalance}
-                variant="caption"
-                color={colors.primary}
-              />
-            </View>
-          </View>
-        </Card>
-      </View>
+      {selectedAccount ? (
+        <RecipientChip label={`From ${formatAccountLabel(selectedAccount)}`} />
+      ) : null}
 
       {recipientTab === 'new' && (
         <Button title="Continue" onPress={onContinue} style={styles.actionButton} />
@@ -306,26 +287,6 @@ const styles = StyleSheet.create({
   checkboxBoxChecked: {
     backgroundColor: colors.primary,
     borderColor: colors.primary,
-  },
-  sourceSelector: {
-    gap: spacing.xs,
-  },
-  fieldLabel: {
-    marginBottom: spacing.xs,
-  },
-  accountCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: spacing.md,
-    borderRadius: radius.md,
-    gap: spacing.md,
-  },
-  accountInfo: {
-    flex: 1,
-  },
-  balanceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
   },
   actionButton: {
     marginTop: spacing.md,

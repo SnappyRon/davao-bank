@@ -10,14 +10,19 @@ import {
 import { Text } from '../../components/Text';
 import { TextField } from '../../components/TextField';
 import { AmountInput } from '../../components/AmountInput';
-import { Button } from '../../components/Button';
 import { Chip } from '../../components/Chip';
+import { RecipientChip } from '../../components/RecipientChip';
+import { maskAccountNumber } from '../../utils/transactionDisplay';
 
 export type TransferTiming = 'now' | 'later' | 'recurring';
 
 interface TransferAmountStepProps {
+  recipientAccountNumber: string;
+  recipientNickname: string;
   amountStr: string;
   onAmountChange: (amount: string) => void;
+  /** Inline validation shown under the amount field. */
+  amountError?: string | null;
   reference: string;
   onReferenceChange: (ref: string) => void;
   selectedAccount: AccountBalance | undefined;
@@ -30,13 +35,20 @@ interface TransferAmountStepProps {
   onFrequencyChange: (freq: ScheduledPaymentFrequency) => void;
   maxRunsStr: string;
   onMaxRunsChange: (runs: string) => void;
-  onBack: () => void;
-  onReview: () => void;
+}
+
+/** "To Mama · •• 7943" or "To •• 7943". */
+export function recipientLabel(accountNumber: string, nickname: string) {
+  const masked = maskAccountNumber(accountNumber.trim());
+  return nickname ? `${nickname} · ${masked}` : masked;
 }
 
 export function TransferAmountStep({
+  recipientAccountNumber,
+  recipientNickname,
   amountStr,
   onAmountChange,
+  amountError,
   reference,
   onReferenceChange,
   selectedAccount,
@@ -49,31 +61,33 @@ export function TransferAmountStep({
   onFrequencyChange,
   maxRunsStr,
   onMaxRunsChange,
-  onBack,
-  onReview,
 }: TransferAmountStepProps) {
   return (
     <View style={styles.stepContainer}>
+      <RecipientChip
+        label={`To ${recipientLabel(recipientAccountNumber, recipientNickname)}`}
+      />
       <AmountInput
-        label="Amount to Transfer"
+        label="Amount"
         value={amountStr}
         onChangeText={onAmountChange}
+        error={amountError || undefined}
         presetAmounts={[100, 500, 1000, 5000]}
         helperText={`Available: ${hideBalance ? '₱••••••' : formatCentavosToPHP(selectedAccount?.balance || 0)}`}
       />
 
       <TextField
-        label="Note / Reference (Optional)"
+        label="Note (optional)"
         value={reference}
         onChangeText={onReferenceChange}
-        placeholder="e.g. Rent, Groceries"
+        placeholder="e.g. Rent"
         maxLength={60}
       />
 
       {/* Timing Selector (§C.4) */}
       <View style={styles.timingSection}>
         <Text variant="label" color={colors.textSecondary} style={styles.timingLabel}>
-          When to send
+          When
         </Text>
         <View style={styles.chipRow}>
           <Chip
@@ -96,7 +110,7 @@ export function TransferAmountStep({
 
       {timing !== 'now' && (
         <TextField
-          label={timing === 'recurring' ? 'Start Date' : 'Scheduled Date'}
+          label={timing === 'recurring' ? 'Start date' : 'Date'}
           value={scheduledDate}
           onChangeText={onScheduledDateChange}
           placeholder="YYYY-MM-DD"
@@ -119,7 +133,7 @@ export function TransferAmountStep({
             />
           </View>
           <TextField
-            label="Max Runs (optional)"
+            label="Number of payments (optional)"
             value={maxRunsStr}
             onChangeText={onMaxRunsChange}
             placeholder="e.g. 12"
@@ -127,11 +141,6 @@ export function TransferAmountStep({
           />
         </View>
       )}
-
-      <View style={styles.navRow}>
-        <Button title="Back" variant="ghost" onPress={onBack} style={styles.backButton} />
-        <Button title="Review" onPress={onReview} style={styles.forwardButton} />
-      </View>
     </View>
   );
 }
@@ -154,16 +163,5 @@ const styles = StyleSheet.create({
   recurringFields: {
     gap: spacing.sm,
     marginTop: spacing.xs,
-  },
-  navRow: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    marginTop: spacing.md,
-  },
-  backButton: {
-    flex: 1,
-  },
-  forwardButton: {
-    flex: 2,
   },
 });

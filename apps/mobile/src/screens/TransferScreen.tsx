@@ -29,7 +29,16 @@ import {
 } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
 import { useSettings } from '../context/SettingsContext';
-import { FeatureScreen, Text, Card } from '../components';
+import {
+  FeatureScreen,
+  Text,
+  Card,
+  Button,
+  AccountStep,
+  AccountPickerSheet,
+  formatAccountLabel,
+} from '../components';
+import { commitButtonLabel } from '../utils/moneyFlow';
 import {
   TransferRecipientStep,
   type RecipientTab,
@@ -38,7 +47,7 @@ import { TransferAmountStep, type TransferTiming } from './transfer/TransferAmou
 import { TransferReviewStep } from './transfer/TransferReviewStep';
 import { TransferSuccessStep } from './transfer/TransferSuccessStep';
 
-type TransferStep = 'recipient' | 'amount' | 'review' | 'success';
+type TransferStep = 'source' | 'recipient' | 'amount' | 'review' | 'success';
 
 // Never add Transfer to a React Navigation linking config: the davaobank app scheme matches QR payloads.
 export function TransferScreen() {
@@ -88,7 +97,12 @@ export function TransferScreen() {
   const [successResult, setSuccessResult] = useState<MoneyOperationResult | null>(null);
   const [idempotencyKey, setIdempotencyKey] = useState<string>('');
 
-  const selectedAccount = accounts[0];
+  // Source account: chosen in the first step when the user has 2+ accounts.
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
+  const [accountPickerOpen, setAccountPickerOpen] = useState(false);
+  const hasMultipleAccounts = accounts.length >= 2;
+  const selectedAccount =
+    accounts.find((a) => a.account_id === selectedAccountId) ?? accounts[0];
 
   const otherAccounts = accounts.filter(
     (a) => a.account_id !== selectedAccount?.account_id
@@ -161,7 +175,8 @@ export function TransferScreen() {
         }
       } else {
         // §0.9 Item 1: Every money modal resets to step 1 whenever visible becomes true
-        setStep('recipient');
+        // (spec 7B.4: with 2+ accounts the source account picker comes first).
+        setStep(accounts.length >= 2 ? 'source' : 'recipient');
         setRecipientAccountNumber('');
         setRecipientNickname('');
         setAmountStr('');
@@ -194,7 +209,7 @@ export function TransferScreen() {
 
   const handleSelectOwnAccount = (acc: AccountBalance) => {
     setRecipientAccountNumber(acc.account_number);
-    setRecipientNickname(`${acc.type.toUpperCase()} (${acc.account_number.slice(-4)})`);
+    setRecipientNickname(formatAccountLabel(acc));
     setErrorMessage(null);
     setStep('amount');
   };
@@ -382,30 +397,59 @@ export function TransferScreen() {
 
   const centavosAmount = phpToCentavos(amountStr);
 
+  // Spec 7B.4: Input → Review → Authorize → Processing → Result, on one page.
+  const inputSteps: TransferStep[] = hasMultipleAccounts
+    ? ['source', 'recipient', 'amount', 'review']
+    : ['recipient', 'amount', 'review'];
+  const stepIndex = inputSteps.indexOf(step);
+
+  const handleSelectSource = (accountId: string) => {
+    setAccountPickerOpen(false);
+    setSelectedAccountId(accountId);
+    setErrorMessage(null);
+    const account = accounts.find((a) => a.account_id === accountId);
+    if (!account) return;
+    if (step === 'source') {
+      setStep('recipient');
+      return;
+    }
+    // Changed from Review: re-check the rules the earlier steps enforced.
+    if (recipientAccountNumber.trim() === account.account_number) {
+      setErrorMessage('Cannot transfer to the same account');
+      setStep('recipient');
+    } else if (centavosAmount > account.balance) {
+      setErrorMessage('Insufficient funds in selected source account');
+      setStep('amount');
+    }
+  };
+
+  const commitAction = timing === 'now' ? 'send' : 'schedule';
+
+  const footer =
+    step === 'amount' ? (
+      <Button title="Continue" onPress={handleNextFromAmount} />
+    ) : step === 'review' ? (
+      <Button
+        title={commitButtonLabel(commitAction, centavosAmount, loading)}
+        onPress={handleConfirmTransfer}
+        loading={loading}
+      />
+    ) : undefined;
+
+  const accountsReady = !accountsLoading && !accountError && accounts.length > 0;
+
   return (
     <FeatureScreen
-      stepCount={step === 'success' ? undefined : 3}
+      stepCount={step === 'success' ? undefined : inputSteps.length}
       isDirty={hasInput}
       isProcessing={loading || uncertain}
-      step={
-        step === 'recipient'
-          ? 1
-          : step === 'amount'
-            ? 2
-            : step === 'review'
-              ? 3
-              : undefined
-      }
-      onPrevStep={() => setStep(step === 'review' ? 'amount' : 'recipient')}
-      title={
-        step === 'recipient'
-          ? 'Transfer · Recipient'
-          : step === 'amount'
-            ? 'Transfer · Amount'
-            : step === 'review'
-              ? 'Transfer · Review'
-              : 'Transfer Successful'
-      }
+      step={stepIndex >= 0 ? stepIndex + 1 : undefined}
+      onPrevStep={() => {
+        setErrorMessage(null);
+        setStep(inputSteps[Math.max(stepIndex - 1, 0)]);
+      }}
+      title="Send money"
+      footer={step !== 'success' && accountsReady ? footer : undefined}
     >
       {step !== 'success' && (
         <AccountLoadStatus
@@ -415,10 +459,9 @@ export function TransferScreen() {
           onRetry={loadAccounts}
         />
       )}
-      {(step === 'success' ||
-        (!accountsLoading && !accountError && accounts.length > 0)) && (
+      {(step === 'success' || accountsReady) && (
         <View style={styles.container}>
-          {errorMessage ? (
+          {errorMessage && step !== 'amount' ? (
             <Card variant="subtle" style={styles.errorCard}>
               <AlertCircle size={18} color={colors.redText} />
               <Text variant="caption" color={colors.redText} style={styles.errorText}>
@@ -426,6 +469,17 @@ export function TransferScreen() {
               </Text>
             </Card>
           ) : null}
+
+          {/* STEP 0 (2+ accounts): SOURCE ACCOUNT */}
+          {step === 'source' && (
+            <AccountStep
+              heading="Send from"
+              accounts={accounts}
+              selectedAccountId={selectedAccount?.account_id ?? null}
+              hideBalance={hideBalance}
+              onSelect={handleSelectSource}
+            />
+          )}
 
           {/* STEP 1: RECIPIENT */}
           {step === 'recipient' && (
@@ -455,8 +509,11 @@ export function TransferScreen() {
           {/* STEP 2: AMOUNT */}
           {step === 'amount' && (
             <TransferAmountStep
+              recipientAccountNumber={recipientAccountNumber}
+              recipientNickname={recipientNickname}
               amountStr={amountStr}
               onAmountChange={setAmountStr}
+              amountError={errorMessage}
               reference={reference}
               onReferenceChange={setReference}
               selectedAccount={selectedAccount}
@@ -469,8 +526,6 @@ export function TransferScreen() {
               onFrequencyChange={setFrequency}
               maxRunsStr={maxRunsStr}
               onMaxRunsChange={setMaxRunsStr}
-              onBack={() => setStep('recipient')}
-              onReview={handleNextFromAmount}
             />
           )}
 
@@ -487,12 +542,11 @@ export function TransferScreen() {
               frequency={frequency}
               maxRunsStr={maxRunsStr}
               hideBalance={hideBalance}
-              loading={loading}
-              onBack={() => {
-                if (!uncertain) setStep('amount');
-              }}
-              backDisabled={uncertain}
-              onConfirm={handleConfirmTransfer}
+              onChangeSource={
+                hasMultipleAccounts && !loading && !uncertain
+                  ? () => setAccountPickerOpen(true)
+                  : undefined
+              }
             />
           )}
 
@@ -515,6 +569,15 @@ export function TransferScreen() {
         </View>
       )}
       <StepUpSetupLink error={errorMessage} onClose={onClose} />
+      <AccountPickerSheet
+        visible={accountPickerOpen}
+        accounts={accounts}
+        selectedAccountId={selectedAccount?.account_id ?? null}
+        hideBalance={hideBalance}
+        onSelect={handleSelectSource}
+        onClose={() => setAccountPickerOpen(false)}
+        title="Send from"
+      />
     </FeatureScreen>
   );
 }

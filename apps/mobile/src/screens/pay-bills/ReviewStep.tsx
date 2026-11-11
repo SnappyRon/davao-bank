@@ -10,9 +10,9 @@ import {
   type ScheduledPaymentFrequency,
 } from '@davao-bank/shared';
 import { Text } from '../../components/Text';
-import { Button } from '../../components/Button';
-import { Card } from '../../components/Card';
-import { AmountText } from '../../components/AmountText';
+import { ReviewCard } from '../../components/ReviewCard';
+import { formatAccountLabel } from '../../components/AccountPickerSheet';
+import { formatWhen } from '../../utils/moneyFlow';
 import type { PaymentTiming } from './WhenStep';
 
 interface ReviewStepProps {
@@ -23,12 +23,13 @@ interface ReviewStepProps {
   timing: PaymentTiming;
   scheduledDate: string;
   frequency: ScheduledPaymentFrequency;
-  loading: boolean;
+  maxRunsStr: string;
   errorMessage: string | null;
-  onBack: () => void;
-  onSubmit: () => void;
+  /** Opens the account picker (only passed with 2+ accounts). */
+  onChangeSource?: () => void;
 }
 
+/** Spec 7B.4 Review: the commit button lives in the screen's sticky footer. */
 export function ReviewStep({
   biller,
   account,
@@ -37,92 +38,43 @@ export function ReviewStep({
   timing,
   scheduledDate,
   frequency,
-  loading,
+  maxRunsStr,
   errorMessage,
-  onBack,
-  onSubmit,
+  onChangeSource,
 }: ReviewStepProps) {
   return (
     <View style={styles.stepContainer}>
-      <Card style={styles.reviewCard}>
-        <View style={styles.reviewHeader}>
-          <Text variant="caption" color="textSecondary">
-            TOTAL AMOUNT
-          </Text>
-          <AmountText amountCentavos={centavos} variant="display" direction="outgoing" />
-        </View>
-
-        <View style={styles.divider} />
-
-        <View style={styles.reviewRow}>
-          <Text variant="body" color="textSecondary">
-            Biller
-          </Text>
-          <Text variant="bodyStrong">{biller.name}</Text>
-        </View>
-
-        <View style={styles.reviewRow}>
-          <Text variant="body" color="textSecondary">
-            {biller.reference_label}
-          </Text>
-          <Text variant="bodyStrong">{reference}</Text>
-        </View>
-
-        <View style={styles.reviewRow}>
-          <Text variant="body" color="textSecondary">
-            From Account
-          </Text>
-          <Text variant="bodyStrong">{account?.account_number || ''}</Text>
-        </View>
-
-        <View style={styles.reviewRow}>
-          <Text variant="body" color="textSecondary">
-            Timing
-          </Text>
-          <Text variant="bodyStrong">
-            {timing === 'now'
-              ? 'Immediate Payment'
-              : timing === 'later'
-                ? `Once on ${scheduledDate}`
-                : `${frequency === 'weekly' ? 'Weekly' : 'Monthly'} starting ${scheduledDate}`}
-          </Text>
-        </View>
-
-        <View style={styles.reviewRow}>
-          <Text variant="body" color="textSecondary">
-            Bank Fee
-          </Text>
-          <Text variant="bodyStrong" color="primary">
-            ₱0.00 (Free)
-          </Text>
-        </View>
-      </Card>
-
-      {errorMessage && (
+      {errorMessage ? (
         <View style={styles.errorBox}>
           <AlertCircle size={18} color={colors.redText} />
-          <Text variant="caption" color="redText" style={styles.errorText}>
+          <Text
+            variant="caption"
+            color={colors.redText}
+            accessibilityRole="alert"
+            style={styles.errorText}
+          >
             {errorMessage}
           </Text>
         </View>
-      )}
-
-      <View style={styles.buttonRow}>
-        <Button
-          title="Back"
-          variant="ghost"
-          onPress={onBack}
-          disabled={loading}
-          style={styles.halfButton}
-        />
-        <Button
-          title={timing === 'now' ? 'Confirm & Pay' : 'Confirm Schedule'}
-          variant="primary"
-          onPress={onSubmit}
-          loading={loading}
-          style={styles.halfButton}
-        />
-      </View>
+      ) : null}
+      <ReviewCard
+        eyebrow={timing === 'now' ? "You're paying" : "You're scheduling"}
+        amountCentavos={centavos}
+        rows={[
+          {
+            label: 'From',
+            value: account ? formatAccountLabel(account) : '',
+            onPress: onChangeSource,
+          },
+          { label: 'To', value: biller.name },
+          { label: biller.reference_label, value: reference.trim() },
+          {
+            label: 'When',
+            value: formatWhen(timing, scheduledDate, frequency, maxRunsStr),
+          },
+          { label: 'Fee', value: 'Free' },
+        ]}
+      />
     </View>
   );
 }
@@ -130,23 +82,6 @@ export function ReviewStep({
 const styles = StyleSheet.create({
   stepContainer: {
     gap: spacing.base,
-  },
-  reviewCard: {
-    padding: spacing.base,
-    gap: spacing.md,
-  },
-  reviewHeader: {
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: colors.border,
-  },
-  reviewRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
   },
   errorBox: {
     flexDirection: 'row',
@@ -157,14 +92,6 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   errorText: {
-    flex: 1,
-  },
-  buttonRow: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    marginTop: spacing.base,
-  },
-  halfButton: {
     flex: 1,
   },
 });

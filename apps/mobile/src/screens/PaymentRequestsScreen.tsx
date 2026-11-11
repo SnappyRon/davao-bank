@@ -40,7 +40,11 @@ import {
   EmptyState,
   AmountText,
   Pressable,
+  ReviewCard,
+  AccountPickerSheet,
+  formatAccountLabel,
 } from '../components';
+import { commitButtonLabel } from '../utils/moneyFlow';
 
 type RequestTab = 'incoming' | 'outgoing';
 
@@ -74,6 +78,10 @@ export function PaymentRequestsScreen() {
   const [requestsError, setRequestsError] = useState<string | null>(null);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  // Spec 7B.4: paying a request goes through the standard Review first.
+  const [reviewRequest, setReviewRequest] = useState<PaymentRequest | null>(null);
+  const [payFromId, setPayFromId] = useState<string | null>(null);
+  const [accountPickerOpen, setAccountPickerOpen] = useState(false);
 
   useEffect(() => {
     if (route.params?.initialTab) {
@@ -132,11 +140,12 @@ export function PaymentRequestsScreen() {
     void loadRequests();
   };
 
-  const handlePay = async (req: PaymentRequest) => {
+  const handlePay = async (req: PaymentRequest, chosenAccount?: AccountBalance) => {
     if (actionLoadingId) return;
 
-    // Default to first active account with sufficient balance, or first account
-    const sourceAcc = accounts.find((a) => a.balance >= req.amount) || accounts[0];
+    // The account chosen on Review; otherwise the first account with enough balance, or the first account
+    const sourceAcc =
+      chosenAccount ?? (accounts.find((a) => a.balance >= req.amount) || accounts[0]);
 
     if (!sourceAcc) {
       setStatusMessage('No active account found to pay this request.');
@@ -153,7 +162,8 @@ export function PaymentRequestsScreen() {
     // Biometric / Password authorization gate (§Fix 6)
     const authenticated = await confirmBiometricPayment({
       title: 'Authorize Payment Request',
-      message: `Confirm payment of ₱${(req.amount / 100).toFixed(2)} to account ${req.requester_account}`,
+      // Never show the requester's account UUID; accounts are written "Savings •• 8921".
+      message: `Confirm payment of ${formatCentavosToPHP(req.amount)} from ${formatAccountLabel(sourceAcc)} for this request`,
     });
     if (!authenticated.success) {
       setActionLoadingId(null);
@@ -266,6 +276,23 @@ export function PaymentRequestsScreen() {
       },
     });
   };
+  const openPayReview = (req: PaymentRequest) => {
+    if (actionLoadingId) return;
+    const defaultAccount = accounts.find((a) => a.balance >= req.amount) || accounts[0];
+    setStatusMessage(null);
+    setPayFromId(defaultAccount?.account_id ?? null);
+    setReviewRequest(req);
+  };
+
+  const reviewAccount = accounts.find((a) => a.account_id === payFromId) ?? accounts[0];
+
+  const confirmPayFromReview = async () => {
+    if (!reviewRequest) return;
+    await handlePay(reviewRequest, reviewAccount);
+    // The outcome (paid, not authorized, error) shows in the list's status banner.
+    setReviewRequest(null);
+  };
+
   const getStatusBadge = (status: PaymentRequest['status']) => {
     switch (status) {
       case 'pending':
@@ -284,109 +311,68 @@ export function PaymentRequestsScreen() {
   return (
     <FeatureScreen
       isProcessing={Boolean(actionLoadingId)}
-      title="Payment requests"
+      title={reviewRequest ? 'Pay request' : 'Payment requests'}
+      // Review is a second step: Back returns to the list (no caption shown).
+      step={reviewRequest ? 2 : undefined}
+      onPrevStep={() => setReviewRequest(null)}
       contentContainerStyle={styles.scrollContent}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-    >
-      {accountError ? (
-        <View style={styles.accountErrorBox}>
-          <View style={[styles.statusBanner, styles.statusBannerError]}>
-            <Text
-              variant="caption"
-              color={colors.error}
-              accessibilityRole="alert"
-              style={styles.statusBannerText}
-            >
-              {accountError}
-            </Text>
-          </View>
+      refreshControl={
+        reviewRequest ? undefined : (
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        )
+      }
+      footer={
+        reviewRequest ? (
           <Button
-            title="Try again"
-            variant="secondary"
-            onPress={() => void loadAccounts()}
+            title={commitButtonLabel(
+              'pay',
+              reviewRequest.amount,
+              actionLoadingId === reviewRequest.id
+            )}
+            loading={actionLoadingId === reviewRequest.id}
+            disabled={!reviewAccount}
+            onPress={() => void confirmPayFromReview()}
+          />
+        ) : undefined
+      }
+    >
+      {reviewRequest ? (
+        <View style={styles.reviewContainer}>
+          <ReviewCard
+            eyebrow="You're paying"
+            amountCentavos={reviewRequest.amount}
+            rows={[
+              {
+                label: 'From',
+                value: reviewAccount ? formatAccountLabel(reviewAccount) : '',
+                onPress:
+                  accounts.length >= 2 && !actionLoadingId
+                    ? () => setAccountPickerOpen(true)
+                    : undefined,
+              },
+              { label: 'To', value: 'Payment request' },
+              { label: 'Note', value: reviewRequest.note?.trim() ?? '' },
+              { label: 'When', value: 'Now' },
+              { label: 'Fee', value: 'Free' },
+            ]}
+          />
+          <AccountPickerSheet
+            visible={accountPickerOpen}
+            accounts={accounts}
+            selectedAccountId={reviewAccount?.account_id ?? null}
+            hideBalance={hideBalance}
+            onSelect={(accountId) => {
+              setPayFromId(accountId);
+              setAccountPickerOpen(false);
+            }}
+            onClose={() => setAccountPickerOpen(false)}
+            title="Pay from"
           />
         </View>
-      ) : null}
-      <View style={styles.container}>
-        {/* Tab switch */}
-        <View style={styles.tabBar}>
-          <Pressable
-            style={[styles.tabItem, tab === 'incoming' && styles.tabItemActive]}
-            onPress={() => setTab('incoming')}
-            feedbackType="scale"
-            accessibilityRole="tab"
-            accessibilityState={{ selected: tab === 'incoming' }}
-            accessibilityLabel={`Incoming requests: ${incomingRequests.filter((r) => r.status === 'pending').length} pending`}
-          >
-            <ArrowDownLeft
-              size={18}
-              color={tab === 'incoming' ? colors.primary : colors.textSecondary}
-            />
-            <Text
-              variant="bodyStrong"
-              color={tab === 'incoming' ? colors.primary : colors.textSecondary}
-            >
-              Incoming ({incomingRequests.filter((r) => r.status === 'pending').length})
-            </Text>
-          </Pressable>
-
-          <Pressable
-            style={[styles.tabItem, tab === 'outgoing' && styles.tabItemActive]}
-            onPress={() => setTab('outgoing')}
-            feedbackType="scale"
-            accessibilityRole="tab"
-            accessibilityState={{ selected: tab === 'outgoing' }}
-            accessibilityLabel={`Outgoing requests: ${outgoingRequests.length}`}
-          >
-            <ArrowUpRight
-              size={18}
-              color={tab === 'outgoing' ? colors.primary : colors.textSecondary}
-            />
-            <Text
-              variant="bodyStrong"
-              color={tab === 'outgoing' ? colors.primary : colors.textSecondary}
-            >
-              Outgoing ({outgoingRequests.length})
-            </Text>
-          </Pressable>
-        </View>
-
-        {statusMessage && (
-          <View
-            style={[
-              styles.statusBanner,
-              statusMessage.toLowerCase().includes('fail') ||
-              statusMessage.toLowerCase().includes('error') ||
-              statusMessage.toLowerCase().includes('went wrong')
-                ? styles.statusBannerError
-                : styles.statusBannerSuccess,
-            ]}
-          >
-            <Text
-              variant="caption"
-              color={
-                statusMessage.toLowerCase().includes('fail') ||
-                statusMessage.toLowerCase().includes('error') ||
-                statusMessage.toLowerCase().includes('went wrong')
-                  ? colors.error
-                  : colors.primary
-              }
-              style={styles.statusBannerText}
-            >
-              {statusMessage}
-            </Text>
-          </View>
-        )}
-
-        <View style={styles.listArea}>
-          {loading ? (
-            <ActivityIndicator
-              size="small"
-              color={colors.primary}
-              style={{ marginTop: spacing.xl }}
-            />
-          ) : requestsError ? (
-            <View style={styles.errorContainer}>
+      ) : (
+        <>
+          {accountError ? (
+            <View style={styles.accountErrorBox}>
               <View style={[styles.statusBanner, styles.statusBannerError]}>
                 <Text
                   variant="caption"
@@ -394,139 +380,244 @@ export function PaymentRequestsScreen() {
                   accessibilityRole="alert"
                   style={styles.statusBannerText}
                 >
-                  {requestsError}
+                  {accountError}
                 </Text>
               </View>
               <Button
                 title="Try again"
                 variant="secondary"
-                onPress={() => {
-                  setLoading(true);
-                  setRequestsError(null);
-                  void loadRequests();
-                }}
+                onPress={() => void loadAccounts()}
               />
             </View>
-          ) : tab === 'incoming' ? (
-            incomingRequests.length === 0 ? (
-              <EmptyState
-                scrollable={false}
-                title="No incoming requests"
-                description="When another Davao Bank customer requests money from you, it will appear here."
-              />
-            ) : (
-              <View style={styles.itemsList}>
-                {incomingRequests.map((req) => (
-                  <View key={req.id} style={styles.requestCard}>
-                    <View style={styles.cardHeader}>
-                      <View style={styles.requesterInfo}>
-                        <Text variant="caption" color={colors.textSecondary}>
-                          REQUEST FROM
-                        </Text>
-                        <Text variant="bodyStrong" color={colors.ink} tabularNums>
-                          Account {req.payer_account_number ? '••••' : ''}
-                        </Text>
-                        {req.note ? (
-                          <Text variant="caption" color={colors.textSecondary}>
-                            "{req.note}"
-                          </Text>
-                        ) : null}
-                      </View>
+          ) : null}
+          <View style={styles.container}>
+            {/* Tab switch */}
+            <View style={styles.tabBar}>
+              <Pressable
+                style={[styles.tabItem, tab === 'incoming' && styles.tabItemActive]}
+                onPress={() => setTab('incoming')}
+                feedbackType="scale"
+                accessibilityRole="tab"
+                accessibilityState={{ selected: tab === 'incoming' }}
+                accessibilityLabel={`Incoming requests: ${incomingRequests.filter((r) => r.status === 'pending').length} pending`}
+              >
+                <ArrowDownLeft
+                  size={18}
+                  color={tab === 'incoming' ? colors.primary : colors.textSecondary}
+                />
+                <Text
+                  variant="bodyStrong"
+                  color={tab === 'incoming' ? colors.primary : colors.textSecondary}
+                >
+                  Incoming (
+                  {incomingRequests.filter((r) => r.status === 'pending').length})
+                </Text>
+              </Pressable>
 
-                      <View style={styles.amountInfo}>
-                        <AmountText
-                          amountCentavos={req.amount}
-                          hidden={hideBalance}
-                          variant="title"
-                          color={colors.ink}
-                          showSign={false}
-                        />
-                        <View style={styles.badgeWrapper}>
-                          {getStatusBadge(req.status)}
+              <Pressable
+                style={[styles.tabItem, tab === 'outgoing' && styles.tabItemActive]}
+                onPress={() => setTab('outgoing')}
+                feedbackType="scale"
+                accessibilityRole="tab"
+                accessibilityState={{ selected: tab === 'outgoing' }}
+                accessibilityLabel={`Outgoing requests: ${outgoingRequests.length}`}
+              >
+                <ArrowUpRight
+                  size={18}
+                  color={tab === 'outgoing' ? colors.primary : colors.textSecondary}
+                />
+                <Text
+                  variant="bodyStrong"
+                  color={tab === 'outgoing' ? colors.primary : colors.textSecondary}
+                >
+                  Outgoing ({outgoingRequests.length})
+                </Text>
+              </Pressable>
+            </View>
+
+            {statusMessage && (
+              <View
+                style={[
+                  styles.statusBanner,
+                  statusMessage.toLowerCase().includes('fail') ||
+                  statusMessage.toLowerCase().includes('error') ||
+                  statusMessage.toLowerCase().includes('went wrong')
+                    ? styles.statusBannerError
+                    : styles.statusBannerSuccess,
+                ]}
+              >
+                <Text
+                  variant="caption"
+                  color={
+                    statusMessage.toLowerCase().includes('fail') ||
+                    statusMessage.toLowerCase().includes('error') ||
+                    statusMessage.toLowerCase().includes('went wrong')
+                      ? colors.error
+                      : colors.primary
+                  }
+                  style={styles.statusBannerText}
+                >
+                  {statusMessage}
+                </Text>
+              </View>
+            )}
+
+            <View style={styles.listArea}>
+              {loading ? (
+                <ActivityIndicator
+                  size="small"
+                  color={colors.primary}
+                  style={{ marginTop: spacing.xl }}
+                />
+              ) : requestsError ? (
+                <View style={styles.errorContainer}>
+                  <View style={[styles.statusBanner, styles.statusBannerError]}>
+                    <Text
+                      variant="caption"
+                      color={colors.error}
+                      accessibilityRole="alert"
+                      style={styles.statusBannerText}
+                    >
+                      {requestsError}
+                    </Text>
+                  </View>
+                  <Button
+                    title="Try again"
+                    variant="secondary"
+                    onPress={() => {
+                      setLoading(true);
+                      setRequestsError(null);
+                      void loadRequests();
+                    }}
+                  />
+                </View>
+              ) : tab === 'incoming' ? (
+                incomingRequests.length === 0 ? (
+                  <EmptyState
+                    scrollable={false}
+                    title="No incoming requests"
+                    description="When another Davao Bank customer requests money from you, it will appear here."
+                  />
+                ) : (
+                  <View style={styles.itemsList}>
+                    {incomingRequests.map((req) => (
+                      <View key={req.id} style={styles.requestCard}>
+                        <View style={styles.cardHeader}>
+                          <View style={styles.requesterInfo}>
+                            <Text variant="caption" color={colors.textSecondary}>
+                              REQUEST FROM
+                            </Text>
+                            <Text variant="bodyStrong" color={colors.ink} tabularNums>
+                              Account {req.payer_account_number ? '••••' : ''}
+                            </Text>
+                            {req.note ? (
+                              <Text variant="caption" color={colors.textSecondary}>
+                                "{req.note}"
+                              </Text>
+                            ) : null}
+                          </View>
+
+                          <View style={styles.amountInfo}>
+                            <AmountText
+                              amountCentavos={req.amount}
+                              hidden={hideBalance}
+                              variant="title"
+                              color={colors.ink}
+                              showSign={false}
+                            />
+                            <View style={styles.badgeWrapper}>
+                              {getStatusBadge(req.status)}
+                            </View>
+                          </View>
+                        </View>
+
+                        {req.status === 'pending' && (
+                          <View style={styles.cardActions}>
+                            <Button
+                              title="Decline"
+                              variant="ghost"
+                              disabled={actionLoadingId === req.id}
+                              onPress={() => handleDecline(req)}
+                            />
+                            <Button
+                              title="Pay"
+                              variant="primary"
+                              accessibilityLabel={
+                                hideBalance
+                                  ? 'Pay request'
+                                  : `Pay ${formatCentavosToPHP(req.amount)}`
+                              }
+                              disabled={
+                                actionLoadingId === req.id ||
+                                accountsLoading ||
+                                Boolean(accountError) ||
+                                accounts.length === 0
+                              }
+                              onPress={() => openPayReview(req)}
+                            />
+                          </View>
+                        )}
+                      </View>
+                    ))}
+                  </View>
+                )
+              ) : outgoingRequests.length === 0 ? (
+                <EmptyState
+                  scrollable={false}
+                  title="No outgoing requests"
+                  description="Payment requests you send to other Davao Bank users will be tracked here."
+                />
+              ) : (
+                <View style={styles.itemsList}>
+                  {outgoingRequests.map((req) => (
+                    <View key={req.id} style={styles.requestCard}>
+                      <View style={styles.cardHeader}>
+                        <View style={styles.requesterInfo}>
+                          <Text variant="caption" color={colors.textSecondary}>
+                            REQUESTED TO
+                          </Text>
+                          <Text variant="bodyStrong" color={colors.ink} tabularNums>
+                            Account {req.payer_account_number}
+                          </Text>
+                          {req.note ? (
+                            <Text variant="caption" color={colors.textSecondary}>
+                              "{req.note}"
+                            </Text>
+                          ) : null}
+                        </View>
+
+                        <View style={styles.amountInfo}>
+                          <AmountText
+                            amountCentavos={req.amount}
+                            hidden={hideBalance}
+                            variant="title"
+                            color={colors.ink}
+                            showSign={false}
+                          />
+                          <View style={styles.badgeWrapper}>
+                            {getStatusBadge(req.status)}
+                          </View>
                         </View>
                       </View>
-                    </View>
 
-                    {req.status === 'pending' && (
-                      <View style={styles.cardActions}>
-                        <Button
-                          title="Decline"
-                          variant="ghost"
-                          disabled={actionLoadingId === req.id}
-                          onPress={() => handleDecline(req)}
-                        />
-                        <Button
-                          title="Pay Now"
-                          variant="primary"
-                          loading={actionLoadingId === req.id}
-                          disabled={
-                            actionLoadingId === req.id ||
-                            accountsLoading ||
-                            Boolean(accountError)
-                          }
-                          onPress={() => handlePay(req)}
-                        />
-                      </View>
-                    )}
-                  </View>
-                ))}
-              </View>
-            )
-          ) : outgoingRequests.length === 0 ? (
-            <EmptyState
-              scrollable={false}
-              title="No outgoing requests"
-              description="Payment requests you send to other Davao Bank users will be tracked here."
-            />
-          ) : (
-            <View style={styles.itemsList}>
-              {outgoingRequests.map((req) => (
-                <View key={req.id} style={styles.requestCard}>
-                  <View style={styles.cardHeader}>
-                    <View style={styles.requesterInfo}>
-                      <Text variant="caption" color={colors.textSecondary}>
-                        REQUESTED TO
-                      </Text>
-                      <Text variant="bodyStrong" color={colors.ink} tabularNums>
-                        Account {req.payer_account_number}
-                      </Text>
-                      {req.note ? (
-                        <Text variant="caption" color={colors.textSecondary}>
-                          "{req.note}"
-                        </Text>
-                      ) : null}
+                      {req.status === 'pending' && (
+                        <View style={styles.cardActionsSingle}>
+                          <Button
+                            title="Cancel Request"
+                            variant="destructive"
+                            disabled={actionLoadingId === req.id}
+                            onPress={() => handleCancel(req)}
+                          />
+                        </View>
+                      )}
                     </View>
-
-                    <View style={styles.amountInfo}>
-                      <AmountText
-                        amountCentavos={req.amount}
-                        hidden={hideBalance}
-                        variant="title"
-                        color={colors.ink}
-                        showSign={false}
-                      />
-                      <View style={styles.badgeWrapper}>
-                        {getStatusBadge(req.status)}
-                      </View>
-                    </View>
-                  </View>
-
-                  {req.status === 'pending' && (
-                    <View style={styles.cardActionsSingle}>
-                      <Button
-                        title="Cancel Request"
-                        variant="destructive"
-                        disabled={actionLoadingId === req.id}
-                        onPress={() => handleCancel(req)}
-                      />
-                    </View>
-                  )}
+                  ))}
                 </View>
-              ))}
+              )}
             </View>
-          )}
-        </View>
-      </View>
+          </View>
+        </>
+      )}
       <StepUpSetupLink error={statusMessage} onClose={onClose} />
       {confirmSheet}
     </FeatureScreen>
@@ -534,6 +625,9 @@ export function PaymentRequestsScreen() {
 }
 
 const styles = StyleSheet.create({
+  reviewContainer: {
+    gap: spacing.base,
+  },
   container: {
     flex: 1,
     paddingBottom: spacing['2xl'],

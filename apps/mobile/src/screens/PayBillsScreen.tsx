@@ -6,7 +6,7 @@ import { AccountLoadStatus } from '../components/AccountLoadStatus';
 import { StepUpSetupLink } from '../components/StepUpSetupLink';
 import { retryStepUp } from '../utils/stepUpRetry';
 import { useTotpPrompt } from '../context/PasswordPromptContext';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import {
@@ -20,14 +20,23 @@ import {
 } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
 import { useSettings } from '../context/SettingsContext';
-import { FeatureScreen, AmountInput, Button } from '../components';
-import { BillerStep } from './pay-bills/BillerStep';
+import {
+  FeatureScreen,
+  AmountInput,
+  Button,
+  AccountStep,
+  AccountPickerSheet,
+  RecipientChip,
+} from '../components';
+import { commitButtonLabel, describeReferenceFormat } from '../utils/moneyFlow';
+import { BillerStep, getCategoryIcon } from './pay-bills/BillerStep';
 import { ReferenceStep } from './pay-bills/ReferenceStep';
 import { WhenStep, type PaymentTiming } from './pay-bills/WhenStep';
 import { ReviewStep } from './pay-bills/ReviewStep';
 import { SuccessStep } from './pay-bills/SuccessStep';
 
-type Step = 'biller' | 'reference' | 'amount' | 'when' | 'review' | 'success';
+// Spec 7B.4: Amount and When are one step ('amount').
+type Step = 'source' | 'biller' | 'reference' | 'amount' | 'review' | 'success';
 
 export function PayBillsScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -35,7 +44,7 @@ export function PayBillsScreen() {
   const { accounts, accountsLoading, accountError, loadAccounts } = useFeatureAccounts();
 
   const promptTotp = useTotpPrompt();
-  const { confirmBiometricPayment } = useSettings();
+  const { confirmBiometricPayment, hideBalance } = useSettings();
 
   const [step, setStep] = useState<Step>('biller');
   const [billers, setBillers] = useState<Biller[]>([]);
@@ -61,7 +70,21 @@ export function PayBillsScreen() {
   const [receiptTxId, setReceiptTxId] = useState<string | null>(null);
   const [serverResult, setServerResult] = useState<any>(null);
 
-  const selectedAccount = accounts[0];
+  // Source account: chosen in the first step when the user has 2+ accounts.
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
+  const [accountPickerOpen, setAccountPickerOpen] = useState(false);
+  const hasMultipleAccounts = accounts.length >= 2;
+  const selectedAccount =
+    accounts.find((a) => a.account_id === selectedAccountId) ?? accounts[0];
+  const sourceStepPendingRef = useRef(true);
+
+  // With 2+ accounts the source picker comes first (once, after accounts load).
+  useEffect(() => {
+    if (sourceStepPendingRef.current && !accountsLoading && accounts.length > 0) {
+      sourceStepPendingRef.current = false;
+      if (accounts.length >= 2) setStep('source');
+    }
+  }, [accountsLoading, accounts.length]);
 
   useEffect(() => {
     loadBillers();
@@ -124,7 +147,7 @@ export function PayBillsScreen() {
       const regex = new RegExp(selectedBiller.reference_pattern);
       if (!regex.test(clean)) {
         setRefError(
-          `Format doesn't match requirement (Pattern: ${selectedBiller.reference_pattern})`
+          `Check the ${selectedBiller.reference_label.toLowerCase()}: ${describeReferenceFormat(selectedBiller.reference_pattern)}`
         );
         return false;
       }
@@ -154,7 +177,8 @@ export function PayBillsScreen() {
 
   const handleAmountContinue = () => {
     if (isAmountValid) {
-      setStep('when');
+      setErrorMessage(null);
+      setStep('review');
     }
   };
 
@@ -243,41 +267,57 @@ export function PayBillsScreen() {
     }
   };
 
+  const inputSteps: Step[] = hasMultipleAccounts
+    ? ['source', 'biller', 'reference', 'amount', 'review']
+    : ['biller', 'reference', 'amount', 'review'];
+  const stepIndex = inputSteps.indexOf(step);
+
+  const handleSelectSource = (accountId: string) => {
+    setAccountPickerOpen(false);
+    setSelectedAccountId(accountId);
+    setErrorMessage(null);
+    if (step === 'source') {
+      setStep('biller');
+      return;
+    }
+    const account = accounts.find((a) => a.account_id === accountId);
+    if (step === 'review' && account && centavos > account.balance) {
+      setStep('amount');
+    }
+  };
+
+  const commitAction = timing === 'now' ? 'pay' : 'schedule';
+  const accountsReady = !accountsLoading && !accountError && accounts.length > 0;
+
+  const footer =
+    step === 'reference' ? (
+      <Button
+        title="Continue"
+        onPress={handleReferenceContinue}
+        disabled={!reference.trim()}
+      />
+    ) : step === 'amount' ? (
+      <Button title="Continue" onPress={handleAmountContinue} disabled={!isAmountValid} />
+    ) : step === 'review' ? (
+      <Button
+        title={commitButtonLabel(commitAction, centavos, loading)}
+        onPress={handleSubmitPayment}
+        loading={loading}
+      />
+    ) : undefined;
+
   return (
     <FeatureScreen
-      stepCount={step === 'success' ? undefined : 5}
+      stepCount={step === 'success' ? undefined : inputSteps.length}
       isDirty={hasInput}
       isProcessing={loading}
-      step={
-        step === 'success'
-          ? undefined
-          : ['biller', 'reference', 'amount', 'when', 'review'].indexOf(step) + 1
-      }
-      onPrevStep={() =>
-        setStep(
-          (
-            {
-              reference: 'biller',
-              amount: 'reference',
-              when: 'amount',
-              review: 'when',
-            } as const
-          )[step as 'reference' | 'amount' | 'when' | 'review']
-        )
-      }
-      title={
-        step === 'biller'
-          ? 'Pay Bills'
-          : step === 'reference'
-            ? 'Account Details'
-            : step === 'amount'
-              ? 'Enter Amount'
-              : step === 'when'
-                ? 'Payment Schedule'
-                : step === 'review'
-                  ? 'Review Payment'
-                  : 'Payment Result'
-      }
+      step={stepIndex >= 0 ? stepIndex + 1 : undefined}
+      onPrevStep={() => {
+        setErrorMessage(null);
+        setStep(inputSteps[Math.max(stepIndex - 1, 0)]);
+      }}
+      title="Pay bills"
+      footer={step !== 'success' && accountsReady ? footer : undefined}
     >
       <AccountLoadStatus
         loading={accountsLoading}
@@ -285,9 +325,20 @@ export function PayBillsScreen() {
         error={accountError}
         onRetry={loadAccounts}
       />
-      {!accountsLoading && !accountError && accounts.length > 0 && (
+      {accountsReady && (
         <View style={styles.content}>
-          {/* Step 1: Biller Selection */}
+          {/* Step 0 (2+ accounts): source account */}
+          {step === 'source' && (
+            <AccountStep
+              heading="Pay from"
+              accounts={accounts}
+              selectedAccountId={selectedAccount?.account_id ?? null}
+              hideBalance={hideBalance}
+              onSelect={handleSelectSource}
+            />
+          )}
+
+          {/* Biller */}
           {step === 'biller' && (
             <BillerStep
               billers={billers}
@@ -299,7 +350,7 @@ export function PayBillsScreen() {
             />
           )}
 
-          {/* Step 2: Reference Number */}
+          {/* Account number on the bill */}
           {step === 'reference' && selectedBiller && (
             <ReferenceStep
               biller={selectedBiller}
@@ -309,63 +360,41 @@ export function PayBillsScreen() {
                 setReference(val);
                 if (refError) validateReference(val);
               }}
-              onBack={() => setStep('biller')}
-              onContinue={handleReferenceContinue}
             />
           )}
 
-          {/* Step 3: Amount */}
-          {step === 'amount' && (
+          {/* Amount and when (one step) */}
+          {step === 'amount' && selectedBiller && (
             <View style={styles.stepContainer}>
+              <RecipientChip
+                label={`To ${selectedBiller.name}`}
+                icon={getCategoryIcon(selectedBiller.category)}
+              />
               <AmountInput
+                label="Amount"
                 value={amountStr}
                 onChangeText={setAmountStr}
-                availableBalanceCentavos={availableCentavos}
+                helperText={`Available: ${hideBalance ? '₱••••••' : formatCentavosToPHP(availableCentavos)}`}
                 error={
                   centavos > availableCentavos
                     ? 'Amount exceeds available balance'
                     : undefined
                 }
               />
-
-              <View style={styles.buttonRow}>
-                <Button
-                  title="Back"
-                  variant="ghost"
-                  onPress={() => setStep('reference')}
-                  style={styles.halfButton}
-                />
-                <Button
-                  title="Continue"
-                  variant="primary"
-                  onPress={handleAmountContinue}
-                  disabled={!isAmountValid}
-                  style={styles.halfButton}
-                />
-              </View>
+              <WhenStep
+                timing={timing}
+                onTimingChange={setTiming}
+                scheduledDate={scheduledDate}
+                onScheduledDateChange={setScheduledDate}
+                frequency={frequency}
+                onFrequencyChange={setFrequency}
+                maxRunsStr={maxRunsStr}
+                onMaxRunsChange={setMaxRunsStr}
+              />
             </View>
           )}
 
-          {/* Step 4: When */}
-          {step === 'when' && (
-            <WhenStep
-              timing={timing}
-              onTimingChange={setTiming}
-              scheduledDate={scheduledDate}
-              onScheduledDateChange={setScheduledDate}
-              frequency={frequency}
-              onFrequencyChange={setFrequency}
-              maxRunsStr={maxRunsStr}
-              onMaxRunsChange={setMaxRunsStr}
-              onBack={() => setStep('amount')}
-              onContinue={() => {
-                setErrorMessage(null);
-                setStep('review');
-              }}
-            />
-          )}
-
-          {/* Step 5: Review */}
+          {/* Review */}
           {step === 'review' && selectedBiller && (
             <ReviewStep
               biller={selectedBiller}
@@ -375,14 +404,17 @@ export function PayBillsScreen() {
               timing={timing}
               scheduledDate={scheduledDate}
               frequency={frequency}
-              loading={loading}
+              maxRunsStr={maxRunsStr}
               errorMessage={errorMessage}
-              onBack={() => setStep('when')}
-              onSubmit={handleSubmitPayment}
+              onChangeSource={
+                hasMultipleAccounts && !loading
+                  ? () => setAccountPickerOpen(true)
+                  : undefined
+              }
             />
           )}
 
-          {/* Step 6: Success */}
+          {/* Result */}
           {step === 'success' && selectedBiller && (
             <SuccessStep
               biller={selectedBiller}
@@ -398,6 +430,15 @@ export function PayBillsScreen() {
         </View>
       )}
       <StepUpSetupLink error={errorMessage} onClose={onClose} />
+      <AccountPickerSheet
+        visible={accountPickerOpen}
+        accounts={accounts}
+        selectedAccountId={selectedAccount?.account_id ?? null}
+        hideBalance={hideBalance}
+        onSelect={handleSelectSource}
+        onClose={() => setAccountPickerOpen(false)}
+        title="Pay from"
+      />
     </FeatureScreen>
   );
 }
@@ -408,13 +449,5 @@ const styles = StyleSheet.create({
   },
   stepContainer: {
     gap: spacing.base,
-  },
-  buttonRow: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    marginTop: spacing.base,
-  },
-  halfButton: {
-    flex: 1,
   },
 });
