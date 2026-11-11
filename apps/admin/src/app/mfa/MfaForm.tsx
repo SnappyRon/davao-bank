@@ -6,6 +6,7 @@ import { Button, Input } from '@/components/ui';
 import styles from '../login/Login.module.css';
 
 type Enrollment = { id: string; secret: string; qr_code: string; uri: string };
+const VERIFY_TIMEOUT_MS = 20000;
 export function MfaForm({ setup = false }: { setup?: boolean }) {
   const router = useRouter();
   const [client] = useState(createAdminBrowserClient);
@@ -63,27 +64,30 @@ export function MfaForm({ setup = false }: { setup?: boolean }) {
     inFlight.current = true;
     setBusy(true);
     setError('');
+    let timer: ReturnType<typeof setTimeout> | undefined;
     try {
-      const { error: verifyError } = await client.auth.mfa.challengeAndVerify({
-        factorId,
-        code: value,
+      // challengeAndVerify stores the upgraded (aal2) session itself, so no
+      // separate refreshSession call is needed; the timeout keeps the form
+      // from staying locked if the request never settles.
+      const timeout = new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error('timeout')), VERIFY_TIMEOUT_MS);
       });
+      const { error: verifyError } = await Promise.race([
+        client.auth.mfa.challengeAndVerify({ factorId, code: value }),
+        timeout,
+      ]);
       if (verifyError) {
         setError('Code not accepted. Try the latest code from your authenticator app.');
         return;
       }
       pending.current = null;
-      const { error: refreshError } = await client.auth.refreshSession();
-      if (refreshError) {
-        setError('Could not refresh your session. Please try again.');
-        return;
-      }
       setEnrollment(null);
-      router.replace('/');
-      router.refresh();
+      // Full navigation so the middleware reads the new session cookies.
+      window.location.assign('/');
     } catch {
       setError('Could not verify the code. Please try again.');
     } finally {
+      clearTimeout(timer);
       setCode('');
       setBusy(false);
       inFlight.current = false;
