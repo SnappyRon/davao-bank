@@ -43,6 +43,14 @@ export function MfaForm({ setup = false }: { setup?: boolean }) {
     setBusy(true);
     setError('');
     try {
+      // A setup that was abandoned leaves an unverified factor with the same
+      // name, and enroll then fails. Remove leftovers before starting again.
+      const { data: existing } = await client.auth.mfa.listFactors();
+      for (const factor of existing?.all ?? []) {
+        if (factor.factor_type === 'totp' && factor.status === 'unverified') {
+          await client.auth.mfa.unenroll({ factorId: factor.id });
+        }
+      }
       const { data, error: enrollError } = await client.auth.mfa.enroll({
         factorType: 'totp',
         friendlyName: 'Davao Bank Admin',
