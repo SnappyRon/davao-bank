@@ -25,8 +25,10 @@ import {
   size,
   spacing,
   fetchNotifications,
+  fetchTransactionHistory,
   toUserMessage,
   type Notification,
+  type TransactionHistoryItem,
 } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
 import {
@@ -41,6 +43,7 @@ import {
   LIST_ROW_MIN_HEIGHT,
   groupedListStyles,
   tabScreenBottomClearance,
+  useToast,
 } from '../components';
 
 const UNREAD_DOT_SIZE = 8;
@@ -142,6 +145,24 @@ function notificationIcon(type: string | null): { icon: React.ReactNode; bg: str
   };
 }
 
+/**
+ * Picks the caller's ledger row for a notification's transaction. Money that
+ * arrived (transfer in, money added) opens the credit side; everything else
+ * prefers the debit side. Falls back to any row the caller can see.
+ */
+export function receiptRowFor(
+  item: Notification,
+  transactionId: string,
+  rows: TransactionHistoryItem[]
+): TransactionHistoryItem | null {
+  const matches = rows.filter((row) => row.transaction_id === transactionId);
+  const incoming = item.type === 'transfer_in' || item.type === 'deposit';
+  const preferred = incoming ? 'credit' : 'debit';
+  return matches.find((row) => row.direction === preferred) ?? matches[0] ?? null;
+}
+
+export const RECEIPT_UNAVAILABLE_MESSAGE = "This receipt isn't available.";
+
 /** "2:41 AM" today, otherwise "Nov 8". */
 function formatNotificationTime(iso: string, now = new Date()): string {
   const date = new Date(iso);
@@ -161,6 +182,8 @@ export function InboxScreen({ onUnreadCountChange }: InboxScreenProps) {
   const [error, setError] = useState<string | null>(null);
   const [markingAll, setMarkingAll] = useState<boolean>(false);
   const loadIdRef = useRef(0);
+  const openingReceiptRef = useRef(false);
+  const toast = useToast();
 
   const loadNotifications = useCallback(async () => {
     const loadId = ++loadIdRef.current;
@@ -252,20 +275,53 @@ export function InboxScreen({ onUnreadCountChange }: InboxScreenProps) {
     }
   };
 
+  /**
+   * Opens the receipt for a notification's related transaction. The account id
+   * the Receipt route needs comes from the caller's own transaction history:
+   * the history RPC is scoped on the server to the caller's accounts, so an id
+   * the caller can't see resolves to nothing and no receipt opens.
+   */
+  const openReceipt = async (item: Notification, transactionId: string) => {
+    if (openingReceiptRef.current) return;
+    openingReceiptRef.current = true;
+    try {
+      const { data, error: historyError } = await fetchTransactionHistory(supabase);
+      if (historyError || !data) {
+        toast.show(toUserMessage(historyError ?? RECEIPT_UNAVAILABLE_MESSAGE), 'error');
+        return;
+      }
+      const row = receiptRowFor(item, transactionId, data);
+      if (!row) {
+        toast.show(RECEIPT_UNAVAILABLE_MESSAGE, 'error');
+        return;
+      }
+      navigation.navigate('Receipt', {
+        transactionId: row.transaction_id,
+        accountId: row.account_id,
+      });
+    } catch (err) {
+      toast.show(toUserMessage(err), 'error');
+    } finally {
+      openingReceiptRef.current = false;
+    }
+  };
+
   const openNotification = (item: Notification) => {
     if (!item.read) void markAsRead(item.id);
+    // Request notices open Payment requests on the matching tab (unchanged).
     if (item.type?.startsWith('payment_request_')) {
       const initialTab =
         item.type === 'payment_request_paid' || item.type === 'payment_request_declined'
           ? 'outgoing'
           : 'incoming';
       navigation.navigate('PaymentRequests', { initialTab });
+      return;
     }
-    // TODO(owner decision): transaction notifications cannot open a receipt
-    // yet. The notifications table has no related transaction id, so there is
-    // nothing reliable to link to; matching by amount or time is not allowed.
-    // Until the owner decides (e.g. a related_id column), a tap only marks the
-    // notification as read.
+    // Money notices written since the 7B.9 migration carry the transaction id.
+    // Older rows and account notices have none: a tap only marks them read.
+    if (item.related_transaction_id) {
+      void openReceipt(item, item.related_transaction_id);
+    }
   };
 
   const bottomClearance = tabScreenBottomClearance(insets.bottom);

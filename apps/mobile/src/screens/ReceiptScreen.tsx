@@ -65,12 +65,13 @@ function formatReceiptDate(iso: string): string {
 /**
  * The To/From row. Receipts show the full account number (spec 7B
  * "Accounts"), except for bill payments: the internal billers account number
- * is never shown, so the party reads "Biller".
+ * is never shown, so the party is the biller's name ("Apo Fiber"), or
+ * "Biller" when the name is missing.
  */
 export function receiptCounterparty(
   tx: TransactionHistoryItem
 ): { label: string; value: string } | null {
-  if (hidesCounterparty(tx)) return { label: 'To', value: 'Biller' };
+  if (hidesCounterparty(tx)) return { label: 'To', value: tx.biller_name || 'Biller' };
   if (!tx.counterparty_account_number) return null;
   return {
     label: tx.direction === 'credit' ? 'From' : 'To',

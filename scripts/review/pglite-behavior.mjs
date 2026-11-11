@@ -239,6 +239,78 @@ for (const name of adminMutations) {
   const rejected=await as('authenticated',U.ADM,`select public.${name}(${args})`,[],{sub:U.ADM,aal:'aal1'});
   ok(`${name} rejects aal1 before mutation`,rejected.err==='STEP_UP_REQUIRED',rejected.err);
 }
+// ---- Phase 7 · 7B.9: notification wording, related transaction id, biller name
+const last4=n=>'•• '+String(n).slice(-4);
+const notes=async(uid,type)=>su(`select message, related_transaction_id from notifications where user_id=$1 and type=$2 order by created_at, message`,[uid,type]);
+const txId=async key=>(await su(`select id from transactions where idempotency_key=$1`,[key]))[0]?.id;
+let n=await notes(U.A,'deposit');
+ok('7B.9 deposit: "You added ₱1,000.00 to •• 1234." + related id', n[0]?.message===`You added ₱1,000.00 to ${last4(A.account_number)}.` && n[0]?.related_transaction_id===await txId('dep-1'), JSON.stringify(n[0]));
+n=await notes(U.A,'transfer_out');
+ok('7B.9 transfer out: "You sent ₱300.00 to •• 1234. Note: t" + related id', n[0]?.message===`You sent ₱300.00 to ${last4(B.account_number)}. Note: t` && n[0]?.related_transaction_id===t1, JSON.stringify(n[0]));
+n=await notes(U.B,'transfer_in');
+ok('7B.9 transfer in: "You received ₱300.00 from •• 1234." + related id', n[0]?.message===`You received ₱300.00 from ${last4(A.account_number)}.` && n[0]?.related_transaction_id===t1, JSON.stringify(n[0]));
+const rev1=await txId('rev-1');
+n=await notes(U.A,'transaction_reversed');
+ok('7B.9 reversal (sender): "Your transfer of ₱300.00 to •• 1234 was reversed." + reversal id', n.length===1 && n[0].message===`Your transfer of ₱300.00 to ${last4(B.account_number)} was reversed.` && n[0].related_transaction_id===rev1, JSON.stringify(n));
+n=await notes(U.B,'transaction_reversed');
+ok('7B.9 reversal (receiver): "A transfer of ₱300.00 from •• 1234 was reversed." + reversal id', n.length===1 && n[0].message===`A transfer of ₱300.00 from ${last4(A.account_number)} was reversed.` && n[0].related_transaction_id===rev1, JSON.stringify(n));
+n=await notes(U.A,'bill_payment');
+ok('7B.9 bill payment: "You paid ₱50.00 to <biller>." + related id', n[0]?.message==='You paid ₱50.00 to Mindanao Power Co. (demo).' && n[0]?.related_transaction_id===await txId('bill-2'), JSON.stringify(n[0]));
+n=await notes(U.B,'payment_request_received');
+ok('7B.9 request received: "•• 1234 requested ₱25.00 from you. Note: lunch", no related id', n[0]?.message===`${last4(A.account_number)} requested ₱25.00 from you. Note: lunch` && n[0]?.related_transaction_id===null, JSON.stringify(n[0]));
+const prTx=(await su(`select transaction_id from payment_requests where id=$1`,[req]))[0].transaction_id;
+n=await notes(U.A,'payment_request_paid');
+ok('7B.9 request paid: "•• 1234 paid your request for ₱25.00." + related id', n.length===1 && n[0].message===`${last4(B.account_number)} paid your request for ₱25.00.` && n[0].related_transaction_id===prTx, JSON.stringify(n));
+n=await notes(U.B,'account_alert');
+ok('7B.9 user status: on hold, then active again (no staff reason)', n.length===2 && n[0].message==="Your account is on hold. You can't send or receive money until our team reviews it." && n[1].message==='Your account is active again.', JSON.stringify(n));
+n=await notes(U.B,'scheduled_payment_failed');
+ok('7B.9 scheduled failure: "Your scheduled payment of ₱999,999.99 on <Mon D> didn\'t go through. Your balance was too low."', n.length===1 && /^Your scheduled payment of ₱999,999\.99 on [A-Z][a-z]{2} \d{1,2} didn't go through\. Your balance was too low\.$/.test(n[0].message) && n[0].related_transaction_id===null, JSON.stringify(n));
+// new flows: withdraw, adjustment (credit + debit), reversals, decline, account status, open account, staff schedule cancel
+r=await cust(U.A,`select withdraw($1,1500,'wd-79','x')`,[A.id]); n=await notes(U.A,'withdrawal');
+ok('7B.9 withdraw: "You cashed out ₱15.00 from •• 1234." + related id', !r.err && n[0]?.message===`You cashed out ₱15.00 from ${last4(A.account_number)}.` && n[0]?.related_transaction_id===await txId('wd-79'), r.err||JSON.stringify(n[0]));
+r=await cust(U.ADM,`select admin_adjust_balance($1,500,'credit','Signature verified, unfreezing','adj-79c')`,[A.id]);
+r=await cust(U.ADM,`select admin_adjust_balance($1,200,'debit','Concurrent reversal call A','adj-79d')`,[A.id]); n=await notes(U.A,'balance_adjustment');
+ok('7B.9 adjustment: "We added ₱5.00 to your account." / "We deducted ₱2.00 …" + related ids, no reason', n.length===2 && n.some(x=>x.message==='We added ₱5.00 to your account.') && n.some(x=>x.message==='We deducted ₱2.00 from your account.') && n.every(x=>x.related_transaction_id), r.err||JSON.stringify(n));
+// One-sided reversals (cash out, money added) have no zero-sum pair, so they run in rolled-back transactions to keep the reconciliation below meaningful.
+await su('begin');
+r=await cust(U.ADM,`select admin_reverse_transaction($1,'Concurrent reversal call A','rev-79')`,[await txId('wd-79')]); n=await notes(U.A,'transaction_reversed');
+const rev79=await txId('rev-79');
+await su('rollback');
+ok('7B.9 cash-out reversal: "Your cash out of ₱15.00 was reversed." + reversal id', !r.err && n.some(x=>x.message==='Your cash out of ₱15.00 was reversed.' && x.related_transaction_id===rev79), r.err||JSON.stringify(n));
+await su('begin');
+await cust(U.A,`select deposit($1,70000,'dep-79r','x')`,[A.id]);
+r=await cust(U.ADM,`select admin_reverse_transaction($1,'Concurrent reversal call A','rev-79a')`,[await txId('dep-79r')]); n=await notes(U.A,'transaction_reversed');
+const rev79a=await txId('rev-79a');
+await su('rollback');
+ok('7B.9 deposit reversal: "Money you added (₱700.00) was reversed." + reversal id', !r.err && n.some(x=>x.message==='Money you added (₱700.00) was reversed.' && x.related_transaction_id===rev79a), r.err||JSON.stringify(n));
+r=await cust(U.ADM,`select admin_reverse_transaction($1,'Concurrent reversal call A','rev-79b')`,[await txId('bill-2')]); n=await notes(U.A,'transaction_reversed');
+const rev79b=await txId('rev-79b');
+ok('7B.9 bill reversal: "Your bill payment of ₱50.00 was reversed." + reversal id', !r.err && n.some(x=>x.message==='Your bill payment of ₱50.00 was reversed.' && x.related_transaction_id===rev79b), r.err||JSON.stringify(n));
+r=await cust(U.A,`select create_payment_request($1,$2,1200,null) r`,[A.id,B.account_number]);
+const req2=(await su(`select id from payment_requests where amount=1200`))[0]?.id;
+r=await cust(U.B,`select decline_payment_request($1)`,[req2]); n=await notes(U.A,'payment_request_declined');
+ok('7B.9 request declined: "•• 1234 declined your request for ₱12.00."', !r.err && n[0]?.message===`${last4(B.account_number)} declined your request for ₱12.00.`, r.err||JSON.stringify(n[0]));
+r=await cust(U.ADM,`select admin_set_account_status($1,'frozen','Signature verified, unfreezing')`,[A.id]);
+r=await cust(U.ADM,`select admin_set_account_status($1,'active','Signature verified, unfreezing')`,[A.id]); n=await notes(U.A,'account_alert');
+ok('7B.9 account status: on hold •• 1234, then "Your account is active again."', n.some(x=>x.message===`Your account ${last4(A.account_number)} is on hold. You can't send or receive money with it until our team reviews it.`) && n.some(x=>x.message==='Your account is active again.'), r.err||JSON.stringify(n));
+r=await cust(U.ADM,`select admin_open_account($1,'checking','test open')`,[U.A]); n=await notes(U.A,'account_opened');
+ok('7B.9 account opened: "We opened a new checking account for you: •• 1234."', !r.err && /^We opened a new checking account for you: •• \d{4}\.$/.test(n[0]?.message||''), r.err||JSON.stringify(n[0]));
+const sched=(await su(`select id from scheduled_payments where owner_id=$1 and status='active' limit 1`,[U.A]))[0]?.id;
+r=await cust(U.ADM,`select cancel_scheduled_payment($1,'Concurrent reversal call A')`,[sched]); n=await notes(U.A,'scheduled_payment_cancelled');
+ok('7B.9 staff schedule cancel: "Your scheduled payment of ₱… was cancelled by our team." (no reason)', !r.err && /^Your scheduled payment of ₱[\d,]+\.\d{2} was cancelled by our team\.$/.test(n[0]?.message||''), r.err||JSON.stringify(n[0]));
+const bad=(await su(`select message from notifications`)).filter(x=>/PHP|Reason|[0-9a-f]{8}-[0-9a-f]{4}-|Signature verified|Concurrent reversal|\d{10}/i.test(x.message));
+ok('7B.9 no notification has PHP, ids, full account numbers or staff reasons', bad.length===0, JSON.stringify(bad.slice(0,3)));
+// RLS on notifications stays row-based
+r=await cust(U.B,`select count(*)::int n from notifications where user_id=$1`,[U.A]); ok('7B.9 RLS: B cannot read A\'s notifications', one(r)===0, r.err);
+r=await cust(U.B,`select count(*)::int n from notifications where related_transaction_id=$1 and user_id<>$2`,[t1,U.B]); ok('7B.9 RLS: B cannot find A\'s notification by related id', one(r)===0, r.err);
+r=await cust(U.A,`select count(*)::int n from notifications where related_transaction_id=$1`,[t1]); ok('7B.9 RLS: A reads own notification by related id (1 row)', one(r)===1, r.err);
+// history: biller_name
+r=await cust(U.A,`select type, biller_name from get_account_transactions($1)`,[A.id]);
+ok('7B.9 history: own bill payment row carries biller_name', !r.err && r.rows.some(x=>x.type==='bill_payment' && x.biller_name==='Mindanao Power Co. (demo)'), r.err);
+ok('7B.9 history: non-bill rows have null biller_name', !r.err && r.rows.filter(x=>x.type!=='bill_payment').every(x=>x.biller_name===null), r.err);
+r=await cust(U.B,`select count(*)::int n from get_account_transactions($1)`,[A.id]); ok('7B.9 history: B gets no rows for A\'s account', one(r)===0, r.err);
+r=await cust(U.B,`select count(*)::int n from get_account_transactions() where biller_name is not null`); ok('7B.9 history: B sees no biller names (no own bill payments)', one(r)===0, r.err);
+r=await as('anon',null,`select * from get_account_transactions(null)`); ok('7B.9 history: anon cannot execute get_account_transactions', /permission denied/.test(r.err||''), r.err);
 // ---- Reconciliation
 const rec=await reconcile();
 ok('Reconciliation: every transfer/reversal/bill nets to zero', Number(rec.unbalanced)===0, JSON.stringify(rec));

@@ -8,7 +8,7 @@
 - **Branch:** `phase-7-ui-motion` (branched from tip of `phase-6-5-strong-auth`).
 - **Active prompt:** `Phase-7-Prompt-UI-UX-and-Motion.md`.
 - **Assigned to:** captain (Codex out of quota until 2026-11-11 00:52; Antigravity `frontend` and `backend-reviewer` out of quota). Reviewed by the captain workflow (`docs/agents/WORKFLOW.md`).
-- **Exact next step:** Stage 7B.4 One sequence for every money flow (Input → Review → Authorize → Processing → Result; review card; commit button names the money; Pay bills 5 steps; Pay request review; Saved recipients inline edit + tap opens Transfer; Export toast; Verify email; Forgot password copy). Owner: device check of 7B.0–7B.3; decisions (a) password change re-auth client-only vs server-enforced, (b) live aal2 test on hosted, (c) notifications/biller-name migration.
+- **Exact next step:** captain reviews the notifications migration (branch `phase-7-notifications-migration`, `supabase/migrations/20261111000000_phase7_notifications.sql`; Stage 7B.9 + Inbox → receipt deep link + biller name), then applies it to hosted and runs the live suites. In parallel: Stage 7B.4 One sequence for every money flow (Input → Review → Authorize → Processing → Result; review card; commit button names the money; Pay bills 5 steps; Pay request review; Saved recipients inline edit + tap opens Transfer; Export toast; Verify email; Forgot password copy). Owner: device check of 7B.0–7B.3; decisions (a) password change re-auth client-only vs server-enforced, (b) live aal2 test on hosted, (c) notifications/biller-name migration.
 - **Last commit:** `b3efad6` (7B.3 fixes) + captain acceptance docs commit.
 - **Blockers for this step:** none. Owner decisions 2026-11-11: password change re-auth stays app-only; DB migration for notification related transaction id + biller name approved (in progress, captain applies after review).
 
@@ -74,7 +74,7 @@ Deferred to their planned steps (not in the fix round): receipt reference/Share/
   - [x] Add money and Two-step setup move to root native-stack `FeatureScreen` pages; old modal/component and in-Profile setup path removed.
   - [x] Receipt and Payment requests as root native-stack pages; callers and Inbox request links updated.
   - [x] About, Personal details, Export statement and FX rates as root native-stack pages; callers updated, old modal wrappers deleted.
-  - [ ] Deep links from Inbox rows open matching screen (receipt, request): request links implemented; transaction links blocked: notifications have no related id (owner decision).
+  - [x] Deep links from Inbox rows open matching screen (receipt, request): request links implemented; transaction links via `notifications.related_transaction_id` (7B.9 migration, pending captain review and hosted apply).
   - [x] `Sheet` used for quick actions only (confirmations wired; account picker/filter sheets arrive with 7B.1/7B.2). `BottomSheet` removed.
 - [x] **7B.1 Home** (`ee43efa`; fixes awaiting review; device NOT VERIFIED):
   - [x] Header: 56 pt, Logo 32, "Maayong adlaw," caption above name in `title`, Avatar 40 with 44 hit area ("Open profile").
@@ -90,7 +90,7 @@ Deferred to their planned steps (not in the fix round): receipt reference/Share/
   - [x] Badges: Completed (receipts only), Pending, Scheduled, Failed, Reversed/Cancelled status colors.
   - [x] Activity: search by note/counterparty, account filter, 36 pt chips, scrollable empty state.
   - [x] Inbox: type icon, sentence-case title, 2-line message, timestamp on right, 8 pt green unread dot, request taps open Payment requests, badge count loads on start.
-  - [ ] Inbox: tap on a transaction notification opens the receipt — BLOCKED: notifications have no related transaction id (owner decision); tap only marks as read.
+  - [x] Inbox: tap on a transaction notification opens the receipt (via `related_transaction_id`, 7B.9 migration; pending captain review and hosted apply). Older notifications without the id only mark as read.
   - [x] Receipt (`TransactionDetailModal`): amount + badge centered, standard metadata rows, reference "DB-8F04-3910" with copy button, share via `expo-sharing`.
 - [x] **7B.3 Profile** (`c0705d1`; fixes awaiting review; device NOT VERIFIED):
   - [x] Grouped cards: "Money", "Security" (Two-step setup row with On/Off, App lock switch, Confirm with Face ID, Change password), "Settings" (Personal details, Hide balances switch, About).
@@ -118,9 +118,9 @@ Deferred to their planned steps (not in the fix round): receipt reference/Share/
   - [ ] No exclamation marks, no IDs, no regexes, no raw status values in money flows.
 - [ ] **7B.8 Copy audit script**:
   - [ ] Add `scripts/check-copy.mjs` checking for `.toUpperCase()`, `'PHP '`, `!`, unformatted UUIDs; run in CI.
-- [ ] **7B.9 Notification wording**:
-  - [ ] DB migration changing notification text in functions.
-  - [ ] Update live suites and `test:db` assertions.
+- [ ] **7B.9 Notification wording** (done pending captain review + hosted apply; branch `phase-7-notifications-migration`):
+  - [x] DB migration changing notification text in functions (`20261111000000_phase7_notifications.sql`: 13 functions, only the notification insert changed; + `related_transaction_id`; + `biller_name` in `get_account_transactions`).
+  - [x] Update live suites and `test:db` assertions (`test:db` +28 checks, 118 passing; no live-suite assertion checks notification text). Live suites on hosted NOT VERIFIED (migration not applied).
 - [ ] **7B.10 Carry-overs from device checks**:
   - [ ] Phase 6 iOS check fixes: large text wrapping, raw regex, completed schedules status, overlay flash, uncertain state exit ("Check status" + "Done").
   - [ ] Phase 6.5 iOS check fixes: TwoStepSetup FeatureScreen, clean lock screen, optimistic app lock switch, consistent code prompt, "Set up now" verification.
@@ -226,6 +226,8 @@ Fix these before 7B:
 - **Follow-up:** add dedicated test accounts so live tests don't conflict with the presenter's real authenticator.
 
 ## Log (newest first)
+
+- **2026-11-11, Claude implementer (sub agent):** Stage 7B.9 + owner-approved migration, branch `phase-7-notifications-migration` (worktree, from `c40d7b5`). New `supabase/migrations/20261111000000_phase7_notifications.sql`: `notifications.related_transaction_id` (FK, on delete set null, index; policies unchanged, row-based); 13 functions re-created from their latest definitions with only the notification insert changed (`_transfer_core`, `deposit`, `withdraw`, `admin_adjust_balance`, `admin_reverse_transaction`, `admin_set_account_status`, `admin_set_user_status`, `admin_open_account`, `cancel_scheduled_payment`, `create_payment_request`, `decline_payment_request`, `pay_payment_request`, `run_due_scheduled_payments`): spec wording (₱, "•• 1234", no ids, no staff reasons, no raw `sqlerrm`) and the related transaction id where known. Script check: every function byte-identical to its latest earlier definition once the notification inserts are removed (output + full diffs in `PHASE7_REPORT.md`). `get_account_transactions` dropped and re-created with a trailing `biller_name` (bill rows only), same scoping/security, `revoke … from public, anon` + `grant … to authenticated`. App: shared types (optional fields); Inbox tap with a related id → resolves the caller's row via the history RPC → Receipt (marks read; not found → toast, no navigation; request notices unchanged); bill rows "Bill payment · Apo Fiber", Receipt To row shows the biller name. Tests: `test:db` +28 (118 passed, 0 failed), RNTL +6. Checks: typecheck exit 0; lint `✖ 64 problems (0 errors, 64 warnings)`; format `All matched files use Prettier code style!`; unit `Test Suites: 28 passed, 28 total`, `Tests: 238 passed, 238 total`. NOT VERIFIED: hosted apply and live suites (captain), device. Security Info for the captain: the existing update policy lets a customer edit any column of their own notifications (now incl. `related_transaction_id`); harmless because the receipt is resolved only via the caller-scoped RPC (tested), but a column grant `update (read)` would close it.
 
 - **2026-11-11, Owner + Claude Code (captain):** owner decisions: (a) Change password re-auth stays **app-only** (`secure_password_change` stays false); (b) live aal2 test approved; (c) one DB migration approved for a notification → related transaction id (Inbox → receipt deep link) and the biller name in transaction history. **Live probe (customer2, temporary authenticator, same-password update so nothing changed):** aal2 session → `422 same_password`; password-only sign-in with a verified factor (aal1) → **`401 insufficient_aal`**. So hosted Supabase already requires aal2 for a password change when an authenticator is enrolled; the remaining gap is accounts without two-step (accepted, documented). Cleanup verified: customer2 has 0 factors. Probe script was temporary, not committed; no secrets printed.
 

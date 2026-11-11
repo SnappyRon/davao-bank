@@ -8,7 +8,13 @@ import {
   fireEvent,
   waitFor,
 } from '@testing-library/react-native';
-import { colors, fetchNotifications, type Notification } from '@davao-bank/shared';
+import {
+  colors,
+  fetchNotifications,
+  fetchTransactionHistory,
+  type Notification,
+  type TransactionHistoryItem,
+} from '@davao-bank/shared';
 
 const mockNavigate = jest.fn();
 // The latest focus callback, so a test can simulate the tab regaining focus.
@@ -87,10 +93,10 @@ jest.mock('../lib/supabase', () => ({
 
 jest.mock('@davao-bank/shared', () => {
   const actual = jest.requireActual('@davao-bank/shared');
-  return { ...actual, fetchNotifications: jest.fn() };
+  return { ...actual, fetchNotifications: jest.fn(), fetchTransactionHistory: jest.fn() };
 });
 
-import { InboxScreen } from '../screens/InboxScreen';
+import { InboxScreen, receiptRowFor } from '../screens/InboxScreen';
 import { useUnreadNotificationCount } from '../hooks/useUnreadNotificationCount';
 
 declare const global: { IS_REACT_ACT_ENVIRONMENT?: boolean };
@@ -162,8 +168,9 @@ describe('InboxScreen (7B.2)', () => {
 
     await waitFor(() => expect(onUnread).toHaveBeenLastCalledWith(0));
     expect(mockUpdate).toHaveBeenCalledWith({ read: true });
-    // Transaction notifications have no related id yet: no navigation.
+    // This notification has no related transaction id: no navigation.
     expect(mockNavigate).not.toHaveBeenCalled();
+    expect(fetchTransactionHistory).not.toHaveBeenCalled();
   });
 
   it('opens Payment requests on the right tab for request notifications', async () => {
@@ -178,6 +185,107 @@ describe('InboxScreen (7B.2)', () => {
     await fireEvent.press(screen.getByTestId('inbox-row-n-paid'));
     expect(mockNavigate).toHaveBeenLastCalledWith('PaymentRequests', {
       initialTab: 'outgoing',
+    });
+  });
+
+  describe('deep link to the receipt (7B.9)', () => {
+    const historyRow = (
+      overrides: Partial<TransactionHistoryItem>
+    ): TransactionHistoryItem => ({
+      ledger_entry_id: 'le-1',
+      transaction_id: 'tx-1',
+      account_id: 'acc-savings',
+      account_number: '1012348921',
+      type: 'transfer',
+      direction: 'debit',
+      amount: 50000,
+      signed_amount: -50000,
+      status: 'completed',
+      reference: null,
+      counterparty_account_number: '1078957943',
+      created_at: '2026-11-08T02:41:00',
+      biller_name: null,
+      ...overrides,
+    });
+
+    it('opens the receipt for a notification with a related transaction and marks it read', async () => {
+      (fetchNotifications as jest.Mock).mockResolvedValue({
+        data: [note({ id: 'n-tx', read: false, related_transaction_id: 'tx-1' })],
+        error: null,
+      });
+      (fetchTransactionHistory as jest.Mock).mockResolvedValue({
+        data: [
+          historyRow({}),
+          historyRow({ transaction_id: 'tx-other', account_id: 'acc-x' }),
+        ],
+        error: null,
+      });
+      await render(<InboxScreen />);
+      await screen.findByText('Money sent');
+
+      await fireEvent.press(screen.getByTestId('inbox-row-n-tx'));
+
+      await waitFor(() =>
+        expect(mockNavigate).toHaveBeenCalledWith('Receipt', {
+          transactionId: 'tx-1',
+          accountId: 'acc-savings',
+        })
+      );
+      expect(mockUpdate).toHaveBeenCalledWith({ read: true });
+      expect(mockEq).toHaveBeenCalledWith('id', 'n-tx');
+    });
+
+    it("does not navigate when the transaction is not in the caller's history", async () => {
+      (fetchNotifications as jest.Mock).mockResolvedValue({
+        data: [
+          note({ id: 'n-tx', read: true, related_transaction_id: 'tx-someone-else' }),
+        ],
+        error: null,
+      });
+      (fetchTransactionHistory as jest.Mock).mockResolvedValue({
+        data: [historyRow({})],
+        error: null,
+      });
+      await render(<InboxScreen />);
+      await screen.findByText('Money sent');
+
+      await fireEvent.press(screen.getByTestId('inbox-row-n-tx'));
+
+      await waitFor(() => expect(fetchTransactionHistory).toHaveBeenCalledTimes(1));
+      expect(mockNavigate).not.toHaveBeenCalled();
+    });
+
+    it('a notification without a related id only marks it read', async () => {
+      (fetchNotifications as jest.Mock).mockResolvedValue({
+        data: [note({ id: 'n-old', read: false, related_transaction_id: null })],
+        error: null,
+      });
+      await render(<InboxScreen />);
+      await screen.findByText('Money sent');
+
+      await fireEvent.press(screen.getByTestId('inbox-row-n-old'));
+
+      await waitFor(() => expect(mockUpdate).toHaveBeenCalledWith({ read: true }));
+      expect(fetchTransactionHistory).not.toHaveBeenCalled();
+      expect(mockNavigate).not.toHaveBeenCalled();
+    });
+
+    it('picks the credit row for money received and the debit row otherwise', () => {
+      const rows = [
+        historyRow({ ledger_entry_id: 'debit', direction: 'debit', account_id: 'acc-a' }),
+        historyRow({
+          ledger_entry_id: 'credit',
+          direction: 'credit',
+          account_id: 'acc-b',
+        }),
+      ];
+      expect(receiptRowFor(note({ type: 'transfer_in' }), 'tx-1', rows)?.account_id).toBe(
+        'acc-b'
+      );
+      expect(
+        receiptRowFor(note({ type: 'transfer_out' }), 'tx-1', rows)?.account_id
+      ).toBe('acc-a');
+      expect(receiptRowFor(note({ type: 'transfer_out' }), 'tx-9', rows)).toBeNull();
     });
   });
 
