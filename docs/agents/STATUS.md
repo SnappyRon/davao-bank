@@ -126,6 +126,26 @@ Deferred to their planned steps (not in the fix round): receipt reference/Share/
   - [ ] Phase 6.5 iOS check fixes: TwoStepSetup FeatureScreen, clean lock screen, optimistic app lock switch, consistent code prompt, "Set up now" verification.
 - [ ] **7B.11 Visible system status everywhere**:
   - [ ] Skeletons on loading, mascot empty states, descriptive error states + retry, offline banner, processing lock + 2s "Still working" warning, confirmed result via ResultView, background action toasts.
+- [ ] **7B.12 Admin console polish (owner report 2026-11-12, captain-observed from screenshots)**:
+  - Dashboard (`apps/admin/src/app/page.tsx`, `Dashboard.module.css`):
+    - [ ] Section headers jam the title into "View all" ("Recent Ledger TransactionsView all →") — `Dashboard.module.css:22` uses `justifyContent` (React Native camelCase, invalid CSS); use `justify-content`, add a gap.
+    - [ ] Audit rows jam event and time ("deposit_completed09:08 PM") and show raw snake_case events and "Role: customer · Entity: accounts"; map to readable sentence-case labels ("Money added", "Transfer sent"), time right-aligned or on its own line.
+    - [ ] Ledger "Reference" shows raw UUIDs and internal reasons ("Reversal of 256fcaa1-…: closeout-… reversal"); show "Reversal of DB-XXXX-XXXX" (`formatReferenceId`) and keep the full id in a tooltip/detail only.
+    - [ ] Status badges are UPPERCASE ("COMPLETED"); use sentence-case badges with the 7B.2 status colours.
+    - [ ] Date/time column wraps ("Nov 11, 09:08 / PM"); keep it on one line (nowrap / wider column / shorter format).
+    - [ ] Stat cards: large amounts touch or overflow the card edge ("₱100,158,997.00", "₱100,345,077.42"); labels in ALL CAPS wrap unevenly ("TOTAL SYSTEM / BALANCE") and push icons out of line. Use sentence-case labels, a responsive amount size (shrink/clamp), consistent label height.
+    - [ ] Grid: 5 + 3 cards leaves an empty slot on the second row; balance the grid (4 + 4 or auto-fit).
+    - [ ] "Compensating reversals" card subtitle says "Audited balance adjustments" (label and subtitle disagree); fix the copy to match what it counts.
+    - [ ] Title-case buttons/links ("Export CSV" ok, "Balance Adjustments", "Sign Out") → sentence case per the wording rules.
+    - [ ] Sidebar footer: the emblem attribution text is cut off and sits under the Next.js dev indicator; give the footer its own space (dev indicator is dev-only, but the text must not be clipped).
+  - Two-step setup (`apps/admin/src/app/mfa/MfaForm.tsx`, reuses `login/Login.module.css`):
+    - [ ] The enrollment block has no layout styles: no spacing between title, subtitle, QR, key and actions; "Copy setup key" button and "Open in authenticator app" link sit on one line touching each other; label sits on the button above. Add a vertical stack with the spacing scale, centre the QR, group the key in 4-character blocks with a wrap, put Copy and Open as a row of two equal buttons (or a button + text link with a gap).
+    - [ ] Copy setup key gives no feedback; show "Copied" (aria-live) and keep focus styles consistent.
+    - [ ] Code input looks disabled (grey fill, no border) and the Verify button looks disabled even with 6 digits entered (pale) — use the admin input token styles; show a clear busy state ("Verifying…") instead of a washed-out button.
+    - [ ] "Cancel and sign out" ghost button reads as disabled (low contrast); use the secondary/link style with AA contrast.
+    - [ ] Card layout: title wraps tightly with the subtitle; check centring and width at desktop and narrow widths.
+    - [ ] Privacy: the setup key is displayed in full by default; consider "Show setup key" (reveal on click) since screenshots expose it.
+  - Gate: Playwright admin suite updated and passing; screenshots before/after in `PHASE7_REPORT.md`.
 - [ ] **7B Gate**:
   - [ ] Screenshots: before/after at 3 widths (375, 402, 440) at 1.0x and 1.4x text.
   - [ ] Scripts & tests: `check-copy` passes, VoiceOver notes in report.
@@ -226,6 +246,8 @@ Fix these before 7B:
 - **Follow-up:** add dedicated test accounts so live tests don't conflict with the presenter's real authenticator.
 
 ## Log (newest first)
+
+- **2026-11-12, Owner + Claude Code (captain):** owner reported admin console UI problems with two screenshots (dashboard, two-step setup). Captain observed them and added **7B.12 Admin console polish** to the 7B checklist (root cause found for the jammed section headers: invalid `justifyContent` in `Dashboard.module.css:22`; the MFA enrollment block in `MfaForm.tsx` has no layout styles). The owner's screenshot showed the full authenticator setup key and a live code; captain advised the owner to treat that authenticator as exposed (remove and re-enrol it if that setup completed). No code changed; agents stopped per owner.
 
 - **2026-11-11, Claude Code (captain):** follow-up: admin setup then failed with "Could not begin setup" — read-only query showed an unverified "Davao Bank Admin" TOTP factor left by the stuck attempt (same friendly name blocks a new enroll). `MfaForm.start` now unenrolls unverified TOTP factors (own session, Supabase auth API) before enrolling. Typecheck exit 0, eslint clean. NOT VERIFIED end to end (owner signs in).
 
