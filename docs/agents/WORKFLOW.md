@@ -93,10 +93,11 @@ Apply in order, and record the decision in the `STATUS.md` Log:
 - **Implementers run in Herdr tabs** (`herdr agent start <name> --kind codex|claude|agy`, `herdr agent prompt`, `herdr agent wait --until done --until blocked`, `herdr agent read`). Permission prompts inside an implementer are approved by the owner, not by the captain.
 - **Implementers and their folders** (one writer per folder and branch):
 
-  | Herdr agent name | Area                                          | Model / CLI | Folder (git worktree)                  | Branch              |
-  | ---------------- | --------------------------------------------- | ----------- | -------------------------------------- | ------------------- |
-  | `codex`          | General / backend-touching tasks              | Codex       | `davao-bank` (main checkout)           | `phase-7-ui-motion` |
-  | `frontend`       | Frontend: screens, components, navigation, UI | Antigravity | `davao-bank-frontend` (sibling folder) | `phase-7-frontend`  |
+  | Herdr agent name       | Area                                                            | Model / CLI                                                                             | Folder (git worktree)                  | Branch              |
+  | ---------------------- | --------------------------------------------------------------- | --------------------------------------------------------------------------------------- | -------------------------------------- | ------------------- |
+  | `codex`                | General / backend-touching tasks                                | Codex                                                                                   | `davao-bank` (main checkout)           | `phase-7-ui-motion` |
+  | `frontend`             | Frontend: screens, components, navigation, UI                   | Antigravity                                                                             | `davao-bank-frontend` (sibling folder) | `phase-7-frontend`  |
+  | `frontend-developer-2` | Frontend: screens, components, navigation, UI, admin console UI | Claude Code (`claude --agent frontend-developer-2`; role `roles/frontend-developer.md`) | `davao-bank` (main checkout)           | `phase-7-ui-motion` |
 
   The captain gives the two implementers tasks that touch different files. When `frontend` finishes a task, the captain reviews its commits on `phase-7-frontend` and merges them into `phase-7-ui-motion` (owner approves merges that conflict). Implementers never merge or push themselves.
 
