@@ -7,9 +7,9 @@
 - **Active phase:** Phase 7 — UI/UX Refinement & Motion.
 - **Branch:** `phase-7-ui-motion` (branched from tip of `phase-6-5-strong-auth`).
 - **Active prompt:** `Phase-7-Prompt-UI-UX-and-Motion.md`.
-- **Assigned to:** captain (reviewing 266e55a follow-up). Reviewed by the captain workflow (`docs/agents/WORKFLOW.md`).
-- **Exact next step:** captain reviews the 266e55a follow-up commit (`Phase 7 · Fix — 266e55a review follow-ups (money flows)`). Owner: uncommitted `apps/mobile/src/screens/ProfileScreen.tsx` (old version, not from the fix round) breaks typecheck and the two profile suites until resolved.
-- **Last commit:** 266e55a review follow-ups (see git log).
+- **Assigned to:** captain (reviewing 235f9c0 follow-up). Reviewed by the captain workflow (`docs/agents/WORKFLOW.md`).
+- **Exact next step:** captain reviews the 235f9c0 follow-up commit (`Phase 7 · Fix — 235f9c0 review findings (money-flow tests)`). Owner: uncommitted `apps/mobile/src/screens/ProfileScreen.tsx` (old version, not from the fix round) breaks typecheck and the two profile suites until resolved.
+- **Last commit:** 235f9c0 review findings (see git log).
 - **Blockers for this step:** none.
 
 ## Stage 7B.0 — remaining work plan (captain, 2026-11-10)
@@ -246,6 +246,8 @@ Fix these before 7B:
 - **Follow-up:** add dedicated test accounts so live tests don't conflict with the presenter's real authenticator.
 
 ## Log (newest first)
+
+- **2026-11-16, Frontend Developer 2:** follow-up fixes for 235f9c0 (money-flow tests). add_money_cash_out.test.tsx: rewrote 'a later account reload does not move the step again' test to trigger a real second loadAccounts via useFeatureAccounts with a deferred second fetchAccountBalances that resolves while on the review step, asserting step 3 of 3 and chosen Checking account stay unchanged (fixed misleading comment); typed pending<T> helper to match executeDeposit/executeWithdraw return types without 'as never' casts. Checks: lint 0 errors (64 warnings), format:check clean (untracked ONBOARDING.md excluded), jest (ignore profile) 31 suites / 288 tests pass. Device NOT VERIFIED — captain runs it.
 
 - **2026-11-16, Frontend Developer 2:** follow-up for 266e55a review findings (money flows). PaymentRequests: Decline and Cancel onPress wrappers clear status message so old "Paid ₱X." banner does not turn red; added test; omitted "Balance after" on Review when chosen account balance is short. Transfer: 2+ accounts prefill skips same-account check against default account (handleSelectSource re-checks once source is chosen); set prefill nickname only in valid branches; updated prefill tests. Add money, Cash out, Transfer, Pay bills: no one-frame step flash (step content gated on firstStepDecided). App.tsx: reset verifyJustSent to false in verify screens' onNavigateToLogin and on SIGN_OUT. AmountInput: preset chips use CHIP_MIN_HEIGHT. Tests: same-frame double press → one RPC for Add money deposit, Transfer Send (immediate) and Pay bills Pay (immediate); later loadAccounts does not move step again test added. Removed pay-bills/WhenStep.tsx shim, imported WhenPicker directly; removed unused ReviewCard.changeLabel. Handler comparison vs 266e55a: all money handlers (Transfer, Pay bills, Add money, Cash out, Pay request) and step-up calls BYTE-IDENTICAL. Checks: typecheck exit 2 (ProfileScreen.tsx owner changes only); lint 0 errors (64 warnings); format:check PASS (except untracked ONBOARDING.md); jest (ignore profile) 31 suites / 288 tests pass. Device NOT VERIFIED — captain runs it.
 

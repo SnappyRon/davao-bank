@@ -40,6 +40,7 @@ jest.mock('../context/SettingsContext', () => ({
   }),
 }));
 
+import * as featureAccounts from '../hooks/useFeatureAccounts';
 import { AddMoneyScreen } from '../screens/AddMoneyScreen';
 import { CashOutScreen } from '../screens/CashOutScreen';
 
@@ -62,9 +63,9 @@ const account = (
 const SAVINGS = account('acc-s', '1012348921', 'savings', 500000);
 const CHECKING = account('acc-c', '1087654321', 'checking', 200000);
 
-function pending() {
-  let resolve!: (v: unknown) => void;
-  const promise = new Promise((r) => {
+function pending<T>() {
+  let resolve!: (v: T) => void;
+  const promise = new Promise<T>((r) => {
     resolve = r;
   });
   return { promise, resolve };
@@ -78,8 +79,8 @@ describe('Add money and Cash out (spec 7B.4)', () => {
 
   it('Add money: no account step with one account, Review card, "Add ₱500.00" → "Adding…"', async () => {
     jest.mocked(fetchAccountBalances).mockResolvedValue({ data: [SAVINGS], error: null });
-    const call = pending();
-    jest.mocked(executeDeposit).mockReturnValue(call.promise as never);
+    const call = pending<Awaited<ReturnType<typeof executeDeposit>>>();
+    jest.mocked(executeDeposit).mockReturnValue(call.promise);
     await render(<AddMoneyScreen />);
     expect(await screen.findByLabelText('To Savings •• 8921')).toBeTruthy();
     expect(screen.getByText('Step 1 of 2')).toBeTruthy();
@@ -205,8 +206,8 @@ describe('Add money and Cash out (spec 7B.4)', () => {
 
   it('two presses in the same frame start one cash-out', async () => {
     jest.mocked(fetchAccountBalances).mockResolvedValue({ data: [SAVINGS], error: null });
-    const call = pending();
-    jest.mocked(executeWithdraw).mockReturnValue(call.promise as never);
+    const call = pending<Awaited<ReturnType<typeof executeWithdraw>>>();
+    jest.mocked(executeWithdraw).mockReturnValue(call.promise);
     await render(<CashOutScreen />);
     await screen.findByLabelText('From Savings •• 8921');
     await fireEvent.changeText(screen.getByPlaceholderText('0.00'), '500');
@@ -225,8 +226,8 @@ describe('Add money and Cash out (spec 7B.4)', () => {
 
   it('two presses in the same frame start one deposit', async () => {
     jest.mocked(fetchAccountBalances).mockResolvedValue({ data: [SAVINGS], error: null });
-    const call = pending();
-    jest.mocked(executeDeposit).mockReturnValue(call.promise as never);
+    const call = pending<Awaited<ReturnType<typeof executeDeposit>>>();
+    jest.mocked(executeDeposit).mockReturnValue(call.promise);
     await render(<AddMoneyScreen />);
     await screen.findByLabelText('To Savings •• 8921');
     await fireEvent.changeText(screen.getByPlaceholderText('0.00'), '500');
@@ -243,19 +244,49 @@ describe('Add money and Cash out (spec 7B.4)', () => {
   });
 
   it('a later account reload does not move the step again', async () => {
-    // First load fails; Try again loads two accounts (account step, once).
-    jest
-      .mocked(fetchAccountBalances)
-      .mockResolvedValueOnce({ data: [SAVINGS, CHECKING], error: null });
-    const view = await render(<CashOutScreen />);
-    expect(await screen.findByText('Step 1 of 3')).toBeTruthy();
-    await fireEvent.press(screen.getByRole('button', { name: /^Checking •• 4321/ }));
-    await fireEvent.changeText(screen.getByPlaceholderText('0.00'), '500');
-    await fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
-    expect(screen.getByText('Step 3 of 3')).toBeTruthy();
-    // Re-render (same data): the first-step decision is not taken again.
-    await view.rerender(<CashOutScreen />);
-    expect(screen.getByText('Step 3 of 3')).toBeTruthy();
-    expect(screen.getByText('Checking •• 4321')).toBeTruthy();
+    let reloadAccounts!: () => Promise<void>;
+    const origHook = featureAccounts.useFeatureAccounts;
+    const spy = jest
+      .spyOn(featureAccounts, 'useFeatureAccounts')
+      .mockImplementation(() => {
+        const res = origHook();
+        reloadAccounts = res.loadAccounts;
+        return res;
+      });
+
+    try {
+      const secondLoad = pending<Awaited<ReturnType<typeof fetchAccountBalances>>>();
+      jest
+        .mocked(fetchAccountBalances)
+        .mockResolvedValueOnce({ data: [SAVINGS, CHECKING], error: null })
+        .mockReturnValueOnce(secondLoad.promise);
+
+      await render(<CashOutScreen />);
+      expect(await screen.findByText('Step 1 of 3')).toBeTruthy();
+      await fireEvent.press(screen.getByRole('button', { name: /^Checking •• 4321/ }));
+      await fireEvent.changeText(screen.getByPlaceholderText('0.00'), '500');
+      await fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
+      expect(screen.getByText('Step 3 of 3')).toBeTruthy();
+      expect(screen.getByText('Checking •• 4321')).toBeTruthy();
+
+      // Trigger a real second loadAccounts while on the review step;
+      // second fetchAccountBalances is deferred and resolves while on review.
+      let reloadPromise: Promise<void> | undefined;
+      await act(async () => {
+        reloadPromise = reloadAccounts();
+      });
+
+      await act(async () => {
+        secondLoad.resolve({ data: [SAVINGS, CHECKING], error: null });
+        await reloadPromise;
+      });
+
+      expect(fetchAccountBalances).toHaveBeenCalledTimes(2);
+      // The first-step decision is not taken again: step and selected account stay unchanged.
+      expect(screen.getByText('Step 3 of 3')).toBeTruthy();
+      expect(screen.getByText('Checking •• 4321')).toBeTruthy();
+    } finally {
+      spy.mockRestore();
+    }
   });
 });
