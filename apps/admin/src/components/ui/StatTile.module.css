@@ -63,8 +63,10 @@
 }
 
 .value {
-  font-size: clamp(1rem, 7.5cqi, 1.875rem);
-  overflow-wrap: anywhere;
+  font-size: clamp(0.75rem, 7.5cqi, 1.875rem);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-weight: 800;
   color: var(--color-ink);
   letter-spacing: -0.5px;

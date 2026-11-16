@@ -13,16 +13,17 @@ import {
   AlertTriangle,
   Inbox,
 } from 'lucide-react';
-import {
-  formatCentavosToPHP,
-  formatReferenceId,
-  type AdminDashboardStats,
-} from '@davao-bank/shared';
+import { formatCentavosToPHP, type AdminDashboardStats } from '@davao-bank/shared';
 import { createAdminCookieServerClient } from '@/lib/supabase-cookies';
 import { AdminShell } from '@/components/AdminShell';
 import { PageHeader, StatTile, Card, Table, StatusBadge, Button } from '@/components/ui';
 import styles from './Dashboard.module.css';
-import { auditLabel, sentenceCase, ledgerReference } from '@/components/dashboardDisplay';
+import {
+  auditLabel,
+  auditEntity,
+  sentenceCase,
+  ledgerReference,
+} from '@/lib/dashboardDisplay';
 
 export const dynamic = 'force-dynamic';
 
@@ -109,11 +110,7 @@ export default async function AdminDashboardPage() {
     {
       key: 'reference',
       header: 'Reference',
-      render: (t: any) => (
-        <span title={t.reference || t.id}>
-          {ledgerReference(t.reference, t.id, formatReferenceId)}
-        </span>
-      ),
+      render: (t: any) => <span title={t.id}>{ledgerReference(t.reference, t.id)}</span>,
     },
     {
       key: 'created_at',
@@ -255,7 +252,7 @@ export default async function AdminDashboardPage() {
                   </div>
                   <div className={styles.auditEntity}>
                     {sentenceCase(item.actor_role || 'system')} ·{' '}
-                    {sentenceCase(item.entity || 'general')}
+                    {auditEntity(item.entity || 'general')}
                   </div>
                 </div>
               ))}

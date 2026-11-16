@@ -982,13 +982,13 @@ Implemented in `/Users/ronalbert/Personal Projects/davao-bank-admin`, branch `ph
 ### Per-item changes
 
 - Fixed both invalid `justifyContent` declarations; section/audit headers now have gaps and wrap between items. Audit labels use readable copy, with sentence-case fallback for other events; actor/entity captions no longer display raw enum formatting.
-- Ledger references use shared `formatReferenceId`: reversals display `Reversal of DB-XXXX-XXXX`; ordinary rows display the transaction's short reference. Full original reference/reason or transaction id appears only in the title tooltip. Dates/times do not wrap.
+- Ledger references use shared `formatReferenceId`: reversals display `Reversal of DB-XXXX-XXXX`; ordinary rows display the transaction's short reference. Only the full transaction id appears in the title tooltip. Dates/times do not wrap.
 - Badges use sentence case and the 7B.2 palette: completed green, pending orange, scheduled blue, failed red, reversed/cancelled neutral. Admin dashboard retains completed badges as explicitly requested in this brief (the mobile list rule hides them).
 - Stat labels use sentence case and a consistent minimum label height; icons cannot shrink. Values use container-relative clamped sizing with an overflow-wrap safety fallback. Grid uses 4/2/1 columns, balancing eight tiles. Subtitle is “Original transactions marked reversed”, matching the RPC's count of `status = 'reversed'` originals.
 - Dashboard headings, Balance adjustments, Audit log and Sign out use sentence case. Sidebar scrolls at short heights, footer cannot shrink, attribution wraps and has bottom clearance.
 - MFA has its own responsive module, centred card and QR, token spacing, two separated actions (stacking on narrow screens), a default-hidden setup key revealed in wrapping four-character groups, and an aria-live copy result including clipboard-failure guidance.
 - Code input uses the strong admin border token and clear focus; Verify shows “Verifying…” without opacity washout. Cancel uses the high-contrast secondary style. Submission guards, auto-verification, timeout, navigation and auth logic unchanged.
-- Tests cover hidden/revealed key, copy success/failure, verification pending/error recovery, readable audit labels, reversal/internal-note privacy, and sentence-case statuses. Existing Playwright Sign out selector is case-insensitive; no e2e selector change needed.
+- Tests cover hidden/revealed key, copy success/failure, verification pending/error recovery, readable audit labels, reversal/internal-note privacy, and sentence-case statuses. The MFA helper required an update to reveal and read the grouped setup key; Sign out selector remains case-insensitive.
 
 ### Auth comparison
 
@@ -1038,3 +1038,7 @@ test:unit exit 0
 - Playwright admin: **NOT VERIFIED — needs owner sign-in** (real sign-in and authenticator required; no credentials read or printed).
 - Before/after authenticated screenshots, rendered desktop/narrow layouts, visual AA contrast and screen-reader announcements: **NOT VERIFIED — needs owner sign-in**. Unit tests verify DOM behaviour, not browser layout. Checklist ticks record implementation; the stage gate remains open for captain/owner verification.
 - No mobile, shared, database, auth configuration, reviewer evidence or prompt files modified. No push or merge. Captain reviews this commit and arranges the remaining browser verification.
+
+### 7b56e1d review fix round
+
+Updated the MFA helper to reveal and read the grouped key, made disabled Verify distinct from its busy state, mapped audit actions and entities, hid internal reasons from tooltips, prevented mid-number wrapping, shared sentence-case formatting, improved button borders and updated remaining requested copy. The hidden key remains in the DOM for aria-controls; setup is announced once. No existing size token exists for 520px, 44px or 52px; those dimensions remain. MFA effect/start/verify/cancel compared byte-for-byte with `4686b0c`: all identical. Playwright and authenticated visual verification NOT VERIFIED — needs owner sign-in.

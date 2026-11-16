@@ -8,7 +8,7 @@
 .card {
   width: 100%;
   max-width: 520px;
-  padding: clamp(16px, 4vw, 32px);
+  padding: clamp(var(--space-base), 4vw, var(--space-2xl));
   border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);
   background: var(--color-surface);
@@ -84,7 +84,7 @@
 .card .codeInput:focus {
   border-color: var(--color-primary);
 }
-.card .verify:disabled {
+.card .verify:disabled[data-busy='true'] {
   opacity: 1;
 }
 .copyStatus {
@@ -109,4 +109,12 @@
   .actions {
     grid-template-columns: 1fr;
   }
+}
+
+.setupKey[hidden] {
+  display: none;
+}
+.actions button,
+.card .secondary {
+  border-color: var(--color-border-strong);
 }

@@ -152,13 +152,11 @@ export function MfaForm({ setup = false }: { setup?: boolean }) {
             >
               {showKey ? 'Hide setup key' : 'Show setup key'}
             </Button>
-            {showKey && (
-              <code id="setup-key" className={styles.setupKey}>
-                {enrollment.secret.match(/.{1,4}/g)?.map((block, index) => (
-                  <span key={index}>{block}</span>
-                ))}
-              </code>
-            )}
+            <code id="setup-key" className={styles.setupKey} hidden={!showKey}>
+              {enrollment.secret.match(/.{1,4}/g)?.map((block, index) => (
+                <span key={index}>{block}</span>
+              ))}
+            </code>
             <div className={styles.actions}>
               <Button
                 variant="secondary"
@@ -210,6 +208,7 @@ export function MfaForm({ setup = false }: { setup?: boolean }) {
             />
             <Button
               className={styles.verify}
+              data-busy={busy}
               type="submit"
               disabled={busy || code.length !== 6}
             >
@@ -218,9 +217,14 @@ export function MfaForm({ setup = false }: { setup?: boolean }) {
           </form>
         )}
         <p className={styles.busyStatus} role="status" aria-live="polite">
-          {busy && factorId ? 'Verifying…' : ''}
+          {busy && !factorId ? 'Setting up…' : ''}
         </p>
-        <Button variant="secondary" disabled={busy} onClick={() => void cancel()}>
+        <Button
+          className={styles.secondary}
+          variant="secondary"
+          disabled={busy}
+          onClick={() => void cancel()}
+        >
           Cancel and sign out
         </Button>
       </section>

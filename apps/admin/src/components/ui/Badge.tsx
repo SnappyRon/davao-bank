@@ -1,4 +1,5 @@
 import React from 'react';
+import { sentenceCase } from '@/lib/dashboardDisplay';
 import styles from './Badge.module.css';
 
 export type BadgeVariant = 'success' | 'danger' | 'warning' | 'info' | 'neutral';
@@ -20,7 +21,7 @@ export function Badge({ label, variant = 'neutral', className }: BadgeProps) {
 export function StatusBadge({ status }: { status: string }) {
   const normalized = status.toLowerCase();
 
-  const label = normalized.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase());
+  const label = sentenceCase(normalized);
 
   switch (normalized) {
     case 'active':

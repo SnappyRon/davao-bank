@@ -24,7 +24,9 @@ export function StatTile({
         <span className={styles.label}>{label}</span>
         {icon ? <div className={`${styles.iconBadge} ${iconClass}`}>{icon}</div> : null}
       </div>
-      <div className={`${styles.value} tabular-nums`}>{value}</div>
+      <div title={String(value)} className={`${styles.value} tabular-nums`}>
+        {value}
+      </div>
       {subtext ? <div className={styles.subtext}>{subtext}</div> : null}
     </div>
   );

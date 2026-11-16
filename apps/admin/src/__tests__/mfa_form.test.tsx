@@ -44,11 +44,11 @@ async function enroll() {
 }
 it('hides the key by default, reveals grouped blocks, and announces successful copying', async () => {
   await enroll();
-  expect(screen.queryByText('TEST')).not.toBeInTheDocument();
+  expect(screen.getAllByText('TEST')[0]).not.toBeVisible();
   fireEvent.click(screen.getByRole('button', { name: 'Show setup key' }));
   expect(screen.getAllByText('TEST')).toHaveLength(2);
   fireEvent.click(screen.getByRole('button', { name: 'Hide setup key' }));
-  expect(screen.queryByText('TEST')).not.toBeInTheDocument();
+  expect(screen.getAllByText('TEST')[0]).not.toBeVisible();
   fireEvent.click(screen.getByRole('button', { name: 'Copy setup key' }));
   expect(await screen.findByText('Copied')).toHaveAttribute('aria-live', 'polite');
   expect(navigator.clipboard.writeText).toHaveBeenCalledWith('TESTONLYTESTONLY');
