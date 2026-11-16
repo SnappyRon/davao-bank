@@ -37,7 +37,7 @@ export default function UnauthorizedPage() {
           icon={<LogOut size={16} />}
           fullWidth
         >
-          Sign Out & Return to Login
+          Sign out and return to login
         </Button>
       </div>
     </div>

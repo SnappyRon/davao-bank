@@ -120,9 +120,10 @@ export async function completeMfa(page: Page) {
     }
 
     // Read setup key from <code>
-    const codeLocator = page.locator('code');
+    await page.getByRole('button', { name: 'Show setup key' }).click();
+    const codeLocator = page.locator('#setup-key');
     await codeLocator.waitFor({ state: 'visible', timeout: 10_000 });
-    const secret = (await codeLocator.innerText()).trim();
+    const secret = (await codeLocator.innerText()).replace(/\s+/g, '');
 
     activeTotp = new TOTP({
       secret,

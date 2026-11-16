@@ -1,4 +1,5 @@
 'use client';
+import { sentenceCase } from '@/lib/dashboardDisplay';
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -249,7 +250,7 @@ export function TransactionsClient({
         if (r.status === 'paid') return <Badge label="Paid" variant="success" />;
         if (r.status === 'pending') return <Badge label="Pending" variant="warning" />;
         if (r.status === 'declined') return <Badge label="Declined" variant="danger" />;
-        return <Badge label={r.status} variant="neutral" />;
+        return <Badge label={sentenceCase(r.status)} variant="neutral" />;
       },
     },
     {

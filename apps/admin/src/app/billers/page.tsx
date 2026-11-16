@@ -51,7 +51,7 @@ export default async function AdminBillersPage() {
   return (
     <AdminShell adminEmail={user?.email} adminName={profile?.full_name}>
       <PageHeader
-        title="Biller Directory & Settlement"
+        title="Biller directory & settlement"
         subtitle="Manage simulated utility billers, validation patterns, and system settlement accounts."
       />
       <BillersClient initialBillers={billers} />

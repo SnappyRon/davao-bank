@@ -1,5 +1,7 @@
 'use client';
 
+import { sentenceCase } from '@/lib/dashboardDisplay';
+
 import React, { useState } from 'react';
 import { Code } from 'lucide-react';
 import { AuditLog } from '@davao-bank/shared';
@@ -60,7 +62,7 @@ export function AuditClient({ initialLogs }: AuditClientProps) {
       render: (log: AuditLog) => (
         <div>
           <Badge
-            label={log.actor_role || 'system'}
+            label={sentenceCase(log.actor_role || 'system')}
             variant={log.actor_role === 'admin' ? 'info' : 'neutral'}
           />
           {log.actor_id ? (

@@ -94,7 +94,7 @@ export default async function AdminTransactionsPage() {
   return (
     <AdminShell adminEmail={user?.email} adminName={profile?.full_name}>
       <PageHeader
-        title="Transaction Oversight & Reversals"
+        title="Transaction oversight & reversals"
         subtitle="Monitor ledger activity, inspect receipts, and oversee customer payment requests."
       >
         <a href="/api/export/transactions">

@@ -35,7 +35,7 @@ export default async function AdminAccountsPage() {
   return (
     <AdminShell adminEmail={user?.email} adminName={profile?.full_name}>
       <PageHeader
-        title="Deposit & Ledger Accounts"
+        title="Deposit & ledger accounts"
         subtitle="Manage deposit accounts, enforce freeze/close states, and perform audited balance adjustments."
       />
       <AccountsClient initialAccounts={accounts} allUsers={users} />

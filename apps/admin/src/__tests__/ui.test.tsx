@@ -11,20 +11,32 @@ describe('Admin UI Components', () => {
       expect(screen.getByText('Active')).toBeInTheDocument();
     });
 
-    it('renders "Needs Attention" label for needs_attention status', () => {
+    it('renders "Needs attention" label for needs_attention status', () => {
       render(<StatusBadge status="needs_attention" />);
-      expect(screen.getByText('Needs Attention')).toBeInTheDocument();
+      expect(screen.getByText('Needs attention')).toBeInTheDocument();
+    });
+
+    it.each([
+      ['completed', 'Completed'],
+      ['pending', 'Pending'],
+      ['scheduled', 'Scheduled'],
+      ['failed', 'Failed'],
+      ['reversed', 'Reversed'],
+      ['cancelled', 'Cancelled'],
+    ])('renders %s in sentence case', (status, label) => {
+      render(<StatusBadge status={status} />);
+      expect(screen.getByText(label)).toBeInTheDocument();
     });
 
     it('renders standard statuses correctly', () => {
       const { rerender } = render(<StatusBadge status="active" />);
-      expect(screen.getByText('active')).toBeInTheDocument();
+      expect(screen.getByText('Active')).toBeInTheDocument();
 
       rerender(<StatusBadge status="suspended" />);
-      expect(screen.getByText('suspended')).toBeInTheDocument();
+      expect(screen.getByText('Suspended')).toBeInTheDocument();
 
       rerender(<StatusBadge status="admin" />);
-      expect(screen.getByText('admin')).toBeInTheDocument();
+      expect(screen.getByText('Admin')).toBeInTheDocument();
     });
   });
 

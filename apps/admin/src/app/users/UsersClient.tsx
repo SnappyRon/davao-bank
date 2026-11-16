@@ -1,4 +1,5 @@
 'use client';
+import { sentenceCase } from '@/lib/dashboardDisplay';
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -136,7 +137,10 @@ export function UsersClient({
       key: 'role',
       header: 'Role',
       render: (u: AdminUserItem) => (
-        <Badge label={u.role} variant={u.role === 'admin' ? 'info' : 'neutral'} />
+        <Badge
+          label={sentenceCase(u.role)}
+          variant={u.role === 'admin' ? 'info' : 'neutral'}
+        />
       ),
     },
     {
@@ -229,10 +233,10 @@ export function UsersClient({
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as any)}
             options={[
-              { value: 'all', label: 'All Statuses' },
-              { value: 'active', label: 'Active Only' },
-              { value: 'suspended', label: 'Suspended Only' },
-              { value: 'needs_attention', label: 'Needs Attention' },
+              { value: 'all', label: 'All statuses' },
+              { value: 'active', label: 'Active only' },
+              { value: 'suspended', label: 'Suspended only' },
+              { value: 'needs_attention', label: 'Needs attention' },
             ]}
           />
         </div>

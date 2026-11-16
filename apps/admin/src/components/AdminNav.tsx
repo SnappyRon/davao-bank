@@ -29,7 +29,7 @@ export function AdminNav({ adminEmail, adminName }: AdminNavProps) {
     { label: 'Transactions', href: '/transactions' },
     { label: 'Schedules', href: '/schedules' },
     { label: 'Billers', href: '/billers' },
-    { label: 'Audit Log', href: '/audit' },
+    { label: 'Audit log', href: '/audit' },
   ];
 
   return (
@@ -40,7 +40,7 @@ export function AdminNav({ adminEmail, adminName }: AdminNavProps) {
           <div className={styles.brandBadge}>DB</div>
           <div>
             <div className={styles.brandTitle}>Davao Bank</div>
-            <div className={styles.brandSubtitle}>Staff Portal</div>
+            <div className={styles.brandSubtitle}>Staff portal</div>
           </div>
         </Link>
 
@@ -61,7 +61,7 @@ export function AdminNav({ adminEmail, adminName }: AdminNavProps) {
         </nav>
       </div>
 
-      {/* Staff User & Sign Out */}
+      {/* Staff User & Sign out */}
       <div className={styles.userGroup}>
         <div className={styles.userInfo}>
           <div className={styles.userName}>{adminName || 'Bank Administrator'}</div>
@@ -71,7 +71,7 @@ export function AdminNav({ adminEmail, adminName }: AdminNavProps) {
         </div>
 
         <button onClick={handleSignOut} className={styles.signOutBtn}>
-          Sign Out
+          Sign out
         </button>
       </div>
     </header>

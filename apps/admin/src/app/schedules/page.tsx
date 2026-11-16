@@ -97,7 +97,7 @@ export default async function AdminSchedulesPage() {
   return (
     <AdminShell adminEmail={user?.email} adminName={profile?.full_name}>
       <PageHeader
-        title="Scheduled & Recurring Payments"
+        title="Scheduled & recurring payments"
         subtitle="Oversight of automated transfer rules, utility bill schedules, and execution audit history."
       />
       <SchedulesClient initialSchedules={schedules} />

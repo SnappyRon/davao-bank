@@ -1,4 +1,5 @@
 import React from 'react';
+import { sentenceCase } from '@/lib/dashboardDisplay';
 import styles from './Badge.module.css';
 
 export type BadgeVariant = 'success' | 'danger' | 'warning' | 'info' | 'neutral';
@@ -20,27 +21,24 @@ export function Badge({ label, variant = 'neutral', className }: BadgeProps) {
 export function StatusBadge({ status }: { status: string }) {
   const normalized = status.toLowerCase();
 
+  const label = sentenceCase(normalized);
+
   switch (normalized) {
     case 'active':
     case 'completed':
-      return <Badge label={status} variant="success" />;
+      return <Badge label={label} variant="success" />;
     case 'suspended':
     case 'closed':
     case 'failed':
-    case 'reversed':
-      return <Badge label={status} variant="danger" />;
+      return <Badge label={label} variant="danger" />;
     case 'frozen':
     case 'pending':
     case 'needs_attention':
-      return (
-        <Badge
-          label={status === 'needs_attention' ? 'Needs Attention' : status}
-          variant="warning"
-        />
-      );
+      return <Badge label={label} variant="warning" />;
+    case 'scheduled':
     case 'admin':
-      return <Badge label={status} variant="info" />;
+      return <Badge label={label} variant="info" />;
     default:
-      return <Badge label={status} variant="neutral" />;
+      return <Badge label={label} variant="neutral" />;
   }
 }

@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createAdminBrowserClient } from '@/lib/supabase-browser';
 import { Button, Input } from '@/components/ui';
-import styles from '../login/Login.module.css';
+import styles from './MfaForm.module.css';
 
 type Enrollment = { id: string; secret: string; qr_code: string; uri: string };
 const VERIFY_TIMEOUT_MS = 20000;
@@ -15,6 +15,8 @@ export function MfaForm({ setup = false }: { setup?: boolean }) {
   const pending = useRef<string | null>(null);
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
+  const [showKey, setShowKey] = useState(false);
+  const [copyStatus, setCopyStatus] = useState('');
   const [busy, setBusy] = useState(false);
   const inFlight = useRef(false);
   useEffect(() => {
@@ -118,44 +120,80 @@ export function MfaForm({ setup = false }: { setup?: boolean }) {
   };
   return (
     <main className={styles.container}>
-      <section className={styles.loginCard}>
+      <section className={styles.card}>
         <h1>{setup ? 'Set up two-step verification' : 'Verify your sign-in'}</h1>
-        <p>Use an authenticator app to secure access to the staff console.</p>
-        {error && <p role="alert">{error}</p>}
+        <p className={styles.subtitle}>
+          Use an authenticator app to secure access to the staff console.
+        </p>
+        {error && (
+          <p className={styles.error} role="alert">
+            {error}
+          </p>
+        )}
         {setup && !factorId && (
           <Button onClick={() => void start()} disabled={busy}>
-            Set up authenticator
+            {busy ? 'Setting up…' : 'Set up authenticator'}
           </Button>
         )}
         {enrollment && (
-          <div>
+          <div className={styles.enrollment}>
             <img
+              className={styles.qr}
               src={enrollment.qr_code}
               alt="Authenticator setup QR code"
               width={200}
               height={200}
             />
-            <p>
-              Setup key: <code>{enrollment.secret}</code>
-            </p>
             <Button
-              onClick={() => {
-                void navigator.clipboard.writeText(enrollment.secret);
-              }}
+              variant="secondary"
+              aria-expanded={showKey}
+              aria-controls="setup-key"
+              onClick={() => setShowKey(!showKey)}
             >
-              Copy setup key
+              {showKey ? 'Hide setup key' : 'Show setup key'}
             </Button>
-            <a href={enrollment.uri}>Open in authenticator app</a>
+            <code id="setup-key" className={styles.setupKey} hidden={!showKey}>
+              {enrollment.secret.match(/.{1,4}/g)?.map((block, index) => (
+                <span key={index}>{block}</span>
+              ))}
+            </code>
+            <div className={styles.actions}>
+              <Button
+                variant="secondary"
+                onClick={async () => {
+                  setCopyStatus('');
+                  try {
+                    await navigator.clipboard.writeText(enrollment.secret);
+                    setCopyStatus('Copied');
+                  } catch {
+                    setCopyStatus(
+                      'Could not copy. Show the setup key to enter it manually.'
+                    );
+                  }
+                }}
+              >
+                Copy setup key
+              </Button>
+              <a className={styles.openLink} href={enrollment.uri}>
+                Open in authenticator app
+              </a>
+            </div>
+            <p role="status" aria-live="polite" className={styles.copyStatus}>
+              {copyStatus}
+            </p>
           </div>
         )}
         {!!factorId && (
           <form
+            className={styles.form}
+            aria-busy={busy}
             onSubmit={(event) => {
               event.preventDefault();
               void verify(code);
             }}
           >
             <Input
+              className={styles.codeInput}
               label="Authenticator code"
               inputMode="numeric"
               autoComplete="one-time-code"
@@ -168,12 +206,25 @@ export function MfaForm({ setup = false }: { setup?: boolean }) {
                 if (value.length === 6) void verify(value);
               }}
             />
-            <Button type="submit" disabled={busy || code.length !== 6}>
-              Verify code
+            <Button
+              className={styles.verify}
+              data-busy={busy}
+              type="submit"
+              disabled={busy || code.length !== 6}
+            >
+              {busy ? 'Verifying…' : 'Verify code'}
             </Button>
           </form>
         )}
-        <Button variant="ghost" disabled={busy} onClick={() => void cancel()}>
+        <p className={styles.busyStatus} role="status" aria-live="polite">
+          {busy && !factorId ? 'Setting up…' : ''}
+        </p>
+        <Button
+          className={styles.secondary}
+          variant="secondary"
+          disabled={busy}
+          onClick={() => void cancel()}
+        >
           Cancel and sign out
         </Button>
       </section>

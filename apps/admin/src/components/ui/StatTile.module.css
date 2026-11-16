@@ -1,4 +1,6 @@
 .tile {
+  min-width: 0;
+  container-type: inline-size;
   background-color: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -9,8 +11,9 @@
 }
 
 .headerRow {
+  gap: var(--space-sm);
   display: flex;
-  justifyContent: space-between;
+  justify-content: space-between;
   align-items: center;
 }
 
@@ -18,11 +21,14 @@
   font-size: 0.875rem;
   font-weight: 600;
   color: var(--color-text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  min-height: 2.5em;
+  line-height: 1.25;
+  display: flex;
+  align-items: center;
 }
 
 .iconBadge {
+  flex-shrink: 0;
   width: 36px;
   height: 36px;
   border-radius: var(--radius-md);
@@ -57,7 +63,10 @@
 }
 
 .value {
-  font-size: 1.875rem;
+  font-size: clamp(0.75rem, 7.5cqi, 1.875rem);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-weight: 800;
   color: var(--color-ink);
   letter-spacing: -0.5px;

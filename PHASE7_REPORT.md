@@ -1005,3 +1005,71 @@ npx jest --testPathIgnorePatterns profile → Test Suites: 31 passed, 31 total; 
 ```
 
 Device: NOT VERIFIED — captain runs it.
+
+## Stage 7B.12 — Admin console polish
+
+Implemented in `/Users/ronalbert/Personal Projects/davao-bank-admin`, branch `phase-7-admin-polish`, based on `4686b0c`. Main checkout untouched. No dependencies added/upgraded; install used `npm install --prefer-offline --no-audit` (1463 packages added; manifests/lockfile unchanged).
+
+### Per-item changes
+
+- Fixed both invalid `justifyContent` declarations; section/audit headers now have gaps and wrap between items. Audit labels use readable copy, with sentence-case fallback for other events; actor/entity captions no longer display raw enum formatting.
+- Ledger references use shared `formatReferenceId`: reversals display `Reversal of DB-XXXX-XXXX`; ordinary rows display the transaction's short reference. Only the full transaction id appears in the title tooltip. Dates/times do not wrap.
+- Badges use sentence case and the 7B.2 palette: completed green, pending orange, scheduled blue, failed red, reversed/cancelled neutral. Admin dashboard retains completed badges as explicitly requested in this brief (the mobile list rule hides them).
+- Stat labels use sentence case and a consistent minimum label height; icons cannot shrink. Values use container-relative clamped sizing with an overflow-wrap safety fallback. Grid uses 4/2/1 columns, balancing eight tiles. Subtitle is “Original transactions marked reversed”, matching the RPC's count of `status = 'reversed'` originals.
+- Dashboard headings, Balance adjustments, Audit log and Sign out use sentence case. Sidebar scrolls at short heights, footer cannot shrink, attribution wraps and has bottom clearance.
+- MFA has its own responsive module, centred card and QR, token spacing, two separated actions (stacking on narrow screens), a default-hidden setup key revealed in wrapping four-character groups, and an aria-live copy result including clipboard-failure guidance.
+- Code input uses the strong admin border token and clear focus; Verify shows “Verifying…” without opacity washout. Cancel uses the high-contrast secondary style. Submission guards, auto-verification, timeout, navigation and auth logic unchanged.
+- Tests cover hidden/revealed key, copy success/failure, verification pending/error recovery, readable audit labels, reversal/internal-note privacy, and sentence-case statuses. The MFA helper required an update to reveal and read the grouped setup key; Sign out selector remains case-insensitive.
+
+### Auth comparison
+
+Exact substring comparison of the complete effect and handler blocks against `git show 4686b0c:apps/admin/src/app/mfa/MfaForm.tsx`, repeated after formatting:
+
+```text
+effect: BYTE-IDENTICAL to 4686b0c
+start: BYTE-IDENTICAL to 4686b0c
+verify: BYTE-IDENTICAL to 4686b0c
+cancel: BYTE-IDENTICAL to 4686b0c
+```
+
+This includes every listFactors/enroll/challengeAndVerify/unenroll/signOut call and its surrounding control flow. Only render code, styles and copy/reveal state were changed.
+
+### Checks (worktree root)
+
+```text
+npm run typecheck
+> admin@0.1.0 typecheck
+> tsc --noEmit
+> mobile@1.0.0 typecheck
+> tsc --noEmit
+> @davao-bank/shared@0.1.0 typecheck
+> tsc --noEmit
+typecheck exit 0
+
+npm run lint
+✖ 64 problems (0 errors, 64 warnings)
+lint exit 0
+
+npm run format:check
+Checking formatting...
+All matched files use Prettier code style!
+
+npm run test:unit
+Test Suites: 35 passed, 35 total
+Tests:       306 passed, 306 total
+Snapshots:   0 total
+Time:        4.276 s, estimated 14 s
+Ran all test suites in 3 projects.
+
+test:unit exit 0
+```
+
+### Verification limits and next step
+
+- Playwright admin: **NOT VERIFIED — needs owner sign-in** (real sign-in and authenticator required; no credentials read or printed).
+- Before/after authenticated screenshots, rendered desktop/narrow layouts, visual AA contrast and screen-reader announcements: **NOT VERIFIED — needs owner sign-in**. Unit tests verify DOM behaviour, not browser layout. Checklist ticks record implementation; the stage gate remains open for captain/owner verification.
+- No mobile, shared, database, auth configuration, reviewer evidence or prompt files modified. No push or merge. Captain reviews this commit and arranges the remaining browser verification.
+
+### 7b56e1d review fix round
+
+Updated the MFA helper to reveal and read the grouped key, made disabled Verify distinct from its busy state, mapped audit actions and entities, hid internal reasons from tooltips, prevented mid-number wrapping, shared sentence-case formatting, improved button borders and updated remaining requested copy. The hidden key remains in the DOM for aria-controls; setup is announced once. No existing size token exists for 520px, 44px or 52px; those dimensions remain. MFA effect/start/verify/cancel compared byte-for-byte with `4686b0c`: all identical. Playwright and authenticated visual verification NOT VERIFIED — needs owner sign-in.
