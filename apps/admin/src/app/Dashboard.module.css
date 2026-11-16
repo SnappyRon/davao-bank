@@ -1,13 +1,13 @@
 .statsGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--space-lg);
   margin-bottom: var(--space-2xl);
 }
 
 .contentGrid {
   display: grid;
-  grid-template-columns: 2fr 1fr;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
   gap: var(--space-xl);
 }
 
@@ -19,7 +19,9 @@
 
 .sectionHeader {
   display: flex;
-  justifyContent: space-between;
+  justify-content: space-between;
+  gap: var(--space-md);
+  flex-wrap: wrap;
   align-items: center;
   margin-bottom: var(--space-md);
 }
@@ -60,7 +62,9 @@
 
 .auditTopRow {
   display: flex;
-  justifyContent: space-between;
+  justify-content: space-between;
+  gap: var(--space-md);
+  flex-wrap: wrap;
   align-items: center;
 }
 
@@ -82,5 +86,29 @@
 
 .txType {
   font-weight: 700;
-  text-transform: capitalize;
+}
+
+.contentGrid > div {
+  min-width: 0;
+}
+.dateTime,
+.auditTime {
+  white-space: nowrap;
+}
+.viewAllLink {
+  flex-shrink: 0;
+}
+.auditAction,
+.auditEntity {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 1200px) {
+  .statsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 540px) {
+  .statsGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }

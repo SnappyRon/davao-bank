@@ -41,7 +41,7 @@ export function Sidebar({ adminEmail, adminName }: SidebarProps) {
     { label: 'Transactions', href: '/transactions', icon: <ArrowLeftRight size={20} /> },
     { label: 'Schedules', href: '/schedules', icon: <CalendarClock size={20} /> },
     { label: 'Billers', href: '/billers', icon: <Building2 size={20} /> },
-    { label: 'Audit Log', href: '/audit', icon: <ClipboardList size={20} /> },
+    { label: 'Audit log', href: '/audit', icon: <ClipboardList size={20} /> },
   ];
 
   const getInitials = (name?: string | null, email?: string | null) => {
@@ -99,14 +99,14 @@ export function Sidebar({ adminEmail, adminName }: SidebarProps) {
           <div className={styles.adminInfo}>
             <div className={styles.adminAvatar}>{getInitials(adminName, adminEmail)}</div>
             <div className={styles.adminDetails}>
-              <div className={styles.adminName}>{adminName || 'Staff Admin'}</div>
+              <div className={styles.adminName}>{adminName || 'Staff admin'}</div>
               <div className={styles.adminEmail}>{adminEmail || ''}</div>
             </div>
           </div>
 
           <button onClick={handleSignOut} className={styles.signOutButton}>
             <LogOut size={16} />
-            <span className={styles.signOutText}>Sign Out</span>
+            <span className={styles.signOutText}>Sign out</span>
           </button>
 
           <p className={styles.creditText}>

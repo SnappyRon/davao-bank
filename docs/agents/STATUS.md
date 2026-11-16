@@ -5,12 +5,12 @@
 ## Now
 
 - **Active phase:** Phase 7 — UI/UX Refinement & Motion.
-- **Branch:** `phase-7-ui-motion` (branched from tip of `phase-6-5-strong-auth`).
+- **Branch:** `phase-7-admin-polish`, isolated worktree `../davao-bank-admin`, based on `4686b0c` of `phase-7-ui-motion`.
 - **Active prompt:** `Phase-7-Prompt-UI-UX-and-Motion.md`.
-- **Assigned to:** captain (Codex out of quota until 2026-11-11 00:52; Antigravity `frontend` and `backend-reviewer` out of quota). Reviewed by the captain workflow (`docs/agents/WORKFLOW.md`).
-- **Exact next step:** captain reviews the 7B.4 fix round (`Phase 7 · Fix — 9c84835 review findings (money flows)`); notifications migration merged and applied to hosted (see Log); live suites after apply. Owner: uncommitted `apps/mobile/src/screens/ProfileScreen.tsx` (old version, not from the fix round) breaks typecheck and the two profile suites until resolved.
-- **Last commit:** 7B.4 fix round (see git log; on top of `10f156b`).
-- **Blockers for this step:** none. Owner decisions 2026-11-11: password change re-auth stays app-only; DB migration for notification related transaction id + biller name approved (in progress, captain applies after review).
+- **Assigned to:** Codex, Stage 7B.12 implementation complete; captain review pending.
+- **Exact next step:** captain reviews the admin polish commit, then owner signs in with an authenticator for Playwright and desktop/narrow screenshot verification. Main-checkout mobile work remains separate.
+- **Last commit:** `Phase 7 · Stage 7B.12 — Admin console polish` (this branch's stage commit; parent `4686b0c`).
+- **Blockers for this step:** Playwright and authenticated browser screenshots NOT VERIFIED — needs owner sign-in.
 
 ## Stage 7B.0 — remaining work plan (captain, 2026-11-10)
 
@@ -128,24 +128,25 @@ Deferred to their planned steps (not in the fix round): receipt reference/Share/
   - [ ] Skeletons on loading, mascot empty states, descriptive error states + retry, offline banner, processing lock + 2s "Still working" warning, confirmed result via ResultView, background action toasts.
 - [ ] **7B.12 Admin console polish (owner report 2026-11-12, captain-observed from screenshots)**:
   - Dashboard (`apps/admin/src/app/page.tsx`, `Dashboard.module.css`):
-    - [ ] Section headers jam the title into "View all" ("Recent Ledger TransactionsView all →") — `Dashboard.module.css:22` uses `justifyContent` (React Native camelCase, invalid CSS); use `justify-content`, add a gap.
-    - [ ] Audit rows jam event and time ("deposit_completed09:08 PM") and show raw snake_case events and "Role: customer · Entity: accounts"; map to readable sentence-case labels ("Money added", "Transfer sent"), time right-aligned or on its own line.
-    - [ ] Ledger "Reference" shows raw UUIDs and internal reasons ("Reversal of 256fcaa1-…: closeout-… reversal"); show "Reversal of DB-XXXX-XXXX" (`formatReferenceId`) and keep the full id in a tooltip/detail only.
-    - [ ] Status badges are UPPERCASE ("COMPLETED"); use sentence-case badges with the 7B.2 status colours.
-    - [ ] Date/time column wraps ("Nov 11, 09:08 / PM"); keep it on one line (nowrap / wider column / shorter format).
-    - [ ] Stat cards: large amounts touch or overflow the card edge ("₱100,158,997.00", "₱100,345,077.42"); labels in ALL CAPS wrap unevenly ("TOTAL SYSTEM / BALANCE") and push icons out of line. Use sentence-case labels, a responsive amount size (shrink/clamp), consistent label height.
-    - [ ] Grid: 5 + 3 cards leaves an empty slot on the second row; balance the grid (4 + 4 or auto-fit).
-    - [ ] "Compensating reversals" card subtitle says "Audited balance adjustments" (label and subtitle disagree); fix the copy to match what it counts.
-    - [ ] Title-case buttons/links ("Export CSV" ok, "Balance Adjustments", "Sign Out") → sentence case per the wording rules.
-    - [ ] Sidebar footer: the emblem attribution text is cut off and sits under the Next.js dev indicator; give the footer its own space (dev indicator is dev-only, but the text must not be clipped).
+    - [x] Section headers jam the title into "View all" ("Recent Ledger TransactionsView all →") — `Dashboard.module.css:22` uses `justifyContent` (React Native camelCase, invalid CSS); use `justify-content`, add a gap.
+    - [x] Audit rows jam event and time ("deposit_completed09:08 PM") and show raw snake_case events and "Role: customer · Entity: accounts"; map to readable sentence-case labels ("Money added", "Transfer sent"), time right-aligned or on its own line.
+    - [x] Ledger "Reference" shows raw UUIDs and internal reasons ("Reversal of 256fcaa1-…: closeout-… reversal"); show "Reversal of DB-XXXX-XXXX" (`formatReferenceId`) and keep the full id in a tooltip/detail only.
+    - [x] Status badges are UPPERCASE ("COMPLETED"); use sentence-case badges with the 7B.2 status colours.
+    - [x] Date/time column wraps ("Nov 11, 09:08 / PM"); keep it on one line (nowrap / wider column / shorter format).
+    - [x] Stat cards: large amounts touch or overflow the card edge ("₱100,158,997.00", "₱100,345,077.42"); labels in ALL CAPS wrap unevenly ("TOTAL SYSTEM / BALANCE") and push icons out of line. Use sentence-case labels, a responsive amount size (shrink/clamp), consistent label height.
+    - [x] Grid: 5 + 3 cards leaves an empty slot on the second row; balance the grid (4 + 4 or auto-fit).
+    - [x] "Compensating reversals" card subtitle says "Audited balance adjustments" (label and subtitle disagree); fix the copy to match what it counts.
+    - [x] Title-case buttons/links ("Export CSV" ok, "Balance Adjustments", "Sign Out") → sentence case per the wording rules.
+    - [x] Sidebar footer: the emblem attribution text is cut off and sits under the Next.js dev indicator; give the footer its own space (dev indicator is dev-only, but the text must not be clipped).
   - Two-step setup (`apps/admin/src/app/mfa/MfaForm.tsx`, reuses `login/Login.module.css`):
-    - [ ] The enrollment block has no layout styles: no spacing between title, subtitle, QR, key and actions; "Copy setup key" button and "Open in authenticator app" link sit on one line touching each other; label sits on the button above. Add a vertical stack with the spacing scale, centre the QR, group the key in 4-character blocks with a wrap, put Copy and Open as a row of two equal buttons (or a button + text link with a gap).
-    - [ ] Copy setup key gives no feedback; show "Copied" (aria-live) and keep focus styles consistent.
-    - [ ] Code input looks disabled (grey fill, no border) and the Verify button looks disabled even with 6 digits entered (pale) — use the admin input token styles; show a clear busy state ("Verifying…") instead of a washed-out button.
-    - [ ] "Cancel and sign out" ghost button reads as disabled (low contrast); use the secondary/link style with AA contrast.
-    - [ ] Card layout: title wraps tightly with the subtitle; check centring and width at desktop and narrow widths.
-    - [ ] Privacy: the setup key is displayed in full by default; consider "Show setup key" (reveal on click) since screenshots expose it.
-  - Gate: Playwright admin suite updated and passing; screenshots before/after in `PHASE7_REPORT.md`.
+    - [x] The enrollment block has no layout styles: no spacing between title, subtitle, QR, key and actions; "Copy setup key" button and "Open in authenticator app" link sit on one line touching each other; label sits on the button above. Add a vertical stack with the spacing scale, centre the QR, group the key in 4-character blocks with a wrap, put Copy and Open as a row of two equal buttons (or a button + text link with a gap).
+    - [x] Copy setup key gives no feedback; show "Copied" (aria-live) and keep focus styles consistent.
+    - [x] Code input looks disabled (grey fill, no border) and the Verify button looks disabled even with 6 digits entered (pale) — use the admin input token styles; show a clear busy state ("Verifying…") instead of a washed-out button.
+    - [x] "Cancel and sign out" ghost button reads as disabled (low contrast); use the secondary/link style with AA contrast.
+    - [x] Card layout: title wraps tightly with the subtitle; check centring and width at desktop and narrow widths.
+    - [x] Privacy: the setup key is displayed in full by default; consider "Show setup key" (reveal on click) since screenshots expose it.
+  - Implementation complete on `phase-7-admin-polish`; captain review pending. Browser layout/contrast screenshots NOT VERIFIED — needs owner sign-in.
+  - Gate: Playwright admin NOT VERIFIED — needs owner sign-in. Existing case-insensitive selectors remain compatible; no selector updates needed.
 - [ ] **7B Gate**:
   - [ ] Screenshots: before/after at 3 widths (375, 402, 440) at 1.0x and 1.4x text.
   - [ ] Scripts & tests: `check-copy` passes, VoiceOver notes in report.
@@ -246,6 +247,8 @@ Fix these before 7B:
 - **Follow-up:** add dedicated test accounts so live tests don't conflict with the presenter's real authenticator.
 
 ## Log (newest first)
+
+- **2026-11-16, Codex:** took over 7B.12 in isolated `../davao-bank-admin` on `phase-7-admin-polish` from `4686b0c`; implemented all dashboard and MFA presentation checklist items. MFA effect/start/verify/cancel handlers BYTE-IDENTICAL to base (including enroll, challengeAndVerify, unenroll and sign-out). Added copy/reveal/failure/busy interaction coverage and reference/status regression tests. Typecheck exit 0; lint 0 errors / 64 warnings; format check passed; unit 35 suites / 306 tests passed. Dependency manifests and lockfile unchanged. Playwright admin NOT VERIFIED — needs owner sign-in; authenticated before/after screenshots and rendered AA/layout checks NOT VERIFIED for the same reason. Next: captain review, then owner browser verification. Commit: `Phase 7 · Stage 7B.12 — Admin console polish` (this commit).
 
 - **2026-11-16, Claude implementer (sub agent):** fix round for `9c84835` (15 captain-accepted SEC/UX/CQ items). VerifyEmail: refresh errors show `toUserMessage` and stay (only "no session" — none returned, or `AuthSessionMissingError` — goes to sign in); 60 s cooldown starts on arrival from sign-up (`justSent`, App state set in `onSignUpSuccess`). Pay request: Review closes only on success; cancel/auth failure/server error stay on Review with an inline `alert` and the chosen account; balance below the amount → inline error, Pay disabled; list banner kind is explicit (`statusKind`, success only after a confirmed payment) with `accessibilityRole="alert"`; strings "Paid ₱X." and "Not authorized. Nothing was sent."; Balance after row. Transfer: recipient errors under the Account number field; saved-recipient/QR prefill with 2+ accounts starts on the source step, then amount/review (same-account and balance re-checked after choosing); new optional `recipientNickname` route param (App.tsx type) → "To Mama · •• 7943". Add money / Cash out on `useFeatureAccounts` + `AccountLoadStatus`, first step decided once, no "Available: ₱0.00" while loading/error. In-flight guard: new `hooks/useInFlightGuard.ts` wraps the commit handlers at the call site (Transfer now/scheduled, Pay bills pay/schedule, Add money, Cash out, Pay request) — the handler bodies themselves stay byte-identical. Saved recipients: one grouped list, rename on another row ignored while an edit is unsaved, passes the nickname to Transfer. Pay bills: shared `WhenPicker` (same chips as Transfer; `pay-bills/WhenStep.tsx` re-exports it), preset amounts, Balance after (pay now). Tokens: `CHIP_MIN_HEIGHT`, ReviewCard `ROW_ICON_SIZE`, `changeLabel`. Export: toast only when sharing is available, otherwise one Alert. **Handler comparison** vs `efab4fd`: all Transfer/Pay bills/Add money/Cash out handlers and key effects, `handleDecline`, `handleCancel`, `handleAddRecipient` IDENTICAL; `handlePay` differs by the 7B.4 changes plus exception (a) only (`Promise<boolean>`, `return false` ×3, `paid` flag, two strings); Export handlers: toast moved inside the sharing branch + sentence-case Alert. Checks: typecheck exit 2 — only `ProfileScreen.tsx` (owner's uncommitted file: missing `./PersonalDetailsModal` etc.) and `profile_screen.test.tsx`; no other error. Lint `✖ 64 problems (0 errors, 64 warnings)`. format:check flags only `ONBOARDING.md` (not mine). `npm run test:unit`: 2 suites fail (profile_screen, profile_confirmation: "Cannot find module './PersonalDetailsModal'" from the owner's ProfileScreen), `Tests: 280 passed`; `npx jest --testPathIgnorePatterns profile`: 31 suites / 280 tests pass (×2). Device NOT VERIFIED — captain runs it.
 

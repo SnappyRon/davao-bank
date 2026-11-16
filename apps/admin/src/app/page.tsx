@@ -13,11 +13,16 @@ import {
   AlertTriangle,
   Inbox,
 } from 'lucide-react';
-import { formatCentavosToPHP, type AdminDashboardStats } from '@davao-bank/shared';
+import {
+  formatCentavosToPHP,
+  formatReferenceId,
+  type AdminDashboardStats,
+} from '@davao-bank/shared';
 import { createAdminCookieServerClient } from '@/lib/supabase-cookies';
 import { AdminShell } from '@/components/AdminShell';
 import { PageHeader, StatTile, Card, Table, StatusBadge, Button } from '@/components/ui';
 import styles from './Dashboard.module.css';
+import { auditLabel, sentenceCase, ledgerReference } from '@/components/dashboardDisplay';
 
 export const dynamic = 'force-dynamic';
 
@@ -94,7 +99,7 @@ export default async function AdminDashboardPage() {
     {
       key: 'type',
       header: 'Type',
-      render: (t: any) => <span className={styles.txType}>{t.type}</span>,
+      render: (t: any) => <span className={styles.txType}>{sentenceCase(t.type)}</span>,
     },
     {
       key: 'status',
@@ -104,14 +109,18 @@ export default async function AdminDashboardPage() {
     {
       key: 'reference',
       header: 'Reference',
-      render: (t: any) => <span>{t.reference || '—'}</span>,
+      render: (t: any) => (
+        <span title={t.reference || t.id}>
+          {ledgerReference(t.reference, t.id, formatReferenceId)}
+        </span>
+      ),
     },
     {
       key: 'created_at',
-      header: 'Date / Time',
+      header: 'Date & time',
       align: 'right' as const,
       render: (t: any) => (
-        <span className="tabular-nums">
+        <span className={`${styles.dateTime} tabular-nums`}>
           {new Date(t.created_at).toLocaleDateString('en-US', {
             month: 'short',
             day: 'numeric',
@@ -126,7 +135,7 @@ export default async function AdminDashboardPage() {
   return (
     <AdminShell adminEmail={user?.email} adminName={profile?.full_name}>
       <PageHeader
-        title="Staff Console Dashboard"
+        title="Staff console dashboard"
         subtitle="Real-time oversight of customer accounts, double-entry financial ledger, and administrative operations."
       >
         <a href="/api/export/transactions">
@@ -136,7 +145,7 @@ export default async function AdminDashboardPage() {
         </a>
         <Link href="/accounts">
           <Button variant="primary" icon={<Sliders size={16} />}>
-            Balance Adjustments
+            Balance adjustments
           </Button>
         </Link>
       </PageHeader>
@@ -144,7 +153,7 @@ export default async function AdminDashboardPage() {
       {/* KPI Stats Grid */}
       <div className={styles.statsGrid}>
         <StatTile
-          label="Total System Balance"
+          label="Total system balance"
           value={formatCentavosToPHP(stats.total_system_balance)}
           subtext="Includes biller settlement accounts"
           icon={<Wallet size={20} />}
@@ -160,7 +169,7 @@ export default async function AdminDashboardPage() {
         />
 
         <StatTile
-          label="Deposit Accounts"
+          label="Deposit accounts"
           value={stats.total_accounts}
           subtext={`${stats.active_accounts} active · ${stats.frozen_accounts} frozen`}
           icon={<CreditCard size={20} />}
@@ -168,7 +177,7 @@ export default async function AdminDashboardPage() {
         />
 
         <StatTile
-          label="30-Day Volume"
+          label="30-day volume"
           value={formatCentavosToPHP(stats.total_volume)}
           subtext={`${stats.recent_30d_transactions} total transactions`}
           icon={<TrendingUp size={20} />}
@@ -176,15 +185,15 @@ export default async function AdminDashboardPage() {
         />
 
         <StatTile
-          label="Compensating Reversals"
+          label="Compensating reversals"
           value={stats.reversed_transactions}
-          subtext="Audited balance adjustments"
+          subtext="Original transactions marked reversed"
           icon={<RotateCcw size={20} />}
           iconColor="red"
         />
 
         <StatTile
-          label="Active Schedules"
+          label="Active schedules"
           value={activeSchedulesCount ?? 0}
           subtext="Recurring transfers & bills"
           icon={<CalendarClock size={20} />}
@@ -192,7 +201,7 @@ export default async function AdminDashboardPage() {
         />
 
         <StatTile
-          label="Failed Runs (7d)"
+          label="Failed runs (7 days)"
           value={failedRuns7dCount ?? 0}
           subtext={
             failedRuns7dCount && failedRuns7dCount > 0
@@ -204,7 +213,7 @@ export default async function AdminDashboardPage() {
         />
 
         <StatTile
-          label="Pending Requests"
+          label="Pending requests"
           value={pendingRequestsCount ?? 0}
           subtext="P2P money requests awaiting action"
           icon={<Inbox size={20} />}
@@ -216,7 +225,7 @@ export default async function AdminDashboardPage() {
       <div className={styles.contentGrid}>
         <div>
           <div className={styles.sectionHeader}>
-            <h2 className={styles.sectionTitle}>Recent Ledger Transactions</h2>
+            <h2 className={styles.sectionTitle}>Recent ledger transactions</h2>
             <Link href="/transactions" className={styles.viewAllLink}>
               View all <ArrowRight size={14} />
             </Link>
@@ -226,7 +235,7 @@ export default async function AdminDashboardPage() {
 
         <div>
           <div className={styles.sectionHeader}>
-            <h2 className={styles.sectionTitle}>Recent Audit Activity</h2>
+            <h2 className={styles.sectionTitle}>Recent audit activity</h2>
             <Link href="/audit" className={styles.viewAllLink}>
               View all <ArrowRight size={14} />
             </Link>
@@ -236,7 +245,7 @@ export default async function AdminDashboardPage() {
               {auditList.map((item: any) => (
                 <div key={item.id} className={styles.auditItem}>
                   <div className={styles.auditTopRow}>
-                    <span className={styles.auditAction}>{item.action}</span>
+                    <span className={styles.auditAction}>{auditLabel(item.action)}</span>
                     <span className={styles.auditTime}>
                       {new Date(item.created_at).toLocaleTimeString('en-US', {
                         hour: '2-digit',
@@ -245,8 +254,8 @@ export default async function AdminDashboardPage() {
                     </span>
                   </div>
                   <div className={styles.auditEntity}>
-                    Role: {item.actor_role || 'system'} · Entity:{' '}
-                    {item.entity || 'general'}
+                    {sentenceCase(item.actor_role || 'system')} ·{' '}
+                    {sentenceCase(item.entity || 'general')}
                   </div>
                 </div>
               ))}
