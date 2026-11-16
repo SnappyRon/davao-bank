@@ -57,11 +57,14 @@ export function CashOutScreen() {
 
   // Spec 7B.4: with 2+ accounts the account picker comes first. Decided once,
   // when the accounts first arrive, so a later reload never jumps steps.
+  // Step content renders only after the decision, so the wrong step never flashes.
   const firstStepPendingRef = useRef(true);
+  const [firstStepDecided, setFirstStepDecided] = useState(false);
   useEffect(() => {
     if (firstStepPendingRef.current && !accountsLoading && accounts.length > 0) {
       firstStepPendingRef.current = false;
       if (accounts.length >= 2) setStep('source');
+      setFirstStepDecided(true);
     }
   }, [accountsLoading, accounts.length]);
   const guardMoneyAction = useInFlightGuard();
@@ -163,7 +166,8 @@ export function CashOutScreen() {
   const centavosAmount = phpToCentavos(amountStr);
 
   const hasMultipleAccounts = accounts.length >= 2;
-  const accountsReady = !accountsLoading && !accountError && accounts.length > 0;
+  const accountsReady =
+    firstStepDecided && !accountsLoading && !accountError && accounts.length > 0;
   const inputSteps = hasMultipleAccounts
     ? (['source', 'input', 'review'] as const)
     : (['input', 'review'] as const);

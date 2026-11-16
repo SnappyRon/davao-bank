@@ -222,4 +222,40 @@ describe('Add money and Cash out (spec 7B.4)', () => {
       call.resolve({ data: null, error: 'boom' });
     });
   });
+
+  it('two presses in the same frame start one deposit', async () => {
+    jest.mocked(fetchAccountBalances).mockResolvedValue({ data: [SAVINGS], error: null });
+    const call = pending();
+    jest.mocked(executeDeposit).mockReturnValue(call.promise as never);
+    await render(<AddMoneyScreen />);
+    await screen.findByLabelText('To Savings •• 8921');
+    await fireEvent.changeText(screen.getByPlaceholderText('0.00'), '500');
+    await fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
+    const button = screen.getByRole('button', { name: 'Add ₱500.00' });
+    await act(async () => {
+      fireEvent.press(button);
+      fireEvent.press(button);
+    });
+    expect(executeDeposit).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      call.resolve({ data: null, error: 'boom' });
+    });
+  });
+
+  it('a later account reload does not move the step again', async () => {
+    // First load fails; Try again loads two accounts (account step, once).
+    jest
+      .mocked(fetchAccountBalances)
+      .mockResolvedValueOnce({ data: [SAVINGS, CHECKING], error: null });
+    const view = await render(<CashOutScreen />);
+    expect(await screen.findByText('Step 1 of 3')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: /^Checking •• 4321/ }));
+    await fireEvent.changeText(screen.getByPlaceholderText('0.00'), '500');
+    await fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
+    expect(screen.getByText('Step 3 of 3')).toBeTruthy();
+    // Re-render (same data): the first-step decision is not taken again.
+    await view.rerender(<CashOutScreen />);
+    expect(screen.getByText('Step 3 of 3')).toBeTruthy();
+    expect(screen.getByText('Checking •• 4321')).toBeTruthy();
+  });
 });

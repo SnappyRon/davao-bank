@@ -11,7 +11,7 @@ import {
 import { Text } from '../../components/Text';
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
-import type { PaymentTiming } from './WhenStep';
+import type { PaymentTiming } from '../../components/WhenPicker';
 
 interface SuccessStepProps {
   biller: Biller;

@@ -13,8 +13,6 @@ export interface ReviewCardRow {
   valueAccessibilityLabel?: string;
   /** Makes the row a button that changes this value (the account picker). */
   onPress?: () => void;
-  /** Spoken action for a pressable row. Default "Change account". */
-  changeLabel?: string;
 }
 
 /** Chevron on a pressable row. */
@@ -92,7 +90,7 @@ export function ReviewCard({
               <Pressable
                 key={row.label}
                 accessibilityRole="button"
-                accessibilityLabel={`${row.label}: ${row.valueAccessibilityLabel ?? row.value}. ${row.changeLabel ?? 'Change account'}`}
+                accessibilityLabel={`${row.label}: ${row.valueAccessibilityLabel ?? row.value}. Change account`}
                 feedbackType="highlight"
                 onPress={row.onPress}
                 style={[styles.row, styles.pressableRow]}

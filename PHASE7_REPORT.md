@@ -974,3 +974,34 @@ npx jest --testPathIgnorePatterns profile → Test Suites: 31 passed, 31 total; 
 ```
 
 Device: NOT VERIFIED — captain runs it.
+
+### Stage 7B.4 follow-up for 266e55a (2026-11-16, Frontend Developer 2)
+
+Follow-up fixes addressing captain review findings on commit `266e55a`:
+
+| #   | Item                                       | Change                                                                                                                                                                                                                                     |
+| --- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | PaymentRequestsScreen banner clear         | Decline and Cancel request `onPress` wrappers call `setStatusMessage(null)` before opening the confirm sheet, preventing a prior "Paid ₱X." success banner from turning into an error banner. Handlers untouched. Added test.              |
+| 2   | TransferScreen prefill with 2+ accounts    | With 2+ accounts, skips initial same-account check against default account (`currentSource = accounts.length >= 2 ? undefined : selectedAccount`), deferring check to `handleSelectSource` once source is selected. Updated prefill tests. |
+| 3   | No one-frame step flash                    | Add money, Cash out, Transfer, and Pay bills gate step content on `firstStepDecided` flag (`accountsReady`), preventing the default first step from flashing for one frame before the multi-account decision runs.                         |
+| 4   | App.tsx verifyJustSent reset               | Reset `verifyJustSent` to `false` in `VerifyEmailScreen` `onNavigateToLogin` and on `SIGNED_OUT` auth events.                                                                                                                              |
+| 5   | Pay request Review Balance after           | Omit "Balance after" row on Review card when chosen account balance is below the requested amount (`reviewAccount && !reviewBalanceShort`). Added test.                                                                                    |
+| 6   | AmountInput chip height                    | Preset chips in `AmountInput` use token `CHIP_MIN_HEIGHT` instead of hardcoded 36.                                                                                                                                                         |
+| 7   | Double press and reload tests              | Added tests asserting two presses in the same frame start one RPC for Add money deposit, Transfer "Send" (immediate), and Pay bills "Pay" (immediate); added test that a later account reload does not move the step again in Cash out.    |
+| 8   | WhenPicker import & ReviewCard changeLabel | Replaced `pay-bills/WhenStep.tsx` shim with direct imports of `WhenPicker` and `PaymentTiming` from `components/WhenPicker`; deleted `pay-bills/WhenStep.tsx`; removed unused `changeLabel` from `ReviewCardRow` / `ReviewCard`.           |
+| 9   | TransferScreen prefill nickname            | Set `recipientNickname` only in the valid branches (`startStep('review')` or `startStep('amount')`), dropping nickname when recipient account is invalid. Added test.                                                                      |
+
+**Handler comparison vs `266e55a`:**
+All money handler bodies (`handleConfirmTransfer`, `executeTransfer`, `executeScheduledTransfer`, `handleCommit`, `handlePayNow`, `handleSchedulePayment`, `handleConfirmDeposit`, `handleConfirmWithdraw`, `executeServerWithdraw`, `handlePay`, `handleDecline`, `handleCancel`) and step-up calls are **BYTE-IDENTICAL**.
+
+**Checks:**
+
+```text
+npm run typecheck   → exit 2: only src/screens/ProfileScreen.tsx (7) and src/__tests__/profile_screen.test.tsx (6)
+                      — owner's uncommitted ProfileScreen.tsx; no other errors
+npm run lint        → ✖ 64 problems (0 errors, 64 warnings)
+npm run format:check→ only [warn] ONBOARDING.md (untracked, not this change)
+npx jest --testPathIgnorePatterns profile → Test Suites: 31 passed, 31 total; Tests: 288 passed, 288 total
+```
+
+Device: NOT VERIFIED — captain runs it.

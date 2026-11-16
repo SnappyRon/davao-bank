@@ -264,6 +264,31 @@ describe('Pay a request (spec 7B.4)', () => {
     expect(screen.getByText('Savings •• 8921')).toBeTruthy();
     expect(screen.queryByRole('button', { name: /Change account/ })).toBeNull();
   });
+
+  it('clears an older "Paid" banner when Decline or Cancel request is pressed', async () => {
+    await render(<PaymentRequestsScreen />);
+    await fireEvent.press(await screen.findByRole('button', { name: 'Pay ₱500.00' }));
+    await act(async () => {
+      fireEvent.press(screen.getByRole('button', { name: 'Pay ₱500.00' }));
+    });
+    expect(screen.getByText('Paid ₱500.00.')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Decline' }));
+    expect(screen.queryByText('Paid ₱500.00.')).toBeNull();
+    expect(mockRpc).not.toHaveBeenCalledWith(
+      'decline_payment_request',
+      expect.anything()
+    );
+  });
+
+  it('leaves Balance after out of Review when the account is short', async () => {
+    jest.mocked(fetchAccountBalances).mockResolvedValue({
+      data: [account('acc-s', '1012348921', 'savings', 10000)],
+      error: null,
+    });
+    await render(<PaymentRequestsScreen />);
+    await fireEvent.press(await screen.findByRole('button', { name: 'Pay ₱500.00' }));
+    expect(screen.queryByText('Balance after')).toBeNull();
+  });
 });
 
 describe('Saved recipients (spec 7B.4)', () => {

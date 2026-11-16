@@ -237,4 +237,17 @@ describe('PayBillsScreen (spec 7B.4)', () => {
       mockRpc.mock.calls.filter(([fn]) => fn === 'create_scheduled_payment')
     ).toHaveLength(1);
   });
+
+  it('two presses in the same frame on Pay start one prompt and one payment', async () => {
+    jest.mocked(fetchAccountBalances).mockResolvedValue({ data: [SAVINGS], error: null });
+    await render(<PayBillsScreen />);
+    await toReview('500');
+    const button = screen.getByRole('button', { name: 'Pay ₱500.00' });
+    await act(async () => {
+      fireEvent.press(button);
+      fireEvent.press(button);
+    });
+    expect(mockConfirmBiometricPayment).toHaveBeenCalledTimes(1);
+    expect(mockRpc.mock.calls.filter(([fn]) => fn === 'pay_bill')).toHaveLength(1);
+  });
 });

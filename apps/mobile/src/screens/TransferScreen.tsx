@@ -130,6 +130,8 @@ export function TransferScreen() {
   }, [otherAccounts.length]);
 
   const prefillAppliedRef = useRef(false);
+  // Step content renders only after the first step is chosen, so the wrong step never flashes.
+  const [firstStepDecided, setFirstStepDecided] = useState(false);
   // With 2+ accounts a prefilled transfer starts on the source step, then
   // continues to the step the prefill chose (amount or review).
   const afterSourceStepRef = useRef<TransferStep>('recipient');
@@ -151,6 +153,7 @@ export function TransferScreen() {
       accounts.length > 0
     ) {
       prefillAppliedRef.current = true;
+      setFirstStepDecided(true);
       loadSavedRecipients();
       if (initialRecipientAccount) {
         const cleaned = initialRecipientAccount.trim();
@@ -159,12 +162,15 @@ export function TransferScreen() {
           typeof initialRecipientNickname === 'string'
             ? initialRecipientNickname.trim()
             : '';
-        if (nickname && nickname.length <= 40) setRecipientNickname(nickname);
+        // Valid recipient: keep the nickname and start on the source step (2+ accounts).
         const startStep = (next: TransferStep) => {
+          if (nickname && nickname.length <= 40) setRecipientNickname(nickname);
           afterSourceStepRef.current = next;
           setStep(accounts.length >= 2 ? 'source' : next);
         };
-        const currentSource = selectedAccount;
+        // With 2+ accounts the source is not chosen yet: handleSelectSource runs
+        // the same-account check once it is.
+        const currentSource = accounts.length >= 2 ? undefined : selectedAccount;
         // §0.9 Item 3: recipient checks on QR prefill (10 digits, not same account)
         if (cleaned.length !== 10 || !/^\d{10}$/.test(cleaned)) {
           setErrorMessage('Invalid QR recipient account: must be exactly 10 digits.');
@@ -457,7 +463,8 @@ export function TransferScreen() {
       />
     ) : undefined;
 
-  const accountsReady = !accountsLoading && !accountError && accounts.length > 0;
+  const accountsReady =
+    firstStepDecided && !accountsLoading && !accountError && accounts.length > 0;
 
   return (
     <FeatureScreen

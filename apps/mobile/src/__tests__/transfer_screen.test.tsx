@@ -204,6 +204,13 @@ describe('TransferScreen - F1 State & Receipt Guarantees', () => {
       mockRouteParams!.recipientAccount = recipient;
       try {
         await render(<TransferScreen />);
+        // 2+ accounts: the same-account rule runs once the source is chosen
+        // (the invalid number is rejected straight away).
+        if (recipient === '1012345678') {
+          expect(await screen.findByText('Step 1 of 4')).toBeTruthy();
+          expect(screen.queryByText(message)).toBeNull();
+          await chooseSource();
+        }
         expect(await screen.findByText(message)).toBeTruthy();
         expect(screen.getByText('Step 2 of 4')).toBeTruthy();
         expect(screen.queryByRole('button', { name: /^Send ₱/ })).toBeNull();
@@ -518,5 +525,41 @@ describe('TransferScreen - F1 State & Receipt Guarantees', () => {
           ([fn]: [string]) => fn === 'create_scheduled_transfer_to_number'
         )
     ).toHaveLength(1);
+  });
+
+  // ---- 266e55a follow-ups ----
+
+  it('lets a prefilled transfer to the default account continue from another account', async () => {
+    // Recipient is the first (default) account; paying from Checking is valid.
+    mockRouteParams = {
+      recipientAccount: '1012345678',
+      recipientNickname: 'Savings pot',
+    };
+    await render(<TransferScreen />);
+    await chooseSource(/^Checking •• 4321/);
+    expect(screen.getByText('Step 3 of 4')).toBeTruthy();
+    expect(screen.getByLabelText('To Savings pot · •• 5678')).toBeTruthy();
+    expect(screen.queryByText('Cannot transfer to the same account')).toBeNull();
+  });
+
+  it('drops the prefill nickname when the recipient is invalid', async () => {
+    mockRouteParams = { recipientAccount: '123', recipientNickname: 'Mama' };
+    await render(<TransferScreen />);
+    expect(
+      await screen.findByText('Invalid QR recipient account: must be exactly 10 digits.')
+    ).toBeTruthy();
+    expect(screen.queryByText(/Mama/)).toBeNull();
+  });
+
+  it('two presses in the same frame on Send start one prompt and one transfer', async () => {
+    await render(<TransferScreen />);
+    await chooseSource();
+    const button = await screen.findByRole('button', { name: 'Send ₱500.00' });
+    await act(async () => {
+      fireEvent.press(button);
+      fireEvent.press(button);
+    });
+    expect(mockConfirmBiometricPayment).toHaveBeenCalledTimes(1);
+    expect(executeTransfer).toHaveBeenCalledTimes(1);
   });
 });

@@ -14,7 +14,7 @@ import { Text } from '../../components/Text';
 import { ReviewCard } from '../../components/ReviewCard';
 import { formatAccountLabel } from '../../components/AccountPickerSheet';
 import { formatWhen } from '../../utils/moneyFlow';
-import type { PaymentTiming } from './WhenStep';
+import type { PaymentTiming } from '../../components/WhenPicker';
 
 interface ReviewStepProps {
   biller: Biller;

@@ -3,6 +3,7 @@ import { View, TextInput, StyleSheet, type ViewStyle } from 'react-native';
 import { colors, radius, spacing, typography } from '@davao-bank/shared';
 import { Text } from './Text';
 import { Pressable } from './Pressable';
+import { CHIP_MIN_HEIGHT } from './Chip';
 
 export interface AmountInputProps {
   value: string;
@@ -178,7 +179,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   chip: {
-    minHeight: 36,
+    minHeight: CHIP_MIN_HEIGHT,
     paddingHorizontal: spacing.md,
     borderRadius: radius.pill,
     backgroundColor: colors.primaryTint,

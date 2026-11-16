@@ -153,7 +153,9 @@ export default function App() {
     // 2. Real-time auth state changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      // Signed out: no email was just sent, so Resend must not start locked.
+      if (event === 'SIGNED_OUT') setVerifyJustSent(false);
       setSession(session);
       if (session?.user) {
         loadProfile(session.user.id);
@@ -226,7 +228,10 @@ export default function App() {
           <VerifyEmailScreen
             email={targetEmail || session?.user?.email || ''}
             justSent={verifyJustSent}
-            onNavigateToLogin={() => setAuthScreen('login')}
+            onNavigateToLogin={() => {
+              setVerifyJustSent(false);
+              setAuthScreen('login');
+            }}
           />
         )}
         {authScreen === 'forgot' && (
@@ -243,6 +248,7 @@ export default function App() {
           justSent={verifyJustSent}
           onNavigateToLogin={async () => {
             await supabase.auth.signOut();
+            setVerifyJustSent(false);
             setAuthScreen('login');
           }}
         />

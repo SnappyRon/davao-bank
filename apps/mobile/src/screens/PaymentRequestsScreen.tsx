@@ -404,11 +404,13 @@ export function PaymentRequestsScreen() {
               { label: 'When', value: 'Now' },
               {
                 label: 'Balance after',
-                value: reviewAccount
-                  ? hideBalance
-                    ? '₱••••••'
-                    : formatCentavosToPHP(reviewAccount.balance - reviewRequest.amount)
-                  : '',
+                // Left out when the account is short (the error above says so).
+                value:
+                  reviewAccount && !reviewBalanceShort
+                    ? hideBalance
+                      ? '₱••••••'
+                      : formatCentavosToPHP(reviewAccount.balance - reviewRequest.amount)
+                    : '',
                 valueAccessibilityLabel: hideBalance ? 'Amount hidden' : undefined,
               },
               { label: 'Fee', value: 'Free' },
@@ -590,6 +592,8 @@ export function PaymentRequestsScreen() {
                               variant="ghost"
                               disabled={actionLoadingId === req.id}
                               onPress={() => {
+                                // Clear an older banner (e.g. "Paid ₱X.") so it never turns red.
+                                setStatusMessage(null);
                                 setStatusKind('error');
                                 handleDecline(req);
                               }}
@@ -662,6 +666,7 @@ export function PaymentRequestsScreen() {
                             variant="destructive"
                             disabled={actionLoadingId === req.id}
                             onPress={() => {
+                              setStatusMessage(null);
                               setStatusKind('error');
                               handleCancel(req);
                             }}

@@ -32,7 +32,7 @@ import { commitButtonLabel, describeReferenceFormat } from '../utils/moneyFlow';
 import { useInFlightGuard } from '../hooks/useInFlightGuard';
 import { BillerStep, getCategoryIcon } from './pay-bills/BillerStep';
 import { ReferenceStep } from './pay-bills/ReferenceStep';
-import { WhenStep, type PaymentTiming } from './pay-bills/WhenStep';
+import { WhenPicker, type PaymentTiming } from '../components/WhenPicker';
 import { ReviewStep } from './pay-bills/ReviewStep';
 import { SuccessStep } from './pay-bills/SuccessStep';
 
@@ -78,6 +78,8 @@ export function PayBillsScreen() {
   const selectedAccount =
     accounts.find((a) => a.account_id === selectedAccountId) ?? accounts[0];
   const sourceStepPendingRef = useRef(true);
+  // Step content renders only after the decision, so the wrong step never flashes.
+  const [firstStepDecided, setFirstStepDecided] = useState(false);
   const guardMoneyAction = useInFlightGuard();
 
   // With 2+ accounts the source picker comes first (once, after accounts load).
@@ -85,6 +87,7 @@ export function PayBillsScreen() {
     if (sourceStepPendingRef.current && !accountsLoading && accounts.length > 0) {
       sourceStepPendingRef.current = false;
       if (accounts.length >= 2) setStep('source');
+      setFirstStepDecided(true);
     }
   }, [accountsLoading, accounts.length]);
 
@@ -289,7 +292,8 @@ export function PayBillsScreen() {
   };
 
   const commitAction = timing === 'now' ? 'pay' : 'schedule';
-  const accountsReady = !accountsLoading && !accountError && accounts.length > 0;
+  const accountsReady =
+    firstStepDecided && !accountsLoading && !accountError && accounts.length > 0;
 
   const footer =
     step === 'reference' ? (
@@ -384,7 +388,7 @@ export function PayBillsScreen() {
                     : undefined
                 }
               />
-              <WhenStep
+              <WhenPicker
                 timing={timing}
                 onTimingChange={setTiming}
                 scheduledDate={scheduledDate}
