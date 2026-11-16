@@ -248,6 +248,8 @@ Fix these before 7B:
 
 ## Log (newest first)
 
+- **2026-11-16, Codex:** fixed `c3b2aff` review findings in the admin worktree: corrected Playwright dashboard/page heading and status badge selectors; normalized remaining dynamic badge labels and six page headings. MFA effect/start/verify/cancel remain byte-identical to `4686b0c`. Typecheck exit 0, lint 0 errors / 64 warnings, unit 35 suites / 306 tests and format check pass. Playwright NOT VERIFIED — needs owner sign-in. Next: captain review of this fix commit.
+
 - **2026-11-16, Codex:** fixed `7b56e1d` review findings on `phase-7-admin-polish`; MFA handlers remain byte-identical to `4686b0c`. Updated MFA Playwright helper, display labels, tooltip privacy, responsive values, disabled state and copy. Typecheck, lint, format and unit checks passed; Playwright and authenticated visual verification NOT VERIFIED — needs owner sign-in. Next: captain review of this fix commit.
 
 - **2026-11-16, Codex:** took over 7B.12 in isolated `../davao-bank-admin` on `phase-7-admin-polish` from `4686b0c`; implemented all dashboard and MFA presentation checklist items. MFA effect/start/verify/cancel handlers BYTE-IDENTICAL to base (including enroll, challengeAndVerify, unenroll and sign-out). Added copy/reveal/failure/busy interaction coverage and reference/status regression tests. Typecheck exit 0; lint 0 errors / 64 warnings; format check passed; unit 35 suites / 306 tests passed. Dependency manifests and lockfile unchanged. Playwright admin NOT VERIFIED — needs owner sign-in; authenticated before/after screenshots and rendered AA/layout checks NOT VERIFIED for the same reason. Next: captain review, then owner browser verification. Commit: `Phase 7 · Stage 7B.12 — Admin console polish` (this commit).

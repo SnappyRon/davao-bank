@@ -33,7 +33,7 @@ export default async function AdminAuditPage() {
   return (
     <AdminShell adminEmail={user?.email} adminName={profile?.full_name}>
       <PageHeader
-        title="Audit Trail & System Compliance"
+        title="Audit trail & system compliance"
         subtitle="Immutable append-only record of all administrative actions, money movements, and user changes."
       />
       <AuditClient initialLogs={logs} />

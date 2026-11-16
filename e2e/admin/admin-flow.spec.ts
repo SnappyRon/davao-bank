@@ -64,7 +64,7 @@ test.describe('Admin Console E2E Flow', () => {
 
     await expect(page).toHaveURL('/');
     await expect(
-      page.getByRole('heading', { name: 'Staff Console Dashboard' })
+      page.getByRole('heading', { name: 'Staff console dashboard' })
     ).toBeVisible();
 
     // 2. Navigate twice to trigger middleware token/cookie refresh
@@ -169,19 +169,19 @@ test.describe('Admin Console E2E Flow', () => {
 
       await expect(page).toHaveURL('/');
       await expect(
-        page.getByRole('heading', { name: 'Staff Console Dashboard' })
+        page.getByRole('heading', { name: 'Staff console dashboard' })
       ).toBeVisible();
 
       await test.step('Suspend and reactivate only customer 2', async () => {
         await page.goto('/users');
         await expect(
-          page.getByRole('heading', { name: 'User & Customer Directory' })
+          page.getByRole('heading', { name: 'User & customer directory' })
         ).toBeVisible();
         await page.getByRole('textbox', { name: 'Search users' }).fill(target.email);
         await expect(userRow()).toHaveCount(1);
         for (const [action, status] of [
-          ['Suspend', 'suspended'],
-          ['Activate', 'active'],
+          ['Suspend', 'Suspended'],
+          ['Activate', 'Active'],
         ]) {
           await userRow().getByRole('button', { name: action, exact: true }).click();
           const dialog = page.getByRole('dialog', {
@@ -200,7 +200,7 @@ test.describe('Admin Console E2E Flow', () => {
       await test.step('Credit PHP 1 and offset it with a matching debit', async () => {
         await page.goto('/accounts');
         await expect(
-          page.getByRole('heading', { name: 'Deposit & Ledger Accounts' })
+          page.getByRole('heading', { name: 'Deposit & ledger accounts' })
         ).toBeVisible();
         await page
           .getByRole('textbox', { name: 'Search accounts' })
@@ -254,7 +254,7 @@ test.describe('Admin Console E2E Flow', () => {
         expect(transfer.error).toBeNull();
         await page.goto('/transactions');
         await expect(
-          page.getByRole('heading', { name: 'Transaction Oversight & Reversals' })
+          page.getByRole('heading', { name: 'Transaction oversight & reversals' })
         ).toBeVisible();
         await page.getByRole('textbox', { name: 'Search transactions' }).fill(run);
         const row = page
@@ -268,13 +268,13 @@ test.describe('Admin Console E2E Flow', () => {
         await dialog.getByLabel('Mandatory Reason (Audited)').fill(`${run} reversal`);
         await dialog.getByRole('button', { name: 'Execute Reversal' }).click();
         await expect(dialog).not.toBeVisible();
-        await expect(row.getByText('reversed', { exact: true })).toBeVisible();
+        await expect(row.getByText('Reversed', { exact: true })).toBeVisible();
       });
 
       await test.step('Inspect this run’s audit records and assert restored state', async () => {
         await page.goto('/audit');
         await expect(
-          page.getByRole('heading', { name: 'Audit Trail & System Compliance' })
+          page.getByRole('heading', { name: 'Audit trail & system compliance' })
         ).toBeVisible();
         await page.getByRole('textbox', { name: 'Search audit logs' }).fill(creditReason);
         const auditRow = page.getByRole('row').filter({ hasText: 'balance_adjustment' });

@@ -1,5 +1,7 @@
 'use client';
 
+import { sentenceCase } from '@/lib/dashboardDisplay';
+
 import React from 'react';
 import { Ban, CheckCircle2, XCircle } from 'lucide-react';
 import { formatCentavosToPHP } from '@davao-bank/shared';
@@ -141,7 +143,7 @@ export function ScheduleRunsDrawer({
 
                   <div className={styles.runRight}>
                     <Badge
-                      label={run.status}
+                      label={sentenceCase(run.status)}
                       variant={run.status === 'completed' ? 'success' : 'danger'}
                     />
                     <div className={styles.runTime}>

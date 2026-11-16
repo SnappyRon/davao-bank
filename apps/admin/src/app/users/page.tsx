@@ -44,7 +44,7 @@ export default async function AdminUsersPage() {
   return (
     <AdminShell adminEmail={user?.email} adminName={profile?.full_name}>
       <PageHeader
-        title="User & Customer Directory"
+        title="User & customer directory"
         subtitle="Manage customer profiles, enforcement status (suspensions), and account provisioning."
       />
       <UsersClient
