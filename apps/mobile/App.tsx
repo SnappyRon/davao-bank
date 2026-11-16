@@ -58,7 +58,13 @@ export type RootStackParamList = {
   Tabs: undefined;
   CashOut: undefined;
   Transfer:
-    { recipientAccount?: string; amountCentavos?: number; note?: string } | undefined;
+    | {
+        recipientAccount?: string;
+        amountCentavos?: number;
+        note?: string;
+        recipientNickname?: string;
+      }
+    | undefined;
   PayBills: undefined;
   QRHub: { initialTab?: 'my' | 'scan' | 'request' } | undefined;
   AddMoney: undefined;
@@ -100,6 +106,9 @@ export default function App() {
   const [loading, setLoading] = useState<boolean>(true);
   const [authScreen, setAuthScreen] = useState<AuthScreenState>('login');
   const [targetEmail, setTargetEmail] = useState<string>('');
+  // Verify email: true right after sign-up (an email was just sent), so the
+  // Resend cooldown starts on arrival.
+  const [verifyJustSent, setVerifyJustSent] = useState(false);
 
   useEffect(() => {
     if (Platform.OS === 'android') {
@@ -198,6 +207,7 @@ export default function App() {
             onNavigateToForgotPassword={() => setAuthScreen('forgot')}
             onNavigateToVerifyEmail={(email) => {
               setTargetEmail(email);
+              setVerifyJustSent(false);
               setAuthScreen('verify');
             }}
           />
@@ -207,6 +217,7 @@ export default function App() {
             onNavigateToLogin={() => setAuthScreen('login')}
             onSignUpSuccess={(email) => {
               setTargetEmail(email);
+              setVerifyJustSent(true);
               setAuthScreen('verify');
             }}
           />
@@ -214,6 +225,7 @@ export default function App() {
         {authScreen === 'verify' && (
           <VerifyEmailScreen
             email={targetEmail || session?.user?.email || ''}
+            justSent={verifyJustSent}
             onNavigateToLogin={() => setAuthScreen('login')}
           />
         )}
@@ -228,6 +240,7 @@ export default function App() {
         <StatusBar style="dark" />
         <VerifyEmailScreen
           email={session?.user?.email || targetEmail}
+          justSent={verifyJustSent}
           onNavigateToLogin={async () => {
             await supabase.auth.signOut();
             setAuthScreen('login');

@@ -29,6 +29,7 @@ import {
   RecipientChip,
 } from '../components';
 import { commitButtonLabel, describeReferenceFormat } from '../utils/moneyFlow';
+import { useInFlightGuard } from '../hooks/useInFlightGuard';
 import { BillerStep, getCategoryIcon } from './pay-bills/BillerStep';
 import { ReferenceStep } from './pay-bills/ReferenceStep';
 import { WhenStep, type PaymentTiming } from './pay-bills/WhenStep';
@@ -77,6 +78,7 @@ export function PayBillsScreen() {
   const selectedAccount =
     accounts.find((a) => a.account_id === selectedAccountId) ?? accounts[0];
   const sourceStepPendingRef = useRef(true);
+  const guardMoneyAction = useInFlightGuard();
 
   // With 2+ accounts the source picker comes first (once, after accounts load).
   useEffect(() => {
@@ -301,7 +303,7 @@ export function PayBillsScreen() {
     ) : step === 'review' ? (
       <Button
         title={commitButtonLabel(commitAction, centavos, loading)}
-        onPress={handleSubmitPayment}
+        onPress={() => void guardMoneyAction(handleSubmitPayment)}
         loading={loading}
       />
     ) : undefined;
@@ -374,6 +376,7 @@ export function PayBillsScreen() {
                 label="Amount"
                 value={amountStr}
                 onChangeText={setAmountStr}
+                presetAmounts={[500, 1000, 2000, 5000]}
                 helperText={`Available: ${hideBalance ? '₱••••••' : formatCentavosToPHP(availableCentavos)}`}
                 error={
                   centavos > availableCentavos
@@ -406,6 +409,7 @@ export function PayBillsScreen() {
               frequency={frequency}
               maxRunsStr={maxRunsStr}
               errorMessage={errorMessage}
+              hideBalance={hideBalance}
               onChangeSource={
                 hasMultipleAccounts && !loading
                   ? () => setAccountPickerOpen(true)

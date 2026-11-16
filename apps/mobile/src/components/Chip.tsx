@@ -4,6 +4,9 @@ import { colors, radius, spacing, typography } from '@davao-bank/shared';
 import { Text } from './Text';
 import { Pressable } from './Pressable';
 
+/** Chips and chip-like pills are 36 pt tall (spec 7A.3), with hitSlop to 44. */
+export const CHIP_MIN_HEIGHT = 36;
+
 export interface ChipProps {
   label: string;
   selected?: boolean;
@@ -81,7 +84,7 @@ export function FilterChips<T extends string = string>({
 
 const styles = StyleSheet.create({
   chip: {
-    minHeight: 36,
+    minHeight: CHIP_MIN_HEIGHT,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: spacing.base,

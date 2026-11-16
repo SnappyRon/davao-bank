@@ -28,3 +28,4 @@ export * from './GroupedList';
 export * from './ReviewCard';
 export * from './AccountStep';
 export * from './RecipientChip';
+export * from './WhenPicker';

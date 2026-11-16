@@ -14,7 +14,6 @@ import {
   X,
   CreditCard,
   AlertCircle,
-  ChevronRight,
 } from 'lucide-react-native';
 import {
   colors,
@@ -33,6 +32,9 @@ import {
   Card,
   EmptyState,
   Pressable,
+  ListHairline,
+  groupedListStyles,
+  LIST_ICON_SIZE,
 } from '../components';
 
 export function SavedRecipientsScreen() {
@@ -144,6 +146,8 @@ export function SavedRecipientsScreen() {
   };
 
   const startEditing = (item: SavedRecipient) => {
+    // Unsaved changes on another row: ignore, so a typed nickname is never lost.
+    if (editingId && editingId !== item.id && editNickname !== editOriginal) return;
     setEditingId(item.id);
     setEditNickname(item.nickname);
     setEditOriginal(item.nickname);
@@ -183,7 +187,10 @@ export function SavedRecipientsScreen() {
   };
 
   const openTransfer = (item: SavedRecipient) => {
-    navigation.navigate('Transfer', { recipientAccount: item.account_number });
+    navigation.navigate('Transfer', {
+      recipientAccount: item.account_number,
+      recipientNickname: item.nickname,
+    });
   };
 
   const handleDeleteRecipient = async (recipient: SavedRecipient) => {
@@ -341,90 +348,96 @@ export function SavedRecipientsScreen() {
                 scrollable={false}
               />
             ) : (
-              <View style={styles.listContent}>
-                {filteredRecipients.map((item) =>
-                  editingId === item.id ? (
-                    <Card key={item.id} variant="elevated" style={styles.editCard}>
-                      <TextField
-                        label="Nickname"
-                        value={editNickname}
-                        onChangeText={(val) => {
-                          setEditNickname(val);
-                          if (editError) setEditError(null);
-                        }}
-                        maxLength={40}
-                        autoFocus
-                        error={editError}
-                        helperText={`${maskAccountNumber(item.account_number)} · 1 to 40 characters`}
-                        returnKeyType="done"
-                        onSubmitEditing={() => void handleUpdateNickname(item.id)}
-                      />
-                      <View style={styles.buttonRow}>
-                        <Button
-                          title="Cancel"
-                          variant="secondary"
-                          onPress={cancelEditing}
-                          disabled={savingEdit}
-                          style={styles.halfBtn}
+              <View style={groupedListStyles.group}>
+                {filteredRecipients.map((item, index) => (
+                  <View key={item.id}>
+                    {index > 0 ? <ListHairline /> : null}
+                    {editingId === item.id ? (
+                      <View style={styles.editRow}>
+                        <TextField
+                          label="Nickname"
+                          value={editNickname}
+                          onChangeText={(val) => {
+                            setEditNickname(val);
+                            if (editError) setEditError(null);
+                          }}
+                          maxLength={40}
+                          autoFocus
+                          error={editError}
+                          helperText={`${maskAccountNumber(item.account_number)} · 1 to 40 characters`}
+                          returnKeyType="done"
+                          onSubmitEditing={() => void handleUpdateNickname(item.id)}
                         />
-                        <Button
-                          title="Save"
-                          onPress={() => void handleUpdateNickname(item.id)}
-                          loading={savingEdit}
-                          style={styles.halfBtn}
-                        />
+                        <View style={styles.buttonRow}>
+                          <Button
+                            title="Cancel"
+                            variant="secondary"
+                            onPress={cancelEditing}
+                            disabled={savingEdit}
+                            style={styles.halfBtn}
+                          />
+                          <Button
+                            title="Save"
+                            onPress={() => void handleUpdateNickname(item.id)}
+                            loading={savingEdit}
+                            style={styles.halfBtn}
+                          />
+                        </View>
                       </View>
-                    </Card>
-                  ) : (
-                    <Card key={item.id} variant="elevated" style={styles.recipientRow}>
-                      <Pressable
-                        onPress={() => openTransfer(item)}
-                        feedbackType="highlight"
-                        accessibilityRole="button"
-                        accessibilityLabel={`Send money to ${item.nickname}, ${maskAccountNumber(item.account_number)}`}
-                        style={styles.rowMain}
-                      >
-                        <View style={styles.iconCircle}>
-                          <CreditCard size={18} color={colors.primary} />
-                        </View>
-                        <View style={styles.infoCol}>
-                          <Text variant="bodyStrong" color={colors.ink}>
-                            {item.nickname}
-                          </Text>
-                          <Text
-                            variant="caption"
-                            color={colors.textSecondary}
-                            tabularNums
-                          >
-                            {maskAccountNumber(item.account_number)}
-                          </Text>
-                        </View>
-                        <ChevronRight size={18} color={colors.textMuted} />
-                      </Pressable>
+                    ) : (
+                      <View style={styles.recipientRow}>
+                        <Pressable
+                          onPress={() => openTransfer(item)}
+                          feedbackType="highlight"
+                          accessibilityRole="button"
+                          accessibilityLabel={`Send money to ${item.nickname}, ${maskAccountNumber(item.account_number)}`}
+                          style={[groupedListStyles.row, styles.rowMain]}
+                        >
+                          <View style={[groupedListStyles.disc, styles.disc]}>
+                            <CreditCard size={LIST_ICON_SIZE} color={colors.primary} />
+                          </View>
+                          <View style={styles.infoCol}>
+                            <Text
+                              variant="bodyStrong"
+                              color={colors.ink}
+                              numberOfLines={1}
+                            >
+                              {item.nickname}
+                            </Text>
+                            <Text
+                              variant="caption"
+                              color={colors.textSecondary}
+                              tabularNums
+                            >
+                              {maskAccountNumber(item.account_number)}
+                            </Text>
+                          </View>
+                        </Pressable>
 
-                      <View style={styles.actionRow}>
-                        <Pressable
-                          onPress={() => startEditing(item)}
-                          style={styles.iconBtn}
-                          feedbackType="scale"
-                          accessibilityRole="button"
-                          accessibilityLabel={`Rename ${item.nickname}`}
-                        >
-                          <Edit2 size={18} color={colors.textSecondary} />
-                        </Pressable>
-                        <Pressable
-                          onPress={() => handleDeleteRecipient(item)}
-                          style={styles.iconBtn}
-                          feedbackType="scale"
-                          accessibilityRole="button"
-                          accessibilityLabel={`Remove ${item.nickname}`}
-                        >
-                          <Trash2 size={18} color={colors.redText} />
-                        </Pressable>
+                        <View style={styles.actionRow}>
+                          <Pressable
+                            onPress={() => startEditing(item)}
+                            style={styles.iconBtn}
+                            feedbackType="scale"
+                            accessibilityRole="button"
+                            accessibilityLabel={`Rename ${item.nickname}`}
+                          >
+                            <Edit2 size={LIST_ICON_SIZE} color={colors.textSecondary} />
+                          </Pressable>
+                          <Pressable
+                            onPress={() => handleDeleteRecipient(item)}
+                            style={styles.iconBtn}
+                            feedbackType="scale"
+                            accessibilityRole="button"
+                            accessibilityLabel={`Remove ${item.nickname}`}
+                          >
+                            <Trash2 size={LIST_ICON_SIZE} color={colors.redText} />
+                          </Pressable>
+                        </View>
                       </View>
-                    </Card>
-                  )
-                )}
+                    )}
+                  </View>
+                ))}
               </View>
             )}
           </>
@@ -466,29 +479,16 @@ const styles = StyleSheet.create({
   searchInput: {
     marginBottom: 0,
   },
-  listContent: {
-    gap: spacing.sm,
-  },
   recipientRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: spacing.md,
-    borderRadius: radius.md,
+    paddingRight: spacing.sm,
   },
   rowMain: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
     flex: 1,
   },
-  iconCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  disc: {
     backgroundColor: colors.primaryTint,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   infoCol: {
     flex: 1,
@@ -504,9 +504,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  editCard: {
-    padding: spacing.md,
-    borderRadius: radius.md,
+  editRow: {
+    padding: spacing.base,
     gap: spacing.sm,
   },
   loaderContainer: {

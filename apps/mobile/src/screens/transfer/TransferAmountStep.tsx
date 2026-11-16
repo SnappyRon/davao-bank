@@ -1,20 +1,18 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import {
-  colors,
   spacing,
   formatCentavosToPHP,
   type AccountBalance,
   type ScheduledPaymentFrequency,
 } from '@davao-bank/shared';
-import { Text } from '../../components/Text';
 import { TextField } from '../../components/TextField';
 import { AmountInput } from '../../components/AmountInput';
-import { Chip } from '../../components/Chip';
+import { WhenPicker, type PaymentTiming } from '../../components/WhenPicker';
 import { RecipientChip } from '../../components/RecipientChip';
 import { maskAccountNumber } from '../../utils/transactionDisplay';
 
-export type TransferTiming = 'now' | 'later' | 'recurring';
+export type TransferTiming = PaymentTiming;
 
 interface TransferAmountStepProps {
   recipientAccountNumber: string;
@@ -84,63 +82,16 @@ export function TransferAmountStep({
         maxLength={60}
       />
 
-      {/* Timing Selector (§C.4) */}
-      <View style={styles.timingSection}>
-        <Text variant="label" color={colors.textSecondary} style={styles.timingLabel}>
-          When
-        </Text>
-        <View style={styles.chipRow}>
-          <Chip
-            label="Now"
-            selected={timing === 'now'}
-            onPress={() => onTimingChange('now')}
-          />
-          <Chip
-            label="Later"
-            selected={timing === 'later'}
-            onPress={() => onTimingChange('later')}
-          />
-          <Chip
-            label="Recurring"
-            selected={timing === 'recurring'}
-            onPress={() => onTimingChange('recurring')}
-          />
-        </View>
-      </View>
-
-      {timing !== 'now' && (
-        <TextField
-          label={timing === 'recurring' ? 'Start date' : 'Date'}
-          value={scheduledDate}
-          onChangeText={onScheduledDateChange}
-          placeholder="YYYY-MM-DD"
-          maxLength={10}
-        />
-      )}
-
-      {timing === 'recurring' && (
-        <View style={styles.recurringFields}>
-          <View style={styles.chipRow}>
-            <Chip
-              label="Weekly"
-              selected={frequency === 'weekly'}
-              onPress={() => onFrequencyChange('weekly')}
-            />
-            <Chip
-              label="Monthly"
-              selected={frequency === 'monthly'}
-              onPress={() => onFrequencyChange('monthly')}
-            />
-          </View>
-          <TextField
-            label="Number of payments (optional)"
-            value={maxRunsStr}
-            onChangeText={onMaxRunsChange}
-            placeholder="e.g. 12"
-            maxLength={3}
-          />
-        </View>
-      )}
+      <WhenPicker
+        timing={timing}
+        onTimingChange={onTimingChange}
+        scheduledDate={scheduledDate}
+        onScheduledDateChange={onScheduledDateChange}
+        frequency={frequency}
+        onFrequencyChange={onFrequencyChange}
+        maxRunsStr={maxRunsStr}
+        onMaxRunsChange={onMaxRunsChange}
+      />
     </View>
   );
 }
@@ -148,20 +99,5 @@ export function TransferAmountStep({
 const styles = StyleSheet.create({
   stepContainer: {
     gap: spacing.base,
-  },
-  timingSection: {
-    marginTop: spacing.sm,
-  },
-  timingLabel: {
-    marginBottom: spacing.xs,
-  },
-  chipRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    flexWrap: 'wrap',
-  },
-  recurringFields: {
-    gap: spacing.sm,
-    marginTop: spacing.xs,
   },
 });

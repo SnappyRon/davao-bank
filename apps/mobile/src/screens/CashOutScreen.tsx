@@ -1,4 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useFeatureAccounts } from '../hooks/useFeatureAccounts';
+import { useInFlightGuard } from '../hooks/useInFlightGuard';
+import { AccountLoadStatus } from '../components/AccountLoadStatus';
 import { View, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { AlertCircle } from 'lucide-react-native';
@@ -12,9 +15,7 @@ import {
   generateIdempotencyKey,
   executeWithdraw,
   toUserMessage,
-  fetchAccountBalances,
   formatReferenceId,
-  type AccountBalance,
   type MoneyOperationResult,
 } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
@@ -42,7 +43,7 @@ export function CashOutScreen() {
   const promptTotp = useTotpPrompt();
   const { hideBalance, confirmBiometricPayment } = useSettings();
 
-  const [accounts, setAccounts] = useState<AccountBalance[]>([]);
+  const { accounts, accountsLoading, accountError, loadAccounts } = useFeatureAccounts();
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
   const [amountStr, setAmountStr] = useState('');
   const [reference, setReference] = useState('');
@@ -54,18 +55,16 @@ export function CashOutScreen() {
     generateIdempotencyKey('withdraw')
   );
 
+  // Spec 7B.4: with 2+ accounts the account picker comes first. Decided once,
+  // when the accounts first arrive, so a later reload never jumps steps.
+  const firstStepPendingRef = useRef(true);
   useEffect(() => {
-    fetchAccountBalances(supabase).then(({ data }) => {
-      if (data && data.length > 0) {
-        setAccounts(data);
-        if (!selectedAccountId) {
-          setSelectedAccountId(data[0].account_id);
-        }
-        // Spec 7B.4: with 2+ accounts the account picker comes first.
-        if (data.length >= 2) setStep('source');
-      }
-    });
-  }, []);
+    if (firstStepPendingRef.current && !accountsLoading && accounts.length > 0) {
+      firstStepPendingRef.current = false;
+      if (accounts.length >= 2) setStep('source');
+    }
+  }, [accountsLoading, accounts.length]);
+  const guardMoneyAction = useInFlightGuard();
 
   const selectedAccount =
     accounts.find((a) => a.account_id === selectedAccountId) || accounts[0];
@@ -164,6 +163,7 @@ export function CashOutScreen() {
   const centavosAmount = phpToCentavos(amountStr);
 
   const hasMultipleAccounts = accounts.length >= 2;
+  const accountsReady = !accountsLoading && !accountError && accounts.length > 0;
   const inputSteps = hasMultipleAccounts
     ? (['source', 'input', 'review'] as const)
     : (['input', 'review'] as const);
@@ -181,7 +181,7 @@ export function CashOutScreen() {
       isDirty={hasInput}
       isProcessing={loading}
       footer={
-        step === 'input' ? (
+        !accountsReady ? null : step === 'input' ? (
           <Button
             title="Continue"
             onPress={handleProceedToReview}
@@ -191,7 +191,7 @@ export function CashOutScreen() {
           <View style={styles.footerRow}>
             <Button
               title={commitButtonLabel('cashOut', centavosAmount, loading)}
-              onPress={handleConfirmWithdraw}
+              onPress={() => void guardMoneyAction(handleConfirmWithdraw)}
               loading={loading}
               style={styles.actionButton}
             />
@@ -199,7 +199,16 @@ export function CashOutScreen() {
         ) : null
       }
     >
-      {errorMessage && step !== 'input' ? (
+      {step !== 'success' && (
+        <AccountLoadStatus
+          loading={accountsLoading}
+          empty={accounts.length === 0}
+          error={accountError}
+          onRetry={loadAccounts}
+        />
+      )}
+
+      {errorMessage && step !== 'input' && step !== 'success' ? (
         <Card variant="subtle" style={styles.errorCard}>
           <AlertCircle size={18} color={colors.redText} />
           <Text variant="caption" color={colors.redText} style={styles.errorText}>
@@ -208,7 +217,7 @@ export function CashOutScreen() {
         </Card>
       ) : null}
 
-      {step === 'source' && (
+      {accountsReady && step === 'source' && (
         <AccountStep
           heading="Cash out from"
           accounts={accounts}
@@ -222,7 +231,7 @@ export function CashOutScreen() {
         />
       )}
 
-      {step === 'input' && (
+      {accountsReady && step === 'input' && (
         <View style={styles.stepContainer}>
           {selectedAccount ? (
             <RecipientChip label={`From ${formatAccountLabel(selectedAccount)}`} />
@@ -245,7 +254,7 @@ export function CashOutScreen() {
         </View>
       )}
 
-      {step === 'review' && (
+      {accountsReady && step === 'review' && (
         <ReviewCard
           eyebrow="You're cashing out"
           amountCentavos={centavosAmount}

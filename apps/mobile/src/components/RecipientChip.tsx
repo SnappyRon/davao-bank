@@ -2,6 +2,7 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { colors, radius, spacing } from '@davao-bank/shared';
 import { Text } from './Text';
+import { CHIP_MIN_HEIGHT } from './Chip';
 
 export interface RecipientChipProps {
   /** "To Mama · •• 7943", "To Apo Fiber Internet", "From Savings •• 8921" */
@@ -27,7 +28,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    minHeight: 36,
+    minHeight: CHIP_MIN_HEIGHT,
     maxWidth: '100%',
     paddingHorizontal: spacing.md,
     borderRadius: radius.pill,

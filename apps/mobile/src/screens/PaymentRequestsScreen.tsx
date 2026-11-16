@@ -45,6 +45,7 @@ import {
   formatAccountLabel,
 } from '../components';
 import { commitButtonLabel } from '../utils/moneyFlow';
+import { useInFlightGuard } from '../hooks/useInFlightGuard';
 
 type RequestTab = 'incoming' | 'outgoing';
 
@@ -78,6 +79,10 @@ export function PaymentRequestsScreen() {
   const [requestsError, setRequestsError] = useState<string | null>(null);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  // Explicit banner kind (never guessed from the text): only a confirmed
+  // payment is a success; every other message is an error.
+  const [statusKind, setStatusKind] = useState<'success' | 'error'>('error');
+  const guardPay = useInFlightGuard();
   // Spec 7B.4: paying a request goes through the standard Review first.
   const [reviewRequest, setReviewRequest] = useState<PaymentRequest | null>(null);
   const [payFromId, setPayFromId] = useState<string | null>(null);
@@ -140,8 +145,11 @@ export function PaymentRequestsScreen() {
     void loadRequests();
   };
 
-  const handlePay = async (req: PaymentRequest, chosenAccount?: AccountBalance) => {
-    if (actionLoadingId) return;
+  const handlePay = async (
+    req: PaymentRequest,
+    chosenAccount?: AccountBalance
+  ): Promise<boolean> => {
+    if (actionLoadingId) return false;
 
     // The account chosen on Review; otherwise the first account with enough balance, or the first account
     const sourceAcc =
@@ -149,7 +157,7 @@ export function PaymentRequestsScreen() {
 
     if (!sourceAcc) {
       setStatusMessage('No active account found to pay this request.');
-      return;
+      return false;
     }
 
     // Set loading state BEFORE authorization to prevent double-tap prompts (§0.9 item 6)
@@ -168,13 +176,14 @@ export function PaymentRequestsScreen() {
     if (!authenticated.success) {
       setActionLoadingId(null);
       if (authenticated.cancelled) {
-        setStatusMessage('Payment authorization was cancelled.');
+        setStatusMessage('Not authorized. Nothing was sent.');
       } else {
         setStatusMessage(authenticated.error || 'Payment authorization failed.');
       }
-      return;
+      return false;
     }
 
+    let paid = false;
     try {
       const { error } = await retryStepUp(
         () =>
@@ -199,7 +208,8 @@ export function PaymentRequestsScreen() {
         } catch {
           // Ignore
         }
-        setStatusMessage(`Successfully paid ${formatCentavosToPHP(req.amount)}!`);
+        setStatusMessage(`Paid ${formatCentavosToPHP(req.amount)}.`);
+        paid = true;
         loadRequests();
         if (onPaymentSuccess) onPaymentSuccess();
       }
@@ -208,6 +218,7 @@ export function PaymentRequestsScreen() {
     } finally {
       setActionLoadingId(null);
     }
+    return paid;
   };
 
   const handleDecline = (req: PaymentRequest) => {
@@ -280,18 +291,33 @@ export function PaymentRequestsScreen() {
     if (actionLoadingId) return;
     const defaultAccount = accounts.find((a) => a.balance >= req.amount) || accounts[0];
     setStatusMessage(null);
+    setStatusKind('error');
     setPayFromId(defaultAccount?.account_id ?? null);
     setReviewRequest(req);
   };
 
-  const reviewAccount = accounts.find((a) => a.account_id === payFromId) ?? accounts[0];
-
-  const confirmPayFromReview = async () => {
-    if (!reviewRequest) return;
-    await handlePay(reviewRequest, reviewAccount);
-    // The outcome (paid, not authorized, error) shows in the list's status banner.
+  const closePayReview = () => {
     setReviewRequest(null);
+    setStatusMessage(null);
   };
+
+  const reviewAccount = accounts.find((a) => a.account_id === payFromId) ?? accounts[0];
+  const reviewBalanceShort =
+    reviewRequest && reviewAccount ? reviewAccount.balance < reviewRequest.amount : false;
+
+  const confirmPayFromReview = () =>
+    guardPay(async () => {
+      if (!reviewRequest || reviewBalanceShort) return;
+      setStatusKind('error');
+      const paid = await handlePay(reviewRequest, reviewAccount);
+      if (paid) {
+        // Success: back to the list, where the banner confirms the payment.
+        setStatusKind('success');
+        setReviewRequest(null);
+      }
+      // Not authorized / failed: stay on Review with the same account; the
+      // message shows inline above the card.
+    });
 
   const getStatusBadge = (status: PaymentRequest['status']) => {
     switch (status) {
@@ -314,7 +340,7 @@ export function PaymentRequestsScreen() {
       title={reviewRequest ? 'Pay request' : 'Payment requests'}
       // Review is a second step: Back returns to the list (no caption shown).
       step={reviewRequest ? 2 : undefined}
-      onPrevStep={() => setReviewRequest(null)}
+      onPrevStep={closePayReview}
       contentContainerStyle={styles.scrollContent}
       refreshControl={
         reviewRequest ? undefined : (
@@ -330,7 +356,7 @@ export function PaymentRequestsScreen() {
               actionLoadingId === reviewRequest.id
             )}
             loading={actionLoadingId === reviewRequest.id}
-            disabled={!reviewAccount}
+            disabled={!reviewAccount || reviewBalanceShort}
             onPress={() => void confirmPayFromReview()}
           />
         ) : undefined
@@ -338,6 +364,29 @@ export function PaymentRequestsScreen() {
     >
       {reviewRequest ? (
         <View style={styles.reviewContainer}>
+          {reviewBalanceShort && reviewAccount ? (
+            <View style={[styles.statusBanner, styles.statusBannerError]}>
+              <Text
+                variant="caption"
+                color={colors.error}
+                accessibilityRole="alert"
+                style={styles.statusBannerText}
+              >
+                {`Not enough balance in ${formatAccountLabel(reviewAccount)}. Choose another account.`}
+              </Text>
+            </View>
+          ) : statusMessage ? (
+            <View style={[styles.statusBanner, styles.statusBannerError]}>
+              <Text
+                variant="caption"
+                color={colors.error}
+                accessibilityRole="alert"
+                style={styles.statusBannerText}
+              >
+                {statusMessage}
+              </Text>
+            </View>
+          ) : null}
           <ReviewCard
             eyebrow="You're paying"
             amountCentavos={reviewRequest.amount}
@@ -353,6 +402,15 @@ export function PaymentRequestsScreen() {
               { label: 'To', value: 'Payment request' },
               { label: 'Note', value: reviewRequest.note?.trim() ?? '' },
               { label: 'When', value: 'Now' },
+              {
+                label: 'Balance after',
+                value: reviewAccount
+                  ? hideBalance
+                    ? '₱••••••'
+                    : formatCentavosToPHP(reviewAccount.balance - reviewRequest.amount)
+                  : '',
+                valueAccessibilityLabel: hideBalance ? 'Amount hidden' : undefined,
+              },
               { label: 'Fee', value: 'Free' },
             ]}
           />
@@ -363,6 +421,7 @@ export function PaymentRequestsScreen() {
             hideBalance={hideBalance}
             onSelect={(accountId) => {
               setPayFromId(accountId);
+              setStatusMessage(null);
               setAccountPickerOpen(false);
             }}
             onClose={() => setAccountPickerOpen(false)}
@@ -439,22 +498,15 @@ export function PaymentRequestsScreen() {
               <View
                 style={[
                   styles.statusBanner,
-                  statusMessage.toLowerCase().includes('fail') ||
-                  statusMessage.toLowerCase().includes('error') ||
-                  statusMessage.toLowerCase().includes('went wrong')
+                  statusKind === 'error'
                     ? styles.statusBannerError
                     : styles.statusBannerSuccess,
                 ]}
               >
                 <Text
                   variant="caption"
-                  color={
-                    statusMessage.toLowerCase().includes('fail') ||
-                    statusMessage.toLowerCase().includes('error') ||
-                    statusMessage.toLowerCase().includes('went wrong')
-                      ? colors.error
-                      : colors.primary
-                  }
+                  color={statusKind === 'error' ? colors.error : colors.primary}
+                  accessibilityRole="alert"
                   style={styles.statusBannerText}
                 >
                   {statusMessage}
@@ -537,7 +589,10 @@ export function PaymentRequestsScreen() {
                               title="Decline"
                               variant="ghost"
                               disabled={actionLoadingId === req.id}
-                              onPress={() => handleDecline(req)}
+                              onPress={() => {
+                                setStatusKind('error');
+                                handleDecline(req);
+                              }}
                             />
                             <Button
                               title="Pay"
@@ -606,7 +661,10 @@ export function PaymentRequestsScreen() {
                             title="Cancel Request"
                             variant="destructive"
                             disabled={actionLoadingId === req.id}
-                            onPress={() => handleCancel(req)}
+                            onPress={() => {
+                              setStatusKind('error');
+                              handleCancel(req);
+                            }}
                           />
                         </View>
                       )}

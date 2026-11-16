@@ -1,4 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useFeatureAccounts } from '../hooks/useFeatureAccounts';
+import { useInFlightGuard } from '../hooks/useInFlightGuard';
+import { AccountLoadStatus } from '../components/AccountLoadStatus';
 import { View, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -14,9 +17,7 @@ import {
   generateIdempotencyKey,
   executeDeposit,
   toUserMessage,
-  fetchAccountBalances,
   formatReferenceId,
-  type AccountBalance,
   type MoneyOperationResult,
 } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
@@ -40,7 +41,7 @@ export function AddMoneyScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { hideBalance } = useSettings();
 
-  const [accounts, setAccounts] = useState<AccountBalance[]>([]);
+  const { accounts, accountsLoading, accountError, loadAccounts } = useFeatureAccounts();
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
   const [amountStr, setAmountStr] = useState('');
   const [reference, setReference] = useState('');
@@ -52,18 +53,16 @@ export function AddMoneyScreen() {
     generateIdempotencyKey('deposit')
   );
 
+  // Spec 7B.4: with 2+ accounts the account picker comes first. Decided once,
+  // when the accounts first arrive, so a later reload never jumps steps.
+  const firstStepPendingRef = useRef(true);
   useEffect(() => {
-    fetchAccountBalances(supabase).then(({ data }) => {
-      if (data && data.length > 0) {
-        setAccounts(data);
-        if (!selectedAccountId) {
-          setSelectedAccountId(data[0].account_id);
-        }
-        // Spec 7B.4: with 2+ accounts the account picker comes first.
-        if (data.length >= 2) setStep('source');
-      }
-    });
-  }, []);
+    if (firstStepPendingRef.current && !accountsLoading && accounts.length > 0) {
+      firstStepPendingRef.current = false;
+      if (accounts.length >= 2) setStep('source');
+    }
+  }, [accountsLoading, accounts.length]);
+  const guardMoneyAction = useInFlightGuard();
 
   const selectedAccount =
     accounts.find((a) => a.account_id === selectedAccountId) || accounts[0];
@@ -130,6 +129,7 @@ export function AddMoneyScreen() {
   const centavosAmount = phpToCentavos(amountStr);
 
   const hasMultipleAccounts = accounts.length >= 2;
+  const accountsReady = !accountsLoading && !accountError && accounts.length > 0;
   const inputSteps = hasMultipleAccounts
     ? (['source', 'input', 'review'] as const)
     : (['input', 'review'] as const);
@@ -147,7 +147,7 @@ export function AddMoneyScreen() {
       isDirty={hasInput}
       isProcessing={loading}
       footer={
-        step === 'input' ? (
+        !accountsReady ? null : step === 'input' ? (
           <Button
             title="Continue"
             onPress={handleProceedToReview}
@@ -157,7 +157,7 @@ export function AddMoneyScreen() {
           <View style={styles.footerRow}>
             <Button
               title={commitButtonLabel('add', centavosAmount, loading)}
-              onPress={handleConfirmDeposit}
+              onPress={() => void guardMoneyAction(handleConfirmDeposit)}
               loading={loading}
               style={styles.actionButton}
             />
@@ -165,7 +165,16 @@ export function AddMoneyScreen() {
         ) : null
       }
     >
-      {errorMessage && step !== 'input' ? (
+      {step !== 'success' && (
+        <AccountLoadStatus
+          loading={accountsLoading}
+          empty={accounts.length === 0}
+          error={accountError}
+          onRetry={loadAccounts}
+        />
+      )}
+
+      {errorMessage && step !== 'input' && step !== 'success' ? (
         <Card variant="subtle" style={styles.errorCard}>
           <AlertCircle size={18} color={colors.redText} />
           <Text variant="caption" color={colors.redText} style={styles.errorText}>
@@ -174,7 +183,7 @@ export function AddMoneyScreen() {
         </Card>
       ) : null}
 
-      {step === 'source' && (
+      {accountsReady && step === 'source' && (
         <AccountStep
           heading="Add to"
           accounts={accounts}
@@ -188,7 +197,7 @@ export function AddMoneyScreen() {
         />
       )}
 
-      {step === 'input' && (
+      {accountsReady && step === 'input' && (
         <View style={styles.stepContainer}>
           {selectedAccount ? (
             <RecipientChip label={`To ${formatAccountLabel(selectedAccount)}`} />
@@ -211,7 +220,7 @@ export function AddMoneyScreen() {
         </View>
       )}
 
-      {step === 'review' && (
+      {accountsReady && step === 'review' && (
         <ReviewCard
           eyebrow="You're adding"
           amountCentavos={centavosAmount}

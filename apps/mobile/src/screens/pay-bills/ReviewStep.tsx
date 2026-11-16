@@ -5,6 +5,7 @@ import {
   colors,
   radius,
   spacing,
+  formatCentavosToPHP,
   type Biller,
   type AccountBalance,
   type ScheduledPaymentFrequency,
@@ -25,6 +26,7 @@ interface ReviewStepProps {
   frequency: ScheduledPaymentFrequency;
   maxRunsStr: string;
   errorMessage: string | null;
+  hideBalance: boolean;
   /** Opens the account picker (only passed with 2+ accounts). */
   onChangeSource?: () => void;
 }
@@ -40,6 +42,7 @@ export function ReviewStep({
   frequency,
   maxRunsStr,
   errorMessage,
+  hideBalance,
   onChangeSource,
 }: ReviewStepProps) {
   return (
@@ -71,6 +74,16 @@ export function ReviewStep({
           {
             label: 'When',
             value: formatWhen(timing, scheduledDate, frequency, maxRunsStr),
+          },
+          {
+            label: 'Balance after',
+            value:
+              timing === 'now' && account
+                ? hideBalance
+                  ? '₱••••••'
+                  : formatCentavosToPHP(account.balance - centavos)
+                : '',
+            valueAccessibilityLabel: hideBalance ? 'Amount hidden' : undefined,
           },
           { label: 'Fee', value: 'Free' },
         ]}

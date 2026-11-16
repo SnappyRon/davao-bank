@@ -51,6 +51,13 @@ const RECIPIENT: SavedRecipient = {
   nickname: 'Mama',
   created_at: '2026-11-01T00:00:00Z',
 } as SavedRecipient;
+const RECIPIENT_2: SavedRecipient = {
+  id: 'rec-2',
+  owner_id: 'u',
+  account_number: '1099990001',
+  nickname: 'Landlord',
+  created_at: '2026-11-01T00:00:00Z',
+} as SavedRecipient;
 
 const mockRpc = jest.fn();
 const mockUpdate = jest.fn();
@@ -76,7 +83,7 @@ jest.mock('../lib/supabase', () => ({
       }
       return {
         select: () => ({
-          order: () => Promise.resolve({ data: [RECIPIENT], error: null }),
+          order: () => Promise.resolve({ data: [RECIPIENT, RECIPIENT_2], error: null }),
         }),
         update: (values: unknown) => {
           mockUpdate(values);
@@ -166,17 +173,88 @@ describe('Pay a request (spec 7B.4)', () => {
     });
   });
 
-  it('does not pay when authorization is cancelled', async () => {
+  it('does not pay when authorization is cancelled and keeps Review open with the account', async () => {
     mockConfirmBiometricPayment.mockResolvedValueOnce({
       success: false,
       cancelled: true,
     });
     await render(<PaymentRequestsScreen />);
     await fireEvent.press(await screen.findByRole('button', { name: 'Pay ₱500.00' }));
+    await fireEvent.press(
+      screen.getByRole('button', { name: 'From: Savings •• 8921. Change account' })
+    );
+    await fireEvent.press(screen.getByRole('button', { name: /^Checking •• 4321/ }));
     await act(async () => {
       fireEvent.press(screen.getByRole('button', { name: 'Pay ₱500.00' }));
     });
     expect(mockRpc).not.toHaveBeenCalledWith('pay_payment_request', expect.anything());
+    expect(screen.getByText("You're paying")).toBeTruthy();
+    expect(screen.getByText('Checking •• 4321')).toBeTruthy();
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Not authorized. Nothing was sent.'
+    );
+  });
+
+  it('keeps Review open with an inline error when the server fails', async () => {
+    mockRpc.mockResolvedValueOnce({
+      data: null,
+      error: { message: 'Network request failed' },
+    });
+    await render(<PaymentRequestsScreen />);
+    await fireEvent.press(await screen.findByRole('button', { name: 'Pay ₱500.00' }));
+    await act(async () => {
+      fireEvent.press(screen.getByRole('button', { name: 'Pay ₱500.00' }));
+    });
+    expect(screen.getByText("You're paying")).toBeTruthy();
+    expect(screen.getByRole('alert')).toBeTruthy();
+  });
+
+  it('returns to the list with a success banner after paying', async () => {
+    await render(<PaymentRequestsScreen />);
+    await fireEvent.press(await screen.findByRole('button', { name: 'Pay ₱500.00' }));
+    await act(async () => {
+      fireEvent.press(screen.getByRole('button', { name: 'Pay ₱500.00' }));
+    });
+    expect(screen.queryByText("You're paying")).toBeNull();
+    expect(screen.getByRole('alert')).toHaveTextContent('Paid ₱500.00.');
+    expect(screen.queryByText(/!/)).toBeNull();
+  });
+
+  it('blocks paying from an account with too little balance', async () => {
+    jest.mocked(fetchAccountBalances).mockResolvedValue({
+      data: [account('acc-s', '1012348921', 'savings', 10000)],
+      error: null,
+    });
+    await render(<PaymentRequestsScreen />);
+    await fireEvent.press(await screen.findByRole('button', { name: 'Pay ₱500.00' }));
+    expect(screen.getByText(/Not enough balance in Savings •• 8921/)).toBeTruthy();
+    const pay = screen.getByRole('button', { name: 'Pay ₱500.00' });
+    expect(pay.props.accessibilityState).toMatchObject({ disabled: true });
+    await act(async () => {
+      fireEvent.press(pay);
+    });
+    expect(mockConfirmBiometricPayment).not.toHaveBeenCalled();
+  });
+
+  it('two presses in the same frame start one prompt and one RPC', async () => {
+    await render(<PaymentRequestsScreen />);
+    await fireEvent.press(await screen.findByRole('button', { name: 'Pay ₱500.00' }));
+    const pay = screen.getByRole('button', { name: 'Pay ₱500.00' });
+    await act(async () => {
+      fireEvent.press(pay);
+      fireEvent.press(pay);
+    });
+    expect(mockConfirmBiometricPayment).toHaveBeenCalledTimes(1);
+    expect(
+      mockRpc.mock.calls.filter(([fn]) => fn === 'pay_payment_request')
+    ).toHaveLength(1);
+  });
+
+  it('shows Balance after on Review', async () => {
+    await render(<PaymentRequestsScreen />);
+    await fireEvent.press(await screen.findByRole('button', { name: 'Pay ₱500.00' }));
+    expect(screen.getByText('Balance after')).toBeTruthy();
+    expect(screen.getByText('₱4,500.00')).toBeTruthy();
   });
 
   it('has no account picker with one account', async () => {
@@ -210,6 +288,15 @@ describe('Saved recipients (spec 7B.4)', () => {
     expect(mockUpdateEq).toHaveBeenCalledWith('id', 'rec-1');
   });
 
+  it('ignores renaming another row while an edit has unsaved changes', async () => {
+    await render(<SavedRecipientsScreen />);
+    await fireEvent.press(await screen.findByRole('button', { name: 'Rename Mama' }));
+    await fireEvent.changeText(screen.getByDisplayValue('Mama'), 'Nanay');
+    await fireEvent.press(screen.getByRole('button', { name: 'Rename Landlord' }));
+    expect(screen.getByDisplayValue('Nanay')).toBeTruthy();
+    expect(screen.queryByDisplayValue('Landlord')).toBeNull();
+  });
+
   it('Cancel closes the inline field without saving', async () => {
     await render(<SavedRecipientsScreen />);
     await fireEvent.press(await screen.findByRole('button', { name: 'Rename Mama' }));
@@ -226,6 +313,7 @@ describe('Saved recipients (spec 7B.4)', () => {
     );
     expect(mockNavigate).toHaveBeenCalledWith('Transfer', {
       recipientAccount: '1099997943',
+      recipientNickname: 'Mama',
     });
   });
 });

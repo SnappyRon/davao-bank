@@ -39,6 +39,7 @@ import {
   formatAccountLabel,
 } from '../components';
 import { commitButtonLabel } from '../utils/moneyFlow';
+import { useInFlightGuard } from '../hooks/useInFlightGuard';
 import {
   TransferRecipientStep,
   type RecipientTab,
@@ -59,6 +60,7 @@ export function TransferScreen() {
     recipientAccount: initialRecipientAccount,
     amountCentavos: initialAmountCentavos,
     note: initialNote,
+    recipientNickname: initialRecipientNickname,
   } = route.params ?? {};
   const onRequestMoneyPress = () =>
     navigation.replace('QRHub', { initialTab: 'request' });
@@ -128,6 +130,10 @@ export function TransferScreen() {
   }, [otherAccounts.length]);
 
   const prefillAppliedRef = useRef(false);
+  // With 2+ accounts a prefilled transfer starts on the source step, then
+  // continues to the step the prefill chose (amount or review).
+  const afterSourceStepRef = useRef<TransferStep>('recipient');
+  const guardMoneyAction = useInFlightGuard();
 
   // §0.9 Item 5: Regenerate idempotency key whenever payload changes (only before success)
   useEffect(() => {
@@ -149,6 +155,15 @@ export function TransferScreen() {
       if (initialRecipientAccount) {
         const cleaned = initialRecipientAccount.trim();
         setRecipientAccountNumber(cleaned);
+        const nickname =
+          typeof initialRecipientNickname === 'string'
+            ? initialRecipientNickname.trim()
+            : '';
+        if (nickname && nickname.length <= 40) setRecipientNickname(nickname);
+        const startStep = (next: TransferStep) => {
+          afterSourceStepRef.current = next;
+          setStep(accounts.length >= 2 ? 'source' : next);
+        };
         const currentSource = selectedAccount;
         // §0.9 Item 3: recipient checks on QR prefill (10 digits, not same account)
         if (cleaned.length !== 10 || !/^\d{10}$/.test(cleaned)) {
@@ -169,9 +184,9 @@ export function TransferScreen() {
           if (initialNote) setReference(initialNote);
           // §0.9 Item 3: Generate idempotency key on QR prefill path too
           setIdempotencyKey(generateIdempotencyKey('transfer'));
-          setStep('review');
+          startStep('review');
         } else {
-          setStep('amount');
+          startStep('amount');
         }
       } else {
         // §0.9 Item 1: Every money modal resets to step 1 whenever visible becomes true
@@ -197,6 +212,7 @@ export function TransferScreen() {
     initialRecipientAccount,
     initialAmountCentavos,
     initialNote,
+    initialRecipientNickname,
     selectedAccount,
     loadSavedRecipients,
   ]);
@@ -409,17 +425,22 @@ export function TransferScreen() {
     setErrorMessage(null);
     const account = accounts.find((a) => a.account_id === accountId);
     if (!account) return;
-    if (step === 'source') {
+    const next = step === 'source' ? afterSourceStepRef.current : step;
+    afterSourceStepRef.current = 'recipient';
+    if (next === 'recipient') {
       setStep('recipient');
       return;
     }
-    // Changed from Review: re-check the rules the earlier steps enforced.
+    // Moving past the recipient (prefill) or changed on Review: re-check the
+    // rules the earlier steps enforce.
     if (recipientAccountNumber.trim() === account.account_number) {
       setErrorMessage('Cannot transfer to the same account');
       setStep('recipient');
-    } else if (centavosAmount > account.balance) {
+    } else if (next === 'review' && centavosAmount > account.balance) {
       setErrorMessage('Insufficient funds in selected source account');
       setStep('amount');
+    } else {
+      setStep(next);
     }
   };
 
@@ -431,7 +452,7 @@ export function TransferScreen() {
     ) : step === 'review' ? (
       <Button
         title={commitButtonLabel(commitAction, centavosAmount, loading)}
-        onPress={handleConfirmTransfer}
+        onPress={() => void guardMoneyAction(handleConfirmTransfer)}
         loading={loading}
       />
     ) : undefined;
@@ -461,7 +482,9 @@ export function TransferScreen() {
       )}
       {(step === 'success' || accountsReady) && (
         <View style={styles.container}>
-          {errorMessage && step !== 'amount' ? (
+          {errorMessage &&
+          step !== 'amount' &&
+          !(step === 'recipient' && recipientTab === 'new') ? (
             <Card variant="subtle" style={styles.errorCard}>
               <AlertCircle size={18} color={colors.redText} />
               <Text variant="caption" color={colors.redText} style={styles.errorText}>
@@ -493,7 +516,9 @@ export function TransferScreen() {
               onRecipientAccountChange={(val) => {
                 setRecipientAccountNumber(val);
                 setRecipientNickname('');
+                if (errorMessage) setErrorMessage(null);
               }}
+              recipientError={errorMessage}
               shouldSaveRecipient={shouldSaveRecipient}
               onShouldSaveChange={setShouldSaveRecipient}
               saveNickname={saveNickname}

@@ -265,15 +265,15 @@ export function ExportStatementScreen() {
       `;
 
       const { uri } = await Print.printToFileAsync({ html });
-      // Spec 7B.4: tell the user the file is ready before the share sheet opens.
-      toast.show('Statement ready');
       if (await Sharing.isAvailableAsync()) {
+        // Spec 7B.4: tell the user the file is ready before the share sheet opens.
+        toast.show('Statement ready');
         await Sharing.shareAsync(uri, {
           UTI: '.pdf',
           mimeType: 'application/pdf',
         });
       } else {
-        Alert.alert('Statement Ready', `Generated PDF statement at: ${uri}`);
+        Alert.alert('Statement ready', `Saved the PDF statement at: ${uri}`);
       }
     } catch (err: unknown) {
       setError(errorMessage(err));
@@ -332,14 +332,14 @@ export function ExportStatementScreen() {
         encoding: FileSystem.EncodingType.UTF8,
       });
 
-      toast.show('Statement ready');
       if (await Sharing.isAvailableAsync()) {
+        toast.show('Statement ready');
         await Sharing.shareAsync(fileUri, {
           UTI: 'public.comma-separated-values-text',
           mimeType: 'text/csv',
         });
       } else {
-        Alert.alert('Statement Ready', `Generated CSV statement at: ${fileUri}`);
+        Alert.alert('Statement ready', `Saved the CSV statement at: ${fileUri}`);
       }
     } catch (err: unknown) {
       setError(errorMessage(err));

@@ -15,15 +15,21 @@ import { Screen, Text, Button, Card, Logo } from '../components';
 interface VerifyEmailScreenProps {
   email: string;
   onNavigateToLogin: () => void;
+  /** True right after sign-up: an email was just sent, so Resend starts cooling down. */
+  justSent?: boolean;
 }
 
 /** Seconds before another verification email can be requested (spec 7B.4). */
 export const RESEND_COOLDOWN_SECONDS = 60;
 
-export function VerifyEmailScreen({ email, onNavigateToLogin }: VerifyEmailScreenProps) {
+export function VerifyEmailScreen({
+  email,
+  onNavigateToLogin,
+  justSent = false,
+}: VerifyEmailScreenProps) {
   const [resending, setResending] = useState(false);
   const [checking, setChecking] = useState(false);
-  const [cooldown, setCooldown] = useState(0);
+  const [cooldown, setCooldown] = useState(justSent ? RESEND_COOLDOWN_SECONDS : 0);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,7 +44,8 @@ export function VerifyEmailScreen({ email, onNavigateToLogin }: VerifyEmailScree
    * Refreshes the session so a confirmed email reaches the app. App's
    * `onAuthStateChange` then re-runs the gate (`email_confirmed_at`), so the
    * user moves on without anything else here. Signed out (sign-up without a
-   * session): sign in instead, which runs the same gate.
+   * session, reported as AuthSessionMissingError): sign in instead, which
+   * runs the same gate. Any other error stays here with a message.
    */
   const handleVerified = async () => {
     setChecking(true);
@@ -47,8 +54,14 @@ export function VerifyEmailScreen({ email, onNavigateToLogin }: VerifyEmailScree
     try {
       const { data, error: refreshError } = await supabase.auth.refreshSession();
       const session = data?.session;
-      if (refreshError || !session) {
+      const signedOut =
+        (!refreshError && !session) || refreshError?.name === 'AuthSessionMissingError';
+      if (signedOut) {
         onNavigateToLogin();
+        return;
+      }
+      if (refreshError || !session) {
+        setError(toUserMessage(refreshError));
         return;
       }
       if (!session.user?.email_confirmed_at) {

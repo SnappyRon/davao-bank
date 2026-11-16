@@ -155,7 +155,7 @@ describe('PayBillsScreen (spec 7B.4)', () => {
     await fireEvent.changeText(screen.getByLabelText('Subscriber No.'), '1234567890');
     await fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
     await fireEvent.changeText(screen.getByPlaceholderText('0.00'), '500');
-    await fireEvent.press(screen.getByRole('button', { name: /^Later/ }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Later' }));
     await fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
     expect(screen.getByText("You're scheduling")).toBeTruthy();
     await act(async () => {
@@ -169,5 +169,72 @@ describe('PayBillsScreen (spec 7B.4)', () => {
     await act(async () => {
       resolveRpc({ data: null, error: null });
     });
+  });
+
+  // ---- 7B.4 fix round ----
+
+  async function toReview(amount: string) {
+    await goToReference();
+    await fireEvent.changeText(screen.getByLabelText('Subscriber No.'), '1234567890');
+    await fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
+    await fireEvent.changeText(screen.getByPlaceholderText('0.00'), amount);
+    await fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
+  }
+
+  it('uses the shared When chips and preset amounts, and shows Balance after', async () => {
+    jest.mocked(fetchAccountBalances).mockResolvedValue({ data: [SAVINGS], error: null });
+    await render(<PayBillsScreen />);
+    await goToReference();
+    await fireEvent.changeText(screen.getByLabelText('Subscriber No.'), '1234567890');
+    await fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
+    for (const name of ['Now', 'Later', 'Recurring']) {
+      expect(screen.getByRole('button', { name })).toBeTruthy();
+    }
+    expect(screen.getByRole('button', { name: 'Set amount to ₱2000' })).toBeTruthy();
+    await fireEvent.changeText(screen.getByPlaceholderText('0.00'), '1250');
+    await fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
+    expect(screen.getByText('Balance after')).toBeTruthy();
+    expect(screen.getByText('₱3,750.00')).toBeTruthy();
+  });
+
+  it('Review From change to an account with too little balance goes back to Amount', async () => {
+    jest
+      .mocked(fetchAccountBalances)
+      .mockResolvedValue({ data: [SAVINGS, CHECKING], error: null });
+    await render(<PayBillsScreen />);
+    await fireEvent.press(
+      await screen.findByRole('button', { name: /^Savings •• 8921/ })
+    );
+    await toReview('3000');
+    expect(screen.getByText('Step 5 of 5')).toBeTruthy();
+    await fireEvent.press(
+      screen.getByRole('button', { name: 'From: Savings •• 8921. Change account' })
+    );
+    await fireEvent.press(
+      screen.getAllByRole('button', { name: /^Checking •• 4321/ })[0]
+    );
+    expect(screen.getByText('Step 4 of 5')).toBeTruthy();
+    expect(screen.getByText('Amount exceeds available balance')).toBeTruthy();
+    expect(mockConfirmBiometricPayment).not.toHaveBeenCalled();
+  });
+
+  it('two presses in the same frame on Schedule start one prompt and one RPC', async () => {
+    jest.mocked(fetchAccountBalances).mockResolvedValue({ data: [SAVINGS], error: null });
+    await render(<PayBillsScreen />);
+    await goToReference();
+    await fireEvent.changeText(screen.getByLabelText('Subscriber No.'), '1234567890');
+    await fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
+    await fireEvent.changeText(screen.getByPlaceholderText('0.00'), '500');
+    await fireEvent.press(screen.getByRole('button', { name: 'Later' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
+    const button = screen.getByRole('button', { name: 'Schedule ₱500.00' });
+    await act(async () => {
+      fireEvent.press(button);
+      fireEvent.press(button);
+    });
+    expect(mockConfirmBiometricPayment).toHaveBeenCalledTimes(1);
+    expect(
+      mockRpc.mock.calls.filter(([fn]) => fn === 'create_scheduled_payment')
+    ).toHaveLength(1);
   });
 });

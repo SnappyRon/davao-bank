@@ -30,6 +30,8 @@ interface TransferRecipientStepProps {
   selectedAccount: AccountBalance | undefined;
   recipientAccountNumber: string;
   onRecipientAccountChange: (acc: string) => void;
+  /** Inline validation shown under the Account number field. */
+  recipientError?: string | null;
   shouldSaveRecipient: boolean;
   onShouldSaveChange: (save: boolean) => void;
   saveNickname: string;
@@ -49,6 +51,7 @@ export function TransferRecipientStep({
   selectedAccount,
   recipientAccountNumber,
   onRecipientAccountChange,
+  recipientError,
   shouldSaveRecipient,
   onShouldSaveChange,
   saveNickname,
@@ -160,6 +163,7 @@ export function TransferRecipientStep({
             value={recipientAccountNumber}
             onChangeText={onRecipientAccountChange}
             placeholder="e.g. 1020441785"
+            error={recipientError || undefined}
             keyboardType="number-pad"
             maxLength={10}
           />

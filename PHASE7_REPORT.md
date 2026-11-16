@@ -918,3 +918,59 @@ npm run test:db      → 118 passed, 0 failed
 - In `_transfer_core` the bill payment text looks up the biller name inside the insert (`select b.name from billers where account_id = v_to_acc.id`); if none is found the text is "You paid ₱X.".
 
 NOT VERIFIED: migration on hosted (not applied, by rule); live suites (they need the migration applied); device check of the Inbox → Receipt deep link and bill titles.
+
+### Stage 7B.4 fix round for `9c84835` (2026-11-16, Claude implementer sub agent)
+
+| #   | Finding                       | Change                                                                                                                                                                                                                                                                                     |
+| --- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | UX1 VerifyEmail refresh error | Error → `toUserMessage`, stays on the screen. Sign in only when no session comes back without an error, or the error is `AuthSessionMissingError` (signed-out sign-up, which otherwise traps the user).                                                                                    |
+| 2   | UX2/CQ2 Pay request Review    | Closes only when `handlePay` reports success; otherwise stays with an inline `alert` and the chosen account. Balance below the amount → inline error, Pay disabled. List banner kind explicit (`statusKind`), `accessibilityRole="alert"`.                                                 |
+| 3   | UX3 strings                   | "Paid ₱500.00." and "Not authorized. Nothing was sent."                                                                                                                                                                                                                                    |
+| 4   | UX4 recipient validation      | `recipientError` → Account number `TextField` error (New account tab); typing clears it.                                                                                                                                                                                                   |
+| 5   | UX5/CQ1 Add money / Cash out  | `useFeatureAccounts` + `AccountLoadStatus`; steps render only when ready; first step decided once (`firstStepPendingRef`).                                                                                                                                                                 |
+| 6   | SEC4/CQ3 double tap           | `hooks/useInFlightGuard.ts`: ref set before the first await, wraps each commit handler at the call site (Transfer, Pay bills, Add money, Cash out, Pay request) — so the handler bodies stay byte-identical (stricter than exception b).                                                   |
+| 7   | UX6/CQ5 prefill + nickname    | With 2+ accounts a saved-recipient/QR transfer starts on the source step, then the prefill's step; same-account and balance rules re-checked. `recipientNickname?` route param (App.tsx type) validated (string, 1–40) → "To Mama · •• 7943". Rename on another row ignored while unsaved. |
+| 8   | UX7 grouped list              | Saved recipients in one `groupedListStyles.group` with inset hairlines.                                                                                                                                                                                                                    |
+| 9   | UX8 Balance after             | Pay bills (pay now) and Pay request reviews; respects hide balance.                                                                                                                                                                                                                        |
+| 10  | UX9 When control              | New `components/WhenPicker.tsx` used by Transfer and Pay bills; Pay bills preset chips.                                                                                                                                                                                                    |
+| 11  | UX10 cooldown on arrival      | `justSent` prop; App sets it in `onSignUpSuccess` (false from sign-in).                                                                                                                                                                                                                    |
+| 12  | UX11 tokens                   | `CHIP_MIN_HEIGHT` (Chip, RecipientChip), ReviewCard `ROW_ICON_SIZE`.                                                                                                                                                                                                                       |
+| 13  | CQ6 Export                    | Toast only when sharing is available; otherwise one Alert.                                                                                                                                                                                                                                 |
+| 14  | CQ7                           | `ReviewCardRow.changeLabel` (default "Change account").                                                                                                                                                                                                                                    |
+| 15  | CQ4 tests                     | See below.                                                                                                                                                                                                                                                                                 |
+
+**Handler comparison vs `efab4fd`** (same script as above): Transfer `handleNextFromRecipient`, `handleNextFromAmount`, `handleConfirmTransfer`, `executeScheduledTransfer`, `executeServerTransfer`, key effect; Pay bills `handleSubmitPayment`, `handleReferenceContinue`, `handleSelectBiller`, key effect; Add money `handleProceedToReview`, `handleConfirmDeposit`, key effect; Cash out `handleProceedToReview`, `handleConfirmWithdraw`, `executeServerWithdraw`, key effect; `handleDecline`, `handleCancel`, `handleAddRecipient` — **IDENTICAL**. `handlePay` vs `9c84835` changes only per exception (a):
+
+```diff
+-  const handlePay = async (req: PaymentRequest, chosenAccount?: AccountBalance) => {
+-    if (actionLoadingId) return;
++  const handlePay = async (req: PaymentRequest, chosenAccount?: AccountBalance): Promise<boolean> => {
++    if (actionLoadingId) return false;
+-      return;            (no account)          +      return false;
+-        setStatusMessage('Payment authorization was cancelled.');
++        setStatusMessage('Not authorized. Nothing was sent.');
+-      return;            (not authorized)      +      return false;
++    let paid = false;
+-        setStatusMessage(`Successfully paid ${formatCentavosToPHP(req.amount)}!`);
++        setStatusMessage(`Paid ${formatCentavosToPHP(req.amount)}.`);
++        paid = true;
++    return paid;
+```
+
+The `pay_payment_request` payload, key, guards, `retryStepUp` and error mapping are unchanged. Export handlers: the toast moved inside the `isAvailableAsync()` branch; the fallback Alert is sentence case.
+
+**Tests added:** Transfer — saved-recipient start on source step with "To Mama · •• 7943"; recipient error under the field and cleared on typing; Review From change to the recipient's account → Recipient with "Cannot transfer to the same account"; to too little balance → Amount; new `idempotency_key` after switching account; two same-frame Schedule presses → one prompt, one `create_scheduled_transfer_to_number`. Existing prefill tests now pick the source account first (same RPC/key assertions). Pay bills — When chips + presets + Balance after; Review change to too little balance → Amount; double Schedule press → one prompt, one `create_scheduled_payment`. Add money / Cash out — late accounts (loading, no "Available", then account step once); load error with Try again and no ₱0.00; double press → one cash-out. Pay request — cancel keeps Review + account + inline "Not authorized. Nothing was sent."; server error keeps Review; success → list banner "Paid ₱500.00." (no "!"); too little balance blocks Pay; double press → one prompt/one RPC; Balance after. Saved recipients — rename on another row ignored while unsaved; Transfer navigation passes the nickname. Verify email — refresh error stays with a message; `AuthSessionMissingError` → sign in; cooldown on arrival from sign-up. Export — no toast and one Alert without a share sheet.
+
+**Checks:**
+
+```
+npm run typecheck   → exit 2: only src/screens/ProfileScreen.tsx (7) and src/__tests__/profile_screen.test.tsx (6)
+                      — the owner's uncommitted ProfileScreen.tsx (imports ./PersonalDetailsModal etc.); no other error
+npm run lint        → ✖ 64 problems (0 errors, 64 warnings)
+npm run format:check→ only [warn] ONBOARDING.md (untracked, not this change)
+npm run test:unit   → Test Suites: 2 failed, 31 passed, 33 total; Tests: 280 passed, 280 total
+                      (profile_screen, profile_confirmation: "Cannot find module './PersonalDetailsModal'" from the owner's file)
+npx jest --testPathIgnorePatterns profile → Test Suites: 31 passed, 31 total; Tests: 280 passed, 280 total (×2)
+```
+
+Device: NOT VERIFIED — captain runs it.

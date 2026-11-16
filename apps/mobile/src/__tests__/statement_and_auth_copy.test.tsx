@@ -1,4 +1,5 @@
 import React from 'react';
+import { Alert } from 'react-native';
 import { render, screen, fireEvent, act } from '@testing-library/react-native';
 import * as Sharing from 'expo-sharing';
 import { fetchAccountBalances, type AccountBalance } from '@davao-bank/shared';
@@ -102,6 +103,38 @@ describe('Export statement (spec 7B.4)', () => {
   );
 });
 
+describe('Export statement without a share sheet', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.mocked(fetchAccountBalances).mockResolvedValue({ data: [SAVINGS], error: null });
+    mockRpc.mockResolvedValue({
+      data: {
+        account_number: '1012348921',
+        period_from: '2026-11-01',
+        period_to: '2026-11-10',
+        opening_balance: 0,
+        closing_balance: 500000,
+        transactions: [],
+      },
+      error: null,
+    });
+  });
+
+  it('shows one message (no toast) when sharing is unavailable', async () => {
+    jest.mocked(Sharing.isAvailableAsync).mockResolvedValueOnce(false);
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    await render(<ExportStatementScreen />);
+    const button = await screen.findByRole('button', { name: 'Download PDF Statement' });
+    await act(async () => {
+      fireEvent.press(button);
+    });
+    expect(mockToastShow).not.toHaveBeenCalled();
+    expect(alertSpy).toHaveBeenCalledTimes(1);
+    expect(Sharing.shareAsync).not.toHaveBeenCalled();
+    alertSpy.mockRestore();
+  });
+});
+
 describe('Verify email (spec 7B.4)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -137,7 +170,7 @@ describe('Verify email (spec 7B.4)', () => {
     const onNavigateToLogin = jest.fn();
     mockRefreshSession.mockResolvedValue({
       data: { session: null },
-      error: { message: 'Auth session missing!' },
+      error: { name: 'AuthSessionMissingError', message: 'Auth session missing!' },
     });
     await render(
       <VerifyEmailScreen email="new@davaobank.ph" onNavigateToLogin={onNavigateToLogin} />
@@ -146,6 +179,34 @@ describe('Verify email (spec 7B.4)', () => {
       fireEvent.press(screen.getByRole('button', { name: "I've verified my email" }));
     });
     expect(onNavigateToLogin).toHaveBeenCalledTimes(1);
+  });
+
+  it('stays on the screen with a message when the refresh fails', async () => {
+    const onNavigateToLogin = jest.fn();
+    mockRefreshSession.mockResolvedValue({
+      data: { session: null },
+      error: { name: 'AuthRetryableFetchError', message: 'Network request failed' },
+    });
+    await render(
+      <VerifyEmailScreen email="new@davaobank.ph" onNavigateToLogin={onNavigateToLogin} />
+    );
+    await act(async () => {
+      fireEvent.press(screen.getByRole('button', { name: "I've verified my email" }));
+    });
+    expect(onNavigateToLogin).not.toHaveBeenCalled();
+    expect(screen.getByText(/offline/i)).toBeTruthy();
+  });
+
+  it('starts the cooldown on arrival from sign-up (an email was just sent)', async () => {
+    await render(
+      <VerifyEmailScreen
+        email="new@davaobank.ph"
+        onNavigateToLogin={jest.fn()}
+        justSent
+      />
+    );
+    const cooling = screen.getByRole('button', { name: 'Resend in 60 s' });
+    expect(cooling.props.accessibilityState).toMatchObject({ disabled: true });
   });
 
   it('Resend has a 60 s cooldown with a visible countdown', async () => {

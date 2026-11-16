@@ -164,4 +164,62 @@ describe('Add money and Cash out (spec 7B.4)', () => {
     expect(executeWithdraw).not.toHaveBeenCalled();
     expect(screen.getByText('Not authorized. Nothing was sent.')).toBeTruthy();
   });
+
+  // ---- 7B.4 fix round ----
+
+  it('waits for late accounts without showing ₱0.00, then starts on the account step once', async () => {
+    let resolve!: (v: unknown) => void;
+    jest.mocked(fetchAccountBalances).mockReturnValueOnce(
+      new Promise((r) => {
+        resolve = r;
+      }) as never
+    );
+    await render(<CashOutScreen />);
+    expect(screen.getByText('Loading accounts…')).toBeTruthy();
+    expect(screen.queryByText(/Available/)).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Continue' })).toBeNull();
+    await act(async () => {
+      resolve({ data: [SAVINGS, CHECKING], error: null });
+    });
+    expect(screen.getByText('Step 1 of 3')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: /^Savings •• 8921/ }));
+    expect(screen.getByText('Step 2 of 3')).toBeTruthy();
+  });
+
+  it('shows the load error with Try again and never ₱0.00', async () => {
+    jest
+      .mocked(fetchAccountBalances)
+      .mockResolvedValueOnce({ data: null, error: 'Network request failed' })
+      .mockResolvedValueOnce({ data: [SAVINGS], error: null });
+    await render(<AddMoneyScreen />);
+    expect(
+      await screen.findByText('You appear to be offline. Nothing was sent.')
+    ).toBeTruthy();
+    expect(screen.queryByText(/Available/)).toBeNull();
+    expect(screen.queryByText('₱0.00')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Continue' })).toBeNull();
+    await fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
+    expect(await screen.findByLabelText('To Savings •• 8921')).toBeTruthy();
+    expect(screen.getByText('Step 1 of 2')).toBeTruthy();
+  });
+
+  it('two presses in the same frame start one cash-out', async () => {
+    jest.mocked(fetchAccountBalances).mockResolvedValue({ data: [SAVINGS], error: null });
+    const call = pending();
+    jest.mocked(executeWithdraw).mockReturnValue(call.promise as never);
+    await render(<CashOutScreen />);
+    await screen.findByLabelText('From Savings •• 8921');
+    await fireEvent.changeText(screen.getByPlaceholderText('0.00'), '500');
+    await fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
+    const button = screen.getByRole('button', { name: 'Cash out ₱500.00' });
+    await act(async () => {
+      fireEvent.press(button);
+      fireEvent.press(button);
+    });
+    expect(mockConfirmBiometricPayment).toHaveBeenCalledTimes(1);
+    expect(executeWithdraw).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      call.resolve({ data: null, error: 'boom' });
+    });
+  });
 });
