@@ -1,37 +1,16 @@
 import React from 'react';
 import Link from 'next/link';
-import {
-  Wallet,
-  Users,
-  CreditCard,
-  TrendingUp,
-  RotateCcw,
-  ArrowRight,
-  Download,
-  Sliders,
-  CalendarClock,
-  AlertTriangle,
-  Inbox,
-  ShieldAlert,
-} from 'lucide-react';
-import { formatCentavosToPHP, type AdminDashboardStats } from '@davao-bank/shared';
+import { Download, Sliders, ShieldAlert } from 'lucide-react';
 import { createAdminCookieServerClient } from '@/lib/supabase-cookies';
 import { AdminShell } from '@/components/AdminShell';
-import { PageHeader, StatTile, Card, Table, StatusBadge, Button } from '@/components/ui';
-import styles from './Dashboard.module.css';
-import {
-  auditLabel,
-  auditEntity,
-  sentenceCase,
-  ledgerReference,
-} from '@/lib/dashboardDisplay';
+import { PageHeader, Button } from '@/components/ui';
+import { OperationsDashboard } from '@/components/operations/OperationsDashboard';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AdminDashboardPage() {
   const supabase = await createAdminCookieServerClient();
 
-  // 1. Fetch Admin Profile
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -42,106 +21,11 @@ export default async function AdminDashboardPage() {
     .eq('id', user?.id || '')
     .maybeSingle();
 
-  // 2. Fetch Authoritative KPIs
-  const { data: statsData } = await supabase.rpc('admin_get_dashboard_stats');
-  const stats: AdminDashboardStats = statsData || {
-    total_users: 0,
-    active_users: 0,
-    suspended_users: 0,
-    total_accounts: 0,
-    active_accounts: 0,
-    frozen_accounts: 0,
-    total_system_balance: 0,
-    total_transactions: 0,
-    completed_transactions: 0,
-    reversed_transactions: 0,
-    total_volume: 0,
-    recent_30d_transactions: 0,
-  };
-
-  // 3. Fetch Operational Expansion KPIs (§E.3)
-  const [
-    { count: activeSchedulesCount },
-    { count: failedRuns7dCount },
-    { count: pendingRequestsCount },
-  ] = await Promise.all([
-    supabase
-      .from('scheduled_payments')
-      .select('*', { count: 'exact', head: true })
-      .eq('status', 'active'),
-    supabase
-      .from('scheduled_payment_runs')
-      .select('*', { count: 'exact', head: true })
-      .eq('status', 'failed')
-      .gte('executed_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()),
-    supabase
-      .from('payment_requests')
-      .select('*', { count: 'exact', head: true })
-      .eq('status', 'pending'),
-  ]);
-
-  // 3b. Bantay open security cases (the RPC is aal2-gated like every action).
-  // A missing 8D migration is not an error page: show zero until it lands.
-  const { data: openCasesData } = await supabase.rpc('admin_list_security_cases', {
-    p_status: 'open',
-  });
-  const openCasesCount = Array.isArray(openCasesData) ? openCasesData.length : 0;
-
-  // 4. Fetch Recent Transactions
-  const { data: recentTransactions } = await supabase
-    .from('transactions')
-    .select('id, type, status, reference, created_at, initiated_by')
-    .order('created_at', { ascending: false })
-    .limit(6);
-
-  // 5. Fetch Recent Audit Logs
-  const { data: recentAudits } = await supabase
-    .from('audit_logs')
-    .select('id, actor_role, action, entity, created_at')
-    .order('created_at', { ascending: false })
-    .limit(5);
-
-  const txList = recentTransactions || [];
-  const auditList = recentAudits || [];
-
-  const txColumns = [
-    {
-      key: 'type',
-      header: 'Type',
-      render: (t: any) => <span className={styles.txType}>{sentenceCase(t.type)}</span>,
-    },
-    {
-      key: 'status',
-      header: 'Status',
-      render: (t: any) => <StatusBadge status={t.status} />,
-    },
-    {
-      key: 'reference',
-      header: 'Reference',
-      render: (t: any) => <span title={t.id}>{ledgerReference(t.reference, t.id)}</span>,
-    },
-    {
-      key: 'created_at',
-      header: 'Date & time',
-      align: 'right' as const,
-      render: (t: any) => (
-        <span className={`${styles.dateTime} tabular-nums`}>
-          {new Date(t.created_at).toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-          })}
-        </span>
-      ),
-    },
-  ];
-
   return (
     <AdminShell adminEmail={user?.email} adminName={profile?.full_name}>
       <PageHeader
         title="Staff console dashboard"
-        subtitle="Real-time oversight of customer accounts, double-entry financial ledger, and administrative operations."
+        subtitle="Live operations across accounts, transactions, security, and staff activity."
       >
         <a href="/api/export/transactions">
           <Button variant="secondary" icon={<Download size={16} />}>
@@ -159,130 +43,7 @@ export default async function AdminDashboardPage() {
           </Button>
         </Link>
       </PageHeader>
-
-      {/* KPI Stats Grid */}
-      <div className={styles.statsGrid}>
-        <StatTile
-          label="Total system balance"
-          value={formatCentavosToPHP(stats.total_system_balance)}
-          subtext="Includes biller settlement accounts"
-          icon={<Wallet size={20} />}
-          iconColor="green"
-        />
-
-        <StatTile
-          label="Customers"
-          value={stats.total_users}
-          subtext={`${stats.active_users} active · ${stats.suspended_users} suspended`}
-          icon={<Users size={20} />}
-          iconColor="blue"
-        />
-
-        <StatTile
-          label="Deposit accounts"
-          value={stats.total_accounts}
-          subtext={`${stats.active_accounts} active · ${stats.frozen_accounts} frozen`}
-          icon={<CreditCard size={20} />}
-          iconColor="orange"
-        />
-
-        <StatTile
-          label="30-day volume"
-          value={formatCentavosToPHP(stats.total_volume)}
-          subtext={`${stats.recent_30d_transactions} total transactions`}
-          icon={<TrendingUp size={20} />}
-          iconColor="yellow"
-        />
-
-        <StatTile
-          label="Compensating reversals"
-          value={stats.reversed_transactions}
-          subtext="Original transactions marked reversed"
-          icon={<RotateCcw size={20} />}
-          iconColor="red"
-        />
-
-        <StatTile
-          label="Active schedules"
-          value={activeSchedulesCount ?? 0}
-          subtext="Recurring transfers & bills"
-          icon={<CalendarClock size={20} />}
-          iconColor="blue"
-        />
-
-        <StatTile
-          label="Failed runs (7 days)"
-          value={failedRuns7dCount ?? 0}
-          subtext={
-            failedRuns7dCount && failedRuns7dCount > 0
-              ? 'Requires inspection'
-              : 'All runs nominal'
-          }
-          icon={<AlertTriangle size={20} />}
-          iconColor={failedRuns7dCount && failedRuns7dCount > 0 ? 'red' : 'green'}
-        />
-
-        <StatTile
-          label="Pending requests"
-          value={pendingRequestsCount ?? 0}
-          subtext="P2P money requests awaiting action"
-          icon={<Inbox size={20} />}
-          iconColor="yellow"
-        />
-
-        <Link href="/cases">
-          <StatTile
-            label="Open cases"
-            value={openCasesCount}
-            subtext="Bantay cases awaiting staff review"
-            icon={<ShieldAlert size={20} />}
-            iconColor={openCasesCount > 0 ? 'red' : 'green'}
-          />
-        </Link>
-      </div>
-
-      {/* 2-Column Content Grid */}
-      <div className={styles.contentGrid}>
-        <div>
-          <div className={styles.sectionHeader}>
-            <h2 className={styles.sectionTitle}>Recent ledger transactions</h2>
-            <Link href="/transactions" className={styles.viewAllLink}>
-              View all <ArrowRight size={14} />
-            </Link>
-          </div>
-          <Table columns={txColumns} data={txList} keyExtractor={(t: any) => t.id} />
-        </div>
-
-        <div>
-          <div className={styles.sectionHeader}>
-            <h2 className={styles.sectionTitle}>Recent audit activity</h2>
-            <Link href="/audit" className={styles.viewAllLink}>
-              View all <ArrowRight size={14} />
-            </Link>
-          </div>
-          <Card>
-            <div className={styles.auditList}>
-              {auditList.map((item: any) => (
-                <div key={item.id} className={styles.auditItem}>
-                  <div className={styles.auditTopRow}>
-                    <span className={styles.auditAction}>{auditLabel(item.action)}</span>
-                    <span className={styles.auditTime}>
-                      {new Date(item.created_at).toLocaleTimeString('en-US', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </span>
-                  </div>
-                  <div className={styles.auditEntity}>
-                    {sentenceCase(item.actor_role || 'system')} ·{' '}
-                    {auditEntity(item.entity || 'general')}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card>
-        </div>
-      </div>
+      <OperationsDashboard />
     </AdminShell>
   );
 }

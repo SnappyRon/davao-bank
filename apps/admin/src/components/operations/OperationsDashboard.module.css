@@ -1,0 +1,564 @@
+/* Phase 8.5B operations dashboard. Tokens only from apps/admin/src/app/globals.css. */
+
+.dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
+  width: 100%;
+  min-width: 0;
+}
+
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-xl);
+  box-shadow: var(--shadow-soft);
+  min-width: 0;
+}
+
+.cardHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-base);
+}
+
+.cardTitle {
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+.cardDescription {
+  margin-top: var(--space-xs);
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+}
+
+.cardAction {
+  flex: 0 0 auto;
+}
+
+.inlineLink {
+  color: var(--color-primary);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.inlineLink:hover,
+.inlineLink:focus-visible {
+  text-decoration: underline;
+}
+
+.topGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-lg);
+}
+
+.hero {
+  grid-column: span 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-sm);
+}
+
+.heroEyebrow {
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-primary);
+}
+
+.heroLabel {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.heroValue {
+  font-size: clamp(1.75rem, 3.5vw, 2.5rem);
+  font-weight: 800;
+  line-height: 1.15;
+  color: var(--color-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.heroNote {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+.rangeCard {
+  grid-column: span 2;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.segmented {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.segment {
+  min-height: 44px;
+  padding: 0 var(--space-base);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.segment[aria-pressed='true'] {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-text-inverse);
+}
+
+.segment:focus-visible {
+  outline: 3px solid var(--color-border-focus);
+  outline-offset: 2px;
+}
+
+.customRange {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-md);
+}
+
+.fieldLabel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+}
+
+.dateInput {
+  min-height: 44px;
+  padding: 0 var(--space-sm);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+}
+
+.compareControl {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-height: 44px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+.compareControl input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--color-primary);
+}
+
+.rangeCaption {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.metricGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-lg);
+}
+
+.metricCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  min-height: 132px;
+  padding: var(--space-xl);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-soft);
+}
+
+.metricLabel {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+}
+
+.metricValue {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.metricNote {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.metricSkeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding-top: var(--space-xs);
+}
+
+.chartGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-lg);
+}
+
+.chartCard {
+  grid-column: span 2;
+  min-height: 420px;
+}
+
+.chartCanvas {
+  width: 100%;
+  min-height: 240px;
+}
+
+.dataTable {
+  width: 100%;
+  margin-top: var(--space-base);
+  border-collapse: collapse;
+  font-size: 0.75rem;
+  color: var(--color-ink);
+}
+
+.dataTable caption {
+  text-align: left;
+  padding-bottom: var(--space-xs);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+}
+
+.dataTable th,
+.dataTable td {
+  padding: var(--space-xs) var(--space-sm);
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.dataTable thead th {
+  color: var(--color-text-secondary);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.dataTable tbody th {
+  font-weight: 600;
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.stateBox {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  min-height: 160px;
+  padding: var(--space-lg);
+  text-align: center;
+  color: var(--color-text-secondary);
+  font-size: 0.8125rem;
+  background: var(--color-surface-subtle);
+  border-radius: var(--radius-sm);
+}
+
+.stateIcon {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.lineSkeleton,
+.barsSkeleton {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-sm);
+  min-height: 160px;
+  padding: var(--space-base) 0;
+}
+
+.lineSkeleton {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+}
+
+.skeletonLine {
+  width: 100%;
+  height: 90px;
+  margin-top: var(--space-sm);
+}
+
+.skeletonLine polyline {
+  fill: none;
+  stroke: var(--color-border-strong);
+  stroke-width: 3;
+  stroke-dasharray: 6 6;
+}
+
+.ringSkeleton {
+  width: 156px;
+  height: 156px;
+  margin: 0 auto;
+  border: 18px solid var(--color-surface-subtle);
+  border-top-color: var(--color-border-strong);
+  border-radius: 50%;
+  animation: spin 1.2s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.bottomGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-lg);
+}
+
+.feedCard {
+  grid-column: span 2;
+  min-height: 420px;
+}
+
+.feedStatus {
+  margin-bottom: var(--space-sm);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.feedList {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.feedRow,
+.feedSkeleton {
+  display: grid;
+  grid-template-columns: 56px 66px minmax(0, 1fr) 74px 90px;
+  align-items: center;
+  gap: var(--space-sm);
+  min-height: 44px;
+  padding: var(--space-sm) 0;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 0.75rem;
+}
+
+.feedSkeleton {
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(
+    90deg,
+    var(--color-surface-subtle),
+    var(--color-canvas),
+    var(--color-surface-subtle)
+  );
+  background-size: 200% 100%;
+  height: 44px;
+  animation: shimmer 1.2s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.newRow {
+  animation: slideIn 200ms ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.feedTime {
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.feedDirection {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 700;
+}
+
+.incoming {
+  color: var(--color-blue-text);
+}
+
+.outgoing {
+  color: var(--color-red-text);
+}
+
+.feedMeta {
+  color: var(--color-ink);
+  overflow-wrap: anywhere;
+}
+
+.feedAccount {
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  white-space: nowrap;
+}
+
+.feedAmount {
+  text-align: right;
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+.panelCard {
+  grid-column: span 2;
+  min-height: 420px;
+}
+
+.securityGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-md);
+}
+
+.securityTile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-base);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-subtle);
+}
+
+.securityLabel {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+}
+
+.securityValue {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+.securityNote {
+  font-size: 0.6875rem;
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.activitySkeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.activitySkeletonRow {
+  height: 28px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(
+    90deg,
+    var(--color-surface-subtle),
+    var(--color-canvas),
+    var(--color-surface-subtle)
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.2s ease-in-out infinite;
+}
+
+.footerNote {
+  display: flex;
+  justify-content: flex-end;
+}
+
+@media (max-width: 1023px) {
+  .topGrid,
+  .metricGrid,
+  .chartGrid,
+  .bottomGrid,
+  .customRange,
+  .securityGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .hero,
+  .rangeCard,
+  .chartCard,
+  .feedCard,
+  .panelCard {
+    grid-column: span 1;
+  }
+
+  .feedRow,
+  .feedSkeleton {
+    grid-template-columns: 52px 60px minmax(0, 1fr) 84px;
+  }
+
+  .feedAccount {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .newRow,
+  .ringSkeleton,
+  .feedSkeleton,
+  .activitySkeletonRow {
+    animation: none !important;
+  }
+}
