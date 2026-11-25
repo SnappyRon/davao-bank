@@ -29,6 +29,7 @@ export function AdminNav({ adminEmail, adminName }: AdminNavProps) {
     { label: 'Transactions', href: '/transactions' },
     { label: 'Schedules', href: '/schedules' },
     { label: 'Billers', href: '/billers' },
+    { label: 'Security cases', href: '/cases' },
     { label: 'Audit log', href: '/audit' },
   ];
 
