@@ -16,6 +16,7 @@ import { TextField } from '../../components/TextField';
 import { AmountInput } from '../../components/AmountInput';
 import { Badge } from '../../components/Badge';
 import { Pressable } from '../../components/Pressable';
+import { formatAccountLabel } from '../../components/AccountPickerSheet';
 
 interface MyQRTabProps {
   accounts: AccountBalance[];
@@ -73,7 +74,7 @@ export function MyQRTab({
                   color={selectedAccountIndex === index ? colors.textInverse : colors.ink}
                   style={{ fontFamily: typography.fonts.bold }}
                 >
-                  {acc.type.toUpperCase()} ({acc.account_number.slice(-4)})
+                  {formatAccountLabel(acc)}
                 </Text>
               </Pressable>
             ))}
@@ -148,12 +149,12 @@ export function MyQRTab({
       {showOptions && (
         <View style={styles.optionsForm}>
           <AmountInput
-            label="Requested Amount (Optional)"
+            label="Requested amount (optional)"
             value={customAmountStr}
             onChangeText={setCustomAmountStr}
           />
           <TextField
-            label="Payment Note (Optional)"
+            label="Payment note (optional)"
             value={customNote}
             onChangeText={setCustomNote}
             placeholder="e.g. Lunch split, Fruit box"

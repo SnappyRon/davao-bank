@@ -172,7 +172,7 @@ export function QRHubScreen() {
         Boolean(reqPayerAccount || reqAmountStr || reqNote)
       }
       isProcessing={reqLoading}
-      title="Davao Bank QR & Request"
+      title="Davao Bank QR & request"
     >
       <AccountLoadStatus
         loading={accountsLoading}
@@ -293,6 +293,11 @@ export function QRHubScreen() {
                   <ResultView
                     outcome="request_sent"
                     title="Request sent"
+                    subtitle={
+                      reqPayerAccount
+                        ? `We'll notify you in Inbox when •• ${reqPayerAccount.slice(-4)} pays or declines.`
+                        : undefined
+                    }
                     amountCentavos={requestResult?.amount}
                     hideBalance={hideBalance}
                     details={requestResult ? resultRows(requestResult) : []}

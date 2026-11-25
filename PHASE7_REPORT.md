@@ -1314,3 +1314,173 @@ npm run format:check: exit 1; [warn] ONBOARDING.md only (untracked, untouched)
 ```
 
 Unit tests cover four icons/titles/haptics, receipt sharing and masking, missing values, structured rejection versus transport/step-up errors, every listed success flow with returned values, pending/failed/successful balance reload and hide-balance. **NOT VERIFIED — requires device and owner:** live money and step-up flows, VoiceOver announcements, haptic output, sharing destination/cache cleanup on real devices, and Reduce Motion device behavior. No animation is used.
+
+---
+
+## Stage 7B.7 — Wording
+
+Stage 7B.7 enforces sentence case, design system tone, and clean user-facing copy across `apps/mobile` per Section `### 7. Wording` (~lines 411–445 of `Phase-7-Prompt-UI-UX-and-Motion.md`).
+
+### 1. Implemented Changes
+
+- **Wording Table Replacements:**
+  - **Login:** Subtitle `"Sign in to your Davao Bank demo account."`; form labels `"Email"`, `"Sign in"`, `"Create one"`.
+  - **Sign up:** Subtitle `"Join Davao Bank to receive a simulated demo account."`; labels `"Full legal name"`, `"Mobile number (optional)"`, `"Email"`, `"Confirm password"`; submit button `"Create account"`; disclaimer `"Simulated prototype · Academic use only"`.
+  - **Home:** Card eyebrow `"AVAILABLE BALANCE"`; action tiles `"Pay bills"`, `"Add money"`, `"Cash out"`, `"Schedule"`; section headers `"Recent activity"`, `"Coming up"`.
+  - **FX:** Card and hero `"Reference rate · Oct 26"`, `"Reference rate date: Oct 26"`, fallback `"No rate data available"`. Screen title `"FX reference rates"`.
+  - **Transactions & Activity:** Titles `"Sent to •• 7943"`, `"Received from •• 8921"`, `"Bank credit"`, `"Bill payment · Apo Fiber"`. Empty states `"No activity yet. Money you send, receive and pay will show here."`, `"No bill payments yet."`. Removed `.toLocaleUpperCase()` in section headers.
+  - **Receipt:** Labels `"Date & time"`, `"To"`, `"Note"`, `"Reference no."`.
+  - **Screen Titles & Step Indicators:** `"Send money"`, `"Add money"`, `"Cash out"`, `"Pay bills"` (with `"Step n of m"`).
+  - **Amount & Notes:** Amount label `"Amount"`. Note label `"Note (optional)"` with placeholder `"e.g. Rent"`; removed prefilled `"Online Top-up"` and `"ATM Withdrawal"`.
+  - **Forward Buttons:** `"Continue"`.
+  - **Review Eyebrows & Rows:** Eyebrows `"You're sending"`, `"You're adding"`, `"You're cashing out"`. Rows `"Balance after"`.
+  - **Request Result:** Subtitle added to `ResultView`: `"Request sent. We'll notify you in Inbox when •• <masked> pays or declines."`.
+  - **Auth Cancelled Copy:** Cancel messages in Transfer and Pay bills unified to `"Not authorized. Nothing was sent."`.
+  - **Inbox:** Notification titles `"Money sent"`, `"Transfer reversed"`, `"Bank credit"`, `"Account update"`. Empty state `"You're all caught up"`.
+  - **Profile:** Biometric fallback `"Set up Face ID or fingerprint in your phone's settings first."`. Sign-out prompt `"Sign out · Sign out of Davao Bank?"`.
+  - **Verify Email:** `"Tap the link in the email, then come back and tap "I've verified"."`.
+  - **Suspended Account:** Title `"Account on hold"`, status badge `"On hold"`, body `"Your account is on hold. You can't send or receive money until our team reviews it."`, buttons `"Check status again"`, `"Sign out"`.
+  - **About:** Title `"About Davao Bank"`, `"Version 1.0.0"`, card titles `"Simulated prototype"`, `"Brand & license"`.
+  - **Scheduled Payments:** Screen title `"Schedule details"` / `"Scheduled payments"`. Section labels `"Next execution"`, `"Runs completed"`, `"End date"`, `"Execution history"`. Status mapped to sentence case (`"Active"`, `"Completed"`, `"Cancelled"`). Reference no. formatted with `formatReferenceId(run.transaction_id)` (no raw UUIDs). Cancel button `"Cancel schedule"`.
+  - **Export Statement:** Title `"Account statement"`, account chips formatted with `formatAccountLabel(acc)`, buttons `"Download PDF statement"`, `"Export CSV spreadsheet"`.
+  - **Personal Details:** Title `"Personal details"`, labels `"Full name"`, `"Phone number"`, `"Email (read-only)"`, button `"Save changes"`.
+
+- **Load-Only Offline Error Copy:**
+  - Extended `toUserMessage` in `packages/shared/src/utils/errors.ts` with context support (`'load' | 'money'`).
+  - When `context === 'load'`, network failures return `"You appear to be offline."` (omitting `"Nothing was sent."`), and generic fallbacks return `"Something went wrong. Try again."`.
+  - Updated all read/load screens (`ActivityScreen`, `ExportStatementScreen`, `FXRatesScreen`, `HomeScreen`, `InboxScreen`, `PersonalDetailsScreen`, `ReceiptScreen`, `ScheduledPaymentsScreen`) to pass `'load'` context.
+  - Added unit test coverage in `packages/shared/src/__tests__/errors_and_labels.test.ts`.
+
+- **Money Flows Sanitization:**
+  - Eliminated all exclamation marks, raw internal IDs/UUIDs, and regex strings in money flows.
+
+---
+
+### 2. Money & Step-Up Handlers Comparison
+
+All RPC names, RPC payload structures, idempotency keys, error mapping logic, guards, and retryStepUp implementations remain **byte-identical** to base (`af8b3aa`). Only captain-approved strings (sentence-case dialog titles, masked account numbers `•• 1234`, cancel message) were modified.
+
+```diff
+--- TransferScreen.tsx: confirmBiometricPayment & cancel message
+@@ -289,20 +289,18 @@
+     const bioMessage =
+       timing === 'now'
+-        ? `Confirm transfer of ${formatCentavosToPHP(centavos)} to account ${recipientAccountNumber}`
+-        : `Confirm scheduling transfer of ${formatCentavosToPHP(centavos)} to account ${recipientAccountNumber}`;
++        ? `Confirm transfer of ${formatCentavosToPHP(centavos)} to account •• ${recipientAccountNumber.slice(-4)}`
++        : `Confirm scheduling transfer of ${formatCentavosToPHP(centavos)} to account •• ${recipientAccountNumber.slice(-4)}`;
+
+     const bioResult = await confirmBiometricPayment({
+-      title: timing === 'now' ? 'Authorize Transfer' : 'Authorize Scheduled Transfer',
++      title: timing === 'now' ? 'Authorize transfer' : 'Authorize scheduled transfer',
+       message: bioMessage,
+     });
+
+     if (!bioResult.success) {
+       setLoading(false);
+       if (bioResult.cancelled) {
+-        setErrorMessage(
+-          'Transfer authorization was cancelled. You can retry whenever ready.'
+-        );
++        setErrorMessage('Not authorized. Nothing was sent.');
+       } else {
+         setErrorMessage(bioResult.error || 'Transfer authorization failed.');
+       }
+
+--- PayBillsScreen.tsx: confirmBiometricPayment & cancel message
+@@ -197,7 +197,7 @@
+     // Biometric / Password verification before moving money (§Fix 6)
+     const authenticated = await confirmBiometricPayment({
+-      title: timing === 'now' ? 'Authorize Bill Payment' : 'Authorize Scheduled Bill',
++      title: timing === 'now' ? 'Authorize bill payment' : 'Authorize scheduled bill',
+       message:
+         timing === 'now'
+           ? `Confirm payment of ${formatCentavosToPHP(centavos)} to ${selectedBiller.name}`
+@@ -207,9 +207,7 @@
+     if (!authenticated.success) {
+       setLoading(false);
+       if (authenticated.cancelled) {
+-        setErrorMessage(
+-          'Payment authorization was cancelled. You can retry whenever ready.'
+-        );
++        setErrorMessage('Not authorized. Nothing was sent.');
+       } else {
+         setErrorMessage(authenticated.error || 'Payment authorization failed.');
+       }
+
+--- CashOutScreen.tsx: confirmBiometricPayment
+@@ -112,8 +112,8 @@
+     // 1. Biometric / Password confirmation
+     const bioResult = await confirmBiometricPayment({
+-      title: 'Authorize Cash-Out',
+-      message: `Confirm cash-out of ${formatCentavosToPHP(centavos)} from account ${selectedAccount.account_number}`,
++      title: 'Authorize cash out',
++      message: `Confirm cash-out of ${formatCentavosToPHP(centavos)} from account •• ${selectedAccount.account_number.slice(-4)}`,
+     });
+
+--- PaymentRequestsScreen.tsx: confirmBiometricPayment
+@@ -177,7 +177,7 @@
+     // Biometric / Password authorization gate (§Fix 6)
+     const authenticated = await confirmBiometricPayment({
+-      title: 'Authorize Payment Request',
++      title: 'Authorize payment request',
+       // Never show the requester's account UUID; accounts are written "Savings •• 8921".
+       message: `Confirm payment of ${formatCentavosToPHP(req.amount)} from ${formatAccountLabel(sourceAcc)} for this request`,
+     });
+
+--- ScheduledPaymentsScreen.tsx: cancel confirmBiometricPayment
+@@ -109,7 +109,7 @@
+       destructive: true,
+       onConfirm: async () => {
+         const authRes = await confirmBiometricPayment({
+-          title: 'Cancel Scheduled Payment',
++          title: 'Cancel scheduled payment',
+           requireTotp: false,
+           message: 'Confirm your identity to cancel this recurring payment schedule.',
+         });
+```
+
+All other money handlers (`executeServerTransfer`, `executeScheduledTransfer`, `executeDeposit`, `executeServerWithdraw`, `pay_bill`, `cancel_scheduled_payment`, `pay_payment_request`) are **BYTE-IDENTICAL**.
+
+---
+
+### 3. Checks
+
+```text
+npm run typecheck:
+> davao-bank@0.1.0 typecheck
+> npm run typecheck --workspaces --if-present
+> admin@0.1.0 typecheck
+> tsc --noEmit
+> mobile@1.0.0 typecheck
+> tsc --noEmit
+> @davao-bank/shared@0.1.0 typecheck
+> tsc --noEmit
+exit 0
+
+npm run lint:
+> davao-bank@0.1.0 lint
+> eslint .
+✖ 63 problems (0 errors, 63 warnings)
+exit 0
+
+npm run format:check:
+[warn] ONBOARDING.md
+[warn] Code style issues found in the above file. Run Prettier with --write to fix.
+exit 1 (ONBOARDING.md untracked/untouched per prompt instructions)
+
+npm run test:unit:
+Test Suites: 38 passed, 38 total
+Tests:       335 passed, 335 total
+Snapshots:   0 total
+Time:        21.934 s
+exit 0
+```
+
+---
+
+### 4. Not Verified
+
+- Physical iOS and Android devices, physical VoiceOver / TalkBack announcements.
+- Live database money flows (transfers, bill payments, cash out) against hosted Supabase.
+- Actual biometrics / Face ID hardware prompts (simulated via in-window prompts during tests).

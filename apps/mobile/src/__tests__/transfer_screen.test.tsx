@@ -352,10 +352,10 @@ describe('TransferScreen - F1 State & Receipt Guarantees', () => {
       fireEvent.press(screen.getByRole('button', { name: 'Send ₱500.00' }));
     });
     expect(screen.getByRole('button', { name: 'Sending…' })).toBeTruthy();
-    // Authorize before money moves, with the unchanged prompt.
+    // Authorize before money moves, with the sentence-case prompt and masked account.
     expect(mockConfirmBiometricPayment).toHaveBeenCalledWith({
-      title: 'Authorize Transfer',
-      message: 'Confirm transfer of ₱500.00 to account 1099999999',
+      title: 'Authorize transfer',
+      message: 'Confirm transfer of ₱500.00 to account •• 9999',
     });
     expect(mockConfirmBiometricPayment.mock.invocationCallOrder[0]).toBeLessThan(
       jest.mocked(executeTransfer).mock.invocationCallOrder[0]

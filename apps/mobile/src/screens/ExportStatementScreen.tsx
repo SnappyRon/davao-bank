@@ -25,6 +25,7 @@ import {
   TextField,
   AmountText,
   useToast,
+  formatAccountLabel,
 } from '../components';
 
 type PeriodOption = 'this_month' | 'last_month' | 'last_3_months' | 'custom';
@@ -74,7 +75,7 @@ export function ExportStatementScreen() {
       const { data, error: accErr } = await fetchAccountBalances(supabase);
       if (!mountedRef.current) return;
       if (accErr) {
-        setAccountError(toUserMessage(accErr));
+        setAccountError(toUserMessage(accErr, 'load'));
       } else if (data && data.length > 0) {
         setAccounts(data);
         setSelectedAccountId(data[0].account_id);
@@ -83,7 +84,7 @@ export function ExportStatementScreen() {
       }
     } catch (err: unknown) {
       if (mountedRef.current) {
-        setAccountError(toUserMessage(err));
+        setAccountError(toUserMessage(err, 'load'));
       }
     } finally {
       if (mountedRef.current) {
@@ -350,7 +351,7 @@ export function ExportStatementScreen() {
 
   return (
     <FeatureScreen
-      title="Account Statement"
+      title="Account statement"
       isProcessing={loadingPdf || loadingCsv}
       contentContainerStyle={styles.container}
     >
@@ -391,18 +392,15 @@ export function ExportStatementScreen() {
           {accounts.length > 1 && (
             <View style={styles.section}>
               <Text variant="label" color={colors.ink} style={styles.sectionTitle}>
-                Select Account
+                Select account
               </Text>
               <View style={styles.accountRow}>
                 {accounts.map((acc) => {
                   const isSelected = acc.account_id === selectedAccount?.account_id;
-                  const capitalizedType = acc.type
-                    ? acc.type.charAt(0).toUpperCase() + acc.type.slice(1)
-                    : 'Account';
                   return (
                     <Chip
                       key={acc.account_id}
-                      label={`${capitalizedType} •• ${acc.account_number.slice(-4)}`}
+                      label={formatAccountLabel(acc)}
                       selected={isSelected}
                       onPress={() => setSelectedAccountId(acc.account_id)}
                     />
@@ -415,26 +413,26 @@ export function ExportStatementScreen() {
           {/* Period Selector */}
           <View style={styles.section}>
             <Text variant="label" color={colors.ink} style={styles.sectionTitle}>
-              Statement Period
+              Statement period
             </Text>
             <View style={styles.chipGrid}>
               <Chip
-                label="This Month"
+                label="This month"
                 selected={period === 'this_month'}
                 onPress={() => setPeriod('this_month')}
               />
               <Chip
-                label="Last Month"
+                label="Last month"
                 selected={period === 'last_month'}
                 onPress={() => setPeriod('last_month')}
               />
               <Chip
-                label="Last 3 Months"
+                label="Last 3 months"
                 selected={period === 'last_3_months'}
                 onPress={() => setPeriod('last_3_months')}
               />
               <Chip
-                label="Custom Range"
+                label="Custom range"
                 selected={period === 'custom'}
                 onPress={() => setPeriod('custom')}
               />
@@ -443,14 +441,14 @@ export function ExportStatementScreen() {
             {period === 'custom' && (
               <View style={styles.customDateContainer}>
                 <TextField
-                  label="Start Date (YYYY-MM-DD)"
+                  label="Start date (YYYY-MM-DD)"
                   placeholder="2026-01-01"
                   value={customFrom}
                   onChangeText={setCustomFrom}
                   containerStyle={styles.dateField}
                 />
                 <TextField
-                  label="End Date (YYYY-MM-DD)"
+                  label="End date (YYYY-MM-DD)"
                   placeholder="2026-03-31"
                   value={customTo}
                   onChangeText={setCustomTo}
@@ -473,7 +471,7 @@ export function ExportStatementScreen() {
               </View>
               <View style={styles.summaryRow}>
                 <Text variant="caption" color={colors.textSecondary}>
-                  Current Balance:
+                  Current balance:
                 </Text>
                 {selectedAccount.balance == null ? (
                   <Text variant="bodyStrong" color={colors.ink}>
@@ -504,7 +502,7 @@ export function ExportStatementScreen() {
           {/* Export Buttons */}
           <View style={styles.buttonGroup}>
             <Button
-              title="Download PDF Statement"
+              title="Download PDF statement"
               variant="primary"
               icon={<FileText size={18} color={colors.textInverse} />}
               onPress={handleExportPDF}
@@ -512,7 +510,7 @@ export function ExportStatementScreen() {
               disabled={loadingCsv || !selectedAccount}
             />
             <Button
-              title="Export CSV Spreadsheet"
+              title="Export CSV spreadsheet"
               variant="secondary"
               icon={<FileSpreadsheet size={18} color={colors.ink} />}
               onPress={handleExportCSV}

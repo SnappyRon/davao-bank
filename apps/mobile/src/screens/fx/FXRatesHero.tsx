@@ -130,12 +130,12 @@ export function FXRatesHero({
           <Text variant="caption" color={colors.textMuted}>
             {activePoint
               ? `Selected: ${activePoint.date}`
-              : `ECB Rate Date: ${summary.rateDate}`}
+              : `Reference rate date: ${summary.rateDate}`}
           </Text>
         </View>
       ) : (
         <EmptyState
-          title="No Rate Data Available"
+          title="No rate data available"
           description="European Central Bank reference rates could not be retrieved at this time."
           icon={<Globe size={40} color={colors.textMuted} />}
         />

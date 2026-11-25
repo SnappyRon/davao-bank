@@ -44,17 +44,17 @@ export function SuspendedScreen({
             <ShieldAlert size={36} color={colors.redText} />
           </View>
           <Text variant="h1" align="center" style={styles.title}>
-            Account Suspended
+            Account on hold
           </Text>
-          <Badge label="SUSPENDED" variant="danger" style={styles.badge} />
+          <Badge label="On hold" variant="danger" style={styles.badge} />
           <Text
             variant="body"
             color={colors.textSecondary}
             align="center"
             style={styles.description}
           >
-            Your account is suspended — contact Davao Bank for assistance. Access to money
-            operations and account features is restricted.
+            Your account is on hold. You can't send or receive money until our team
+            reviews it.
           </Text>
           <Text
             variant="bodyStrong"
@@ -81,7 +81,7 @@ export function SuspendedScreen({
         <View style={styles.actionContainer}>
           {onRefresh ? (
             <Button
-              title="Check Status Again"
+              title="Check status again"
               variant="secondary"
               icon={<RefreshCw size={18} color={colors.ink} />}
               onPress={onRefresh}
@@ -89,7 +89,7 @@ export function SuspendedScreen({
             />
           ) : null}
           <Button
-            title="Sign Out"
+            title="Sign out"
             variant="destructive"
             icon={<LogOut size={18} color={colors.textInverse} />}
             onPress={handleSignOut}

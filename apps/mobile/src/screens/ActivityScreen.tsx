@@ -146,7 +146,7 @@ export function ActivityScreen() {
       ]);
       if (loadId !== loadIdRef.current) return;
       if (txRes.error || !txRes.data) {
-        setError(toUserMessage(txRes.error ?? 'Activity could not be loaded.'));
+        setError(toUserMessage(txRes.error ?? 'Activity could not be loaded.', 'load'));
       } else {
         setError(null);
         setTransactions(txRes.data);
@@ -157,7 +157,7 @@ export function ActivityScreen() {
       if (!accRes.error && accRes.data) setAccounts(accRes.data);
     } catch (err) {
       if (loadId !== loadIdRef.current) return;
-      setError(toUserMessage(err));
+      setError(toUserMessage(err, 'load'));
     } finally {
       if (loadId === loadIdRef.current) {
         setLoading(false);
@@ -364,7 +364,7 @@ export function ActivityScreen() {
               accessibilityRole="header"
               style={styles.sectionHeaderText}
             >
-              {section.title.toLocaleUpperCase('en-US')}
+              {section.title}
             </Text>
             <GroupedList>
               {section.data.map((item, index) => (

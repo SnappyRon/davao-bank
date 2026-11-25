@@ -191,14 +191,14 @@ export function InboxScreen({ onUnreadCountChange }: InboxScreenProps) {
       const { data, error: loadError } = await fetchNotifications(supabase);
       if (loadId !== loadIdRef.current) return;
       if (loadError || !data) {
-        setError(toUserMessage(loadError ?? 'Inbox could not be loaded.'));
+        setError(toUserMessage(loadError ?? 'Inbox could not be loaded.', 'load'));
         return;
       }
       setError(null);
       setLoaded(true);
       setNotifications(data);
     } catch (err) {
-      if (loadId === loadIdRef.current) setError(toUserMessage(err));
+      if (loadId === loadIdRef.current) setError(toUserMessage(err, 'load'));
     } finally {
       if (loadId === loadIdRef.current) {
         setLoading(false);

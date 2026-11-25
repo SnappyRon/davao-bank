@@ -115,9 +115,7 @@ describe('ScheduledPaymentsScreen', () => {
 
     await render(<ScheduledPaymentsScreen />);
 
-    expect(
-      await screen.findByText('You appear to be offline. Nothing was sent.')
-    ).toBeTruthy();
+    expect(await screen.findByText('You appear to be offline.')).toBeTruthy();
 
     const tryAgainBtn = screen.getByRole('button', { name: 'Try again' });
     expect(tryAgainBtn).toBeTruthy();

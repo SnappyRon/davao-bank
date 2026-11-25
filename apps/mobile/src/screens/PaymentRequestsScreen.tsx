@@ -177,7 +177,7 @@ export function PaymentRequestsScreen() {
 
     // Biometric / Password authorization gate (§Fix 6)
     const authenticated = await confirmBiometricPayment({
-      title: 'Authorize Payment Request',
+      title: 'Authorize payment request',
       // Never show the requester's account UUID; accounts are written "Savings •• 8921".
       message: `Confirm payment of ${formatCentavosToPHP(req.amount)} from ${formatAccountLabel(sourceAcc)} for this request`,
     });

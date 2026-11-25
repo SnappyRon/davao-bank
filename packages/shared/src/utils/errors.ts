@@ -5,14 +5,44 @@ declare const __DEV__: boolean | undefined;
 export const RECEIPT_NOT_FOUND_MESSAGE =
   'Receipt unavailable. This transaction could not be found.';
 
+export type UserMessageContext = 'money' | 'load';
+
 /**
  * Maps raw backend or Supabase errors to friendly, safe, user-facing copy.
  * Never exposes raw SQL errors, stack traces, or internal database constraints.
  */
 export function toUserMessage(
   error: unknown,
-  availableBalance?: string | number
+  availableBalanceOrContext?:
+    | string
+    | number
+    | UserMessageContext
+    | { availableBalance?: string | number; context?: UserMessageContext },
+  contextArg?: UserMessageContext
 ): string {
+  let availableBalance: string | number | undefined;
+  let context: UserMessageContext = 'money';
+
+  if (availableBalanceOrContext === 'load' || availableBalanceOrContext === 'money') {
+    context = availableBalanceOrContext;
+  } else if (
+    typeof availableBalanceOrContext === 'object' &&
+    availableBalanceOrContext !== null
+  ) {
+    availableBalance = availableBalanceOrContext.availableBalance;
+    if (availableBalanceOrContext.context) {
+      context = availableBalanceOrContext.context;
+    }
+  } else if (
+    typeof availableBalanceOrContext === 'string' ||
+    typeof availableBalanceOrContext === 'number'
+  ) {
+    availableBalance = availableBalanceOrContext;
+  }
+
+  if (contextArg) {
+    context = contextArg;
+  }
   const rawMsg =
     typeof error === 'string'
       ? error
@@ -105,8 +135,12 @@ export function toUserMessage(
   }
 
   if (lower.includes('failed to fetch') || lower.includes('network request failed')) {
-    return 'You appear to be offline. Nothing was sent.';
+    return context === 'load'
+      ? 'You appear to be offline.'
+      : 'You appear to be offline. Nothing was sent.';
   }
 
-  return 'Something went wrong. No money was sent. Try again.';
+  return context === 'load'
+    ? 'Something went wrong. Try again.'
+    : 'Something went wrong. No money was sent. Try again.';
 }

@@ -159,7 +159,7 @@ export function ReceiptScreen() {
     void fetchTransactionHistory(supabase, params.accountId).then(({ data, error }) => {
       if (!active) return;
       if (error) {
-        setError(toUserMessage(error));
+        setError(toUserMessage(error, 'load'));
       } else {
         const match = data?.find((item) => item.transaction_id === params.transactionId);
         if (match) {

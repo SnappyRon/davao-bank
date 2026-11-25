@@ -7,9 +7,9 @@
 - **Active phase:** Phase 7 — UI/UX Refinement & Motion.
 - **Branch:** `phase-7-ui-motion`; admin polish merged from `phase-7-admin-polish`.
 - **Active prompt:** `Phase-7-Prompt-UI-UX-and-Motion.md`.
-- **Assigned to:** Codex completed Stage 7B.5; captain review pending.
-- **Exact next step:** captain reviews the 7B.5 commit and exact handler diffs; verify results and receipt sharing on a device with owner sign-in.
-- **Last commit:** Stage 7B.5 (this commit; parent `9270631`).
+- **Assigned to:** Frontend Developer 2 completed Stage 7B.7 (Wording); captain review pending.
+- **Exact next step:** captain reviews Stage 7B.7 commit; next agent continues with Stage 7B.8 (copy audit script).
+- **Last commit:** Stage 7B.7 (`Phase 7 · Stage 7B.7 — Wording`; parent `af8b3aa`).
 - **Blockers:** device and live money-flow verification NOT VERIFIED; admin Playwright needs owner sign-in.
 
 ## Stage 7B.0 — remaining work plan (captain, 2026-11-10)
@@ -114,9 +114,9 @@ Deferred to their planned steps (not in the fix round): receipt reference/Share/
   - [x] Roles and labels on all touchables, busy announcement.
   - [x] VoiceOver audit pass notes.
   - Device layouts, actual VoiceOver traversal, announcement timing and 1.4× text: NOT VERIFIED — requires device.
-- [ ] **7B.7 Wording**:
-  - [ ] Apply all sentence-case and wording replacements from table.
-  - [ ] No exclamation marks, no IDs, no regexes, no raw status values in money flows.
+- [x] **7B.7 Wording**:
+  - [x] Apply all sentence-case and wording replacements from table.
+  - [x] No exclamation marks, no IDs, no regexes, no raw status values in money flows.
 - [ ] **7B.8 Copy audit script**:
   - [ ] Add `scripts/check-copy.mjs` checking for `.toUpperCase()`, `'PHP '`, `!`, unformatted UUIDs; run in CI.
 - [ ] **7B.9 Notification wording** (done pending captain review + hosted apply; branch `phase-7-notifications-migration`):
@@ -248,6 +248,8 @@ Fix these before 7B:
 - **Follow-up:** add dedicated test accounts so live tests don't conflict with the presenter's real authenticator.
 
 ## Log (newest first)
+
+- **2026-11-25, Frontend Developer 2:** Stage 7B.7 Wording completed (`Phase 7 · Stage 7B.7 — Wording`). Applied sentence-case and wording replacements across screens in apps/mobile: screen titles, headers, labels, buttons, badges, placeholders, and error messages; eliminated exclamation marks, raw UUIDs, regexes, and uppercase status values in money flows. Money/step-up handler bodies (RPC payloads, idempotency keys, error mapping) remained byte-identical to base with captain-approved string replacements only (masked accounts '•• 1234', sentence-case prompt titles, cancel message 'Not authorized. Nothing was sent.'). Updated `toUserMessage` with 'load' context returning 'You appear to be offline.' on load-only screens. Checks: typecheck exit 0, lint 0 errors (63 warnings), format:check clean (untracked ONBOARDING.md excluded), unit 38 suites / 335 tests pass. Device, VoiceOver, and live money NOT VERIFIED — captain/owner to verify. Next: Stage 7B.8 (copy audit script) owned by next agent.
 
 - **2026-11-25, Codex:** resumed and completed 7B.5 after captain approved success-handler haptic removal and refreshed server account balance. ResultView now handles outcomes, server-derived rows, privacy-aware receipt share and contextual actions; money/request success flows wired, confirmed structured database rejections show Not sent, uncertain transfer remains unchanged. Updated UI-only assertions per captain direction; RPC/step-up/idempotency checks retained. Typecheck exit 0, lint 0 errors / 63 warnings, unit 38 suites / 334 tests; format check exit 1 only untracked `ONBOARDING.md`. Full handler diffs and limitations in PHASE7_REPORT.md. Device, VoiceOver, live money and sharing NOT VERIFIED — captain/owner to verify. Next: captain review this commit.
 

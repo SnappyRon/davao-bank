@@ -21,6 +21,7 @@ export interface ResultDetailRow {
 export interface ResultViewProps {
   outcome: ResultOutcome;
   title: string;
+  subtitle?: string;
   amountCentavos?: number;
   amountFormatted?: string;
   details?: ResultDetailRow[];
@@ -35,6 +36,7 @@ export interface ResultViewProps {
 export function ResultView({
   outcome,
   title,
+  subtitle,
   amountCentavos,
   amountFormatted,
   details = [],
@@ -141,6 +143,17 @@ export function ResultView({
         {title}
       </Text>
 
+      {subtitle ? (
+        <Text
+          variant="body"
+          color={colors.textSecondary}
+          align="center"
+          style={styles.subtitle}
+        >
+          {subtitle}
+        </Text>
+      ) : null}
+
       {displayAmount ? (
         <Text
           variant="amount"
@@ -224,6 +237,10 @@ const styles = StyleSheet.create({
   },
   title: {
     marginBottom: spacing.xs,
+  },
+  subtitle: {
+    marginBottom: spacing.md,
+    paddingHorizontal: spacing.base,
   },
   amount: {
     marginBottom: spacing.lg,

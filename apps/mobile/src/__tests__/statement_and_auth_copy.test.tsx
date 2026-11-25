@@ -86,7 +86,7 @@ describe('Export statement (spec 7B.4)', () => {
     });
   });
 
-  it.each([['Download PDF Statement'], ['Export CSV Spreadsheet']])(
+  it.each([['Download PDF statement'], ['Export CSV spreadsheet']])(
     '%s shows "Statement ready" before the share sheet opens',
     async (buttonName) => {
       await render(<ExportStatementScreen />);
@@ -124,7 +124,7 @@ describe('Export statement without a share sheet', () => {
     jest.mocked(Sharing.isAvailableAsync).mockResolvedValueOnce(false);
     const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     await render(<ExportStatementScreen />);
-    const button = await screen.findByRole('button', { name: 'Download PDF Statement' });
+    const button = await screen.findByRole('button', { name: 'Download PDF statement' });
     await act(async () => {
       fireEvent.press(button);
     });

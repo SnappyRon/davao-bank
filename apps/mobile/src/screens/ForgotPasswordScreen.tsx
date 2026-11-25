@@ -124,7 +124,7 @@ export function ForgotPasswordScreen({ onNavigateToLogin }: ForgotPasswordScreen
             align="center"
             style={styles.disclaimerText}
           >
-            Simulated Prototype · Academic Use Only
+            Simulated prototype · Academic use only
           </Text>
         </ScrollView>
       </KeyboardAvoidingView>

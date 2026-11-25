@@ -83,7 +83,7 @@ export function LoginScreen({
               Welcome back
             </Text>
             <Text variant="body" color={colors.textSecondary}>
-              Sign in to manage your simulated Davao Bank accounts.
+              Sign in to your Davao Bank demo account.
             </Text>
           </View>
 
@@ -98,7 +98,7 @@ export function LoginScreen({
 
           <View style={styles.form}>
             <TextField
-              label="Email Address"
+              label="Email"
               value={email}
               onChangeText={setEmail}
               placeholder="name@example.com"
@@ -130,7 +130,7 @@ export function LoginScreen({
             </Pressable>
 
             <Button
-              title="Sign In"
+              title="Sign in"
               onPress={handleLogin}
               loading={loading}
               icon={<LogIn size={18} color={colors.textInverse} />}
@@ -146,11 +146,11 @@ export function LoginScreen({
               onPress={onNavigateToSignUp}
               feedbackType="scale"
               accessibilityRole="button"
-              accessibilityLabel="Sign Up"
+              accessibilityLabel="Create one"
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
               <Text variant="bodyStrong" color={colors.primary}>
-                Sign Up
+                Create one
               </Text>
             </Pressable>
           </View>

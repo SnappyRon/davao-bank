@@ -173,8 +173,8 @@ describe('Add money and Cash out (spec 7B.4)', () => {
     });
     expect(screen.getByRole('button', { name: 'Cashing out…' })).toBeTruthy();
     expect(mockConfirmBiometricPayment).toHaveBeenCalledWith({
-      title: 'Authorize Cash-Out',
-      message: 'Confirm cash-out of ₱500.00 from account 1087654321',
+      title: 'Authorize cash out',
+      message: 'Confirm cash-out of ₱500.00 from account •• 4321',
     });
     expect(jest.mocked(executeWithdraw).mock.calls[0][1]).toEqual({
       account: 'acc-c',

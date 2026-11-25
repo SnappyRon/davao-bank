@@ -1,6 +1,6 @@
 'use client';
 
-import { sentenceCase } from '@/lib/dashboardDisplay';
+import { sentenceCase, formatReferenceId } from '@/lib/dashboardDisplay';
 
 import React from 'react';
 import { Ban, CheckCircle2, XCircle } from 'lucide-react';
@@ -131,7 +131,7 @@ export function ScheduleRunsDrawer({
                     <div>
                       <div className={styles.runDate}>Run Date: {run.run_date}</div>
                       {run.transaction_id ? (
-                        <div className={styles.runTx}>Tx: {run.transaction_id}</div>
+                        <div className={styles.runTx}>Tx: {formatReferenceId(run.transaction_id)}</div>
                       ) : null}
                       {run.failure_reason ? (
                         <div className={styles.runFailReason}>

@@ -7,6 +7,7 @@ import { Eye, RotateCcw } from 'lucide-react';
 import {
   formatCentavosToPHP,
   generateIdempotencyKey,
+  formatReferenceId,
   type TransactionType,
   type TransactionStatus,
 } from '@davao-bank/shared';
@@ -209,7 +210,7 @@ export function TransactionsClient({
       key: 'id',
       header: 'Request ID',
       render: (r: AdminPaymentRequestRow) => (
-        <span className={styles.monoText}>{r.id.slice(0, 8)}...</span>
+        <span className={styles.monoText}>{formatReferenceId(r.id)}...</span>
       ),
     },
     {
@@ -443,7 +444,7 @@ export function TransactionsClient({
           onClose={closeReversalModal}
           onConfirm={handleConfirmReversal}
           title="Reverse Financial Transaction"
-          description={`Are you sure you want to reverse transfer ${reversalTx.id}?`}
+          description={`Are you sure you want to reverse transfer ${formatReferenceId(reversalTx.id)}?`}
           ledgerEffect={`Generates atomic balanced compensating entries for ${formatCentavosToPHP(reversalTx.amount)}, restoring original balances.`}
           variant="destructive"
           confirmText="Execute Reversal"

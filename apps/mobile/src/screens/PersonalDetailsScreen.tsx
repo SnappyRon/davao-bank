@@ -49,11 +49,11 @@ export function PersonalDetailsScreen() {
       } = await supabase.auth.getUser();
 
       if (userErr) {
-        setLoadError(toUserMessage(userErr));
+        setLoadError(toUserMessage(userErr, 'load'));
         return;
       }
       if (!user) {
-        setLoadError(toUserMessage('Not authenticated'));
+        setLoadError(toUserMessage('Not authenticated', 'load'));
         return;
       }
 
@@ -61,7 +61,7 @@ export function PersonalDetailsScreen() {
       const { data, error: profileErr } = await fetchUserProfile(supabase, user.id);
 
       if (profileErr) {
-        setLoadError(toUserMessage(profileErr));
+        setLoadError(toUserMessage(profileErr, 'load'));
         return;
       }
 
@@ -75,7 +75,7 @@ export function PersonalDetailsScreen() {
         setInitialPhoneNumber(ph);
       }
     } catch (err: unknown) {
-      setLoadError(toUserMessage(err));
+      setLoadError(toUserMessage(err, 'load'));
     } finally {
       setLoading(false);
     }
@@ -113,7 +113,7 @@ export function PersonalDetailsScreen() {
         .single();
 
       if (error) {
-        setErrorMsg(toUserMessage(error));
+        setErrorMsg(toUserMessage(error, 'load'));
         setSaving(false);
       } else if (data) {
         const trimmedName = data.full_name ? data.full_name.trim() : '';
@@ -130,14 +130,14 @@ export function PersonalDetailsScreen() {
         }, 1200);
       }
     } catch (err: unknown) {
-      setErrorMsg(toUserMessage(err));
+      setErrorMsg(toUserMessage(err, 'load'));
       setSaving(false);
     }
   };
 
   return (
     <FeatureScreen
-      title="Personal Details"
+      title="Personal details"
       isDirty={isDirty}
       isProcessing={saving}
       contentContainerStyle={styles.container}
@@ -167,7 +167,7 @@ export function PersonalDetailsScreen() {
       ) : (
         <>
           <TextField
-            label="Full Name"
+            label="Full name"
             value={fullName}
             onChangeText={setFullName}
             placeholder="e.g. Maria Santos"
@@ -175,7 +175,7 @@ export function PersonalDetailsScreen() {
           />
 
           <TextField
-            label="Phone Number"
+            label="Phone number"
             value={phoneNumber}
             onChangeText={setPhoneNumber}
             placeholder="e.g. +63 917 123 4567"
@@ -188,7 +188,7 @@ export function PersonalDetailsScreen() {
               color={colors.textSecondary}
               style={styles.readOnlyLabel}
             >
-              Email Address (Read-only)
+              Email (read-only)
             </Text>
             <View style={styles.readOnlyInput}>
               <Mail size={18} color={colors.textMuted} style={styles.readOnlyIcon} />
@@ -218,7 +218,7 @@ export function PersonalDetailsScreen() {
 
           <View style={styles.buttonRow}>
             <Button
-              title="Save Changes"
+              title="Save changes"
               onPress={handleSave}
               loading={saving}
               disabled={!profile || saving || saved}

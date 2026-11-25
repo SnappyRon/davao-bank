@@ -114,12 +114,13 @@ export function HomeScreen({
       try {
         const { data, error } = await supabase.auth.getUser();
         if (error || !data?.user) {
-          if (isCurrent()) setAccountsError(toUserMessage(error ?? 'Not authenticated'));
+          if (isCurrent())
+            setAccountsError(toUserMessage(error ?? 'Not authenticated', 'load'));
           return;
         }
         userId = data.user.id;
       } catch (err) {
-        if (isCurrent()) setAccountsError(toUserMessage(err));
+        if (isCurrent()) setAccountsError(toUserMessage(err, 'load'));
         return;
       }
 
@@ -133,13 +134,13 @@ export function HomeScreen({
 
         if (profileRes.data) setProfile(profileRes.data);
         if (accountsRes.error || !accountsRes.data) {
-          setAccountsError(toUserMessage(accountsRes.error));
+          setAccountsError(toUserMessage(accountsRes.error, 'load'));
         } else {
           setAccounts(sortAccounts(accountsRes.data));
           setAccountsError(null);
         }
         if (txRes.error || !txRes.data) {
-          setTransactionsError(toUserMessage(txRes.error));
+          setTransactionsError(toUserMessage(txRes.error, 'load'));
         } else {
           setTransactions(txRes.data);
           setTransactionsError(null);
@@ -147,8 +148,8 @@ export function HomeScreen({
       } catch (err) {
         if (!isCurrent()) return;
         console.warn('Error loading Home balances:', err);
-        setAccountsError(toUserMessage(err));
-        setTransactionsError(toUserMessage(err));
+        setAccountsError(toUserMessage(err, 'load'));
+        setTransactionsError(toUserMessage(err, 'load'));
         return;
       }
 

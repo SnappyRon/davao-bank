@@ -8,6 +8,7 @@ import {
   spacing,
   radius,
   formatCentavosToPHP,
+  formatReferenceId,
   toUserMessage,
   type ScheduledPayment,
   type ScheduledPaymentRun,
@@ -54,14 +55,14 @@ export function ScheduledPaymentsScreen() {
 
       if (!mountedRef.current) return;
       if (error) {
-        setLoadError(toUserMessage(error));
+        setLoadError(toUserMessage(error, 'load'));
         setSchedules([]);
       } else if (data) {
         setSchedules(data as ScheduledPayment[]);
       }
     } catch (err: unknown) {
       if (mountedRef.current) {
-        setLoadError(toUserMessage(err));
+        setLoadError(toUserMessage(err, 'load'));
         setSchedules([]);
       }
     } finally {
@@ -109,7 +110,7 @@ export function ScheduledPaymentsScreen() {
       destructive: true,
       onConfirm: async () => {
         const authRes = await confirmBiometricPayment({
-          title: 'Cancel Scheduled Payment',
+          title: 'Cancel scheduled payment',
           requireTotp: false,
           message: 'Confirm your identity to cancel this recurring payment schedule.',
         });
@@ -139,7 +140,7 @@ export function ScheduledPaymentsScreen() {
   };
   return (
     <FeatureScreen
-      title={selectedSchedule ? 'Schedule Details' : 'Scheduled Payments'}
+      title={selectedSchedule ? 'Schedule details' : 'Scheduled payments'}
       isProcessing={actionLoading}
       step={selectedSchedule ? 2 : 1}
       onPrevStep={() => setSelectedSchedule(null)}
@@ -192,7 +193,15 @@ export function ScheduledPaymentsScreen() {
                         ? 'neutral'
                         : 'danger'
                   }
-                  label={selectedSchedule.status.toUpperCase()}
+                  label={
+                    selectedSchedule.status === 'active'
+                      ? 'Active'
+                      : selectedSchedule.status === 'completed'
+                        ? 'Completed'
+                        : selectedSchedule.status === 'cancelled'
+                          ? 'Cancelled'
+                          : selectedSchedule.status
+                  }
                 />
               </View>
 
@@ -201,7 +210,7 @@ export function ScheduledPaymentsScreen() {
                   Type
                 </Text>
                 <Text variant="bodyStrong">
-                  {selectedSchedule.kind === 'bill' ? 'Bill Payment' : 'Funds Transfer'}
+                  {selectedSchedule.kind === 'bill' ? 'Bill payment' : 'Funds transfer'}
                 </Text>
               </View>
 
@@ -224,7 +233,7 @@ export function ScheduledPaymentsScreen() {
                       Biller
                     </Text>
                     <Text variant="bodyStrong">
-                      {selectedSchedule.biller_name || 'Bill Payment'}
+                      {selectedSchedule.biller_name || 'Bill payment'}
                     </Text>
                   </View>
                   {selectedSchedule.biller_reference ? (
@@ -251,14 +260,14 @@ export function ScheduledPaymentsScreen() {
 
               <View style={styles.row}>
                 <Text variant="body" color="textSecondary">
-                  Next Execution
+                  Next execution
                 </Text>
                 <Text variant="bodyStrong">{selectedSchedule.next_run_date}</Text>
               </View>
 
               <View style={styles.row}>
                 <Text variant="body" color="textSecondary">
-                  Runs Completed
+                  Runs completed
                 </Text>
                 <Text variant="bodyStrong">
                   {selectedSchedule.runs_done}
@@ -269,7 +278,7 @@ export function ScheduledPaymentsScreen() {
               {selectedSchedule.end_date && (
                 <View style={styles.row}>
                   <Text variant="body" color="textSecondary">
-                    End Date
+                    End date
                   </Text>
                   <Text variant="bodyStrong">{selectedSchedule.end_date}</Text>
                 </View>
@@ -288,7 +297,7 @@ export function ScheduledPaymentsScreen() {
             {/* Run History List */}
             <View style={styles.runsSection}>
               <Text variant="label" style={styles.sectionTitle}>
-                Execution History
+                Execution history
               </Text>
 
               {runs.map((run) => (
@@ -312,7 +321,7 @@ export function ScheduledPaymentsScreen() {
                     )}
                     {run.transaction_id && (
                       <Text variant="caption" color="textMuted">
-                        Ref: {run.transaction_id.slice(0, 8)}...
+                        Reference no. {formatReferenceId(run.transaction_id)}
                       </Text>
                     )}
                   </View>
@@ -328,7 +337,7 @@ export function ScheduledPaymentsScreen() {
 
             {selectedSchedule.status === 'active' && (
               <Button
-                title="Cancel Schedule"
+                title="Cancel schedule"
                 variant="destructive"
                 onPress={handleCancelSchedule}
                 loading={actionLoading}

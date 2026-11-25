@@ -61,7 +61,7 @@ export function FXRatesScreen() {
         console.warn('Failed to load fx rates from Supabase:', error.message);
         setAllRates([]);
         setIsCachedData(false);
-        setLoadError(toUserMessage(error));
+        setLoadError(toUserMessage(error, 'load'));
       } else if (data && data.length > 0) {
         setAllRates(data as FXRate[]);
         setIsCachedData(false);
@@ -76,7 +76,7 @@ export function FXRatesScreen() {
       console.warn('Error fetching FX rates:', err);
       setAllRates([]);
       setIsCachedData(false);
-      setLoadError(toUserMessage(err));
+      setLoadError(toUserMessage(err, 'load'));
     } finally {
       if (requestIdRef.current === currentRequestId) {
         setLoading(false);
@@ -147,7 +147,7 @@ export function FXRatesScreen() {
 
   return (
     <FeatureScreen
-      title="FX Reference Rates"
+      title="FX reference rates"
       contentContainerStyle={styles.scrollContent}
     >
       {/* Disclaimer Banner (§E.2) */}
