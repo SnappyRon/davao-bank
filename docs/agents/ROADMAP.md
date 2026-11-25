@@ -2,7 +2,7 @@
 
 > The single plan for what is built, in what order, and by whom. `STATUS.md` tracks day-to-day progress; this file tracks phases, dependencies and agent assignments. Updated by the captain only.
 >
-> **State: plan approved by the owner (D11, D12, D13, 2026-11-25). D14–D16 still open.** Phase 8D–8F started 2026-11-25; the Gemini call in 8E also waits for D14; Phase 9.5 waits for Phase 9 and D16.
+> **State: plan approved by the owner (D11–D14, 2026-11-25). D15–D16 still open.** Phase 8D–8F started 2026-11-25; `GEMINI_API_KEY` is set as a hosted Supabase secret (owner, verified by name only); Phase 9.5 waits for Phase 9 and D16.
 
 ## 1. Where we are (verified against git, 2026-11-25)
 
@@ -44,7 +44,7 @@
 | D11 | Approve the Bantay AI and crypto recommendation (this file + the two prompts)                                                                                                                      | **Approved 2026-11-25**                                                                                                                  |
 | D12 | Allow one more guard line in `_transfer_core` (risk check, next to the 8A daily-limit guard) and a lock guard in `withdraw` and `create_scheduled_payment` / `create_scheduled_transfer_to_number` | **Approved 2026-11-25**                                                                                                                  |
 | D13 | Distribution: TestFlight / internal builds vs Expo Go                                                                                                                                              | **Decided 2026-11-25: Expo Go** — no push (D8), no Face ID on iOS in Expo Go (falls back to passcode/password), demo needs Metro running |
-| D14 | Owner creates a Gemini API key in Google AI Studio and stores it as a Supabase secret (`GEMINI_API_KEY`). Free tier, masked data only                                                              | Approve; owner does it, agents never see the key                                                                                         |
+| D14 | Owner creates a Gemini API key in Google AI Studio and stores it as a Supabase secret (`GEMINI_API_KEY`). Free tier, masked data only                                                              | **Done 2026-11-25** (secret name verified with `supabase secrets list`; value never read)                                                |
 | D15 | Hosted auth config: `jwt_expiry` 3600 → 900 s, so a revoked session dies within 15 min                                                                                                             | Approve; owner applies                                                                                                                   |
 | D16 | Phase 9.5 only: new Edge Function dependency `@solana/web3.js` (exact pin, imported with `npm:` in the Deno function; not in the mobile app) + a devnet keypair in Supabase Vault                  | Decide at the start of 9.5, not now                                                                                                      |
 
