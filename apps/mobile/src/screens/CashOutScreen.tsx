@@ -15,10 +15,10 @@ import {
   generateIdempotencyKey,
   executeWithdraw,
   toUserMessage,
-  formatReferenceId,
   type MoneyOperationResult,
 } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
+import { resultRows } from '../utils/resultReceipt';
 import { useSettings } from '../context/SettingsContext';
 import { useTotpPrompt } from '../context/PasswordPromptContext';
 import { retryStepUp } from '../utils/stepUpRetry';
@@ -153,11 +153,6 @@ export function CashOutScreen() {
       }
       setErrorMessage(toUserMessage(error, selectedAccount.balance));
     } else if (data) {
-      try {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      } catch {
-        // Ignored
-      }
       setSuccessResult(data);
       setStep('success');
     }
@@ -283,40 +278,13 @@ export function CashOutScreen() {
       {step === 'success' && successResult && (
         <ResultView
           outcome="completed"
-          title={
-            successResult.idempotent_replay ? 'Already processed' : 'Cash-out complete'
-          }
-          amountCentavos={successResult.amount || centavosAmount}
-          details={[
-            {
-              label: 'From account',
-              value: selectedAccount?.account_number || '••••',
-            },
-            {
-              label: 'Balance now',
-              value: hideBalance
-                ? '₱••••••'
-                : formatCentavosToPHP(
-                    successResult.from_new_balance !== undefined
-                      ? successResult.from_new_balance
-                      : successResult.new_balance !== undefined
-                        ? successResult.new_balance
-                        : selectedAccount?.balance || 0
-                  ),
-            },
-            ...(successResult.created_at
-              ? [
-                  {
-                    label: 'Date & time',
-                    value: new Date(successResult.created_at).toLocaleString(),
-                  },
-                ]
-              : []),
-            {
-              label: 'Reference no.',
-              value: formatReferenceId(successResult.id),
-            },
-          ]}
+          title="Cash-out complete"
+          amountCentavos={successResult.amount}
+          hideBalance={hideBalance}
+          details={resultRows(successResult, 'From')}
+          shareReceipt
+          contextualActionTitle="Cash out again"
+          onContextualAction={() => navigation.replace('CashOut')}
           onDone={() => navigation.goBack()}
         />
       )}

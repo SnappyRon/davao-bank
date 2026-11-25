@@ -209,14 +209,28 @@ describe('Pay a request (spec 7B.4)', () => {
     expect(screen.getByRole('alert')).toBeTruthy();
   });
 
-  it('returns to the list with a success banner after paying', async () => {
+  it('shows a result and returns to the list after paying', async () => {
+    mockRpc.mockResolvedValueOnce({
+      data: {
+        transfer_result: {
+          id: '8f043910-1234-4567-8901-123456789012',
+          amount: 32100,
+          to_account: '1099997943',
+        },
+      },
+      error: null,
+    });
     await render(<PaymentRequestsScreen />);
     await fireEvent.press(await screen.findByRole('button', { name: 'Pay ₱500.00' }));
     await act(async () => {
       fireEvent.press(screen.getByRole('button', { name: 'Pay ₱500.00' }));
     });
     expect(screen.queryByText("You're paying")).toBeNull();
-    expect(screen.getByRole('alert')).toHaveTextContent('Paid ₱500.00.');
+    expect(screen.getByRole('header', { name: 'Payment sent' })).toBeTruthy();
+    expect(screen.getByText('₱321.00')).toBeTruthy();
+    expect(screen.getByText('DB-8F04-3910')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Done' }));
+    expect(screen.queryByText("You're paying")).toBeNull();
     expect(screen.queryByText(/!/)).toBeNull();
   });
 
@@ -271,7 +285,8 @@ describe('Pay a request (spec 7B.4)', () => {
     await act(async () => {
       fireEvent.press(screen.getByRole('button', { name: 'Pay ₱500.00' }));
     });
-    expect(screen.getByText('Paid ₱500.00.')).toBeTruthy();
+    expect(screen.getByRole('header', { name: 'Payment sent' })).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Done' }));
     await fireEvent.press(screen.getByRole('button', { name: 'Decline' }));
     expect(screen.queryByText('Paid ₱500.00.')).toBeNull();
     expect(mockRpc).not.toHaveBeenCalledWith(

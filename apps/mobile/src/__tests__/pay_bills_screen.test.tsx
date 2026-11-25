@@ -108,6 +108,8 @@ describe('PayBillsScreen (spec 7B.4)', () => {
     await act(async () => {
       fireEvent.press(screen.getByRole('button', { name: 'Pay ₱1,250.00' }));
     });
+    expect(screen.getByRole('header', { name: 'Bill paid' })).toBeTruthy();
+    expect(screen.getByText('DB-TX1')).toBeTruthy();
     expect(mockConfirmBiometricPayment).toHaveBeenCalledWith({
       title: 'Authorize Bill Payment',
       message: 'Confirm payment of ₱1,250.00 to Apo Fiber Internet (demo)',
@@ -167,8 +169,20 @@ describe('PayBillsScreen (spec 7B.4)', () => {
       expect.objectContaining({ p_kind: 'bill', p_amount: 50000, p_frequency: 'once' })
     );
     await act(async () => {
-      resolveRpc({ data: null, error: null });
+      resolveRpc({
+        data: {
+          id: '8f043910-1234-4567-8901-123456789012',
+          amount: 12345,
+          next_run_date: '2026-11-10',
+        },
+        error: null,
+      });
     });
+    expect(
+      await screen.findByRole('header', { name: 'Bill payment scheduled for Nov 10' })
+    ).toBeTruthy();
+    expect(screen.getByText('₱123.45')).toBeTruthy();
+    expect(screen.getByText('DB-8F04-3910')).toBeTruthy();
   });
 
   // ---- 7B.4 fix round ----
@@ -180,6 +194,19 @@ describe('PayBillsScreen (spec 7B.4)', () => {
     await fireEvent.changeText(screen.getByPlaceholderText('0.00'), amount);
     await fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
   }
+
+  it('shows Not sent for a confirmed database rejection', async () => {
+    jest.mocked(fetchAccountBalances).mockResolvedValue({ data: [SAVINGS], error: null });
+    mockRpc.mockResolvedValueOnce({
+      data: null,
+      error: { code: 'P0001', message: 'insufficient funds' },
+    });
+    await render(<PayBillsScreen />);
+    await toReview('500');
+    await fireEvent.press(screen.getByRole('button', { name: 'Pay ₱500.00' }));
+    expect(await screen.findByRole('header', { name: 'Not sent' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Done' })).toBeTruthy();
+  });
 
   it('uses the shared When chips and preset amounts, and shows Balance after', async () => {
     jest.mocked(fetchAccountBalances).mockResolvedValue({ data: [SAVINGS], error: null });

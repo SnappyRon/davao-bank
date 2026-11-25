@@ -17,10 +17,10 @@ import {
   generateIdempotencyKey,
   executeDeposit,
   toUserMessage,
-  formatReferenceId,
   type MoneyOperationResult,
 } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
+import { resultRows } from '../utils/resultReceipt';
 import { useSettings } from '../context/SettingsContext';
 import {
   FeatureScreen,
@@ -119,11 +119,6 @@ export function AddMoneyScreen() {
       }
       setErrorMessage(toUserMessage(error, selectedAccount.balance));
     } else if (data) {
-      try {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      } catch {
-        // Haptics optional
-      }
       setSuccessResult(data);
       setStep('success');
     }
@@ -249,38 +244,13 @@ export function AddMoneyScreen() {
       {step === 'success' && successResult && (
         <ResultView
           outcome="completed"
-          title={successResult.idempotent_replay ? 'Already processed' : 'Money added'}
-          amountCentavos={successResult.amount || centavosAmount}
-          details={[
-            {
-              label: 'To account',
-              value: selectedAccount?.account_number || '••••',
-            },
-            {
-              label: 'Balance now',
-              value: hideBalance
-                ? '₱••••••'
-                : formatCentavosToPHP(
-                    successResult.from_new_balance !== undefined
-                      ? successResult.from_new_balance
-                      : successResult.new_balance !== undefined
-                        ? successResult.new_balance
-                        : (selectedAccount?.balance || 0) + centavosAmount
-                  ),
-            },
-            ...(successResult.created_at
-              ? [
-                  {
-                    label: 'Date & time',
-                    value: new Date(successResult.created_at).toLocaleString(),
-                  },
-                ]
-              : []),
-            {
-              label: 'Reference no.',
-              value: formatReferenceId(successResult.id),
-            },
-          ]}
+          title="Money added"
+          amountCentavos={successResult.amount}
+          hideBalance={hideBalance}
+          details={resultRows(successResult, 'To')}
+          shareReceipt
+          contextualActionTitle="Add money again"
+          onContextualAction={() => navigation.replace('AddMoney')}
           onDone={() => navigation.goBack()}
         />
       )}

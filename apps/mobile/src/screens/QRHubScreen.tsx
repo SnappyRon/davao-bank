@@ -18,7 +18,13 @@ import {
   toUserMessage,
 } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
-import { FeatureScreen, Text, Pressable } from '../components';
+import { FeatureScreen, Text, Pressable, ResultView } from '../components';
+import { useSettings } from '../context/SettingsContext';
+import {
+  isConfirmedRejection,
+  resultRows,
+  type ResultResponse,
+} from '../utils/resultReceipt';
 import { MyQRTab } from './qr/MyQRTab';
 import { ScanQRTab } from './qr/ScanQRTab';
 import { RequestMoneyTab } from './qr/RequestMoneyTab';
@@ -59,6 +65,9 @@ export function QRHubScreen() {
   const [reqLoading, setReqLoading] = useState(false);
   const [reqError, setReqError] = useState<string | null>(null);
   const [reqSuccess, setReqSuccess] = useState(false);
+  const [requestErrorResponse, setRequestErrorResponse] = useState<unknown>(null);
+  const [requestResult, setRequestResult] = useState<ResultResponse | null>(null);
+  const { hideBalance } = useSettings();
 
   const selectedAccount = accounts[selectedAccountIndex] || accounts[0];
 
@@ -71,6 +80,8 @@ export function QRHubScreen() {
     setReqNote('');
     setReqError(null);
     setReqSuccess(false);
+    setRequestResult(null);
+    setRequestErrorResponse(null);
     onClose();
   };
 
@@ -131,7 +142,7 @@ export function QRHubScreen() {
     setReqError(null);
 
     try {
-      const { error } = await supabase.rpc('create_payment_request', {
+      const { data, error } = await supabase.rpc('create_payment_request', {
         p_requester_account: selectedAccount.account_id,
         p_payer_account_number: cleanPayer,
         p_amount: centavos,
@@ -141,19 +152,11 @@ export function QRHubScreen() {
       setReqLoading(false);
 
       if (error) {
+        setRequestErrorResponse(error);
         setReqError(toUserMessage(error));
-        try {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        } catch {
-          // Ignore
-        }
       } else {
+        setRequestResult(data ?? {});
         setReqSuccess(true);
-        try {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        } catch {
-          // Ignore
-        }
       }
     } catch (err: any) {
       setReqLoading(false);
@@ -277,27 +280,51 @@ export function QRHubScreen() {
                 />
               )}
 
-              {tab === 'request' && (
-                <RequestMoneyTab
-                  reqSuccess={reqSuccess}
-                  reqPayerAccount={reqPayerAccount}
-                  onPayerAccountChange={(val) => {
-                    setReqPayerAccount(val);
-                    setReqError(null);
-                  }}
-                  reqAmountStr={reqAmountStr}
-                  onAmountChange={(val) => {
-                    setReqAmountStr(val);
-                    setReqError(null);
-                  }}
-                  reqNote={reqNote}
-                  onNoteChange={setReqNote}
-                  reqLoading={reqLoading}
-                  reqError={reqError}
-                  onSendRequest={handleSendRequest}
-                  onReset={resetState}
+              {tab === 'request' && isConfirmedRejection(requestErrorResponse) && (
+                <ResultView
+                  outcome="failed"
+                  title="Not sent"
+                  onDone={() => setRequestErrorResponse(null)}
                 />
               )}
+              {tab === 'request' &&
+                !isConfirmedRejection(requestErrorResponse) &&
+                reqSuccess && (
+                  <ResultView
+                    outcome="request_sent"
+                    title="Request sent"
+                    amountCentavos={requestResult?.amount}
+                    hideBalance={hideBalance}
+                    details={requestResult ? resultRows(requestResult) : []}
+                    shareReceipt={!!requestResult}
+                    contextualActionTitle="Request again"
+                    onContextualAction={() =>
+                      navigation.replace('QRHub', { initialTab: 'request' })
+                    }
+                    onDone={resetState}
+                  />
+                )}
+              {tab === 'request' &&
+                !reqSuccess &&
+                !isConfirmedRejection(requestErrorResponse) && (
+                  <RequestMoneyTab
+                    reqPayerAccount={reqPayerAccount}
+                    onPayerAccountChange={(val) => {
+                      setReqPayerAccount(val);
+                      setReqError(null);
+                    }}
+                    reqAmountStr={reqAmountStr}
+                    onAmountChange={(val) => {
+                      setReqAmountStr(val);
+                      setReqError(null);
+                    }}
+                    reqNote={reqNote}
+                    onNoteChange={setReqNote}
+                    reqLoading={reqLoading}
+                    reqError={reqError}
+                    onSendRequest={handleSendRequest}
+                  />
+                )}
             </View>
           </View>
         </>

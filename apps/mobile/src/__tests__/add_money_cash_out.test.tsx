@@ -10,6 +10,7 @@ import {
   executeWithdraw,
   fetchAccountBalances,
   type AccountBalance,
+  type MoneyOperationResult,
 } from '@davao-bank/shared';
 
 jest.mock('@react-navigation/native', () => ({
@@ -105,6 +106,43 @@ describe('Add money and Cash out (spec 7B.4)', () => {
       call.resolve({ data: null, error: 'boom' });
     });
   });
+
+  it.each([
+    ['Add', 'Money added', 'deposit'],
+    ['Cash out', 'Cash-out complete', 'withdrawal'],
+  ] as const)(
+    '%s result uses the response amount and masked account',
+    async (action, title, type) => {
+      jest
+        .mocked(fetchAccountBalances)
+        .mockResolvedValue({ data: [SAVINGS], error: null });
+      const data: MoneyOperationResult = {
+        id: '8f043910-1234-4567-8901-123456789012',
+        type,
+        status: 'completed',
+        amount: 12345,
+        account_number: '1012348921',
+        reference: '',
+        idempotency_key: 'key',
+        created_at: '2026-11-10T00:00:00Z',
+        idempotent_replay: false,
+      };
+      if (type === 'deposit')
+        jest.mocked(executeDeposit).mockResolvedValue({ data, error: null });
+      else jest.mocked(executeWithdraw).mockResolvedValue({ data, error: null });
+      await render(type === 'deposit' ? <AddMoneyScreen /> : <CashOutScreen />);
+      await screen.findByLabelText(
+        type === 'deposit' ? 'To Savings •• 8921' : 'From Savings •• 8921'
+      );
+      await fireEvent.changeText(screen.getByPlaceholderText('0.00'), '500');
+      await fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
+      await fireEvent.press(screen.getByRole('button', { name: `${action} ₱500.00` }));
+      expect(await screen.findByRole('header', { name: title })).toBeTruthy();
+      expect(screen.getByText('₱123.45')).toBeTruthy();
+      expect(screen.getByText('•• 8921')).toBeTruthy();
+      expect(screen.getByText('DB-8F04-3910')).toBeTruthy();
+    }
+  );
 
   it('Add money: inline amount validation', async () => {
     jest.mocked(fetchAccountBalances).mockResolvedValue({ data: [SAVINGS], error: null });

@@ -28,6 +28,8 @@ import {
   type ScheduledPaymentFrequency,
 } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
+import { isConfirmedRejection, type ResultResponse } from '../utils/resultReceipt';
+import { ResultView } from '../components/ResultView';
 import { useSettings } from '../context/SettingsContext';
 import {
   FeatureScreen,
@@ -92,11 +94,14 @@ export function TransferScreen() {
   const [frequency, setFrequency] = useState<ScheduledPaymentFrequency>('monthly');
   const [maxRunsStr, setMaxRunsStr] = useState('12');
   const [isScheduledSuccess, setIsScheduledSuccess] = useState(false);
+  const [scheduledError, setScheduledError] = useState<unknown>(null);
+  const [scheduledResult, setScheduledResult] = useState<ResultResponse | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [uncertain, setUncertain] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successResult, setSuccessResult] = useState<MoneyOperationResult | null>(null);
+  const [resultBalanceLoaded, setResultBalanceLoaded] = useState(false);
   const [idempotencyKey, setIdempotencyKey] = useState<string>('');
 
   // Source account: chosen in the first step when the user has 2+ accounts.
@@ -317,7 +322,7 @@ export function TransferScreen() {
     try {
       const maxRuns =
         timing === 'recurring' && maxRunsStr ? parseInt(maxRunsStr, 10) : null;
-      const { error: schedErr } = await retryStepUp(
+      const { data: scheduledData, error: schedErr } = await retryStepUp(
         () =>
           supabase.rpc('create_scheduled_transfer_to_number', {
             p_from_account: selectedAccount.account_id,
@@ -335,18 +340,10 @@ export function TransferScreen() {
       setLoading(false);
 
       if (schedErr) {
-        try {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        } catch {
-          // Ignored
-        }
+        setScheduledError(schedErr);
         setErrorMessage(toUserMessage(schedErr.message, selectedAccount?.balance));
       } else {
-        try {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        } catch {
-          // Ignored
-        }
+        setScheduledResult(scheduledData);
         setIsScheduledSuccess(true);
         setStep('success');
       }
@@ -390,12 +387,6 @@ export function TransferScreen() {
           : toUserMessage(error, selectedAccount?.balance)
       );
     } else if (data) {
-      try {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      } catch {
-        // Ignored
-      }
-
       if (shouldSaveRecipient && saveNickname.trim()) {
         try {
           await supabase.rpc('add_saved_recipient', {
@@ -414,7 +405,16 @@ export function TransferScreen() {
   };
 
   useEffect(() => {
-    if (step === 'success' && successResult) void loadAccounts();
+    if (step === 'success' && successResult) {
+      setResultBalanceLoaded(false);
+      let active = true;
+      void loadAccounts().then(() => {
+        if (active) setResultBalanceLoaded(true);
+      });
+      return () => {
+        active = false;
+      };
+    }
   }, [step, successResult, loadAccounts]);
 
   const centavosAmount = phpToCentavos(amountStr);
@@ -477,7 +477,11 @@ export function TransferScreen() {
         setStep(inputSteps[Math.max(stepIndex - 1, 0)]);
       }}
       title="Send money"
-      footer={step !== 'success' && accountsReady ? footer : undefined}
+      footer={
+        step !== 'success' && accountsReady && !isConfirmedRejection(scheduledError)
+          ? footer
+          : undefined
+      }
     >
       {step !== 'success' && (
         <AccountLoadStatus
@@ -487,118 +491,134 @@ export function TransferScreen() {
           onRetry={loadAccounts}
         />
       )}
-      {(step === 'success' || accountsReady) && (
-        <View style={styles.container}>
-          {errorMessage &&
-          step !== 'amount' &&
-          !(step === 'recipient' && recipientTab === 'new') ? (
-            <Card variant="subtle" style={styles.errorCard}>
-              <AlertCircle size={18} color={colors.redText} />
-              <Text variant="caption" color={colors.redText} style={styles.errorText}>
-                {errorMessage}
-              </Text>
-            </Card>
-          ) : null}
+      {isConfirmedRejection(scheduledError) ? (
+        <ResultView
+          outcome="failed"
+          title="Not sent"
+          onDone={() => setScheduledError(null)}
+        />
+      ) : (
+        (step === 'success' || accountsReady) && (
+          <View style={styles.container}>
+            {errorMessage &&
+            step !== 'amount' &&
+            !(step === 'recipient' && recipientTab === 'new') ? (
+              <Card variant="subtle" style={styles.errorCard}>
+                <AlertCircle size={18} color={colors.redText} />
+                <Text variant="caption" color={colors.redText} style={styles.errorText}>
+                  {errorMessage}
+                </Text>
+              </Card>
+            ) : null}
 
-          {/* STEP 0 (2+ accounts): SOURCE ACCOUNT */}
-          {step === 'source' && (
-            <AccountStep
-              heading="Send from"
-              accounts={accounts}
-              selectedAccountId={selectedAccount?.account_id ?? null}
-              hideBalance={hideBalance}
-              onSelect={handleSelectSource}
-            />
-          )}
+            {/* STEP 0 (2+ accounts): SOURCE ACCOUNT */}
+            {step === 'source' && (
+              <AccountStep
+                heading="Send from"
+                accounts={accounts}
+                selectedAccountId={selectedAccount?.account_id ?? null}
+                hideBalance={hideBalance}
+                onSelect={handleSelectSource}
+              />
+            )}
 
-          {/* STEP 1: RECIPIENT */}
-          {step === 'recipient' && (
-            <TransferRecipientStep
-              recipientTab={recipientTab}
-              onTabChange={setRecipientTab}
-              savedRecipients={savedRecipients}
-              otherAccounts={otherAccounts}
-              selectedAccount={selectedAccount}
-              recipientAccountNumber={recipientAccountNumber}
-              onRecipientAccountChange={(val) => {
-                setRecipientAccountNumber(val);
-                setRecipientNickname('');
-                if (errorMessage) setErrorMessage(null);
-              }}
-              recipientError={errorMessage}
-              shouldSaveRecipient={shouldSaveRecipient}
-              onShouldSaveChange={setShouldSaveRecipient}
-              saveNickname={saveNickname}
-              onSaveNicknameChange={setSaveNickname}
-              hideBalance={hideBalance}
-              onSelectSaved={handleSelectSavedRecipient}
-              onSelectOwn={handleSelectOwnAccount}
-              onContinue={handleNextFromRecipient}
-              onRequestMoneyPress={onRequestMoneyPress}
-            />
-          )}
+            {/* STEP 1: RECIPIENT */}
+            {step === 'recipient' && (
+              <TransferRecipientStep
+                recipientTab={recipientTab}
+                onTabChange={setRecipientTab}
+                savedRecipients={savedRecipients}
+                otherAccounts={otherAccounts}
+                selectedAccount={selectedAccount}
+                recipientAccountNumber={recipientAccountNumber}
+                onRecipientAccountChange={(val) => {
+                  setRecipientAccountNumber(val);
+                  setRecipientNickname('');
+                  if (errorMessage) setErrorMessage(null);
+                }}
+                recipientError={errorMessage}
+                shouldSaveRecipient={shouldSaveRecipient}
+                onShouldSaveChange={setShouldSaveRecipient}
+                saveNickname={saveNickname}
+                onSaveNicknameChange={setSaveNickname}
+                hideBalance={hideBalance}
+                onSelectSaved={handleSelectSavedRecipient}
+                onSelectOwn={handleSelectOwnAccount}
+                onContinue={handleNextFromRecipient}
+                onRequestMoneyPress={onRequestMoneyPress}
+              />
+            )}
 
-          {/* STEP 2: AMOUNT */}
-          {step === 'amount' && (
-            <TransferAmountStep
-              recipientAccountNumber={recipientAccountNumber}
-              recipientNickname={recipientNickname}
-              amountStr={amountStr}
-              onAmountChange={setAmountStr}
-              amountError={errorMessage}
-              reference={reference}
-              onReferenceChange={setReference}
-              selectedAccount={selectedAccount}
-              hideBalance={hideBalance}
-              timing={timing}
-              onTimingChange={setTiming}
-              scheduledDate={scheduledDate}
-              onScheduledDateChange={setScheduledDate}
-              frequency={frequency}
-              onFrequencyChange={setFrequency}
-              maxRunsStr={maxRunsStr}
-              onMaxRunsChange={setMaxRunsStr}
-            />
-          )}
+            {/* STEP 2: AMOUNT */}
+            {step === 'amount' && (
+              <TransferAmountStep
+                recipientAccountNumber={recipientAccountNumber}
+                recipientNickname={recipientNickname}
+                amountStr={amountStr}
+                onAmountChange={setAmountStr}
+                amountError={errorMessage}
+                reference={reference}
+                onReferenceChange={setReference}
+                selectedAccount={selectedAccount}
+                hideBalance={hideBalance}
+                timing={timing}
+                onTimingChange={setTiming}
+                scheduledDate={scheduledDate}
+                onScheduledDateChange={setScheduledDate}
+                frequency={frequency}
+                onFrequencyChange={setFrequency}
+                maxRunsStr={maxRunsStr}
+                onMaxRunsChange={setMaxRunsStr}
+              />
+            )}
 
-          {/* STEP 3: REVIEW */}
-          {step === 'review' && (
-            <TransferReviewStep
-              centavosAmount={centavosAmount}
-              selectedAccount={selectedAccount}
-              recipientAccountNumber={recipientAccountNumber}
-              recipientNickname={recipientNickname}
-              reference={reference}
-              timing={timing}
-              scheduledDate={scheduledDate}
-              frequency={frequency}
-              maxRunsStr={maxRunsStr}
-              hideBalance={hideBalance}
-              onChangeSource={
-                hasMultipleAccounts && !loading && !uncertain
-                  ? () => setAccountPickerOpen(true)
-                  : undefined
-              }
-            />
-          )}
+            {/* STEP 3: REVIEW */}
+            {step === 'review' && (
+              <TransferReviewStep
+                centavosAmount={centavosAmount}
+                selectedAccount={selectedAccount}
+                recipientAccountNumber={recipientAccountNumber}
+                recipientNickname={recipientNickname}
+                reference={reference}
+                timing={timing}
+                scheduledDate={scheduledDate}
+                frequency={frequency}
+                maxRunsStr={maxRunsStr}
+                hideBalance={hideBalance}
+                onChangeSource={
+                  hasMultipleAccounts && !loading && !uncertain
+                    ? () => setAccountPickerOpen(true)
+                    : undefined
+                }
+              />
+            )}
 
-          {/* STEP 4: SUCCESS */}
-          {step === 'success' && (
-            <TransferSuccessStep
-              successResult={successResult}
-              isScheduledSuccess={isScheduledSuccess}
-              timing={timing}
-              scheduledDate={scheduledDate}
-              frequency={frequency}
-              centavosAmount={centavosAmount}
-              recipientNickname={recipientNickname}
-              recipientAccountNumber={recipientAccountNumber}
-              selectedAccountBalance={selectedAccount?.balance || 0}
-              hideBalance={hideBalance}
-              onDone={resetState}
-            />
-          )}
-        </View>
+            {/* STEP 4: SUCCESS */}
+            {step === 'success' && (
+              <TransferSuccessStep
+                successResult={successResult}
+                isScheduledSuccess={isScheduledSuccess}
+                scheduledResult={scheduledResult}
+                timing={timing}
+                scheduledDate={scheduledDate}
+                frequency={frequency}
+                centavosAmount={centavosAmount}
+                recipientNickname={recipientNickname}
+                recipientAccountNumber={recipientAccountNumber}
+                selectedAccountBalance={
+                  resultBalanceLoaded && !accountsLoading && !accountError
+                    ? (accounts.find((a) => a.account_id === selectedAccountId)
+                        ?.balance ??
+                      (selectedAccountId ? undefined : accounts[0]?.balance))
+                    : undefined
+                }
+                hideBalance={hideBalance}
+                onDone={resetState}
+                onSendAgain={() => navigation.replace('Transfer')}
+              />
+            )}
+          </View>
+        )
       )}
       <StepUpSetupLink error={errorMessage} onClose={onClose} />
       <AccountPickerSheet

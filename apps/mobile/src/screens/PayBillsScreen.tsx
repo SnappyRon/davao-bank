@@ -8,7 +8,6 @@ import { retryStepUp } from '../utils/stepUpRetry';
 import { useTotpPrompt } from '../context/PasswordPromptContext';
 import React, { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet } from 'react-native';
-import * as Haptics from 'expo-haptics';
 import {
   spacing,
   formatCentavosToPHP,
@@ -19,6 +18,8 @@ import {
   type ScheduledPaymentFrequency,
 } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
+import { isConfirmedRejection } from '../utils/resultReceipt';
+import { ResultView } from '../components/ResultView';
 import { useSettings } from '../context/SettingsContext';
 import {
   FeatureScreen,
@@ -70,6 +71,7 @@ export function PayBillsScreen() {
   const [idempotencyKey, setIdempotencyKey] = useState<string>('');
   const [receiptTxId, setReceiptTxId] = useState<string | null>(null);
   const [serverResult, setServerResult] = useState<any>(null);
+  const [resultError, setResultError] = useState<unknown>(null);
 
   // Source account: chosen in the first step when the user has 2+ accounts.
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
@@ -232,14 +234,13 @@ export function PayBillsScreen() {
           throw error;
         }
 
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         setServerResult(data);
         setReceiptTxId(data?.id || data?.transaction_id || null);
         setStep('success');
       } else {
         const maxRuns =
           timing === 'recurring' && maxRunsStr ? parseInt(maxRunsStr, 10) : null;
-        const { error } = await retryStepUp(
+        const { data, error } = await retryStepUp(
           () =>
             supabase.rpc('create_scheduled_payment', {
               p_from_account: selectedAccount.account_id,
@@ -261,11 +262,11 @@ export function PayBillsScreen() {
           throw error;
         }
 
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        setServerResult(data);
         setStep('success');
       }
     } catch (err: any) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      setResultError(err);
       setErrorMessage(toUserMessage(err?.message, selectedAccount?.balance));
     } finally {
       setLoading(false);
@@ -323,7 +324,11 @@ export function PayBillsScreen() {
         setStep(inputSteps[Math.max(stepIndex - 1, 0)]);
       }}
       title="Pay bills"
-      footer={step !== 'success' && accountsReady ? footer : undefined}
+      footer={
+        step !== 'success' && accountsReady && !isConfirmedRejection(resultError)
+          ? footer
+          : undefined
+      }
     >
       <AccountLoadStatus
         loading={accountsLoading}
@@ -331,111 +336,121 @@ export function PayBillsScreen() {
         error={accountError}
         onRetry={loadAccounts}
       />
-      {accountsReady && (
-        <View style={styles.content}>
-          {/* Step 0 (2+ accounts): source account */}
-          {step === 'source' && (
-            <AccountStep
-              heading="Pay from"
-              accounts={accounts}
-              selectedAccountId={selectedAccount?.account_id ?? null}
-              hideBalance={hideBalance}
-              onSelect={handleSelectSource}
-            />
-          )}
-
-          {/* Biller */}
-          {step === 'biller' && (
-            <BillerStep
-              billers={billers}
-              searchQuery={searchQuery}
-              onSearchChange={setSearchQuery}
-              selectedCategory={selectedCategory}
-              onSelectCategory={setSelectedCategory}
-              onSelectBiller={handleSelectBiller}
-            />
-          )}
-
-          {/* Account number on the bill */}
-          {step === 'reference' && selectedBiller && (
-            <ReferenceStep
-              biller={selectedBiller}
-              reference={reference}
-              refError={refError}
-              onReferenceChange={(val) => {
-                setReference(val);
-                if (refError) validateReference(val);
-              }}
-            />
-          )}
-
-          {/* Amount and when (one step) */}
-          {step === 'amount' && selectedBiller && (
-            <View style={styles.stepContainer}>
-              <RecipientChip
-                label={`To ${selectedBiller.name}`}
-                icon={getCategoryIcon(selectedBiller.category)}
+      {isConfirmedRejection(resultError) ? (
+        <ResultView
+          outcome="failed"
+          title="Not sent"
+          onDone={() => setResultError(null)}
+        />
+      ) : (
+        accountsReady && (
+          <View style={styles.content}>
+            {/* Step 0 (2+ accounts): source account */}
+            {step === 'source' && (
+              <AccountStep
+                heading="Pay from"
+                accounts={accounts}
+                selectedAccountId={selectedAccount?.account_id ?? null}
+                hideBalance={hideBalance}
+                onSelect={handleSelectSource}
               />
-              <AmountInput
-                label="Amount"
-                value={amountStr}
-                onChangeText={setAmountStr}
-                presetAmounts={[500, 1000, 2000, 5000]}
-                helperText={`Available: ${hideBalance ? '₱••••••' : formatCentavosToPHP(availableCentavos)}`}
-                error={
-                  centavos > availableCentavos
-                    ? 'Amount exceeds available balance'
+            )}
+
+            {/* Biller */}
+            {step === 'biller' && (
+              <BillerStep
+                billers={billers}
+                searchQuery={searchQuery}
+                onSearchChange={setSearchQuery}
+                selectedCategory={selectedCategory}
+                onSelectCategory={setSelectedCategory}
+                onSelectBiller={handleSelectBiller}
+              />
+            )}
+
+            {/* Account number on the bill */}
+            {step === 'reference' && selectedBiller && (
+              <ReferenceStep
+                biller={selectedBiller}
+                reference={reference}
+                refError={refError}
+                onReferenceChange={(val) => {
+                  setReference(val);
+                  if (refError) validateReference(val);
+                }}
+              />
+            )}
+
+            {/* Amount and when (one step) */}
+            {step === 'amount' && selectedBiller && (
+              <View style={styles.stepContainer}>
+                <RecipientChip
+                  label={`To ${selectedBiller.name}`}
+                  icon={getCategoryIcon(selectedBiller.category)}
+                />
+                <AmountInput
+                  label="Amount"
+                  value={amountStr}
+                  onChangeText={setAmountStr}
+                  presetAmounts={[500, 1000, 2000, 5000]}
+                  helperText={`Available: ${hideBalance ? '₱••••••' : formatCentavosToPHP(availableCentavos)}`}
+                  error={
+                    centavos > availableCentavos
+                      ? 'Amount exceeds available balance'
+                      : undefined
+                  }
+                />
+                <WhenPicker
+                  timing={timing}
+                  onTimingChange={setTiming}
+                  scheduledDate={scheduledDate}
+                  onScheduledDateChange={setScheduledDate}
+                  frequency={frequency}
+                  onFrequencyChange={setFrequency}
+                  maxRunsStr={maxRunsStr}
+                  onMaxRunsChange={setMaxRunsStr}
+                />
+              </View>
+            )}
+
+            {/* Review */}
+            {step === 'review' && selectedBiller && (
+              <ReviewStep
+                biller={selectedBiller}
+                account={selectedAccount}
+                reference={reference}
+                centavos={centavos}
+                timing={timing}
+                scheduledDate={scheduledDate}
+                frequency={frequency}
+                maxRunsStr={maxRunsStr}
+                errorMessage={errorMessage}
+                hideBalance={hideBalance}
+                onChangeSource={
+                  hasMultipleAccounts && !loading
+                    ? () => setAccountPickerOpen(true)
                     : undefined
                 }
               />
-              <WhenPicker
+            )}
+
+            {/* Result */}
+            {step === 'success' && selectedBiller && (
+              <SuccessStep
+                biller={selectedBiller}
+                reference={reference}
+                centavos={centavos}
                 timing={timing}
-                onTimingChange={setTiming}
                 scheduledDate={scheduledDate}
-                onScheduledDateChange={setScheduledDate}
-                frequency={frequency}
-                onFrequencyChange={setFrequency}
-                maxRunsStr={maxRunsStr}
-                onMaxRunsChange={setMaxRunsStr}
+                receiptTxId={receiptTxId}
+                serverResult={serverResult}
+                hideBalance={hideBalance}
+                onDone={onClose}
+                onPayAgain={() => navigation.replace('PayBills')}
               />
-            </View>
-          )}
-
-          {/* Review */}
-          {step === 'review' && selectedBiller && (
-            <ReviewStep
-              biller={selectedBiller}
-              account={selectedAccount}
-              reference={reference}
-              centavos={centavos}
-              timing={timing}
-              scheduledDate={scheduledDate}
-              frequency={frequency}
-              maxRunsStr={maxRunsStr}
-              errorMessage={errorMessage}
-              hideBalance={hideBalance}
-              onChangeSource={
-                hasMultipleAccounts && !loading
-                  ? () => setAccountPickerOpen(true)
-                  : undefined
-              }
-            />
-          )}
-
-          {/* Result */}
-          {step === 'success' && selectedBiller && (
-            <SuccessStep
-              biller={selectedBiller}
-              reference={reference}
-              centavos={centavos}
-              timing={timing}
-              scheduledDate={scheduledDate}
-              receiptTxId={receiptTxId}
-              serverResult={serverResult}
-              onDone={onClose}
-            />
-          )}
-        </View>
+            )}
+          </View>
+        )
       )}
       <StepUpSetupLink error={errorMessage} onClose={onClose} />
       <AccountPickerSheet

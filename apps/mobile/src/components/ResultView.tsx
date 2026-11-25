@@ -1,6 +1,10 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import * as Sharing from 'expo-sharing';
+import * as FileSystem from 'expo-file-system/legacy';
+import { toUserMessage } from '@davao-bank/shared';
+import { resultReceipt } from '../utils/resultReceipt';
 import { Check, Calendar, Send, AlertCircle } from 'lucide-react-native';
 import { colors, spacing, formatCentavosToPHP } from '@davao-bank/shared';
 import { Text } from './Text';
@@ -22,6 +26,8 @@ export interface ResultViewProps {
   details?: ResultDetailRow[];
   onDone: () => void;
   onShareReceipt?: () => void;
+  hideBalance?: boolean;
+  shareReceipt?: boolean;
   contextualActionTitle?: string;
   onContextualAction?: () => void;
 }
@@ -34,9 +40,40 @@ export function ResultView({
   details = [],
   onDone,
   onShareReceipt,
+  hideBalance = false,
+  shareReceipt = false,
   contextualActionTitle,
   onContextualAction,
 }: ResultViewProps) {
+  const [shareError, setShareError] = useState<string | null>(null);
+  const [sharing, setSharing] = useState(false);
+  const share = async () => {
+    setShareError(null);
+    setSharing(true);
+    let uri: string | null = null;
+    try {
+      if (!(await Sharing.isAvailableAsync()) || !FileSystem.cacheDirectory) {
+        setShareError('Sharing is not available on this device.');
+        return;
+      }
+      uri = `${FileSystem.cacheDirectory}davao-bank-result.txt`;
+      await FileSystem.writeAsStringAsync(
+        uri,
+        resultReceipt(title, amountCentavos, hideBalance, details)
+      );
+      await Sharing.shareAsync(uri, {
+        mimeType: 'text/plain',
+        UTI: 'public.plain-text',
+        dialogTitle: 'Share receipt',
+      });
+    } catch (error) {
+      setShareError(toUserMessage(error));
+    } finally {
+      if (uri)
+        await FileSystem.deleteAsync(uri, { idempotent: true }).catch(() => undefined);
+      setSharing(false);
+    }
+  };
   useEffect(() => {
     try {
       if (outcome === 'completed') {
@@ -78,14 +115,29 @@ export function ResultView({
   };
 
   const displayAmount =
-    amountFormatted ||
-    (amountCentavos !== undefined ? formatCentavosToPHP(amountCentavos) : null);
+    hideBalance && (amountCentavos !== undefined || amountFormatted)
+      ? '₱••••••'
+      : amountFormatted ||
+        (amountCentavos !== undefined ? formatCentavosToPHP(amountCentavos) : null);
 
   return (
     <View style={styles.container}>
-      <View style={[styles.iconDisc, { backgroundColor: getDiscBg() }]}>{getIcon()}</View>
+      <View
+        accessible={false}
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        style={[styles.iconDisc, { backgroundColor: getDiscBg() }]}
+      >
+        {getIcon()}
+      </View>
 
-      <Text variant="h2" color={colors.ink} align="center" style={styles.title}>
+      <Text
+        accessibilityRole="header"
+        variant="h2"
+        color={colors.ink}
+        align="center"
+        style={styles.title}
+      >
         {title}
       </Text>
 
@@ -99,6 +151,7 @@ export function ResultView({
           adjustsFontSizeToFit
           minimumFontScale={0.7}
           maxFontSizeMultiplier={1.4}
+          accessibilityLabel={hideBalance ? 'Amount hidden' : undefined}
         >
           {displayAmount}
         </Text>
@@ -125,12 +178,18 @@ export function ResultView({
         </Card>
       ) : null}
 
+      {shareError && (
+        <Text accessibilityRole="alert" color={colors.redText}>
+          {shareError}
+        </Text>
+      )}
       <View style={styles.actionButtons}>
         <Button title="Done" onPress={onDone} variant="primary" style={styles.btn} />
-        {onShareReceipt ? (
+        {onShareReceipt || shareReceipt ? (
           <Button
             title="Share receipt"
-            onPress={onShareReceipt}
+            onPress={onShareReceipt ?? (() => void share())}
+            loading={sharing}
             variant="secondary"
             style={styles.btn}
           />
@@ -152,7 +211,7 @@ const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
     paddingVertical: spacing.xl,
-    paddingHorizontal: 20,
+    paddingHorizontal: spacing.lg,
     width: '100%',
   },
   iconDisc: {

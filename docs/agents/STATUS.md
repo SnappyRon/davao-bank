@@ -7,10 +7,10 @@
 - **Active phase:** Phase 7 — UI/UX Refinement & Motion.
 - **Branch:** `phase-7-ui-motion`; admin polish merged from `phase-7-admin-polish`.
 - **Active prompt:** `Phase-7-Prompt-UI-UX-and-Motion.md`.
-- **Assigned to:** Codex completed Stage 7B.6; captain review pending.
-- **Exact next step:** captain reviews Stage 7B.6 and arranges device widths, scaling and VoiceOver verification; admin Playwright still needs owner sign-in.
-- **Last commit:** Stage 7B.6 (this commit; parent `bb25020`).
-- **Blockers:** device layout and VoiceOver NOT VERIFIED; admin Playwright needs owner sign-in.
+- **Assigned to:** Codex completed Stage 7B.5; captain review pending.
+- **Exact next step:** captain reviews the 7B.5 commit and exact handler diffs; verify results and receipt sharing on a device with owner sign-in.
+- **Last commit:** Stage 7B.5 (this commit; parent `9270631`).
+- **Blockers:** device and live money-flow verification NOT VERIFIED; admin Playwright needs owner sign-in.
 
 ## Stage 7B.0 — remaining work plan (captain, 2026-11-10)
 
@@ -106,8 +106,8 @@ Deferred to their planned steps (not in the fix round): receipt reference/Share/
   - [x] Export statement: toast "Statement ready" before share sheet.
   - [x] Verify email: "I've verified my email" button, 60s cooldown.
   - [x] Forgot password copy points to browser reset link.
-- [ ] **7B.5 ResultView**:
-  - [ ] 4 outcomes with dedicated icons, titles, haptics, details card, Done/Share/contextual actions. Everything from server response.
+- [x] **7B.5 ResultView**:
+  - [x] 4 outcomes with dedicated icons, titles, haptics, details card, Done/Share/contextual actions. Values from server response; approved refreshed account balance shown only after successful reload. Device NOT VERIFIED.
 - [ ] **7B.6 Responsive and accessibility**:
   - [x] 360 pt, 400 pt, 440 pt responsive sizing.
   - [x] Text scaling: `maxFontSizeMultiplier={1.4}` on amounts/tab labels.
@@ -248,6 +248,10 @@ Fix these before 7B:
 - **Follow-up:** add dedicated test accounts so live tests don't conflict with the presenter's real authenticator.
 
 ## Log (newest first)
+
+- **2026-11-25, Codex:** resumed and completed 7B.5 after captain approved success-handler haptic removal and refreshed server account balance. ResultView now handles outcomes, server-derived rows, privacy-aware receipt share and contextual actions; money/request success flows wired, confirmed structured database rejections show Not sent, uncertain transfer remains unchanged. Updated UI-only assertions per captain direction; RPC/step-up/idempotency checks retained. Typecheck exit 0, lint 0 errors / 63 warnings, unit 38 suites / 334 tests; format check exit 1 only untracked `ONBOARDING.md`. Full handler diffs and limitations in PHASE7_REPORT.md. Device, VoiceOver, live money and sharing NOT VERIFIED — captain/owner to verify. Next: captain review this commit.
+
+- **2026-11-25, Codex:** began 7B.5 after captain approved removing handler haptics and retaining returned data. Uncommitted work adds ResultView privacy/share, server-data rows and success wiring for money/request flows; `result_view.test.tsx` 5/5 passes. Typecheck exit 0; lint 0 errors / 63 warnings; format exit 1 only untracked `ONBOARDING.md`; unit 35 suites passed, 2 failed, 6 tests failed / 320 passed. Four Transfer tests expect the old title and two also require refreshed “Balance now”, which conflicts with the brief’s money-RPC-only result data; two request tests expect the replaced list banner. No existing tests changed. Need captain ruling on preserving the balance requirement vs server-only result and test updates; failure-state classification, flow-specific actions and per-flow integration tests remain. No stage commit; do not treat this work as complete.
 
 - **2026-11-25, Codex:** took over and implemented 7B.6 responsive/accessibility code changes: fitted/capped amounts, responsive Home tests, tab label and busy-state tests, descriptive Transfer recipient labels, and code-level VoiceOver audit. Money-flow and step-up screen files match `bb25020` byte for byte; QR/recipient changes are presentation only. Typecheck exit 0, lint 0 errors / 64 warnings, unit 36 suites / 321 tests. Format check NOT clean solely because untracked `ONBOARDING.md` is not formatted. Actual widths, large-text layout and VoiceOver NOT VERIFIED — needs device; captain review next.
 

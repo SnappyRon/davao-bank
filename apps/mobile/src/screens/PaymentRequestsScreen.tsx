@@ -45,6 +45,12 @@ import {
   formatAccountLabel,
 } from '../components';
 import { commitButtonLabel } from '../utils/moneyFlow';
+import {
+  isConfirmedRejection,
+  resultRows,
+  type ResultResponse,
+} from '../utils/resultReceipt';
+import { ResultView } from '../components/ResultView';
 import { useInFlightGuard } from '../hooks/useInFlightGuard';
 
 type RequestTab = 'incoming' | 'outgoing';
@@ -84,6 +90,8 @@ export function PaymentRequestsScreen() {
   const [statusKind, setStatusKind] = useState<'success' | 'error'>('error');
   const guardPay = useInFlightGuard();
   // Spec 7B.4: paying a request goes through the standard Review first.
+  const [resultError, setResultError] = useState<unknown>(null);
+  const [paymentResult, setPaymentResult] = useState<ResultResponse | null>(null);
   const [reviewRequest, setReviewRequest] = useState<PaymentRequest | null>(null);
   const [payFromId, setPayFromId] = useState<string | null>(null);
   const [accountPickerOpen, setAccountPickerOpen] = useState(false);
@@ -185,7 +193,7 @@ export function PaymentRequestsScreen() {
 
     let paid = false;
     try {
-      const { error } = await retryStepUp(
+      const { data, error } = await retryStepUp(
         () =>
           supabase.rpc('pay_payment_request', {
             p_request_id: req.id,
@@ -196,18 +204,12 @@ export function PaymentRequestsScreen() {
       );
 
       if (error) {
-        try {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        } catch {
-          // Ignore
-        }
+        setResultError(error);
         setStatusMessage(toUserMessage(error.message, sourceAcc.balance));
       } else {
-        try {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        } catch {
-          // Ignore
-        }
+        setPaymentResult(
+          data?.transfer_result ?? (data ? { transaction_id: data.transaction_id } : {})
+        );
         setStatusMessage(`Paid ${formatCentavosToPHP(req.amount)}.`);
         paid = true;
         loadRequests();
@@ -337,7 +339,13 @@ export function PaymentRequestsScreen() {
   return (
     <FeatureScreen
       isProcessing={Boolean(actionLoadingId)}
-      title={reviewRequest ? 'Pay request' : 'Payment requests'}
+      title={
+        paymentResult
+          ? 'Payment result'
+          : reviewRequest
+            ? 'Pay request'
+            : 'Payment requests'
+      }
       // Review is a second step: Back returns to the list (no caption shown).
       step={reviewRequest ? 2 : undefined}
       onPrevStep={closePayReview}
@@ -348,7 +356,7 @@ export function PaymentRequestsScreen() {
         )
       }
       footer={
-        reviewRequest ? (
+        reviewRequest && !paymentResult && !isConfirmedRejection(resultError) ? (
           <Button
             title={commitButtonLabel(
               'pay',
@@ -362,7 +370,31 @@ export function PaymentRequestsScreen() {
         ) : undefined
       }
     >
-      {reviewRequest ? (
+      {isConfirmedRejection(resultError) ? (
+        <ResultView
+          outcome="failed"
+          title="Not sent"
+          onDone={() => setResultError(null)}
+        />
+      ) : paymentResult ? (
+        <ResultView
+          outcome="completed"
+          title="Payment sent"
+          amountCentavos={paymentResult.amount}
+          hideBalance={hideBalance}
+          details={resultRows(paymentResult)}
+          shareReceipt
+          contextualActionTitle="View requests"
+          onContextualAction={() => {
+            setPaymentResult(null);
+            setStatusMessage(null);
+          }}
+          onDone={() => {
+            setPaymentResult(null);
+            setStatusMessage(null);
+          }}
+        />
+      ) : reviewRequest ? (
         <View style={styles.reviewContainer}>
           {reviewBalanceShort && reviewAccount ? (
             <View style={[styles.statusBanner, styles.statusBannerError]}>

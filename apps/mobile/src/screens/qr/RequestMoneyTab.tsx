@@ -1,21 +1,13 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { AlertCircle, CheckCircle2 } from 'lucide-react-native';
-import {
-  colors,
-  radius,
-  spacing,
-  formatCentavosToPHP,
-  phpToCentavos,
-  typography,
-} from '@davao-bank/shared';
+import { AlertCircle } from 'lucide-react-native';
+import { colors, radius, spacing, phpToCentavos } from '@davao-bank/shared';
 import { Text } from '../../components/Text';
 import { TextField } from '../../components/TextField';
 import { AmountInput } from '../../components/AmountInput';
 import { Button } from '../../components/Button';
 
 interface RequestMoneyTabProps {
-  reqSuccess: boolean;
   reqPayerAccount: string;
   onPayerAccountChange: (account: string) => void;
   reqAmountStr: string;
@@ -25,11 +17,9 @@ interface RequestMoneyTabProps {
   reqLoading: boolean;
   reqError: string | null;
   onSendRequest: () => void;
-  onReset: () => void;
 }
 
 export function RequestMoneyTab({
-  reqSuccess,
   reqPayerAccount,
   onPayerAccountChange,
   reqAmountStr,
@@ -39,41 +29,7 @@ export function RequestMoneyTab({
   reqLoading,
   reqError,
   onSendRequest,
-  onReset,
 }: RequestMoneyTabProps) {
-  if (reqSuccess) {
-    return (
-      <View style={styles.reqSuccessBox}>
-        <CheckCircle2 size={54} color={colors.primary} />
-        <Text variant="h2" color={colors.primary} style={styles.successTitle}>
-          Request Sent!
-        </Text>
-        <Text variant="body" color={colors.textSecondary} style={styles.successDesc}>
-          Your payment request of{' '}
-          <Text
-            variant="bodyStrong"
-            color={colors.ink}
-            numberOfLines={1}
-            adjustsFontSizeToFit
-            minimumFontScale={0.7}
-            maxFontSizeMultiplier={1.4}
-          >
-            {formatCentavosToPHP(phpToCentavos(reqAmountStr))}
-          </Text>{' '}
-          was sent to account {reqPayerAccount}. You will receive a notification as soon
-          as they authorize the transfer.
-        </Text>
-
-        <Button
-          title="Done"
-          variant="primary"
-          onPress={onReset}
-          style={{ marginTop: spacing.md }}
-        />
-      </View>
-    );
-  }
-
   return (
     <View style={styles.requestForm}>
       <Text variant="body" color={colors.textSecondary}>
@@ -153,17 +109,5 @@ const styles = StyleSheet.create({
     padding: spacing.sm,
     borderRadius: radius.sm,
     backgroundColor: colors.surfaceSubtle,
-  },
-  reqSuccessBox: {
-    alignItems: 'center',
-    padding: spacing.xl,
-    gap: spacing.md,
-  },
-  successTitle: {
-    fontFamily: typography.fonts.extraBold,
-  },
-  successDesc: {
-    textAlign: 'center',
-    lineHeight: 22,
   },
 });

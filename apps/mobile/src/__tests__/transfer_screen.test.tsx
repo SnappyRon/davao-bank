@@ -67,9 +67,10 @@ jest.mock('@davao-bank/shared', () => {
 
 // Mock settings context
 const mockConfirmBiometricPayment = jest.fn();
+let mockHideBalance = false;
 jest.mock('../context/SettingsContext', () => ({
   useSettings: () => ({
-    hideBalance: false,
+    hideBalance: mockHideBalance,
     confirmBiometricPayment: mockConfirmBiometricPayment,
   }),
 }));
@@ -107,6 +108,7 @@ describe('TransferScreen - F1 State & Receipt Guarantees', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockHideBalance = false;
     mockConfirmBiometricPayment.mockResolvedValue({ success: true });
     mockRouteParams = {
       recipientAccount: '1099999999',
@@ -142,14 +144,16 @@ describe('TransferScreen - F1 State & Receipt Guarantees', () => {
     });
 
     // Should now be on Success step
-    expect(screen.getByText('Transfer Sent')).toBeTruthy();
-    expect(screen.getByText('Balance now')).toBeTruthy();
+    expect(screen.getByText('Transfer sent')).toBeTruthy();
+    expect(screen.getByText('DB-TXMO-CK12')).toBeTruthy();
+    expect(screen.getByText('₱500.00')).toBeTruthy();
+    expect(screen.queryByText('Balance now')).toBeNull();
     expect(screen.queryByText('Loading accounts…')).toBeNull();
 
     const keyCalls = jest.mocked(generateIdempotencyKey).mock.calls.length;
     const submittedKey = jest.mocked(executeTransfer).mock.calls[0][1].idempotency_key;
     await rerender(<TransferScreen />);
-    expect(screen.getByText('Transfer Sent')).toBeTruthy();
+    expect(screen.getByText('Transfer sent')).toBeTruthy();
     expect(generateIdempotencyKey).toHaveBeenCalledTimes(keyCalls);
     expect(executeTransfer).toHaveBeenCalledTimes(1);
     expect(jest.mocked(executeTransfer).mock.calls[0][1].idempotency_key).toBe(
@@ -172,12 +176,23 @@ describe('TransferScreen - F1 State & Receipt Guarantees', () => {
     });
 
     // CRITICAL INVARIANT: Screen must STAY on success screen, NOT jump back to review or recipient
-    expect(screen.getByText('Transfer Sent')).toBeTruthy();
+    expect(screen.getByText('Transfer sent')).toBeTruthy();
     expect(screen.getByText('Balance now')).toBeTruthy();
     expect(screen.getByText('₱49,500.00')).toBeTruthy();
     expect(screen.queryByText("You're sending")).toBeNull();
     expect(screen.queryByText('Step 2 of 4')).toBeNull();
   });
+  it('masks the refreshed balance and result amount when balances are hidden', async () => {
+    mockHideBalance = true;
+    await render(<TransferScreen />);
+    await chooseSource();
+    await fireEvent.press(await screen.findByRole('button', { name: 'Send ₱500.00' }));
+    expect(await screen.findByRole('header', { name: 'Transfer sent' })).toBeTruthy();
+    expect(await screen.findByText('Balance now')).toBeTruthy();
+    expect(screen.queryByText('₱50,000.00')).toBeNull();
+    expect(screen.queryByText('₱500.00')).toBeNull();
+  });
+
   it('waits for accounts, maps load errors and retries before enabling transfer', async () => {
     jest
       .mocked(fetchAccountBalances)
@@ -266,7 +281,7 @@ describe('TransferScreen - F1 State & Receipt Guarantees', () => {
     expect(executeTransfer).not.toHaveBeenCalled();
   });
 
-  it('keeps success and the last balance without an alert when the refresh fails', async () => {
+  it('keeps success and omits balance without an alert when the refresh fails', async () => {
     await render(<TransferScreen />);
     await chooseSource();
     await screen.findByText("You're sending");
@@ -274,9 +289,10 @@ describe('TransferScreen - F1 State & Receipt Guarantees', () => {
       .mocked(fetchAccountBalances)
       .mockResolvedValueOnce({ data: null, error: 'Network request failed' });
     fireEvent.press(screen.getByRole('button', { name: 'Send ₱500.00' }));
-    expect(await screen.findByText('Transfer Sent')).toBeTruthy();
+    expect(await screen.findByText('Transfer sent')).toBeTruthy();
     await waitFor(() => expect(fetchAccountBalances).toHaveBeenCalledTimes(2));
-    expect(screen.getByText('₱50,000.00')).toBeTruthy();
+    expect(screen.queryByText('Balance now')).toBeNull();
+    expect(screen.queryByText('₱50,000.00')).toBeNull();
     expect(screen.queryByRole('alert')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
     expect(screen.queryByText('Loading accounts…')).toBeNull();
@@ -292,7 +308,7 @@ describe('TransferScreen - F1 State & Receipt Guarantees', () => {
     await chooseSource();
     await fireEvent.press(await screen.findByRole('button', { name: 'Send ₱500.00' }));
     await waitFor(() => expect(screen.getByText('Checking status…')).toBeTruthy());
-    await waitFor(() => expect(screen.getByText('Transfer Sent')).toBeTruthy(), {
+    await waitFor(() => expect(screen.getByText('Transfer sent')).toBeTruthy(), {
       timeout: 3000,
     });
     const calls = jest.mocked(executeTransfer).mock.calls;
@@ -357,7 +373,7 @@ describe('TransferScreen - F1 State & Receipt Guarantees', () => {
         error: null,
       });
     });
-    expect(await screen.findByText('Transfer Sent')).toBeTruthy();
+    expect(await screen.findByText('Transfer sent')).toBeTruthy();
   });
 
   it('does not move money when authorization is cancelled', async () => {
@@ -507,6 +523,14 @@ describe('TransferScreen - F1 State & Receipt Guarantees', () => {
       .mockResolvedValue({ data: [initialAccounts[0]], error: null });
     mockRouteParams = { recipientAccount: '1099999999' };
     const { supabase } = jest.requireMock('../lib/supabase');
+    jest.mocked(supabase.rpc).mockResolvedValueOnce({
+      data: {
+        id: '8f043910-1234-4567-8901-123456789012',
+        amount: 12345,
+        next_run_date: '2026-11-10',
+      },
+      error: null,
+    });
     await render(<TransferScreen />);
     await screen.findByText('Step 2 of 3');
     await fireEvent.changeText(screen.getByPlaceholderText('0.00'), '500');
@@ -517,6 +541,11 @@ describe('TransferScreen - F1 State & Receipt Guarantees', () => {
       fireEvent.press(button);
       fireEvent.press(button);
     });
+    expect(
+      screen.getByRole('header', { name: 'Transfer scheduled for Nov 10' })
+    ).toBeTruthy();
+    expect(screen.getByText('₱123.45')).toBeTruthy();
+    expect(screen.getByText('DB-8F04-3910')).toBeTruthy();
     expect(mockConfirmBiometricPayment).toHaveBeenCalledTimes(1);
     expect(
       jest

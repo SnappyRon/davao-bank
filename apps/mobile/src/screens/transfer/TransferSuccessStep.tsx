@@ -1,21 +1,15 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import { CheckCircle2, Calendar } from 'lucide-react-native';
 import {
-  colors,
-  radius,
-  spacing,
+  formatCentavosToPHP,
   type MoneyOperationResult,
   type ScheduledPaymentFrequency,
 } from '@davao-bank/shared';
-import { Text } from '../../components/Text';
-import { Button } from '../../components/Button';
-import { Card } from '../../components/Card';
-import { AmountText } from '../../components/AmountText';
+import { ResultView } from '../../components/ResultView';
+import { resultRows, type ResultResponse } from '../../utils/resultReceipt';
 import type { TransferTiming } from './TransferAmountStep';
-
 interface TransferSuccessStepProps {
   successResult: MoneyOperationResult | null;
+  scheduledResult: ResultResponse | null;
   isScheduledSuccess: boolean;
   timing: TransferTiming;
   scheduledDate: string;
@@ -23,180 +17,52 @@ interface TransferSuccessStepProps {
   centavosAmount: number;
   recipientNickname: string;
   recipientAccountNumber: string;
-  selectedAccountBalance: number;
+  selectedAccountBalance?: number;
   hideBalance: boolean;
   onDone: () => void;
+  onSendAgain: () => void;
 }
-
 export function TransferSuccessStep({
   successResult,
+  scheduledResult,
   isScheduledSuccess,
-  timing,
-  scheduledDate,
-  frequency,
-  centavosAmount,
-  recipientNickname,
-  recipientAccountNumber,
-  selectedAccountBalance,
   hideBalance,
+  selectedAccountBalance,
   onDone,
+  onSendAgain,
 }: TransferSuccessStepProps) {
-  if (successResult) {
-    return (
-      <View style={styles.stepContainer}>
-        <View style={styles.successIconBox}>
-          <CheckCircle2 size={54} color={colors.primary} />
-          <Text variant="h2" align="center" style={styles.successTitle}>
-            Transfer Sent
-          </Text>
-          {successResult.idempotent_replay && (
-            <Text variant="caption" color={colors.orangeText} style={styles.replayNotice}>
-              This payment was already processed
-            </Text>
-          )}
-          <AmountText
-            amountCentavos={successResult.amount || centavosAmount}
-            direction="outgoing"
-            variant="display"
-          />
-        </View>
-
-        <Card variant="subtle" style={styles.receiptCard}>
-          <View style={styles.receiptRow}>
-            <Text variant="caption" color={colors.textMuted}>
-              Recipient
-            </Text>
-            <Text variant="bodyStrong" tabularNums color={colors.ink}>
-              {recipientNickname
-                ? `${recipientNickname} (${recipientAccountNumber})`
-                : recipientAccountNumber}
-            </Text>
-          </View>
-          <View style={styles.receiptRow}>
-            <Text variant="caption" color={colors.textMuted}>
-              Balance now
-            </Text>
-            <AmountText
-              amountCentavos={selectedAccountBalance}
-              hidden={hideBalance}
-              variant="bodyStrong"
-              color={colors.ink}
-              showSign={false}
-            />
-          </View>
-          <View style={styles.receiptRow}>
-            <Text variant="caption" color={colors.textMuted}>
-              Transaction ID
-            </Text>
-            <Text variant="caption" color={colors.textMuted} style={styles.idText}>
-              {successResult.id || successResult.transaction_id}
-            </Text>
-          </View>
-        </Card>
-
-        <Button
-          title="Done"
-          variant="secondary"
-          onPress={onDone}
-          style={styles.actionButton}
-        />
-      </View>
-    );
-  }
-
-  if (isScheduledSuccess) {
-    return (
-      <View style={styles.stepContainer}>
-        <View style={styles.successIconBox}>
-          <Calendar size={54} color={colors.primary} />
-          <Text variant="h2" align="center" style={styles.successTitle}>
-            {timing === 'recurring'
-              ? 'Recurring Transfer Scheduled'
-              : 'Transfer Scheduled'}
-          </Text>
-          <AmountText
-            amountCentavos={centavosAmount}
-            direction="outgoing"
-            variant="display"
-          />
-        </View>
-
-        <Card variant="subtle" style={styles.receiptCard}>
-          <View style={styles.receiptRow}>
-            <Text variant="caption" color={colors.textMuted}>
-              Recipient
-            </Text>
-            <Text variant="bodyStrong" tabularNums color={colors.ink}>
-              {recipientNickname
-                ? `${recipientNickname} (${recipientAccountNumber})`
-                : recipientAccountNumber}
-            </Text>
-          </View>
-          <View style={styles.receiptRow}>
-            <Text variant="caption" color={colors.textMuted}>
-              {timing === 'recurring' ? 'Starting' : 'Scheduled for'}
-            </Text>
-            <Text variant="bodyStrong" color={colors.ink}>
-              {scheduledDate}
-            </Text>
-          </View>
-          {timing === 'recurring' && (
-            <View style={styles.receiptRow}>
-              <Text variant="caption" color={colors.textMuted}>
-                Frequency
-              </Text>
-              <Text variant="bodyStrong" color={colors.ink}>
-                {frequency.charAt(0).toUpperCase() + frequency.slice(1)}
-              </Text>
-            </View>
-          )}
-        </Card>
-
-        <Button
-          title="Done"
-          variant="secondary"
-          onPress={onDone}
-          style={styles.actionButton}
-        />
-      </View>
-    );
-  }
-
-  return null;
+  const result = successResult || scheduledResult;
+  if (!result && !isScheduledSuccess) return null;
+  const date = scheduledResult?.next_run_date || scheduledResult?.start_date;
+  const title =
+    isScheduledSuccess && date
+      ? `Transfer scheduled for ${new Date(`${date}T12:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+      : isScheduledSuccess
+        ? 'Transfer scheduled'
+        : 'Transfer sent';
+  return (
+    <ResultView
+      outcome={isScheduledSuccess ? 'scheduled' : 'completed'}
+      title={title}
+      amountCentavos={result?.amount}
+      hideBalance={hideBalance}
+      details={[
+        ...(result ? resultRows(result) : []),
+        ...(selectedAccountBalance !== undefined && !isScheduledSuccess
+          ? [
+              {
+                label: 'Balance now',
+                value: hideBalance
+                  ? '₱••••••'
+                  : formatCentavosToPHP(selectedAccountBalance),
+              },
+            ]
+          : []),
+      ]}
+      shareReceipt={!!result}
+      contextualActionTitle="Send again"
+      onContextualAction={onSendAgain}
+      onDone={onDone}
+    />
+  );
 }
-
-const styles = StyleSheet.create({
-  stepContainer: {
-    gap: spacing.base,
-  },
-  successIconBox: {
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-    gap: spacing.xs,
-  },
-  successTitle: {
-    marginTop: spacing.xs,
-  },
-  replayNotice: {
-    marginTop: 2,
-    marginBottom: spacing.xs,
-  },
-  receiptCard: {
-    padding: spacing.base,
-    borderRadius: radius.md,
-    gap: spacing.sm,
-  },
-  receiptRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  idText: {
-    fontFamily: 'monospace',
-    fontSize: 11,
-  },
-  actionButton: {
-    marginTop: spacing.md,
-    width: '100%',
-  },
-});
