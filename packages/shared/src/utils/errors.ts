@@ -26,6 +26,12 @@ export function toUserMessage(
   }
 
   const lower = rawMsg.toLowerCase();
+  if (lower.includes('account locked')) {
+    return 'Your account is locked. Unlock it in Bantay to send money.';
+  }
+  if (lower.includes('confirmation required')) {
+    return 'Confirm this payment in Bantay to continue. Nothing has been sent.';
+  }
   if (lower.includes('step_up_not_enrolled'))
     return 'Set up two-step verification in Profile before sending money.';
   if (lower.includes('step_up_required') || lower.includes('step_up_expired'))

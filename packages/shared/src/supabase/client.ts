@@ -17,6 +17,11 @@ import type {
   AdminAdjustBalanceParams,
   AdminReverseTransactionParams,
   AdminOperationResult,
+  SavedBiller,
+  SaveBillerParams,
+  BillReminder,
+  MonthlySummaryItem,
+  PushPlatform,
 } from '../types';
 
 /**
@@ -519,5 +524,236 @@ export async function executeAdminReverseTransaction(
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     return { data: null, error: message };
+  }
+}
+
+// ------------------------------------------------------------------------------
+// Phase 8 Stage B: Saved Billers, Bill Reminders, Monthly Summary & Push Tokens
+// ------------------------------------------------------------------------------
+
+/**
+ * Fetches all saved billers for the signed-in user.
+ */
+export async function fetchSavedBillers(
+  client: SupabaseClient
+): Promise<{ data: SavedBiller[] | null; error: string | null }> {
+  try {
+    const { data, error } = await client
+      .from('saved_billers')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      return { data: null, error: error.message };
+    }
+
+    return { data: (data || []) as SavedBiller[], error: null };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { data: null, error: message };
+  }
+}
+
+/**
+ * Creates or updates a saved biller for the signed-in user.
+ */
+export async function saveBiller(
+  client: SupabaseClient,
+  params: SaveBillerParams
+): Promise<{ data: SavedBiller | null; error: string | null }> {
+  try {
+    const billerId = params.biller_id?.trim();
+    const reference = params.reference?.trim();
+    const nickname = params.nickname?.trim();
+
+    if (!billerId) {
+      return { data: null, error: 'Biller is required' };
+    }
+    if (!reference) {
+      return { data: null, error: 'Biller reference is required' };
+    }
+    if (!nickname || nickname.length > 40) {
+      return { data: null, error: 'Nickname must be between 1 and 40 characters' };
+    }
+    if (
+      params.due_day !== undefined &&
+      params.due_day !== null &&
+      (!Number.isInteger(params.due_day) || params.due_day < 1 || params.due_day > 28)
+    ) {
+      return { data: null, error: 'Due day must be between 1 and 28' };
+    }
+
+    const basePayload = {
+      biller_id: billerId,
+      reference,
+      nickname,
+      due_day: params.due_day ?? null,
+      remind: params.remind ?? true,
+    };
+
+    if (params.id) {
+      const { data, error } = await client
+        .from('saved_billers')
+        .update(basePayload)
+        .eq('id', params.id)
+        .select('*')
+        .single();
+
+      if (error) {
+        return { data: null, error: error.message };
+      }
+
+      return { data: data as SavedBiller, error: null };
+    }
+
+    const { data: auth, error: authError } = await client.auth.getUser();
+    if (authError || !auth?.user) {
+      return { data: null, error: authError?.message || 'Authentication required' };
+    }
+
+    const { data, error } = await client
+      .from('saved_billers')
+      .insert({ user_id: auth.user.id, ...basePayload })
+      .select('*')
+      .single();
+
+    if (error) {
+      return { data: null, error: error.message };
+    }
+
+    return { data: data as SavedBiller, error: null };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { data: null, error: message };
+  }
+}
+
+/**
+ * Deletes a saved biller belonging to the signed-in user.
+ */
+export async function deleteSavedBiller(
+  client: SupabaseClient,
+  id: string
+): Promise<{ success: boolean; error: string | null }> {
+  try {
+    if (!id?.trim()) {
+      return { success: false, error: 'Saved biller ID is required' };
+    }
+
+    const { error } = await client.from('saved_billers').delete().eq('id', id);
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    return { success: true, error: null };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { success: false, error: message };
+  }
+}
+
+/**
+ * Fetches upcoming bill reminders within the next 7 days (Asia/Manila).
+ */
+export async function fetchBillReminders(
+  client: SupabaseClient
+): Promise<{ data: BillReminder[] | null; error: string | null }> {
+  try {
+    const { data, error } = await client.rpc('get_bill_reminders');
+
+    if (error) {
+      return { data: null, error: error.message };
+    }
+
+    return { data: (data || []) as BillReminder[], error: null };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { data: null, error: message };
+  }
+}
+
+function formatMonthParam(month?: string | Date): string | null {
+  if (!month) return null;
+  if (month instanceof Date) {
+    const y = month.getFullYear();
+    const m = String(month.getMonth() + 1).padStart(2, '0');
+    const d = String(month.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+  const trimmed = month.trim();
+  if (!trimmed) return null;
+  if (/^\d{4}-\d{2}$/.test(trimmed)) {
+    return `${trimmed}-01`;
+  }
+  return trimmed;
+}
+
+/**
+ * Fetches categorized monthly transaction totals and counts for the signed-in user.
+ */
+export async function fetchMonthlySummary(
+  client: SupabaseClient,
+  month?: string | Date
+): Promise<{ data: MonthlySummaryItem[] | null; error: string | null }> {
+  try {
+    const { data, error } = await client.rpc('get_monthly_summary', {
+      p_month: formatMonthParam(month),
+    });
+
+    if (error) {
+      return { data: null, error: error.message };
+    }
+
+    const normalized = ((data || []) as MonthlySummaryItem[]).map((row) => ({
+      category: row.category,
+      total_centavos: Number(row.total_centavos ?? 0),
+      count: Number(row.count ?? 0),
+    }));
+
+    return { data: normalized, error: null };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { data: null, error: message };
+  }
+}
+
+/**
+ * Registers or updates a device push notification token for the signed-in user.
+ */
+export async function registerPushToken(
+  client: SupabaseClient,
+  token: string,
+  platform: PushPlatform
+): Promise<{ success: boolean; error: string | null }> {
+  try {
+    const cleanToken = token?.trim();
+    if (!cleanToken) {
+      return { success: false, error: 'Push token is required' };
+    }
+    if (platform !== 'ios' && platform !== 'android') {
+      return { success: false, error: 'Platform must be ios or android' };
+    }
+
+    const { data: auth, error: authError } = await client.auth.getUser();
+    if (authError || !auth?.user) {
+      return { success: false, error: authError?.message || 'Authentication required' };
+    }
+
+    const { error } = await client
+      .from('push_tokens')
+      .upsert(
+        { user_id: auth.user.id, token: cleanToken, platform },
+        { onConflict: 'user_id,token' }
+      );
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    return { success: true, error: null };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { success: false, error: message };
   }
 }

@@ -50,6 +50,15 @@ describe('toUserMessage error sanitizer', () => {
     );
   });
 
+  it('maps Phase 8 Bantay guard errors to safe copy', () => {
+    expect(toUserMessage('Account locked')).toBe(
+      'Your account is locked. Unlock it in Bantay to send money.'
+    );
+    expect(toUserMessage('Confirmation required')).toBe(
+      'Confirm this payment in Bantay to continue. Nothing has been sent.'
+    );
+  });
+
   it('maps unexpected backend exceptions to generic safe fallback', () => {
     expect(toUserMessage('psql error: foreign key constraint violation')).toBe(
       'Something went wrong. No money was sent. Try again.'

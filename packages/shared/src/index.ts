@@ -6,3 +6,7 @@ export * from './utils/qr';
 export * from './utils/fx';
 export * from './utils/errors';
 export * from './utils/transactions';
+export * from './bantay/facts';
+export * from './bantay/templates';
+export * from './bantay/gemini';
+export * from './bantay/signin';
