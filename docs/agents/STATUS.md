@@ -4,13 +4,13 @@
 
 ## Now
 
-- **Active phase:** Phase 9 · Stage 9D — Branch appointments BACKEND (spec §4.5).
+- **Active phase:** Phase 9 · Stage 9D — Branch appointments BACKEND (spec §4.5), security review fixes applied.
 - **Branch:** `phase-9-appointments` (worktree at `../davao-bank-appointments`, based on `phase-8-integration`).
-- **Active prompt:** Phase 9 captain brief — branch appointments backend only.
+- **Active prompt:** Phase 9 security review fix — branch appointments backend.
 - **Assigned to:** Backup Development Agent (kilo-1).
 - **Exact next step:** none — stage complete, awaiting captain review.
-- **Last commit:** `Phase 9 · Stage 9D — Branch appointments backend` (this commit).
-- **Blockers:** none. Device, hosted, Maestro, VoiceOver, Playwright checks NOT VERIFIED (no hosted access per task rules). `npm run test:db`: 308 passed, 0 failed (includes new Phase 9 appointment checks with double-booking/capacity test).
+- **Last commit:** `Phase 9 · Fix — appointments security review` (this commit).
+- **Blockers:** none. Device, hosted, Maestro, VoiceOver, Playwright checks NOT VERIFIED (no hosted access per task rules). `npm run test:db`: 307 passed, 0 failed (includes F5/F6/F7 security tests + F4 cap boundary test).
 
 ## Stage 7B.0 — remaining work plan (captain, 2026-11-10)
 
@@ -261,6 +261,8 @@ Fix these before 7B:
 - **Follow-up:** add dedicated test accounts so live tests don't conflict with the presenter's real authenticator.
 
 ## Log (newest first)
+
+- **2026-11-26, Backup Development Agent (kilo-1):** Phase 9 · Fix — appointments security review (spec §4.5). Migration `supabase/migrations/20261129100000_phase9_branch_appointments.sql` edited in place: (F5 Medium) idempotency replay now scoped to caller (`and user_id = v_caller_id`) and idempotency key unique index made per-user (`appointments_idempotency_key_per_user` on (user_id, idempotency_key)); (F6 Low) removed anon table SELECT grants via explicit `revoke all on branches/slots from anon` (default privileges otherwise grant ALL); (F7 Low) `admin_update_appointment` to 'booked' revalidates slot capacity + per-user cap under row lock before writing; (F4 Info) added boundary test for the 5-upcoming cap. Test harness `scripts/review/pglite-phase9-appointments.mjs` extended with tests for each fix. Real output: `npm run typecheck` exit 0; `npm run lint` 0 errors; `npm run test:db` 307 passed, 0 failed. No money movement, no hosted DB access, no push. Staged by name including STATUS.md.
 
 - **2026-11-26, Backup Development Agent (kilo-1):** Phase 9 · Stage 9D — Branch appointments backend (spec §4.5). Migration `supabase/migrations/20261129100000_phase9_branch_appointments.sql`: tables `branches` (fictional Davao areas), `appointment_slots`, `appointments`; RLS on all tables; customer RPCs `list_branches`, `list_open_slots`, `book_appointment` (row lock + capacity check + unique (slot_id,user_id) where booked double-booking guard + per-user limit), `get_my_appointments`, `cancel_appointment` (own, future only); admin RPCs `admin_list_appointments` / `admin_update_appointment` (assert_admin_aal2 + is_admin, audit_logs row, notification on status change); revoked from public/anon, executable by authenticated; seed demo branches/slots. Test harness `scripts/review/pglite-phase9-appointments.mjs` (incl. double-booking/capacity race-equivalent test) wired into `scripts/review/pglite-behavior.mjs`. Real output: `npm run typecheck` exit 0; `npm run lint` 0 errors; `npm run format:check` clean; `npm run test:db` 308 passed, 0 failed. No migration of money, no money movement, no hosted DB access, no push. Staged by name including STATUS.md.
 
