@@ -1,0 +1,86 @@
+[
+  {
+    "file": "apps/mobile/src/screens/ActivityScreen.tsx",
+    "rule": "uppercase-copy",
+    "match": "section.title.toLocaleUpperCase",
+    "reason": "Spec 7B.7 explicitly allows uppercase for small section eyebrows (Activity day-group caption header)."
+  },
+  {
+    "file": "apps/mobile/src/screens/HomeScreen.tsx",
+    "rule": "uppercase-copy",
+    "match": "parts[0].substring(0, 2).toUpperCase()",
+    "reason": "2-letter avatar monogram initials in getInitials, not words, types, or statuses."
+  },
+  {
+    "file": "apps/mobile/src/screens/HomeScreen.tsx",
+    "rule": "uppercase-copy",
+    "match": "(parts[0][0] + parts[parts.length - 1][0]).toUpperCase()",
+    "reason": "2-letter avatar monogram initials in getInitials, not words, types, or statuses."
+  },
+  {
+    "file": "apps/mobile/src/screens/ProfileScreen.tsx",
+    "rule": "uppercase-copy",
+    "match": "parts[0].substring(0, 2).toUpperCase()",
+    "reason": "2-letter avatar monogram initials in getInitials, not words, types, or statuses."
+  },
+  {
+    "file": "apps/mobile/src/screens/ProfileScreen.tsx",
+    "rule": "uppercase-copy",
+    "match": "(parts[0][0] + parts[parts.length - 1][0]).toUpperCase()",
+    "reason": "2-letter avatar monogram initials in getInitials, not words, types, or statuses."
+  },
+  {
+    "file": "apps/admin/src/components/ui/Sidebar.tsx",
+    "rule": "uppercase-copy",
+    "match": "parts[0].substring(0, 2).toUpperCase()",
+    "reason": "2-letter staff avatar monogram initials in getInitials, not UI copy."
+  },
+  {
+    "file": "apps/admin/src/components/ui/Sidebar.tsx",
+    "rule": "uppercase-copy",
+    "match": "(parts[0][0] + parts[parts.length - 1][0]).toUpperCase()",
+    "reason": "2-letter staff avatar monogram initials in getInitials, not UI copy."
+  },
+  {
+    "file": "apps/admin/src/components/ui/Sidebar.tsx",
+    "rule": "uppercase-copy",
+    "match": "email.substring(0, 2).toUpperCase()",
+    "reason": "2-letter staff avatar fallback initials in getInitials, not UI copy."
+  },
+  {
+    "file": "apps/mobile/src/components/CurrencyWatchCard.tsx",
+    "rule": "php-currency",
+    "match": "USD to PHP rate",
+    "reason": "ISO 4217 FX currency-pair VoiceOver label for USD/PHP reference rate (Spec 7B.1)."
+  },
+  {
+    "file": "apps/mobile/src/components/CurrencyWatchCard.tsx",
+    "rule": "php-currency",
+    "match": "USD/PHP",
+    "reason": "Spec 7B.1 mandates 'USD/PHP ₱63.94' ISO currency-pair label on Currency Watch."
+  },
+  {
+    "file": "apps/mobile/src/screens/ReceiptScreen.tsx",
+    "rule": "raw-uuid",
+    "match": "Transaction ID: ${tx.transaction_id}",
+    "reason": "Spec 7B.2 explicitly specifies that the full UUID appears in Share receipt plain-text export only."
+  },
+  {
+    "file": "apps/admin/src/app/accounts/AccountsClient.tsx",
+    "rule": "raw-uuid",
+    "match": "selectedDetailAccount.account_id",
+    "reason": "Spec 7B.12 allows full entity UUIDs inside staff inspection detail drawers only."
+  },
+  {
+    "file": "apps/admin/src/app/transactions/TransactionsClient.tsx",
+    "rule": "raw-uuid",
+    "match": "selectedTxDetail.id",
+    "reason": "Spec 7B.12 allows full transaction UUIDs inside the staff ledger detail drawer only."
+  },
+  {
+    "file": "apps/admin/src/app/users/UsersClient.tsx",
+    "rule": "raw-uuid",
+    "match": "selectedUserDetail.id",
+    "reason": "Spec 7B.12 allows full user UUIDs inside the staff customer detail drawer only."
+  }
+]
