@@ -8,8 +8,8 @@
 - **Branch:** `phase-8-integration`; merged `phase-7-integration` (`728567a`) and `phase-8-bantay-ui` (`21977a4`) with `--no-ff`, preserving both feature sets.
 - **Active prompt:** this hand-back brief (backup agent finishes tool-copy-check's task, reports to captain).
 - **Assigned to:** Backup Development Agent; merge `phase-7-integration`, run local checks, merge the 8F risk-challenge fix from `phase-8-bantay-ui`, re-run checks, report to captain.
-- **Exact next step:** captain reviews the 8D score-test fix commit; device/Maestro/VoiceOver/hosted/Playwright checks remain with the owner.
-- **Last commit:** `Phase 8 · Fix — make 8D score tests independent of time of day`.
+- **Exact next step:** captain reviews the transfer recipient wording commit; device/Maestro/VoiceOver/hosted/Playwright checks remain with the owner.
+- **Last commit:** `Phase 7 · Fix — clearer transfer recipient wording`.
 - **Blockers:** none for `npm run test:db`: two consecutive runs at Manila 00:xx both report `277 passed, 0 failed` after the test-only fix. Device, Maestro, VoiceOver, hosted and Playwright checks NOT VERIFIED (owner/captain).
 
 ## Stage 7B.0 — remaining work plan (captain, 2026-11-10)
@@ -261,6 +261,8 @@ Fix these before 7B:
 - **Follow-up:** add dedicated test accounts so live tests don't conflict with the presenter's real authenticator.
 
 ## Log (newest first)
+
+- **2026-11-26, Backup Development Agent:** captain-assigned owner wording bug in the Transfer recipient step (`apps/mobile/src/screens/transfer/TransferRecipientStep.tsx`): tab chip "New account" → "Other account" (internal `RecipientTab` value `'new'` unchanged), helper text added under Account number ("Send to any Davao Bank account. Transfers to other banks aren't available in this demo."), and empty Saved state now "No saved recipients yet. Enter their account number to send money." with the "Enter an account number" button unchanged. Grepped `apps/mobile/src`, `packages/shared` and `e2e/`: no other UI recipient "new account" wording (remaining matches are comments/prompt/report docs); internal `new_payee` risk signal and all handlers/RPCs untouched. Updated `transfer_screen.test.tsx` (two button queries plus assertions for the new empty state and helper text) and formatted that one file with Prettier. Checks: `npm run typecheck` exit 0; `npm run lint` `✖ 67 problems (0 errors, 67 warnings)`; `npm run format:check` `All matched files use Prettier code style!`; `npx jest` `Test Suites: 59 passed, 59 total` / `Tests: 479 passed, 479 total`; `npm run check:copy` `PASS Copy audit clean across 160 files (15 justified allowlist match(es)).` No push, no hosted DB access.
 
 - **2026-11-26, Backup Development Agent:** captain-assigned Low fix in `scripts/review/pglite-phase8-bantay-risk.mjs`: the 9 '8D score' / `trusted_payees` assertions that evaluate at the engine's `now()` now derive the late-night points from the same database clock in Asia/Manila (`expectedNowScore(base)` reads `extract(hour from now() at time zone 'Asia/Manila')` and adds 10 for hours 0–5). Replaced the old fixed-02:00 assertion with one explicit fixed-time day-vs-night test (`2026-11-26T10:00+08` vs `2026-11-26T02:00+08`, no transfer history yet) that proves late night adds exactly 10. No risk engine, migration, funded RPC or test guard changed. `npm run test:db` twice: `277 passed, 0 failed` both times. `npx eslint` on the file: no output (pass). Note: standalone `npx prettier --check` flags this `.mjs` file because it was already unformatted at `HEAD`; `.mjs` is outside `format:check`'s glob and the file was not reformatted wholesale. No push, no hosted DB access.
 

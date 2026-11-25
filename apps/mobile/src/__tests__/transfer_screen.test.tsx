@@ -502,7 +502,7 @@ describe('TransferScreen - F1 State & Receipt Guarantees', () => {
     await render(<TransferScreen />);
     expect(await screen.findByText('Step 1 of 4')).toBeTruthy();
     await fireEvent.press(screen.getByRole('button', { name: /^Checking •• 4321/ }));
-    await fireEvent.press(screen.getByRole('button', { name: 'New account' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Other account' }));
     await fireEvent.changeText(
       screen.getByPlaceholderText('e.g. 1020441785'),
       '1099999999'
@@ -562,7 +562,19 @@ describe('TransferScreen - F1 State & Receipt Guarantees', () => {
     mockRouteParams = undefined;
     await render(<TransferScreen />);
     await chooseSource();
-    await fireEvent.press(screen.getByRole('button', { name: 'New account' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Saved' }));
+    expect(
+      screen.getByText(
+        'No saved recipients yet. Enter their account number to send money.'
+      )
+    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Enter an account number' })).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Other account' }));
+    expect(
+      screen.getByText(
+        "Send to any Davao Bank account. Transfers to other banks aren't available in this demo."
+      )
+    ).toBeTruthy();
     await fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
     expect(screen.getByText('Please enter or select an account number')).toBeTruthy();
     await fireEvent.changeText(screen.getByPlaceholderText('e.g. 1020441785'), '1');

@@ -79,7 +79,7 @@ export function TransferRecipientStep({
           />
         )}
         <Chip
-          label="New account"
+          label="Other account"
           selected={recipientTab === 'new'}
           onPress={() => onTabChange('new')}
         />
@@ -90,7 +90,7 @@ export function TransferRecipientStep({
           {savedRecipients.length === 0 ? (
             <Card variant="subtle" style={styles.emptyCard}>
               <Text variant="caption" color={colors.textSecondary} align="center">
-                No saved recipients yet. Enter a new account number below.
+                No saved recipients yet. Enter their account number to send money.
               </Text>
               <Button
                 title="Enter an account number"
@@ -173,6 +173,7 @@ export function TransferRecipientStep({
             value={recipientAccountNumber}
             onChangeText={onRecipientAccountChange}
             placeholder="e.g. 1020441785"
+            helperText="Send to any Davao Bank account. Transfers to other banks aren't available in this demo."
             error={recipientError || undefined}
             keyboardType="number-pad"
             maxLength={10}
