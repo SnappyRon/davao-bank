@@ -37,7 +37,7 @@ create table public.appointments (
   user_id uuid not null references public.profiles(id) on delete cascade,
   slot_id uuid not null references public.appointment_slots(id) on delete cascade,
   status text not null check (status in ('booked', 'cancelled', 'completed')),
-  idempotency_key text unique,
+  idempotency_key text,
   staff_note text,
   created_at timestamptz not null default now()
 );
@@ -46,6 +46,11 @@ create table public.appointments (
 create unique index appointments_one_booked_per_user_per_slot
   on public.appointments(slot_id, user_id)
   where status = 'booked';
+
+-- One idempotency key per user (idempotent replay is caller-scoped).
+create unique index appointments_idempotency_key_per_user
+  on public.appointments(user_id, idempotency_key)
+  where idempotency_key is not null;
 
 create index idx_appointments_user_id on public.appointments(user_id);
 create index idx_appointments_slot_id on public.appointments(slot_id);
@@ -96,9 +101,11 @@ create policy "Admins can view all appointments"
 -- 3. Table privileges (read-only for clients; mutations via RPCs only)
 -- ------------------------------------------------------------------------------
 
-grant select on public.branches to anon, authenticated;
-grant select on public.appointment_slots to anon, authenticated;
+grant select on public.branches to authenticated;
+grant select on public.appointment_slots to authenticated;
 grant select on public.appointments to authenticated;
+revoke all on public.branches from anon;
+revoke all on public.appointment_slots from anon;
 revoke insert, update, delete on public.appointments from public, anon, authenticated;
 revoke insert, update, delete on public.branches from public, anon, authenticated;
 revoke insert, update, delete on public.appointment_slots from public, anon, authenticated;
@@ -195,10 +202,11 @@ begin
     raise exception 'Idempotency key is required';
   end if;
 
-  -- Idempotent replay: return the existing booking made with this key.
+  -- Idempotent replay: return the existing booking made by this caller with this key.
   select * into v_existing
   from public.appointments
-  where idempotency_key = p_idempotency_key;
+  where idempotency_key = p_idempotency_key
+    and user_id = v_caller_id;
 
   if found then
     return jsonb_build_object(
@@ -522,6 +530,52 @@ begin
 
   if v_app.status = p_status then
     raise exception 'Appointment is already %', p_status;
+  end if;
+
+  -- Re-booking (to 'booked') must revalidate slot capacity and the per-user cap
+  -- under the same locks as book_appointment, so an admin cannot overbook.
+  if p_status = 'booked' then
+    declare
+      v_slot record;
+      v_booked int;
+      v_user_booked int;
+    begin
+      select * into v_slot
+      from public.appointment_slots
+      where id = v_app.slot_id
+      for update;
+
+      if not found then
+        raise exception 'Slot not found';
+      end if;
+
+      if not v_slot.is_active then
+        raise exception 'Slot is not active';
+      end if;
+
+      if v_slot.starts_at <= now() then
+        raise exception 'Slot is in the past';
+      end if;
+
+      select count(*) into v_booked
+      from public.appointments
+      where slot_id = v_app.slot_id and status = 'booked';
+
+      if v_booked >= v_slot.capacity then
+        raise exception 'Slot is fully booked';
+      end if;
+
+      select count(*) into v_user_booked
+      from public.appointments a
+      join public.appointment_slots s on s.id = a.slot_id
+      where a.user_id = v_user_id
+        and a.status = 'booked'
+        and s.starts_at > now();
+
+      if v_user_booked >= 5 then
+        raise exception 'User already has the maximum number of upcoming appointments';
+      end if;
+    end;
   end if;
 
   update public.appointments
