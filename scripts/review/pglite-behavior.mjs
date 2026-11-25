@@ -311,6 +311,153 @@ ok('7B.9 history: non-bill rows have null biller_name', !r.err && r.rows.filter(
 r=await cust(U.B,`select count(*)::int n from get_account_transactions($1)`,[A.id]); ok('7B.9 history: B gets no rows for A\'s account', one(r)===0, r.err);
 r=await cust(U.B,`select count(*)::int n from get_account_transactions() where biller_name is not null`); ok('7B.9 history: B sees no biller names (no own bill payments)', one(r)===0, r.err);
 r=await as('anon',null,`select * from get_account_transactions(null)`); ok('7B.9 history: anon cannot execute get_account_transactions', /permission denied/.test(r.err||''), r.err);
+// ---- Phase 8 Stage B: saved_billers, get_bill_reminders, get_monthly_summary, push_tokens
+// 1. saved_billers RLS & constraints
+r=await cust(U.A,`insert into saved_billers(biller_id,reference,nickname,due_day,remind) values($1,'1234567890','Power Home',15,true) returning id, user_id`,[biller.id]);
+const sbA=r.rows?.[0]?.id;
+ok('8B saved_billers: A inserts own row (user_id defaults to auth.uid())', !r.err && r.rows?.[0]?.user_id===U.A, r.err);
+r=await cust(U.A,`insert into saved_billers(user_id,biller_id,reference,nickname,due_day) values($1,$2,'1234567890','Spoofed',10)`,[U.B,biller.id]);
+ok('8B saved_billers RLS: A cannot insert row for B', !!r.err, r.err);
+r=await cust(U.B,`select count(*)::int n from saved_billers where id=$1`,[sbA]);
+ok('8B saved_billers RLS: B cannot read A row', one(r)===0, r.err);
+r=await cust(U.B,`update saved_billers set nickname='Hacked' where id=$1 returning id`,[sbA]);
+ok('8B saved_billers RLS: B cannot update A row', !r.err && (r.rows||[]).length===0, r.err);
+r=await cust(U.B,`delete from saved_billers where id=$1 returning id`,[sbA]);
+ok('8B saved_billers RLS: B cannot delete A row', !r.err && (r.rows||[]).length===0, r.err);
+r=await cust(U.A,`update saved_billers set user_id=$1 where id=$2`,[U.B,sbA]);
+ok('8B saved_billers RLS: A cannot reassign row to B', !!r.err, r.err);
+r=await as('anon',null,`select * from saved_billers`);
+ok('8B saved_billers RLS: anon cannot read saved_billers', !!r.err, r.err);
+r=await cust(U.A,`insert into saved_billers(biller_id,reference,nickname,due_day) values($1,'1234567890','Bad Day',29)`,[biller.id]);
+ok('8B saved_billers: due_day > 28 rejected', !!r.err, r.err);
+r=await cust(U.A,`insert into saved_billers(biller_id,reference,nickname,due_day) values($1,'1234567890','',10)`,[biller.id]);
+ok('8B saved_billers: empty nickname rejected', !!r.err, r.err);
+
+// 2. push_tokens RLS & constraints
+r=await cust(U.A,`insert into push_tokens(token,platform) values('ExponentPushToken[a1]','ios') on conflict (user_id,token) do update set platform=excluded.platform returning user_id`);
+ok('8B push_tokens: A upserts own token', !r.err && r.rows?.[0]?.user_id===U.A, r.err);
+r=await cust(U.A,`insert into push_tokens(user_id,token,platform) values($1,'ExponentPushToken[spoof]','android')`,[U.B]);
+ok('8B push_tokens RLS: A cannot insert token for B', !!r.err, r.err);
+r=await cust(U.B,`select count(*)::int n from push_tokens where user_id=$1`,[U.A]);
+ok('8B push_tokens RLS: B cannot read A tokens', one(r)===0, r.err);
+r=await cust(U.B,`delete from push_tokens where user_id=$1 returning token`,[U.A]);
+ok('8B push_tokens RLS: B cannot delete A tokens', !r.err && (r.rows||[]).length===0, r.err);
+r=await as('anon',null,`select * from push_tokens`);
+ok('8B push_tokens RLS: anon cannot read push_tokens', !!r.err, r.err);
+r=await cust(U.A,`insert into push_tokens(token,platform) values('ExponentPushToken[bad]','web')`);
+ok('8B push_tokens: invalid platform rejected', !!r.err, r.err);
+
+// 3. get_bill_reminders() window (including month & year rollover)
+await su(`delete from saved_billers where user_id in ($1,$2)`,[U.A,U.B]);
+// Fixed-date rollover checks via internal helper (and confirm customers cannot call internal helper)
+r=await cust(U.A,`select * from _get_bill_reminders_for_date($1,'2026-01-29')`,[U.A]);
+ok('8B reminders: customer cannot call internal _get_bill_reminders_for_date', /permission denied/.test(r.err||''), r.err);
+await cust(U.A,`insert into saved_billers(biller_id,reference,nickname,due_day,remind) values($1,'1111111111','Due Jan 29',29-1,true)`,[biller.id]); // due_day 28
+await cust(U.A,`insert into saved_billers(biller_id,reference,nickname,due_day,remind) values($1,'2222222222','Due 1st',1,true)`,[biller.id]);
+await cust(U.A,`insert into saved_billers(biller_id,reference,nickname,due_day,remind) values($1,'3333333333','Due 5th',5,true)`,[biller.id]);
+await cust(U.A,`insert into saved_billers(biller_id,reference,nickname,due_day,remind) values($1,'4444444444','Due 6th',6,true)`,[biller.id]);
+await cust(U.A,`insert into saved_billers(biller_id,reference,nickname,due_day,remind) values($1,'5555555555','Muted 1st',1,false)`,[biller.id]);
+await cust(U.A,`insert into saved_billers(biller_id,reference,nickname,due_day,remind) values($1,'6666666666','No Due Day',null,true)`,[biller.id]);
+await cust(U.B,`insert into saved_billers(biller_id,reference,nickname,due_day,remind) values($1,'7777777777','B Due 1st',1,true)`,[biller.id]);
+
+// Jan 29 -> window is Jan 29..Feb 5 (due_day 1 => 3d, due_day 5 => 7d; due_day 6 => 8d excluded; due_day 28 => 30d excluded)
+let remRows=await su(`select nickname, biller_name, days_until_due from _get_bill_reminders_for_date($1,'2026-01-29')`,[U.A]);
+ok('8B reminders Jan->Feb rollover: due 1st (3d) & 5th (7d), excludes 6th/28th/muted/null/B',
+  remRows.length===2 &&
+  remRows[0].nickname==='Due 1st' && remRows[0].days_until_due===3 && remRows[0].biller_name==='Mindanao Power Co. (demo)' &&
+  remRows[1].nickname==='Due 5th' && remRows[1].days_until_due===7,
+  JSON.stringify(remRows));
+
+// Feb 25 (non-leap 2026) -> window Feb 25..Mar 4 (due_day 28 => 3d, due_day 1 => 4d; due_day 5 => 8d excluded)
+remRows=await su(`select nickname, days_until_due from _get_bill_reminders_for_date($1,'2026-02-25')`,[U.A]);
+ok('8B reminders non-leap Feb->Mar rollover: 28th (3d), 1st (4d), excludes 5th (8d)',
+  remRows.length===2 && remRows[0].nickname==='Due Jan 29' && remRows[0].days_until_due===3 && remRows[1].nickname==='Due 1st' && remRows[1].days_until_due===4,
+  JSON.stringify(remRows));
+
+// Feb 25 (leap 2024) -> window Feb 25..Mar 3 (due_day 28 => 3d, due_day 1 => 5d; due_day 5 => 9d excluded)
+remRows=await su(`select nickname, days_until_due from _get_bill_reminders_for_date($1,'2024-02-25')`,[U.A]);
+ok('8B reminders leap Feb->Mar rollover: 28th (3d), 1st (5d), excludes 5th (9d)',
+  remRows.length===2 && remRows[0].days_until_due===3 && remRows[1].days_until_due===5,
+  JSON.stringify(remRows));
+
+// Dec 28 -> Jan year rollover -> window Dec 28..Jan 4 (due_day 28 => 0d, due_day 1 => 4d; due_day 5 => 8d excluded)
+remRows=await su(`select nickname, days_until_due from _get_bill_reminders_for_date($1,'2026-12-28')`,[U.A]);
+ok('8B reminders Dec->Jan year rollover: 28th (0d), 1st (4d), excludes 5th (8d)',
+  remRows.length===2 && remRows[0].days_until_due===0 && remRows[1].days_until_due===4,
+  JSON.stringify(remRows));
+
+// Live RPC get_bill_reminders() as authenticated user (plus today-based window check)
+await su(`delete from saved_billers where user_id=$1`,[U.A]);
+const todayDay=Number((await su(`select extract(day from (now() at time zone 'Asia/Manila')::date)::int d`))[0].d);
+if (todayDay<=28) {
+  await cust(U.A,`insert into saved_billers(biller_id,reference,nickname,due_day,remind) values($1,'8888888888','Due Today',${todayDay},true)`,[biller.id]);
+} else {
+  await cust(U.A,`insert into saved_billers(biller_id,reference,nickname,due_day,remind) values($1,'8888888888','Due 1st Live',1,true)`,[biller.id]);
+}
+r=await cust(U.A,`select * from get_bill_reminders()`);
+ok('8B get_bill_reminders() RPC returns caller upcoming reminders', !r.err && r.rows.length>=1 && r.rows.every(x=>x.user_id===U.A && x.days_until_due>=0 && x.days_until_due<=7), r.err||JSON.stringify(r.rows));
+r=await cust(U.B,`select * from get_bill_reminders()`);
+ok('8B get_bill_reminders() RPC scopes to caller only (excludes A)', !r.err && r.rows.every(x=>x.user_id===U.B), r.err);
+r=await as('anon',null,`select * from get_bill_reminders()`);
+ok('8B get_bill_reminders() RPC rejects anon', /permission denied/.test(r.err||''), r.err);
+
+// 4. get_monthly_summary(p_month) categories, totals & caller scoping
+const summaryCurrent=await cust(U.A,`select category, total_centavos::bigint, count from get_monthly_summary(null)`);
+const byCat=Object.fromEntries((summaryCurrent.rows||[]).map(x=>[x.category,{total:Number(x.total_centavos),count:Number(x.count)}]));
+const ledgerA=await su(`
+  select
+    coalesce(sum(case when t.type in ('deposit','transfer') and le.direction='credit' then le.amount else 0 end),0)::bigint money_in,
+    coalesce(sum(case when t.type='transfer' and le.direction='debit' then le.amount else 0 end),0)::bigint transfers_out,
+    coalesce(sum(case when t.type='bill_payment' and le.direction='debit' then le.amount else 0 end),0)::bigint bills,
+    coalesce(sum(case when t.type='withdrawal' and le.direction='debit' then le.amount else 0 end),0)::bigint cash_out,
+    coalesce(sum(case when t.type in ('adjustment','reversal') then (case when le.direction='credit' then le.amount else -le.amount end) else 0 end),0)::bigint adjustments,
+    coalesce(sum(case when le.direction='credit' then le.amount else -le.amount end),0)::bigint net_ledger
+  from ledger_entries le
+  join transactions t on t.id=le.transaction_id
+  join accounts a on a.id=le.account_id
+  where a.user_id=$1
+`,[U.A]);
+const lA=ledgerA[0];
+ok('8B monthly summary A returns all 5 categories matching ledger exactly',
+  !summaryCurrent.err &&
+  (summaryCurrent.rows||[]).length===5 &&
+  byCat.money_in?.total===Number(lA.money_in) &&
+  byCat.transfers_out?.total===Number(lA.transfers_out) &&
+  byCat.bills?.total===Number(lA.bills) &&
+  byCat.cash_out?.total===Number(lA.cash_out) &&
+  byCat.adjustments?.total===Number(lA.adjustments) &&
+  (byCat.money_in.total - byCat.transfers_out.total - byCat.bills.total - byCat.cash_out.total + byCat.adjustments.total)===Number(lA.net_ledger),
+  summaryCurrent.err||JSON.stringify({byCat,lA}));
+
+// Verify B's summary matches B's ledger only (and differs from A)
+const summaryB=await cust(U.B,`select category, total_centavos::bigint, count from get_monthly_summary($1::date)`,[today]);
+const byCatB=Object.fromEntries((summaryB.rows||[]).map(x=>[x.category,{total:Number(x.total_centavos),count:Number(x.count)}]));
+const ledgerB=(await su(`
+  select
+    coalesce(sum(case when t.type in ('deposit','transfer') and le.direction='credit' then le.amount else 0 end),0)::bigint money_in,
+    coalesce(sum(case when t.type='transfer' and le.direction='debit' then le.amount else 0 end),0)::bigint transfers_out,
+    coalesce(sum(case when t.type='bill_payment' and le.direction='debit' then le.amount else 0 end),0)::bigint bills,
+    coalesce(sum(case when t.type='withdrawal' and le.direction='debit' then le.amount else 0 end),0)::bigint cash_out,
+    coalesce(sum(case when t.type in ('adjustment','reversal') then (case when le.direction='credit' then le.amount else -le.amount end) else 0 end),0)::bigint adjustments
+  from ledger_entries le
+  join transactions t on t.id=le.transaction_id
+  join accounts a on a.id=le.account_id
+  where a.user_id=$1
+`,[U.B]))[0];
+ok('8B monthly summary B matches B ledger only',
+  !summaryB.err &&
+  byCatB.money_in?.total===Number(ledgerB.money_in) &&
+  byCatB.transfers_out?.total===Number(ledgerB.transfers_out) &&
+  byCatB.bills?.total===Number(ledgerB.bills) &&
+  byCatB.cash_out?.total===Number(ledgerB.cash_out) &&
+  byCatB.adjustments?.total===Number(ledgerB.adjustments),
+  summaryB.err||JSON.stringify({byCatB,ledgerB}));
+
+// Empty past month returns 5 zeroed categories; anon rejected
+const emptyMonth=await cust(U.A,`select category, total_centavos::bigint, count from get_monthly_summary('2020-01-01'::date)`);
+ok('8B monthly summary empty month returns 5 zeroed rows', !emptyMonth.err && emptyMonth.rows.length===5 && emptyMonth.rows.every(x=>Number(x.total_centavos)===0 && Number(x.count)===0), emptyMonth.err||JSON.stringify(emptyMonth.rows));
+r=await as('anon',null,`select * from get_monthly_summary(null)`);
+ok('8B monthly summary rejects anon', /permission denied/.test(r.err||''), r.err);
 // ---- Reconciliation
 const rec=await reconcile();
 ok('Reconciliation: every transfer/reversal/bill nets to zero', Number(rec.unbalanced)===0, JSON.stringify(rec));

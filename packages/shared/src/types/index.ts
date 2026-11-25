@@ -469,3 +469,56 @@ export interface FXSummary {
   changePercent: number;
   direction: 'up' | 'down' | 'flat';
 }
+
+// --- Phase 8 Stage B: Saved Billers, Reminders, Monthly Summary & Push Tokens ---
+
+export interface SavedBiller {
+  id: string;
+  user_id: string;
+  biller_id: string;
+  reference: string;
+  nickname: string;
+  due_day: number | null;
+  remind: boolean;
+  created_at: string;
+}
+
+export interface SaveBillerParams {
+  id?: string;
+  biller_id: string;
+  reference: string;
+  nickname: string;
+  due_day?: number | null;
+  remind?: boolean;
+}
+
+export interface BillReminder {
+  id: string;
+  user_id: string;
+  biller_id: string;
+  biller_name: string;
+  reference: string;
+  nickname: string;
+  due_day: number;
+  remind: boolean;
+  days_until_due: number;
+  created_at: string;
+}
+
+export type MonthlySummaryCategory =
+  'money_in' | 'transfers_out' | 'bills' | 'cash_out' | 'adjustments';
+
+export interface MonthlySummaryItem {
+  category: MonthlySummaryCategory;
+  total_centavos: number;
+  count: number;
+}
+
+export type PushPlatform = 'ios' | 'android';
+
+export interface PushToken {
+  user_id: string;
+  token: string;
+  platform: PushPlatform;
+  created_at: string;
+}
