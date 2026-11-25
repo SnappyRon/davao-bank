@@ -74,6 +74,10 @@ export function ReviewCard({
                   color={colors.ink}
                   align="right"
                   tabularNums
+                  numberOfLines={row.label === 'Balance after' ? 1 : undefined}
+                  adjustsFontSizeToFit={row.label === 'Balance after'}
+                  minimumFontScale={0.7}
+                  maxFontSizeMultiplier={row.label === 'Balance after' ? 1.4 : undefined}
                   style={styles.rowValue}
                   accessibilityLabel={row.valueAccessibilityLabel}
                 >

@@ -23,7 +23,7 @@ export function AmountText({
   color,
   style,
   showSign = true,
-  maxFontSizeMultiplier,
+  maxFontSizeMultiplier = 1.4,
 }: AmountTextProps) {
   if (hidden) {
     return (
@@ -31,6 +31,9 @@ export function AmountText({
         variant={variant}
         color={color || colors.ink}
         tabularNums
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.7}
         style={[styles.base, style]}
         accessibilityLabel="Amount hidden"
         maxFontSizeMultiplier={maxFontSizeMultiplier}
@@ -60,6 +63,9 @@ export function AmountText({
       variant={variant}
       color={displayColor}
       tabularNums
+      numberOfLines={1}
+      adjustsFontSizeToFit
+      minimumFontScale={0.7}
       style={[styles.base, style]}
       maxFontSizeMultiplier={maxFontSizeMultiplier}
     >

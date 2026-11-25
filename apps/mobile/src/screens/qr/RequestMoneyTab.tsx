@@ -50,7 +50,14 @@ export function RequestMoneyTab({
         </Text>
         <Text variant="body" color={colors.textSecondary} style={styles.successDesc}>
           Your payment request of{' '}
-          <Text variant="bodyStrong" color={colors.ink}>
+          <Text
+            variant="bodyStrong"
+            color={colors.ink}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.7}
+            maxFontSizeMultiplier={1.4}
+          >
             {formatCentavosToPHP(phpToCentavos(reqAmountStr))}
           </Text>{' '}
           was sent to account {reqPayerAccount}. You will receive a notification as soon

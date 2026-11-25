@@ -106,7 +106,14 @@ export function MyQRTab({
             {selectedAccount?.account_number || '—'}
           </Text>
           {customAmountStr ? (
-            <Text variant="bodyStrong" color={colors.primary}>
+            <Text
+              variant="bodyStrong"
+              color={colors.primary}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.7}
+              maxFontSizeMultiplier={1.4}
+            >
               {formatCentavosToPHP(phpToCentavos(customAmountStr))}
             </Text>
           ) : null}

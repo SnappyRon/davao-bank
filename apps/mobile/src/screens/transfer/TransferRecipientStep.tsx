@@ -105,6 +105,7 @@ export function TransferRecipientStep({
                   key={rec.id}
                   variant="elevated"
                   style={styles.recipientItem}
+                  accessibilityLabel={`${rec.nickname}, ${maskAccountNumber(rec.account_number)}`}
                   onPress={() => onSelectSaved(rec)}
                 >
                   <View style={styles.recipientIconCircle}>
@@ -136,6 +137,7 @@ export function TransferRecipientStep({
                 key={acc.account_id}
                 variant="elevated"
                 style={styles.recipientItem}
+                accessibilityLabel={`${formatAccountLabel(acc)}, ${hideBalance ? 'amount hidden' : formatCentavosToPHP(acc.balance)}`}
                 onPress={() => onSelectOwn(acc)}
               >
                 <View style={styles.recipientIconCircle}>
@@ -145,7 +147,15 @@ export function TransferRecipientStep({
                   <Text variant="bodyStrong" color={colors.ink}>
                     {formatAccountLabel(acc)}
                   </Text>
-                  <Text variant="caption" color={colors.textSecondary} tabularNums>
+                  <Text
+                    variant="caption"
+                    color={colors.textSecondary}
+                    tabularNums
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.7}
+                    maxFontSizeMultiplier={1.4}
+                  >
                     Available:{' '}
                     {hideBalance ? '₱••••••' : formatCentavosToPHP(acc.balance)}
                   </Text>

@@ -7,10 +7,10 @@
 - **Active phase:** Phase 7 — UI/UX Refinement & Motion.
 - **Branch:** `phase-7-ui-motion`; admin polish merged from `phase-7-admin-polish`.
 - **Active prompt:** `Phase-7-Prompt-UI-UX-and-Motion.md`.
-- **Assigned to:** captain; money-flow test follow-up and admin polish are ready for captain verification.
-- **Exact next step:** captain verifies the money-flow follow-up; owner signs in with an authenticator for admin Playwright and desktop/narrow screenshots.
-- **Last commit:** merge of admin polish into `phase-7-ui-motion` (this commit; parent `853b30b`).
-- **Blockers:** admin Playwright and authenticated screenshots NOT VERIFIED — needs owner sign-in.
+- **Assigned to:** Codex completed Stage 7B.6; captain review pending.
+- **Exact next step:** captain reviews Stage 7B.6 and arranges device widths, scaling and VoiceOver verification; admin Playwright still needs owner sign-in.
+- **Last commit:** Stage 7B.6 (this commit; parent `bb25020`).
+- **Blockers:** device layout and VoiceOver NOT VERIFIED; admin Playwright needs owner sign-in.
 
 ## Stage 7B.0 — remaining work plan (captain, 2026-11-10)
 
@@ -109,10 +109,11 @@ Deferred to their planned steps (not in the fix round): receipt reference/Share/
 - [ ] **7B.5 ResultView**:
   - [ ] 4 outcomes with dedicated icons, titles, haptics, details card, Done/Share/contextual actions. Everything from server response.
 - [ ] **7B.6 Responsive and accessibility**:
-  - [ ] 360 pt, 400 pt, 440 pt responsive sizing.
-  - [ ] Text scaling: `maxFontSizeMultiplier={1.4}` on amounts/tab labels.
-  - [ ] Roles and labels on all touchables, busy announcement.
-  - [ ] VoiceOver audit pass notes.
+  - [x] 360 pt, 400 pt, 440 pt responsive sizing.
+  - [x] Text scaling: `maxFontSizeMultiplier={1.4}` on amounts/tab labels.
+  - [x] Roles and labels on all touchables, busy announcement.
+  - [x] VoiceOver audit pass notes.
+  - Device layouts, actual VoiceOver traversal, announcement timing and 1.4× text: NOT VERIFIED — requires device.
 - [ ] **7B.7 Wording**:
   - [ ] Apply all sentence-case and wording replacements from table.
   - [ ] No exclamation marks, no IDs, no regexes, no raw status values in money flows.
@@ -247,6 +248,8 @@ Fix these before 7B:
 - **Follow-up:** add dedicated test accounts so live tests don't conflict with the presenter's real authenticator.
 
 ## Log (newest first)
+
+- **2026-11-25, Codex:** took over and implemented 7B.6 responsive/accessibility code changes: fitted/capped amounts, responsive Home tests, tab label and busy-state tests, descriptive Transfer recipient labels, and code-level VoiceOver audit. Money-flow and step-up screen files match `bb25020` byte for byte; QR/recipient changes are presentation only. Typecheck exit 0, lint 0 errors / 64 warnings, unit 36 suites / 321 tests. Format check NOT clean solely because untracked `ONBOARDING.md` is not formatted. Actual widths, large-text layout and VoiceOver NOT VERIFIED — needs device; captain review next.
 
 - **2026-11-16, Codex:** backed up the owner’s stale ProfileScreen diff to `/private/tmp/claude-501/-Users-ronalbert-Personal-Projects-davao-bank/9608170a-2220-4dd9-a403-daf315ea23c1/scratchpad/ProfileScreen-uncommitted.patch` (27,257 bytes), restored the committed screen, and merged reviewed admin polish into `phase-7-ui-motion`. Pre-merge typecheck and unit passed; lint 0 errors / 64 warnings. Admin Playwright and authenticated screenshots remain NOT VERIFIED — needs owner sign-in. Post-merge typecheck exit 0; lint 0 errors / 64 warnings; unit 35 suites / 314 tests passed; format:check exit 1 only for untracked `ONBOARDING.md` (untouched).
 

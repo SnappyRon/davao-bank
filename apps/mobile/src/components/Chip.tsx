@@ -27,6 +27,7 @@ export function Chip({ label, selected = false, onPress, style }: ChipProps) {
     >
       <Text
         variant="label"
+        maxFontSizeMultiplier={1.4}
         color={selected ? colors.primary : colors.textSecondary}
         style={styles.label}
       >

@@ -30,6 +30,9 @@ describe('Mobile Core UI Components', () => {
 
       const btn = screen.getByText('Submit');
       expect(btn).toBeTruthy();
+      expect(
+        screen.getByRole('button', { name: 'Submit' }).props.accessibilityState
+      ).toEqual(expect.objectContaining({ busy: true, disabled: true }));
 
       fireEvent.press(btn);
       expect(onPressMock).not.toHaveBeenCalled();
@@ -49,7 +52,11 @@ describe('Mobile Core UI Components', () => {
       await render(
         <AmountText amountCentavos={150000} direction="incoming" showSign={true} />
       );
-      expect(screen.getByText('+₱1,500.00')).toBeTruthy();
+      const amount = screen.getByText('+₱1,500.00');
+      expect(amount.props.numberOfLines).toBe(1);
+      expect(amount.props.adjustsFontSizeToFit).toBe(true);
+      expect(amount.props.minimumFontScale).toBe(0.7);
+      expect(amount.props.maxFontSizeMultiplier).toBe(1.4);
     });
 
     it('renders outgoing amount with minus sign', async () => {
@@ -61,7 +68,9 @@ describe('Mobile Core UI Components', () => {
 
     it('renders masked state when hidden is true', async () => {
       await render(<AmountText amountCentavos={999900} hidden={true} />);
-      expect(screen.getByText('₱••••••')).toBeTruthy();
+      const masked = screen.getByText('₱••••••');
+      expect(masked.props.numberOfLines).toBe(1);
+      expect(masked.props.maxFontSizeMultiplier).toBe(1.4);
       expect(screen.queryByText('₱9,999.00')).toBeNull();
     });
   });

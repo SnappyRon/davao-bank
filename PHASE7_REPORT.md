@@ -1073,3 +1073,20 @@ test:unit exit 0
 ### 7b56e1d review fix round
 
 Updated the MFA helper to reveal and read the grouped key, made disabled Verify distinct from its busy state, mapped audit actions and entities, hid internal reasons from tooltips, prevented mid-number wrapping, shared sentence-case formatting, improved button borders and updated remaining requested copy. The hidden key remains in the DOM for aria-controls; setup is announced once. No existing size token exists for 520px, 44px or 52px; those dimensions remain. MFA effect/start/verify/cancel compared byte-for-byte with `4686b0c`: all identical. Playwright and authenticated visual verification NOT VERIFIED — needs owner sign-in.
+
+## Stage 7B.6 — Responsive and accessibility
+
+- `AmountText` now defaults to 1.4× maximum, one line and font fitting (0.7 minimum), including the hidden state. Home balance, account picker rows, transaction rows and receipt use it. Home already selects `amount` below 400 pt and `display` at 400 pt and above; tests cover 360, 400 and 440. Review and result amounts use matching one-line fit/cap; Balance after, QR amounts and own-account amounts get matching treatment. Preset Home tiles retain their three-column flex grid and no longer truncate body labels at two lines. Physical fit and tile widths are NOT VERIFIED — requires device.
+- Tab and badge labels already capped at 1.4; chips now cap at 1.4. Floating bar and tab items use minimum heights to allow larger text. Body text otherwise scales freely. Button already provides role, label and busy accessibility state; added a test for loading state.
+- **Code-level VoiceOver walkthrough:** Login links expose button roles/labels and fields use TextField labels; Home profile, balance toggle, action tiles and account selector have labelled buttons; Activity transaction rows provide title, time, amount or hidden state and status; Transfer step controls use labelled buttons, chips, checkbox, account selection and review actions; two clickable recipient cards had only the generic label “Card”, now use nickname/masked account or account label and privacy-aware balance. Profile rows and switches expose names and state. Audited requested Login, SignUp, VerifyEmail, ForgotPassword, Lock, QR, FX, About, Personal details, Export, Two-step, Scheduled payments, Payment requests and Receipt touchables in code; shared Pressable requires roles and labels, Button supplies both, and chips supply labels. This is a source audit, not a spoken VoiceOver pass.
+- Tests cover visible/masked amount props, Home width selection and balance controls, review/result amounts, tab label scaling/selected role and Button busy state; existing screen role tests remain in place.
+- **Handler comparison vs `bb25020`:** byte comparison of entire AddMoneyScreen, CashOutScreen, TransferScreen, PayBillsScreen, PaymentRequestsScreen, TwoStepSetupScreen and useInFlightGuard files: all BYTE-IDENTICAL. Modified QR child components and Transfer recipient component contain JSX presentation changes only (verified with `git diff`); no confirm, step-up, RPC, idempotency or error-mapping code changed. No shared, database, prompt or settings logic changes.
+
+```text
+npm run typecheck: exit 0
+npm run lint: ✖ 64 problems (0 errors, 64 warnings)
+npm run test:unit: Test Suites: 36 passed, 36 total; Tests: 321 passed, 321 total
+npm run format:check: NOT CLEAN — untracked ONBOARDING.md only (see log)
+```
+
+**NOT VERIFIED — needs device:** actual one-line fitting and tile widths at 360/400/440, large-text clipping at 1.4× and above, VoiceOver focus order and spoken busy/selection state, and screen-reader traversal for Login, Home, Activity, every Transfer step and Profile.

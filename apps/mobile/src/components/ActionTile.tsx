@@ -57,7 +57,7 @@ export function ActionTile({ label, color, icon, onPress, style }: ActionTilePro
       style={[styles.tile, columns === 3 ? styles.tileThird : styles.tileHalf, style]}
     >
       <View style={[styles.disc, { backgroundColor: DISC_COLORS[color] }]}>{icon}</View>
-      <Text variant="label" color={colors.ink} numberOfLines={2}>
+      <Text variant="label" color={colors.ink}>
         {label}
       </Text>
     </Pressable>

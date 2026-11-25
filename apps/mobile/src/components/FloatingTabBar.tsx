@@ -170,7 +170,7 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   pillContainer: {
-    height: FLOATING_TAB_BAR_HEIGHT,
+    minHeight: FLOATING_TAB_BAR_HEIGHT,
     borderRadius: 32,
     overflow: 'hidden',
     borderWidth: 1,
@@ -192,7 +192,7 @@ const styles = StyleSheet.create({
   },
   tabItem: {
     flex: 1,
-    height: 48,
+    minHeight: 48,
     borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',

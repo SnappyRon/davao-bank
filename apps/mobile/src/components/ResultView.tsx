@@ -90,7 +90,16 @@ export function ResultView({
       </Text>
 
       {displayAmount ? (
-        <Text variant="amount" color={colors.ink} align="center" style={styles.amount}>
+        <Text
+          variant="amount"
+          color={colors.ink}
+          align="center"
+          style={styles.amount}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.7}
+          maxFontSizeMultiplier={1.4}
+        >
           {displayAmount}
         </Text>
       ) : null}
