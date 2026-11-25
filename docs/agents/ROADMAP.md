@@ -109,18 +109,32 @@ All agents report progress, findings and blockers to the captain only (Herdr tab
 | Real (mainnet) DVO token, public crypto  | Never                  | Securities / VASP licensing; store policies                                                |
 | Partial fund holds                       | Not built              | Existing freeze covers the demo; avoids new balance math                                   |
 
-## 8. Substitute agents (2026-11-25)
+## 8. Backup Development Agents (category, 2026-11-25)
 
-All Antigravity agents hit the weekly Gemini quota and Codex hit its limit (resets 2026-11-26 00:12). Two substitutes take over the pending work, resume from each stopped agent's uncommitted changes (kept, not redone) and report to the captain. The stopped agents must not be restarted on these tasks.
+A separate category of coding agents (Cline and OpenCode, free models) that take over pending work when primary agents (Codex, Antigravity, Claude implementers) are down or out of usage. They write code, implement pending features, fix bugs and finish unfinished tasks in their department only. Same rules as everyone: `AGENTS.md`, the phase prompts, `WORKFLOW.md`, one writer per folder, notes in `docs/agents/notes/<branch>.md`, report to the captain only. Herdr tabs are labelled `backup·<name>`. Start commands: `cline` (shared `~/.cline` sign-in); `XDG_STATE_HOME=~/.opencode-state opencode` (`~/.local/state` is root-owned).
 
-| Substitute                          | Tool                                                                                                 | Queue (in order)                                                                                                                                                                                 |
-| ----------------------------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `fe-cline` (tab 15)                 | Cline CLI (ClinePass free model)                                                                     | 1. 7C (`davao-bank-frontend`, from `fe-motion`) · 2. 7B.11 (`davao-bank-status`, from `fe-system-status`) · 3. 8F (`davao-bank-p8-ui`, from `fe-phase8-screens`)                                 |
-| `fe-cline-2` (tab 17, assistant)    | Cline CLI                                                                                            | 1. 7B.10 (`davao-bank-carryovers`, from `fe-device-fixes`) · 2. 7B.7 (main checkout, from `fe-wording`)                                                                                          |
-| `be-opencode` (tab 16)              | OpenCode CLI (free model; `XDG_STATE_HOME=~/.opencode-state` because `~/.local/state` is root-owned) | 1. 7B.8 (`davao-bank-copycheck`, from `tool-copy-check`) · 2. 8D + `jwt_expiry = 900` (`davao-bank-bantay`, from `be-bantay-security`)                                                           |
-| `be-opencode-2` (tab 18, assistant) | OpenCode CLI                                                                                         | 1. 8E (`davao-bank-bills`, from `be-bills-summary`)                                                                                                                                              |
-| `qa-reviewer` (tab 19)              | OpenCode CLI, Plan (read-only) mode                                                                  | Reviews each substitute commit the captain sends (WORKFLOW report format + VERDICT); the captain verifies findings and routes accepted ones back to the implementer as fix tasks, then re-review |
+**Frontend department**
 
-Phase 8G (admin cases) and the 8-merge stay with `fe-general-codex` after its reset.
+| Agent (tab)       | Role                     | Current queue                                                                                                                    |
+| ----------------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| `fe-cline` (15)   | Motion and system status | 7C (`davao-bank-frontend`, from `fe-motion`) → 7B.11 (`davao-bank-status`, from `fe-system-status`)                              |
+| `fe-cline-2` (17) | Device fixes and copy    | 7B.10 (`davao-bank-carryovers`, from `fe-device-fixes`) → 7B.7 + the 12 check-copy violations (main checkout, from `fe-wording`) |
+| `fe-cline-3` (20) | Phase 8 mobile features  | 8F (`davao-bank-p8-ui`, from `fe-phase8-screens`)                                                                                |
+
+**Backend department**
+
+| Agent (tab)          | Role                           | Current queue                                                                                  |
+| -------------------- | ------------------------------ | ---------------------------------------------------------------------------------------------- |
+| `be-opencode` (16)   | Database and security          | 7B.8 done `343fc54` → 8D + `jwt_expiry = 900` (`davao-bank-bantay`, from `be-bantay-security`) |
+| `be-opencode-2` (18) | Integration and edge functions | 8E (`davao-bank-bills`, from `be-bills-summary`)                                               |
+| `be-opencode-3` (21) | QA tooling and tests           | 8H (`davao-bank-tests`, new)                                                                   |
+
+**Review**
+
+| Agent (tab)        | Role                                                                                                                                                                 |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `qa-reviewer` (19) | Read-only (OpenCode Plan mode). Reviews each backup commit the captain sends; the captain verifies findings, routes accepted ones back as fix tasks, and re-reviews. |
+
+Merge note: `343fc54` (7B.8) adds `check:copy` to CI and fails until 7B.7 clears its 12 listed violations, so 7B.8 merges after 7B.7.
 
 **Hand-back rule (owner, 2026-11-25):** substitutes only cover while the original agents have no usage. When the captain sees an original agent has usage again, the substitute finishes and commits its current task and stops; the original agent resumes the remaining tasks of its own queue from the substitute's commit.

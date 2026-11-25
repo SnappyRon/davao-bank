@@ -101,6 +101,8 @@ Apply in order, and record the decision in the `STATUS.md` Log:
 
   The captain gives the two implementers tasks that touch different files. When `frontend` finishes a task, the captain reviews its commits on `phase-7-frontend` and merges them into `phase-7-ui-motion` (owner approves merges that conflict). Implementers never merge or push themselves.
 
+- **Backup Development Agents** (category, 2026-11-25): Cline and OpenCode agents that substitute for primary implementers when those are down or out of usage. Frontend: `fe-cline`, `fe-cline-2`, `fe-cline-3`; Backend: `be-opencode`, `be-opencode-2`, `be-opencode-3`; review: `qa-reviewer` (read-only). Same lifecycle as any implementer (brief → commit → review → fix → accept); each works in its own worktree; hand-back rule: when a primary agent has usage again, the backup finishes and commits its current task and the primary resumes the rest. Current roles and queues: `docs/agents/ROADMAP.md` §8.
+
 - **Reviewers run in their own Herdr tabs, one model per role** (owner decision, 2026-11-10), so the owner can watch them on the dashboard:
 
   | Herdr agent name   | Role                                  | Model / CLI | Started with (read-only)                                                                    |
