@@ -8,9 +8,9 @@
 - **Branch:** `phase-8.5-ops-ui` (worktree `davao-bank-ops-ui`); 8.5A backend merged as `54b1e11`.
 - **Active prompt:** Stage 8.5B — live operations dashboard backed only by real 8.5A RPCs/tables.
 - **Assigned to:** Captain/reviewers; Codex implementation committed.
-- **Exact next step:** captain routes this commit to reviewers and verifies Playwright with the owner's aal2 staff session.
-- **Last commit:** `Phase 8 · Stage 8.5B — Operations dashboard screens` (this commit; parent `06a3d6e`).
-- **Blockers:** Playwright, hosted Supabase and device checks NOT VERIFIED (owner sign-in/captain only). No `.env` read, no hosted writes.
+- **Exact next step:** captain routes the stage commit to reviewers, then merges the pending 8.5A aal2 backend fix when it lands and asks for a check rerun.
+- **Last commit:** `Phase 8 · Fix — 8.5B checks` (this commit; parent `00d32a7`).
+- **Blockers:** Playwright, hosted Supabase and device checks NOT VERIFIED (owner sign-in/captain only). No `.env` read, no hosted writes. `phase-8.5-ops-backend` still points at `6a93763`, so the aal2 backend fix had not landed at check time.
 
 ## Stage 7B.0 — remaining work plan (captain, 2026-11-10)
 
@@ -261,6 +261,8 @@ Fix these before 7B:
 - **Follow-up:** add dedicated test accounts so live tests don't conflict with the presenter's real authenticator.
 
 ## Log (newest first)
+
+- **2026-11-26, Codex:** captain reported the 8.5B commit was not verifiable because this worktree's tracked `node_modules` symlink pointed at the main checkout (no recharts / no admin Next binary). Fixed the environment, not the code: removed `node_modules` and `apps/*/node_modules` symlinks/dirs, deleted `apps/admin/.next`, ran `npm ci` in the worktree. `added 1500 packages, and audited 1504 packages in 14s`; `node_modules/recharts` is `3.11.1`, `node_modules/.bin/next` and `node_modules/next/types.js` exist. Re-ran all checks: typecheck exit 0 (admin/mobile/shared `tsc --noEmit`), lint exit 0 (`✖ 61 problems (0 errors, 61 warnings)`), format exit 0 (`All matched files use Prettier code style!`), `npx jest` exit 0 (`Test Suites: 61 passed, 61 total`, `Tests: 500 passed, 500 total`), `npm run build:admin` exit 0 (`✓ Compiled successfully in 2.9s`), `npm run check:copy` exit 0 (`PASS Copy audit clean across 167 files (15 justified allowlist match(es)).`). No code changes were needed. `git ls-remote . refs/heads/phase-8.5-ops-backend` and local log both show `6a93763`, with no commits in `phase-8.5-ops-ui..phase-8.5-ops-backend`, so the pending 8.5A aal2 fix had not landed and no merge was performed. The real `node_modules` directories are intentionally left in place for verification; tracked symlink deletions are unstaged. No `.env`, hosted DB, push or money/step-up changes.
 
 - **2026-11-26, Codex:** committed Stage 8.5B (this commit). Replaced the old admin home with a single-hero, four-metric operations dashboard: today/7d/30d/custom ranges, optional previous-period comparison, six Recharts cards (volume, in/out, category, status, balance bands, growth) each with an accessible title/desc and visible text table, shape-matching skeletons, empty/error/Try again states, reduced-motion handling, and colour-blind-safe labels/patterns. Added a sanitized `staff_activity_events` Realtime feed (10 rows, masked `•• 1234`, dedupe, reconnect/offline/Last updated, `aria-live="polite"`), a security panel backed by `admin_ops_summary` (failed sign-ins explicitly "Not available"), and audited staff actions from `audit_logs`. All widgets read real RPCs/tables; AAL2 denied is shown by live feed and security panel. Added Jest/RTL coverage (49 admin tests) and a Playwright spec whose checks are skipped and labelled NOT VERIFIED until the owner supplies an aal2 storage state. Added pinned `recharts@3.11.1` to `admin` only; no other manifest dependency changed. Final local checks all exit 0: typecheck all workspaces; lint `✖ 61 problems (0 errors, 61 warnings)`; format PASS; `npx jest` `61 suites / 500 tests`; `npm run build:admin` `✓ Compiled successfully`; `npm run check:copy` `PASS ... 167 files`. Tracked `node_modules` symlinks restored and not staged. No push, no `.env`, no hosted DB, no money/step-up changes. Device, Maestro, hosted and Playwright NOT VERIFIED — captain/owner.
 
