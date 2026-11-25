@@ -15,6 +15,7 @@ import {
   QrCode,
   Inbox,
   User,
+  LayoutGrid,
 } from 'lucide-react-native';
 import {
   colors,
@@ -44,6 +45,7 @@ import {
   useToast,
   Screen,
   Text,
+  Badge,
   ActionTile,
   ActionTileGrid,
   Logo,
@@ -51,6 +53,7 @@ import {
   Pressable,
   AccountPickerSheet,
   actionTileIconColor,
+  LIST_ROW_MIN_HEIGHT,
   FLOATING_TAB_BAR_HEIGHT,
   floatingTabBarBottomOffset,
 } from '../components';
@@ -457,6 +460,41 @@ export function HomeScreen({
           />
         </ActionTileGrid>
 
+        {/* More services hub (Phase 9 · 9A) */}
+        <Pressable
+          style={styles.moreServicesRow}
+          onPress={() => navigation.navigate('MoreServices')}
+          feedbackType="highlight"
+          accessibilityRole="button"
+          accessibilityLabel="More services, Simulation, FX converter, requests and calculators"
+          testID="home-more-services-row"
+        >
+          <View style={styles.moreServicesIconBox}>
+            <LayoutGrid size={TILE_ICON_SIZE} color={colors.primary} />
+          </View>
+          <View style={styles.moreServicesText}>
+            <View style={styles.moreServicesTitleRow}>
+              <Text
+                variant="bodyStrong"
+                color={colors.ink}
+                style={styles.moreServicesTitle}
+                maxFontSizeMultiplier={1.4}
+              >
+                More services
+              </Text>
+              <Badge label="Simulation" variant="warning" />
+            </View>
+            <Text
+              variant="caption"
+              color={colors.textSecondary}
+              maxFontSizeMultiplier={1.4}
+            >
+              FX converter, requests and calculators
+            </Text>
+          </View>
+          <ChevronRight size={TILE_ICON_SIZE} color={colors.textMuted} />
+        </Pressable>
+
         {/* Currency Watch */}
         <CurrencyWatchCard
           refreshKey={fxRefreshKey}
@@ -603,6 +641,39 @@ const styles = StyleSheet.create({
   },
   requestsText: {
     flex: 1,
+  },
+  moreServicesRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    minHeight: LIST_ROW_MIN_HEIGHT,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.base,
+  },
+  moreServicesIconBox: {
+    width: AVATAR_SIZE,
+    height: AVATAR_SIZE,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primaryTint,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  moreServicesText: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  moreServicesTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  moreServicesTitle: {
+    flexShrink: 1,
   },
   devCard: {
     padding: spacing.sm,
