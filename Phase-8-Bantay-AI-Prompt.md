@@ -20,10 +20,11 @@ Bantay becomes an active security agent. Server-side rules and a per-user baseli
 **Tables** (RLS on; customers can select their own rows only; no client insert/update/delete):
 
 - `security_events(id uuid pk, user_id uuid fk profiles, kind text, severity text check in ('info','warning','high'), score int null, facts jsonb, explanation text null, explanation_source text null check in ('ai','template'), status text default 'open' check in ('open','confirmed_me','reported_not_me','dismissed'), related_transaction_id uuid null, created_at timestamptz)`
-  - `kind` is one of: `risky_payment_challenged`, `risky_payment_confirmed`, `new_device`, `signin_failures`, `code_failures`, `mfa_changed`, `password_changed`, `limit_changed`, `account_locked`, `account_unlocked`.
+  - `kind` is one of: `risky_payment_challenged`, `risky_payment_confirmed`, `new_device`, `signin_failures`, `code_failures`, `mfa_changed`, `password_changed`, `limit_changed`, `account_locked`, `account_unlocked`, `risky_payment_warning` (added 2026-11-26: score band 40–69, severity `warning`).
 - `user_devices(id uuid pk, user_id, install_id text, label text, first_seen_at, last_seen_at, trusted boolean default false, unique(user_id, install_id))`
 - `device_sessions(session_id uuid pk, user_id, device_id fk user_devices)` maps the JWT `session_id` claim to a device.
 - `risk_challenges(id uuid pk, user_id, idempotency_key text unique, score int, facts jsonb, expires_at timestamptz, confirmed_at timestamptz null)`
+  - Added 2026-11-26 (captain-ratified after the 8D review): `prepare_risk_challenge(...)` creates or refreshes the caller's challenge before the money RPC raises 'Confirmation required' (a RAISE rolls back an insert made inside the guard). An expired, unconfirmed challenge with the same key is refreshed, and lookups are scoped to `(user_id, idempotency_key)`.
 - `trusted_payees(user_id, account_number text, created_at, pk(user_id, account_number))`
 - `security_limits` (from 8A) gains: `locked_at timestamptz null`, `unlock_after timestamptz null`, `pending_limit_centavos bigint null`, `pending_limit_effective_at timestamptz null`.
 
