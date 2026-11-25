@@ -7,6 +7,7 @@ import {
   executeAdminSetAccountStatus,
   executeAdminAdjustBalance,
   executeAdminReverseTransaction,
+  formatReferenceId,
   toUserMessage,
   type ProfileStatus,
   type AccountStatus,
@@ -14,6 +15,7 @@ import {
   type LedgerDirection,
 } from '@davao-bank/shared';
 import { createAdminCookieServerClient } from '@/lib/supabase-cookies';
+import { caseSlug, isCaseStatus, type SecurityCaseStatus } from '@/lib/securityCases';
 
 async function requireAdminAal2() {
   const client = await createAdminCookieServerClient();
@@ -310,5 +312,94 @@ export async function resetUserMfaAction(
     return { success: true };
   } catch (error) {
     return { success: false, error: toUserMessage(error) };
+  }
+}
+
+/**
+ * Bantay (8G): set a security case status and/or add an audited staff note.
+ * The RPC enforces admin role plus aal2; this action reuses the same guard.
+ */
+export async function updateSecurityCaseAction(
+  caseId: string,
+  status: SecurityCaseStatus,
+  note: string
+): Promise<ActionResult> {
+  try {
+    if (!isCaseStatus(status)) {
+      return { success: false, error: 'Choose a valid case status.' };
+    }
+    const supabase = await requireAdminAal2();
+    const { data, error } = await supabase.rpc('admin_update_security_case', {
+      p_id: caseId,
+      p_status: status,
+      p_note: note.trim() || null,
+    });
+    if (error) return { success: false, error: toUserMessage(error) };
+
+    revalidatePath('/cases');
+    revalidatePath(`/cases/${caseSlug(caseId)}`);
+    revalidatePath('/');
+    return { success: true, data };
+  } catch (err: unknown) {
+    return { success: false, error: toUserMessage(err) };
+  }
+}
+
+/** Bantay (8G): release a customer lock through the staff-only RPC. */
+export async function unlockSecurityCaseUserAction(
+  userId: string,
+  caseId: string,
+  reason: string
+): Promise<ActionResult> {
+  try {
+    if (reason.trim().length < 10) {
+      return { success: false, error: 'Enter a reason of at least 10 characters.' };
+    }
+    const supabase = await requireAdminAal2();
+    const { data, error } = await supabase.rpc('admin_unlock_user', {
+      p_user_id: userId,
+      p_note: `Case ${formatReferenceId(caseId)}: ${reason.trim()}`,
+    });
+    if (error) return { success: false, error: toUserMessage(error) };
+
+    revalidatePath('/cases');
+    revalidatePath(`/cases/${caseSlug(caseId)}`);
+    revalidatePath('/');
+    return { success: true, data };
+  } catch (err: unknown) {
+    return { success: false, error: toUserMessage(err) };
+  }
+}
+
+/**
+ * Bantay (8G): freeze/unfreeze the receiving account. The case reference is
+ * written into the existing RPC's mandatory reason, which is stored in audit
+ * metadata; no test-only bypass or new RPC is used.
+ */
+export async function setCaseAccountStatusAction(
+  accountId: string,
+  status: 'frozen' | 'active',
+  reason: string,
+  caseId: string
+): Promise<ActionResult> {
+  try {
+    if (reason.trim().length < 10) {
+      return { success: false, error: 'Enter a reason of at least 10 characters.' };
+    }
+    const supabase = await requireAdminAal2();
+    const { data, error } = await executeAdminSetAccountStatus(supabase, {
+      accountId,
+      status,
+      reason: `Case ${formatReferenceId(caseId)}: ${reason.trim()}`,
+    });
+    if (error) return { success: false, error: toUserMessage(error) };
+
+    revalidatePath('/cases');
+    revalidatePath(`/cases/${caseSlug(caseId)}`);
+    revalidatePath('/accounts');
+    revalidatePath('/');
+    return { success: true, data };
+  } catch (err: unknown) {
+    return { success: false, error: toUserMessage(err) };
   }
 }

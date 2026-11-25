@@ -12,6 +12,7 @@ import {
   CalendarClock,
   AlertTriangle,
   Inbox,
+  ShieldAlert,
 } from 'lucide-react';
 import { formatCentavosToPHP, type AdminDashboardStats } from '@davao-bank/shared';
 import { createAdminCookieServerClient } from '@/lib/supabase-cookies';
@@ -79,6 +80,13 @@ export default async function AdminDashboardPage() {
       .eq('status', 'pending'),
   ]);
 
+  // 3b. Bantay open security cases (the RPC is aal2-gated like every action).
+  // A missing 8D migration is not an error page: show zero until it lands.
+  const { data: openCasesData } = await supabase.rpc('admin_list_security_cases', {
+    p_status: 'open',
+  });
+  const openCasesCount = Array.isArray(openCasesData) ? openCasesData.length : 0;
+
   // 4. Fetch Recent Transactions
   const { data: recentTransactions } = await supabase
     .from('transactions')
@@ -143,6 +151,11 @@ export default async function AdminDashboardPage() {
         <Link href="/accounts">
           <Button variant="primary" icon={<Sliders size={16} />}>
             Balance adjustments
+          </Button>
+        </Link>
+        <Link href="/cases">
+          <Button variant="secondary" icon={<ShieldAlert size={16} />}>
+            Security cases
           </Button>
         </Link>
       </PageHeader>
@@ -216,6 +229,16 @@ export default async function AdminDashboardPage() {
           icon={<Inbox size={20} />}
           iconColor="yellow"
         />
+
+        <Link href="/cases">
+          <StatTile
+            label="Open cases"
+            value={openCasesCount}
+            subtext="Bantay cases awaiting staff review"
+            icon={<ShieldAlert size={20} />}
+            iconColor={openCasesCount > 0 ? 'red' : 'green'}
+          />
+        </Link>
       </div>
 
       {/* 2-Column Content Grid */}
