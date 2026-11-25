@@ -26,6 +26,10 @@ export async function runPhase8BantayTests({ as, su, cust, one, bal, ok, U, A, B
   );
   await su(`insert into auth.mfa_factors(user_id,factor_type,status) values($1,'totp','verified')`, [C_UID]);
   const C = (await su(`select id, account_number from accounts where user_id=$1 limit 1`, [C_UID]))[0];
+  // Stage 8D fixtures: enrollment at setup is not a real auth change, and C
+  // already knows B's account in this legacy scenario.
+  await su(`delete from security_events where user_id=$1 and kind='mfa_changed'`, [C_UID]);
+  await su(`insert into trusted_payees(user_id,account_number) values($1,$2) on conflict do nothing`, [C_UID, B.account_number]);
 
   const cDefaultRow = await su(`select daily_transfer_limit_centavos from security_limits where user_id=$1`, [C_UID]);
   ok(
@@ -102,7 +106,20 @@ export async function runPhase8BantayTests({ as, su, cust, one, bal, ok, U, A, B
   r = await cust(C_UID, `select set_daily_limit(50000000) s`);
   ok(
     'Phase 8 set_daily_limit: accepts max boundary 50,000,000 centavos',
-    !r.err && Number(r.rows?.[0]?.s?.daily_transfer_limit_centavos) === 50000000,
+    !r.err &&
+      Number(r.rows?.[0]?.s?.daily_transfer_limit_centavos) === 100000 &&
+      Number(r.rows?.[0]?.s?.pending_limit_centavos) === 50000000,
+    r.err || JSON.stringify(r.rows?.[0]?.s)
+  );
+  // Stage 8D: the 12-hour wait is simulated by making the pending row due and
+  // running the same cron apply step the database uses.
+  await su(`update security_limits set pending_limit_effective_at = now() - interval '1 second' where user_id=$1`, [C_UID]);
+  await su(`select apply_due_security_limits()`);
+  r = await cust(C_UID, `select get_security_settings() s`);
+  ok(
+    'Stage 8D: pending limit raise is applied by the cron step',
+    !r.err && Number(r.rows?.[0]?.s?.daily_transfer_limit_centavos) === 50000000 &&
+      r.rows?.[0]?.s?.pending_limit_centavos === null,
     r.err || JSON.stringify(r.rows?.[0]?.s)
   );
 
@@ -232,6 +249,8 @@ export async function runPhase8BantayTests({ as, su, cust, one, bal, ok, U, A, B
 
   // Lowering limit below already-spent amount clamps remaining_today_centavos to 0 and blocks new transfers
   await cust(C_UID, `select set_daily_limit(200000)`);
+  await su(`update security_limits set pending_limit_effective_at = now() - interval '1 second' where user_id=$1`, [C_UID]);
+  await su(`select apply_due_security_limits()`);
   await cust(C_UID, `select transfer($1, $2, 100000, 'p8-tx-high', 'high')`, [C.id, B.id]); // spent_today = 150,000
   r = await cust(C_UID, `select set_daily_limit(100000) s`);
   const sClamped = r.rows?.[0]?.s;

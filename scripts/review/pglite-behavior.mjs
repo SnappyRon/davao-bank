@@ -5,6 +5,7 @@
 // Limits: single connection (no true concurrency), no pg_cron/pg_net/Edge Functions — concurrency still needs a live DB.
 import { PGlite } from '@electric-sql/pglite'; import fs from 'node:fs'; import { fileURLToPath } from 'node:url';
 import { runPhase8BantayTests } from './pglite-phase8-bantay.mjs';
+import { runPhase8BantayRiskTests } from './pglite-phase8-bantay-risk.mjs';
 const MIG=fileURLToPath(new URL('../../supabase/migrations', import.meta.url));
 const db=await PGlite.create(); await db.exec(fs.readFileSync(new URL('./pglite-boot.sql',import.meta.url),'utf8'));
 for (const f of fs.readdirSync(MIG).filter(f=>f.endsWith('.sql')).sort()) await db.exec(fs.readFileSync(`${MIG}/${f}`,'utf8'));
@@ -29,6 +30,9 @@ const U={A:'11111111-1111-1111-1111-111111111111',B:'22222222-2222-2222-2222-222
 for (const [k,id] of Object.entries(U)) await su(`insert into auth.users(id,email,raw_user_meta_data,email_confirmed_at) values($1,$2,$3,now())`,[id,k.toLowerCase()+'@t.test',JSON.stringify({full_name:'User '+k})]);
 for (const id of Object.values(U)) await su(`insert into auth.mfa_factors(user_id,factor_type,status) values($1,'totp','verified')`,[id]);
 ok('Signup trigger provisions profile + account for each user', (await su(`select count(*)::int n from accounts`))[0].n===4);
+// Stage 8D fixture: MFA enrollment during test setup is not a real auth change.
+// Clear setup-generated events so the risk baseline is deterministic.
+await su(`delete from security_events where kind = 'mfa_changed'`);
 
 // ---- SEED BUG CHECK: service role sets role (what scripts/seed.ts does via upsert)
 const seedTry=await as('service_role',null,`update profiles set role='admin' where id=$1`,[U.ADM]);
@@ -53,6 +57,11 @@ await su(`update profiles set role='admin' where id=$1`,[U.ADM]); await su(`upda
 await su(`alter table profiles enable trigger trg_guard_profile_self_update`);
 const acc=async uid=>(await su(`select id,account_number from accounts where user_id=$1 order by created_at limit 1`,[uid]))[0];
 const A=await acc(U.A), B=await acc(U.B), SYSACC=await acc(U.SYS);
+// Stage 8D fixture: A/B already know each other in the seeded scenario, so the
+// new-payee signal must not fire for legacy checks. New risk tests use fresh payees.
+await su(`insert into trusted_payees(user_id,account_number) values ($1::uuid,$2::text) on conflict do nothing`,[U.A,B.account_number]);
+await su(`insert into trusted_payees(user_id,account_number) values ($1::uuid,$2::text) on conflict do nothing`,[U.B,A.account_number]);
+await su(`insert into trusted_payees(user_id,account_number) values ($1,$2) on conflict do nothing`,[U.SYS,B.account_number]);
 
 // ---- Core money
 let r=await cust(U.A,`select deposit($1,100000,'dep-1','seed')`,[A.id]); ok('Customer deposit works', !r.err, r.err);
@@ -314,6 +323,8 @@ r=await cust(U.B,`select count(*)::int n from get_account_transactions() where b
 r=await as('anon',null,`select * from get_account_transactions(null)`); ok('7B.9 history: anon cannot execute get_account_transactions', /permission denied/.test(r.err||''), r.err);
 // ---- Phase 8 · Stage A: Bantay security center
 await runPhase8BantayTests({ db, as, su, cust, one, bal, ok, U, A, B, biller });
+// ---- Phase 8 · Stage D: Bantay risk engine
+await runPhase8BantayRiskTests({ as, su, cust, bal, ok, U, A, B, biller });
 // ---- Reconciliation
 const rec=await reconcile();
 ok('Reconciliation: every transfer/reversal/bill nets to zero', Number(rec.unbalanced)===0, JSON.stringify(rec));
