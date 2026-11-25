@@ -8,6 +8,7 @@ import { runPhase8BantayTests } from './pglite-phase8-bantay.mjs';
 import { runPhase8BantayRiskTests } from './pglite-phase8-bantay-risk.mjs';
 import { runPhase8BantayAlertsTests } from './pglite-phase8-bantay-alerts.mjs';
 import { runPhase8_5OpsTests } from './pglite-phase8-5-ops.mjs';
+import { runPhase9ServiceRequestsTests } from './pglite-phase9-service-requests.mjs';
 const MIG=fileURLToPath(new URL('../../supabase/migrations', import.meta.url));
 const db=await PGlite.create(); await db.exec(fs.readFileSync(new URL('./pglite-boot.sql',import.meta.url),'utf8'));
 for (const f of fs.readdirSync(MIG).filter(f=>f.endsWith('.sql')).sort()) await db.exec(fs.readFileSync(`${MIG}/${f}`,'utf8'));
@@ -499,6 +500,9 @@ await runPhase8BantayAlertsTests({ su, cust, ok, U, A, B });
 
 // ---- Phase 8.5A: operations dashboard backend
 await runPhase8_5OpsTests({ as, su, cust, ok, U, A, B, biller });
+
+// ---- Phase 9 · Service Requests
+await runPhase9ServiceRequestsTests({ as, su, cust, ok, U, A, B });
 // ---- Reconciliation
 const rec=await reconcile();
 ok('Reconciliation: every transfer/reversal/bill nets to zero', Number(rec.unbalanced)===0, JSON.stringify(rec));

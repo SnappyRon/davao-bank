@@ -5,11 +5,11 @@
 ## Now
 
 - **Active phase:** Phase 7 + Phase 8/8.5 full app (`phase-8-integration`), now including Bantay alerts, Kada Bantay art, the 8.5A aal2 backend fix and the 8.5B operations dashboard.
-- **Branch:** `phase-8-integration`; merging captain's five branches with `--no-ff` in order: bantay-alerts (done), 8.5 ops UI (this merge), 9 service requests, 9 appointments, 9 FX converter.
+- **Branch:** `phase-8-integration`; merging captain's five branches with `--no-ff` in order: bantay-alerts (done), 8.5 ops UI (done), 9 service requests (this merge), 9 appointments, 9 FX converter.
 - **Active prompt:** captain's full-build merge brief.
 - **Assigned to:** Backup Development Agent; merge each branch, run `npm run typecheck` and `npx jest` after each, keep migrations byte-identical and ordered, then run the full suite after `npm ci`.
-- **Exact next step:** merge `phase-9-service-requests` next, then appointments and FX converter; final full suite after the last `npm ci`.
-- **Last commit:** `Phase 8 · Merge — phase-8.5-ops-ui`.
+- **Exact next step:** merge `phase-9-appointments` next, then FX converter; final full suite after the last `npm ci`.
+- **Last commit:** `Phase 8 · Merge — phase-9-service-requests`.
 - **Blockers:** none locally. Device, Maestro, VoiceOver, hosted and Playwright/aal2 staff session checks NOT VERIFIED (owner/captain). Hosted alerts migration NOT APPLIED by this agent; captain reports the 8.5A migration is applied. `.env` symlinks untouched.
 
 ## Stage 7B.0 — remaining work plan (captain, 2026-11-10)
@@ -261,6 +261,8 @@ Fix these before 7B:
 - **Follow-up:** add dedicated test accounts so live tests don't conflict with the presenter's real authenticator.
 
 ## Log (newest first)
+
+- **2026-11-26, Backup Development Agent:** merge 3 of 5 (`phase-9-service-requests` @ `fa67f4c`). Only `scripts/review/pglite-behavior.mjs` conflicted; kept all three imports and invocations (Bantay alerts, 8.5 ops, 9 service requests) and removed the markers. `git grep -nE '^(<<<<<<<|>>>>>>>|=======)$'` printed nothing. Migration `20261129000000_phase9_service_requests.sql` is byte-identical to the branch (`cmp` exit 0). Post-merge checks: `npm run typecheck` exit 0 (admin/mobile/shared); `npx jest` `Test Suites: 62 passed, 62 total` / `Tests: 509 passed, 509 total`. No push, no hosted DB access, no `.env` touched.
 
 - **2026-11-26, Backup Development Agent:** merge 2 of 5 (`phase-8.5-ops-ui` @ `b0e0c23`) committed as `b61f3b6`. Conflicts resolved by keeping both sides: `securityCases.ts` uses our `sentenceCase` helper (same sentence-case output as the branch's inline fallback, passes the copy audit), `pglite-behavior.mjs` keeps both the Bantay alerts and 8.5 ops imports/test invocations, STATUS keeps both logs. No conflict markers. Migrations checked byte-identical to their branches: `20261128000000_phase8_5_ops_backend.sql` and `20261128100000_phase8_bantay_alerts.sql` (`cmp` exit 0). First typecheck failed only because `recharts` was not installed; `npm ci --prefer-offline` installed it from the merged lockfile. Post-merge checks: `npm run typecheck` exit 0 (admin/mobile/shared); `npx jest` `Test Suites: 62 passed, 62 total` / `Tests: 509 passed, 509 total`. No push, no hosted DB access, no `.env` touched.
 
