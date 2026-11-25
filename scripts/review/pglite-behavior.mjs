@@ -10,6 +10,7 @@ import { runPhase8BantayAlertsTests } from './pglite-phase8-bantay-alerts.mjs';
 import { runPhase8_5OpsTests } from './pglite-phase8-5-ops.mjs';
 import { runPhase9ServiceRequestsTests } from './pglite-phase9-service-requests.mjs';
 import { runPhase9AppointmentTests } from './pglite-phase9-appointments.mjs';
+import { runPhase9SavingsGoalsTests } from './pglite-phase9-savings-goals.mjs';
 const MIG=fileURLToPath(new URL('../../supabase/migrations', import.meta.url));
 const db=await PGlite.create(); await db.exec(fs.readFileSync(new URL('./pglite-boot.sql',import.meta.url),'utf8'));
 for (const f of fs.readdirSync(MIG).filter(f=>f.endsWith('.sql')).sort()) await db.exec(fs.readFileSync(`${MIG}/${f}`,'utf8'));
@@ -506,6 +507,9 @@ await runPhase8_5OpsTests({ as, su, cust, ok, U, A, B, biller });
 
 // ---- Phase 9 · Service Requests
 await runPhase9ServiceRequestsTests({ as, su, cust, ok, U, A, B });
+
+// ---- Phase 9 · Stage 9E: Savings goals + time deposit planner
+await runPhase9SavingsGoalsTests({ as, su, cust, one, bal, ok, U, A, B });
 // ---- Reconciliation
 const rec=await reconcile();
 ok('Reconciliation: every transfer/reversal/bill nets to zero', Number(rec.unbalanced)===0, JSON.stringify(rec));
