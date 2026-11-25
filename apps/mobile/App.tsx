@@ -8,6 +8,7 @@ import { useReducedMotion } from 'react-native-reanimated';
 import { StatusBar } from 'expo-status-bar';
 import {
   NavigationContainer,
+  createNavigationContainerRef,
   type NavigatorScreenParams,
 } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -37,7 +38,7 @@ import {
   Text,
   PrivacyOverlay,
   ToastProvider,
-  useToast,
+  BantayRealtimeBridge,
   FloatingTabBar,
   OfflineBanner,
 } from './src/components';
@@ -115,60 +116,10 @@ export type BottomTabParamList = {
 
 const RootStack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<BottomTabParamList>();
+/** Lets the Toast action open Bantay while ToastProvider sits above the navigator. */
+const navigationRef = createNavigationContainerRef<RootStackParamList>();
 
 type AuthScreenState = 'login' | 'signup' | 'verify' | 'forgot';
-
-function BantaySessionTracker({
-  userId,
-  onAlert,
-}: {
-  userId: string | null;
-  onAlert: () => void;
-}) {
-  const toast = useToast();
-
-  useEffect(() => {
-    if (userId) {
-      void registerDeviceOncePerSession();
-    } else {
-      resetDeviceSessionFlag();
-    }
-  }, [userId]);
-
-  useEffect(() => {
-    if (!userId || typeof supabase.channel !== 'function') return;
-
-    const channel = supabase
-      .channel(`security_events:${userId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'security_events',
-          filter: `user_id=eq.${userId}`,
-        },
-        (payload: {
-          new?: { severity?: string; explanation?: string; kind?: string };
-        }) => {
-          if (payload?.new?.severity === 'high') {
-            const msg =
-              payload.new.explanation ||
-              'Security alert: high-risk activity detected on your account.';
-            toast.show(msg, 'error');
-            onAlert();
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [userId, onAlert, toast]);
-
-  return null;
-}
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -269,6 +220,26 @@ export default function App() {
     refresh: refreshUnreadCount,
   } = useUnreadNotificationCount(session?.user?.id ?? null);
 
+  const signedInUserId = session?.user?.id ?? null;
+
+  // Device registration is once per signed-in session, independent of alerts.
+  useEffect(() => {
+    if (signedInUserId) {
+      void registerDeviceOncePerSession();
+    } else {
+      resetDeviceSessionFlag();
+    }
+  }, [signedInUserId]);
+
+  const handleBantayAlert = useCallback(() => {
+    // The server wrote the Inbox row; read the real unread count back.
+    void refreshUnreadCount();
+  }, [refreshUnreadCount]);
+
+  const handleOpenBantay = useCallback(() => {
+    if (navigationRef.isReady()) navigationRef.current?.navigate('BantaySecurity');
+  }, []);
+
   const isAuthenticated = Boolean(session?.user);
   const isEmailVerified = Boolean(session?.user?.email_confirmed_at);
   const isSuspended = profile?.status === 'suspended';
@@ -294,14 +265,14 @@ export default function App() {
   } else if (!isAuthenticated) {
     if (!onboardingSeen) {
       content = (
-        <NavigationContainer>
+        <NavigationContainer ref={navigationRef}>
           <StatusBar style="dark" />
           <OnboardingScreen onFinish={() => setOnboardingSeen(true)} />
         </NavigationContainer>
       );
     } else {
       content = (
-        <NavigationContainer>
+        <NavigationContainer ref={navigationRef}>
           <StatusBar style="dark" />
           {authScreen === 'login' && (
             <LoginScreen
@@ -342,7 +313,7 @@ export default function App() {
     }
   } else if (!isEmailVerified) {
     content = (
-      <NavigationContainer>
+      <NavigationContainer ref={navigationRef}>
         <StatusBar style="dark" />
         <VerifyEmailScreen
           email={session?.user?.email || targetEmail}
@@ -357,7 +328,7 @@ export default function App() {
     );
   } else if (isSuspended) {
     content = (
-      <NavigationContainer>
+      <NavigationContainer ref={navigationRef}>
         <StatusBar style="dark" />
         <SuspendedScreen
           profile={profile}
@@ -375,7 +346,7 @@ export default function App() {
     content = (
       <AppLockProvider key={session?.user.id} restoredSession={restoredSession}>
         <SettingsProvider>
-          <NavigationContainer>
+          <NavigationContainer ref={navigationRef}>
             <StatusBar style="dark" />
             <RootStack.Navigator
               screenOptions={{
@@ -577,12 +548,10 @@ export default function App() {
     <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider>
         <ToastProvider>
-          <BantaySessionTracker
-            userId={session?.user?.id ?? null}
-            onAlert={() => {
-              setUnreadCount(unreadCount + 1);
-              void refreshUnreadCount();
-            }}
+          <BantayRealtimeBridge
+            userId={signedInUserId}
+            onAlert={handleBantayAlert}
+            onOpenBantay={handleOpenBantay}
           />
           <OfflineBanner />
           {content}

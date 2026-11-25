@@ -44,11 +44,24 @@ jest.mock('react-native-safe-area-context', () => {
 // Per-table results for supabase.from(...) chains (requests, schedules, FX).
 const mockTables: Record<string, { data?: unknown; error: unknown; count?: number }> = {};
 
+const defaultSecuritySettings = {
+  daily_transfer_limit_centavos: 5_000_000,
+  spent_today_centavos: 0,
+  remaining_today_centavos: 5_000_000,
+  locked: false,
+};
+
+const mockRpc = jest.fn(async (_fn?: string, _params?: unknown) => ({
+  data: defaultSecuritySettings,
+  error: null,
+}));
+
 jest.mock('../lib/supabase', () => ({
   supabase: {
     auth: {
       getUser: jest.fn(async () => ({ data: { user: { id: 'usr-1' } } })),
     },
+    rpc: (fn: string, params?: unknown) => mockRpc(fn, params),
     from: (table: string) => {
       const result = mockTables[table] ?? { data: [], error: null, count: 0 };
       const builder: Record<string, unknown> = {};
@@ -133,6 +146,10 @@ describe('HomeScreen (7B.1)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockHideBalance = false;
+    mockRpc.mockImplementation(async (_fn?: string, _params?: unknown) => ({
+      data: defaultSecuritySettings,
+      error: null,
+    }));
     for (const key of Object.keys(mockTables)) delete mockTables[key];
     jest.mocked(fetchUserProfile).mockResolvedValue({
       data: { id: 'usr-1', full_name: 'Juan Dela Cruz', status: 'active' },
@@ -401,5 +418,53 @@ describe('HomeScreen (7B.1)', () => {
     });
     await waitFor(() => expect(fxCalls()).toBe(2));
     fromSpy.mockRestore();
+  });
+
+  describe('Bantay indicator (8F item 5)', () => {
+    it('shows one calm watching row under the balance and opens Bantay', async () => {
+      await render(<HomeScreen />);
+      await screen.findByText('₱12,345.67');
+
+      const chip = await screen.findByRole('button', {
+        name: 'Bantay is watching your account',
+      });
+      expect(screen.getAllByRole('button', { name: /Bantay/ })).toHaveLength(1);
+      await fireEvent.press(chip);
+      expect(mockNavigate).toHaveBeenCalledWith('BantaySecurity');
+    });
+
+    it('replaces the old banner with one locked row', async () => {
+      mockRpc.mockImplementation(async (fn?: string) => ({
+        data: {
+          ...defaultSecuritySettings,
+          locked: fn === 'get_security_settings',
+        },
+        error: null,
+      }));
+
+      await render(<HomeScreen />);
+      await screen.findByText('₱12,345.67');
+      const chip = await screen.findByRole('button', {
+        name: 'Account locked — Unlock in Bantay',
+      });
+      expect(
+        screen.getAllByRole('button', { name: 'Account locked — Unlock in Bantay' })
+      ).toHaveLength(1);
+      await fireEvent.press(chip);
+      expect(mockNavigate).toHaveBeenCalledWith('BantaySecurity');
+    });
+
+    it('shows a new-alert row when an open high security event exists', async () => {
+      mockTables.security_events = { data: [{ id: 'evt-high' }], error: null };
+
+      await render(<HomeScreen />);
+      await screen.findByText('₱12,345.67');
+      const chip = await screen.findByRole('button', {
+        name: 'Check Bantay: new alert',
+      });
+      expect(screen.queryByText('Bantay is watching your account')).toBeNull();
+      await fireEvent.press(chip);
+      expect(mockNavigate).toHaveBeenCalledWith('BantaySecurity');
+    });
   });
 });

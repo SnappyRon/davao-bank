@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
+  Image,
   Modal,
   View,
   StyleSheet,
@@ -13,6 +14,8 @@ import {
   type LayoutChangeEvent,
   type Text as RNText,
   type ViewStyle,
+  type ImageSourcePropType,
+  type ImageStyle,
   TouchableWithoutFeedback,
 } from 'react-native';
 import Animated, {
@@ -62,6 +65,9 @@ export interface SheetProps {
   visible: boolean;
   onClose: () => void;
   title?: string;
+  /** Decorative header art; the title remains the accessible label. */
+  titleImage?: ImageSourcePropType;
+  titleImageStyle?: ImageStyle;
   step?: number;
   stepCount?: number;
   dismissible?: boolean;
@@ -75,6 +81,8 @@ export function Sheet({
   visible,
   onClose,
   title,
+  titleImage,
+  titleImageStyle,
   step,
   stepCount,
   dismissible = true,
@@ -343,16 +351,27 @@ export function Sheet({
                             {stepLabel}
                           </Text>
                         ) : null}
-                        {title ? (
-                          <Text
-                            ref={titleRef}
-                            variant="title"
-                            color={colors.ink}
-                            accessibilityRole="header"
-                          >
-                            {title}
-                          </Text>
-                        ) : null}
+                        <View style={styles.titleRow}>
+                          {titleImage ? (
+                            <Image
+                              source={titleImage}
+                              style={[styles.titleImage, titleImageStyle]}
+                              accessible={false}
+                              resizeMode="contain"
+                            />
+                          ) : null}
+                          {title ? (
+                            <Text
+                              ref={titleRef}
+                              variant="title"
+                              color={colors.ink}
+                              accessibilityRole="header"
+                              style={styles.titleText}
+                            >
+                              {title}
+                            </Text>
+                          ) : null}
+                        </View>
                       </View>
 
                       <Pressable
@@ -453,6 +472,18 @@ const styles = StyleSheet.create({
   },
   titleBox: {
     flex: 1,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  titleImage: {
+    width: 32,
+    height: 32,
+  },
+  titleText: {
+    flexShrink: 1,
   },
   closeBtn: {
     width: size.touch,

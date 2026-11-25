@@ -14,6 +14,7 @@ export * from './ConfirmSheet';
 export * from './EmptyState';
 export * from './Skeleton';
 export * from './Toast';
+export * from './BantayRealtimeBridge';
 export * from './Logo';
 export * from './CurrencyWatchCard';
 export * from './PasswordPromptOverlay';

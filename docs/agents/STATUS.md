@@ -4,13 +4,13 @@
 
 ## Now
 
-- **Active phase:** Phase 7 + Phase 8 full app (`phase-8-integration`); both Phase 7 integration (7B–7D) and the 8F prepare-before-confirm fix are merged.
-- **Branch:** `phase-8-integration`; merged `phase-7-integration` (`728567a`) and `phase-8-bantay-ui` (`21977a4`) with `--no-ff`, preserving both feature sets.
-- **Active prompt:** this hand-back brief (backup agent finishes tool-copy-check's task, reports to captain).
-- **Assigned to:** Backup Development Agent; merge `phase-7-integration`, run local checks, merge the 8F risk-challenge fix from `phase-8-bantay-ui`, re-run checks, report to captain.
-- **Exact next step:** captain reviews the 8D score-test fix commit; device/Maestro/VoiceOver/hosted/Playwright checks remain with the owner.
-- **Last commit:** `Phase 8 · Fix — make 8D score tests independent of time of day`.
-- **Blockers:** none for `npm run test:db`: two consecutive runs at Manila 00:xx both report `277 passed, 0 failed` after the test-only fix. Device, Maestro, VoiceOver, hosted and Playwright checks NOT VERIFIED (owner/captain).
+- **Active phase:** Phase 8, 8F item 5 (Bantay alerts + Home indicator) plus captain-added interim Kada-as-Bantay art.
+- **Branch:** `phase-8-bantay-alerts` in worktree `/Users/ronalbert/Personal Projects/davao-bank-bantay-alerts`, based on `0229a2e` (`phase-8-integration`).
+- **Active prompt:** captain's 8F-alerts brief plus the added "Kada as Bantay mascot (interim art)" instruction.
+- **Assigned to:** Backup Development Agent; implement, run all six checks, hand back to captain. Done; awaiting review.
+- **Exact next step:** Security review of `20261128100000_phase8_bantay_alerts.sql`, then captain applies the migration to hosted; owner/captain run device, Maestro, VoiceOver and hosted Realtime checks.
+- **Last commit:** `Phase 8 · Fix — Bantay alerts (Realtime toast, Inbox) and Home indicator` (hash in the hand-back message; STATUS committed with the work).
+- **Blockers:** none locally; all six checks pass. Actual hosted Realtime delivery NOT VERIFIED locally (no hosted access; PGlite has no `supabase_realtime` publication). Visual PNG inspection NOT VERIFIED by this model (pixel checks done). Migration needs Security review; captain applies it. Notes: `docs/agents/notes/phase-8-bantay-alerts.md`.
 
 ## Stage 7B.0 — remaining work plan (captain, 2026-11-10)
 
@@ -261,6 +261,8 @@ Fix these before 7B:
 - **Follow-up:** add dedicated test accounts so live tests don't conflict with the presenter's real authenticator.
 
 ## Log (newest first)
+
+- **2026-11-26, Backup Development Agent:** took over the 8F item-5 gap in worktree `davao-bank-bantay-alerts` (`phase-8-bantay-alerts`, base `0229a2e`). Added migration `20261128100000_phase8_bantay_alerts.sql`: guarded `supabase_realtime` publication add and `_bantay_event` re-created from the latest def with one addition (one `account_alert` Inbox row for high events and lock/unlock, sentence case, masked `•• 1234`). Added PGlite suite `pglite-phase8-bantay-alerts.mjs` (high → one note, warning/info → none, lock/unlock → notes, other customer cannot read or forge rows, owner can read own). Wired one Realtime channel via `useBantayRealtime` + `BantayRealtimeBridge`, actionable 28 pt Kada toast `Bantay: <title>` with `Open Bantay` through a navigation container ref, server-read badge refresh, reconnect backoff and unsubscribe on sign-out/unmount; replaced Home's lock banner with one 44 pt state-aware Bantay row (watching / locked / new alert). Captain addition: generated `bantay-kada(@2x,@3x).png` from `kada-not-found.cutout.png` with Pillow (question-mark components erased, whole bird kept, transparent square, 120/240/360), exported `MASCOT_BANTAY`, used it statically/decoratively in the Bantay 120 pt header, 32 pt risk-challenge and lock sheets, 24 pt timeline explanations, Home row and Bantay toasts, and documented it in `apps/mobile/assets/source/README.md`. Updated RNTL tests for each Home state, the toast action, reconnect and unsubscribe, and Bantay header copy. Real check output: `npm run typecheck` exit 0 (admin/mobile/shared); `npm run lint` `✖ 68 problems (0 errors, 68 warnings)`; `npm run format:check` `All matched files use Prettier code style!`; `npx jest` `Test Suites: 60 passed, 60 total` / `Tests: 486 passed, 486 total`; `npm run test:db` `286 passed, 0 failed`; `npm run check:copy` `PASS Copy audit clean across 162 files (17 justified allowlist match(es)).` Added two justified allowlist entries for protocol-only Realtime channel/filter strings. No push, no hosted writes, no `.env` read, money handlers untouched. Migration needs Security review and captain applies it; hosted Realtime delivery NOT VERIFIED; visual PNG inspection NOT VERIFIED by this model (Pillow pixel checks done). One commit with the exact 8F title.
 
 - **2026-11-26, Backup Development Agent:** captain-assigned Low fix in `scripts/review/pglite-phase8-bantay-risk.mjs`: the 9 '8D score' / `trusted_payees` assertions that evaluate at the engine's `now()` now derive the late-night points from the same database clock in Asia/Manila (`expectedNowScore(base)` reads `extract(hour from now() at time zone 'Asia/Manila')` and adds 10 for hours 0–5). Replaced the old fixed-02:00 assertion with one explicit fixed-time day-vs-night test (`2026-11-26T10:00+08` vs `2026-11-26T02:00+08`, no transfer history yet) that proves late night adds exactly 10. No risk engine, migration, funded RPC or test guard changed. `npm run test:db` twice: `277 passed, 0 failed` both times. `npx eslint` on the file: no output (pass). Note: standalone `npx prettier --check` flags this `.mjs` file because it was already unformatted at `HEAD`; `.mjs` is outside `format:check`'s glob and the file was not reformatted wholesale. No push, no hosted DB access.
 

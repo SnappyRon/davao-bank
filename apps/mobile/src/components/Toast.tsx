@@ -5,7 +5,14 @@ import React, {
   useCallback,
   useEffect,
 } from 'react';
-import { View, StyleSheet, AccessibilityInfo, type ViewStyle } from 'react-native';
+import {
+  View,
+  Image,
+  StyleSheet,
+  AccessibilityInfo,
+  type ImageSourcePropType,
+  type ViewStyle,
+} from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -22,14 +29,27 @@ import { Pressable } from './Pressable';
 
 export type ToastType = 'success' | 'error' | 'info';
 
+/** Optional actionable affordance, used by Bantay alerts to open the center. */
+export interface ToastAction {
+  label: string;
+  onPress: () => void;
+}
+
 export interface ToastItem {
   id: string;
   message: string;
   type: ToastType;
+  action?: ToastAction;
+  image?: ImageSourcePropType;
 }
 
 interface ToastContextValue {
-  show: (message: string, type?: ToastType) => void;
+  show: (
+    message: string,
+    type?: ToastType,
+    action?: ToastAction,
+    image?: ImageSourcePropType
+  ) => void;
   dismiss: (id: string) => void;
 }
 
@@ -39,7 +59,12 @@ export function useToast() {
   const ctx = useContext(ToastContext);
   if (!ctx) {
     return {
-      show: () => {},
+      show: (
+        _message: string,
+        _type?: ToastType,
+        _action?: ToastAction,
+        _image?: ImageSourcePropType
+      ) => {},
       dismiss: () => {},
     };
   }
@@ -49,11 +74,20 @@ export function useToast() {
 export interface ToastProps {
   message: string;
   type?: ToastType;
+  action?: ToastAction;
+  image?: ImageSourcePropType;
   style?: ViewStyle;
   onDismiss?: () => void;
 }
 
-export function Toast({ message, type = 'success', style, onDismiss }: ToastProps) {
+export function Toast({
+  message,
+  type = 'success',
+  action,
+  image,
+  style,
+  onDismiss,
+}: ToastProps) {
   const getIcon = () => {
     switch (type) {
       case 'success':
@@ -81,10 +115,32 @@ export function Toast({ message, type = 'success', style, onDismiss }: ToastProp
       style={[styles.toast, { backgroundColor: getBackgroundColor() }, style]}
       accessibilityRole="alert"
     >
-      {getIcon()}
+      {image ? (
+        <Image
+          source={image}
+          style={styles.mascot}
+          accessible={false}
+          resizeMode="contain"
+        />
+      ) : (
+        getIcon()
+      )}
       <Text variant="bodyStrong" color={colors.ink} style={styles.message}>
         {message}
       </Text>
+      {action ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={action.label}
+          onPress={action.onPress}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          style={styles.actionBtn}
+        >
+          <Text variant="bodyStrong" color={colors.primary}>
+            {action.label}
+          </Text>
+        </Pressable>
+      ) : null}
       {onDismiss ? (
         <Pressable
           accessibilityRole="button"
@@ -155,7 +211,13 @@ function ToastBannerItem({
 
   return (
     <Animated.View style={[styles.bannerWrapper, animatedStyle]}>
-      <Toast message={item.message} type={item.type} onDismiss={() => dismissAnim()} />
+      <Toast
+        message={item.message}
+        type={item.type}
+        action={item.action}
+        image={item.image}
+        onDismiss={() => dismissAnim()}
+      />
     </Animated.View>
   );
 }
@@ -168,11 +230,19 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     setQueue((prev) => prev.filter((item) => item.id !== id));
   }, []);
 
-  const show = useCallback((message: string, type: ToastType = 'success') => {
-    const id = `${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-    AccessibilityInfo.announceForAccessibility(message);
-    setQueue((prev) => [...prev, { id, message, type }]);
-  }, []);
+  const show = useCallback(
+    (
+      message: string,
+      type: ToastType = 'success',
+      action?: ToastAction,
+      image?: ImageSourcePropType
+    ) => {
+      const id = `${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      AccessibilityInfo.announceForAccessibility(message);
+      setQueue((prev) => [...prev, { id, message, type, action, image }]);
+    },
+    []
+  );
 
   return (
     <ToastContext.Provider value={{ show, dismiss }}>
@@ -217,8 +287,18 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 3,
   },
+  mascot: {
+    width: 28,
+    height: 28,
+  },
   message: {
     flex: 1,
+  },
+  actionBtn: {
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.xs,
+    minHeight: 44,
+    justifyContent: 'center',
   },
   dismissBtn: {
     padding: spacing.xs,

@@ -2,6 +2,7 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { ShieldAlert } from 'lucide-react-native';
 import { colors, spacing, radius } from '@davao-bank/shared';
+import { MASCOT_BANTAY } from '../assets/illustrations';
 import { Sheet } from './Sheet';
 import { Button } from './Button';
 import { Text } from './Text';
@@ -34,6 +35,7 @@ export function RiskChallengeSheet({
     <Sheet
       visible={visible}
       title="Confirmation required"
+      titleImage={MASCOT_BANTAY}
       onClose={onCancel}
       footer={
         <View style={styles.actions}>
@@ -67,6 +69,10 @@ export function RiskChallengeSheet({
         <View style={styles.iconDisc}>
           <ShieldAlert size={28} color={colors.orangeText} />
         </View>
+
+        <Text variant="bodyStrong" color={colors.ink}>
+          Bantay noticed something unusual
+        </Text>
 
         <Text variant="body" color={colors.ink}>
           {displayMessage}

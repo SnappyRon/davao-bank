@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, type ImageSourcePropType } from 'react-native';
 import { spacing } from '@davao-bank/shared';
 import { Sheet } from './Sheet';
 import { Button } from './Button';
@@ -9,6 +9,8 @@ export interface ConfirmSheetProps {
   visible: boolean;
   title: string;
   message?: string;
+  /** Decorative Bantay art for security confirmations; title stays live text. */
+  image?: ImageSourcePropType;
   confirmLabel: string;
   cancelLabel?: string;
   destructive?: boolean;
@@ -20,6 +22,7 @@ export function ConfirmSheet({
   visible,
   title,
   message,
+  image,
   confirmLabel,
   cancelLabel = 'Cancel',
   destructive = false,
@@ -30,6 +33,7 @@ export function ConfirmSheet({
     <Sheet
       visible={visible}
       title={title}
+      titleImage={image}
       onClose={onCancel}
       footer={
         <View style={styles.actions}>
