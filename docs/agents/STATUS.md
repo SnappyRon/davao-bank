@@ -4,54 +4,13 @@
 
 ## Now
 
-- **Active phase:** Phase 7 + Phase 8/8.5/Phase 9 full app (`phase-8-integration`): all five captain branches merged — Bantay alerts + Kada art, 8.5 ops dashboard, FX converter, service requests and branch appointments.
-- **Branch:** `phase-8-integration`; merged all five branches with `--no-ff` in captain's order: bantay-alerts, 8.5 ops UI, 9 service requests, 9 appointments, 9 FX converter.
-- **Active prompt:** captain's owner-reported gap — wire Bantay AI explanations into the timeline and label them.
-- **Assigned to:** Backup Development Agent; call `explainBantayEvent` for unexplained timeline events, cap at the five newest, update rows on success only, add labels and safety line, cover with RNTL tests.
-- **Exact next step:** captain reviews the Bantay AI explanation fix; hosted migrations, device/Maestro/VoiceOver and Playwright checks remain with captain/owner.
-- **Last commit:** `Phase 8 · Fix — request Bantay AI explanations and label them`.
-- **Blockers:** none locally. Device, Maestro, VoiceOver, hosted and Playwright/aal2 staff session checks NOT VERIFIED (owner/captain). Hosted alerts migration NOT APPLIED by this agent; captain reports the 8.5A migration is applied. `.env` symlinks untouched.
-- **Active phase:** Phase 9 · Stage 9D — Branch appointments BACKEND (spec §4.5), security review fixes applied.
-- **Branch:** `phase-9-appointments` (worktree at `../davao-bank-appointments`, based on `phase-8-integration`).
-- **Active prompt:** Phase 9 security review fix — branch appointments backend.
-- **Assigned to:** Backup Development Agent (kilo-1).
-- **Exact next step:** none — stage complete, awaiting captain review.
-- **Last commit:** `Phase 9 · Fix — appointments security review` (this commit).
-- **Blockers:** none. Device, hosted, Maestro, VoiceOver, Playwright checks NOT VERIFIED (no hosted access per task rules). `npm run test:db`: 307 passed, 0 failed (includes F5/F6/F7 security tests + F4 cap boundary test).
-- **Active phase:** Phase 9 — More services (`phase-9-hub`, branched from `phase-8-integration`).
-- **Branch:** `phase-9-hub` (`/Users/ronalbert/Personal Projects/davao-bank-hub`).
-- **Active prompt:** Phase 9 · Stage 9A More services hub (`docs/specs/phase-9-more-services-spec.md` §3).
-- **Assigned to:** Backup Development Agent completed Stage 9A after Antigravity (`fe-device-fixes`) stopped; handed back for captain review.
-- **Exact next step:** captain reviews `Phase 9 · Stage 9A — More services hub`; subsequent Phase 9 service screen branches replace `UnavailableServiceScreen` and add their IDs to `SERVICES_ENABLED`.
-- **Last commit:** `Phase 9 · Stage 9A — More services hub` (parent `43c6bc4`).
-- **Blockers:** none locally. Device, Maestro, VoiceOver and hosted checks NOT VERIFIED (owner/captain). `.env` symlinks untouched.
-- **Active phase:** Phase 9 Service requests — customer mobile screens (Stage 9C). Worktree `/Users/ronalbert/Personal Projects/davao-bank-requests-ui`, branch `phase-9-service-requests-ui` (based on `43c6bc4`). Main checkout left untouched.
-- **Active prompt:** Phase 9 Stage 9C — Service requests screens (owner brief: finish Antigravity's uncommitted screens; no `App.tsx`/`HomeScreen`/`ProfileScreen` edits).
-- **Assigned to:** Codex (takeover from Antigravity, which ran out mid-task). Retained all six in-progress files and completed them.
-- **Exact next step:** captain reviews the Stage 9C commit; route registration (`ServiceRequests`, `NewServiceRequest`) is intentionally NOT part of this stage, so captain/owner should wire the two routes when ready. Hosted DB, device/Maestro/VoiceOver and Playwright checks remain with captain/owner.
-- **Last commit:** `Phase 9 · Stage 9C — Service requests screens` (this stage).
-- **Blockers:** none locally. Device, Maestro, VoiceOver, hosted and Playwright checks NOT VERIFIED (owner/captain). No hosted DB access, no `.env` read or changed, money handlers untouched.
-
-### Takeover note (2026-11-26, Codex)
-
-- Took over Antigravity's six uncommitted files unchanged in intent: `packages/shared/src/serviceRequests.ts` + its `index.ts` export, the shared tests, and the two mobile screens with their RNTL tests. Fixed the remaining local failures (fixture `owner_id` → `user_id`; guarded callbacks return `void`; copy-audit `fieldErrors.accountId` false positive avoided by a user-facing alias; stable `useFocusEffect` callback so list refetch cannot race the cancel action; `await fireEvent.*` per repo convention so test state commits before the next interaction).
-- Verification (all from worktree root): `npm run typecheck` exit 0; `npm run lint` `✖ 63 problems (0 errors, 63 warnings)` (all pre-existing); `npm run format:check` `All matched files use Prettier code style!`; `npx jest` `Test Suites: 65 passed, 65 total` / `Tests: 545 passed, 545 total`; `npm run check:copy` `PASS Copy audit clean across 172 files (17 justified allowlist match(es)).`
-- Routes declared (not registered): `ServiceRequests: undefined`, `NewServiceRequest: { initialType?: ServiceRequestType } | undefined`, in `ServiceRequestsStackParamList` in `ServiceRequestsScreen.tsx`.
-- **Active phase:** Phase 9 · Stage 9D — Branch appointments MOBILE screens (spec §4.5); finished the previous agent's uncommitted work.
-- **Branch:** `phase-9-appointments-ui` (worktree `../davao-bank-appointments-ui`, based on merged `43c6bc4`).
-- **Active prompt:** fe-wording captain brief — `BranchAppointmentsScreen`, `BookAppointmentScreen`, shared client wrappers; no `App.tsx` / `HomeScreen` / `ProfileScreen` edits.
-- **Assigned to:** Backup Development Agent (took over mid-task; kept all six in-progress files, only ran Prettier on them).
-- **Route handoff (captain wires these):** add `BranchAppointments: undefined` and `BookAppointment: { branchId?: string } | undefined` to `RootStackParamList`; both screens import the exported `AppointmentsRouteParamList` from `apps/mobile/src/screens/BranchAppointmentsScreen.tsx`. No navigation entry was added by this stage.
-- **Exact next step:** captain reviews the screens, registers the two routes and links the More services row; hosted migration apply, device/Maestro/VoiceOver and Playwright checks remain with captain/owner.
-- **Last commit:** `Phase 9 · Stage 9D — Branch appointments screens` (this commit).
-- **Blockers:** none locally. Visit purpose is shown in review/result but is display-only: `book_appointment` has no purpose parameter (server stage unchanged). No hosted access, no money-handler changes, no push, no `.env` read. Device/Maestro/VoiceOver/hosted NOT VERIFIED.
-- **Active phase:** Phase 9 · Stage 9F — admin service requests and appointments (isolated worktree `davao-bank-admin-services`).
-- **Branch:** `phase-9-admin-services`, based on `phase-8-integration` at `fc59513 Phase 8 · Merge — phase-9-fx-converter`. No push, no merge into another branch.
-- **Active prompt:** captain's Stage 9F brief for the admin service screens; spec `git show phase-9-services-spec:docs/specs/phase-9-more-services-spec.md`.
-- **Assigned to:** fe-opencode (OpenCode, Big Pickle); admin-only UI plus the mandatory `STATUS.md` and `PHASE9_REPORT.md` handoff files.
-- **Exact next step:** captain reviews this branch, then merges `phase-9-admin-services` into `phase-8-integration` (package ownership: only new admin service files, `Sidebar.tsx`, RTL tests and Playwright spec; no backend/migration/money edits).
-- **Last commit:** `Phase 9 · Stage 9F — Admin service requests and appointments` (hash reported to the captain in the final reply; report uses the repo-standard `(this commit)` notation).
-- **Blockers:** none locally. Playwright/aal2 staff session, real hosted RPC data, device and Maestro checks NOT VERIFIED — owner must supply `ADMIN_STORAGE_STATE`. Hosted database untouched; `.env` files only symlinked, never read.
+- **Active phase:** Phase 9 integration into `phase-8-integration` — eight captain branches merged, mobile routes and More-services hub tiles wired.
+- **Branch:** `phase-8-integration`; eight `--no-ff` merges in captain's exact order: service requests `0769be2`, appointments `f379634`, savings goals `b7fa455`, hub `2282f35`, service-requests UI `bc9848a`, appointments UI `00aa830`, installments `2d87c36`, admin services `06aa89c`. No rebase, no push.
+- **Active prompt:** captain integration brief — wire services routes and hub tiles, run six checks, report to captain only.
+- **Assigned to:** Backup Development Agent (OpenCode); integration complete, handed back for captain review.
+- **Exact next step:** captain reviews the nine commits, applies the new Phase 9 migrations to hosted after review, then runs device/Maestro/VoiceOver and Playwright checks.
+- **Last commit:** `Phase 9 · Integration — wire services routes`.
+- **Blockers:** none locally. Hosted migrations, device/Maestro/VoiceOver, Playwright and aal2 staff-session checks NOT VERIFIED (owner/captain). The two applied hosted migrations are byte-identical to their required branch tips; `.env` symlinks untouched.
 
 ## Stage 7B.0 — remaining work plan (captain, 2026-11-10)
 
@@ -302,6 +261,8 @@ Fix these before 7B:
 - **Follow-up:** add dedicated test accounts so live tests don't conflict with the presenter's real authenticator.
 
 ## Log (newest first)
+
+- **2026-11-26, Backup Development Agent (OpenCode):** integrated all eight Phase 9 branches into `phase-8-integration` with `--no-ff` in captain's exact order (service requests, appointments, savings goals, hub, service-requests UI, appointments UI, installments, admin services). Merge conflicts were limited to `docs/agents/STATUS.md` (six merges) and were resolved by keeping both sides' entries; the two applied hosted migrations were preserved from `0769be2` / `f379634` and verified byte-identical with `git diff` (empty output). Wired `ServiceRequests`, `NewServiceRequest`, `BranchAppointments`, `BookAppointment` and `InstallmentCalculator` to their real screens in `App.tsx` and enabled their More-services hub IDs plus `remittance_tracker`; savings goals, time deposit planner and credit card stay "Not available in this demo yet" because no screens exist; FX converter already opens the real `FXRates` screen. Lockfile unchanged so `npm ci` was not run. Checks: `npm run typecheck` exit 0; `npm run lint` 0 errors / 62 warnings; `npm run format:check` clean; `npx jest` 72 suites / 609 tests passed; `npm run check:copy` PASS across 184 files (17 allowlist matches); `npm run test:db` 469 passed / 0 failed. No push, no hosted writes, no `.env` read, no money/step-up handler changes.
 
 - **2026-11-26, Backup Development Agent:** captain's owner-reported gap — `explainBantayEvent` was imported but never called, so `bantay-explain` never ran and every hosted event kept `explanation_source = null`. Fixed in `apps/mobile/src/screens/BantaySecurityScreen.tsx`: an effect requests an explanation for each timeline row with no stored explanation, once per event per screen session (a ref of requested ids stops re-render/fetch repeats), capped at the five newest rows; on success only, the row's state gets the returned text and source (`ai` only when the function reports `ai`). While loading and on any error the curated template stays. Added real `<Text>` labels under each explanation — `Explained by Bantay AI` for `explanation_source === 'ai'`, otherwise `Bantay` — plus the screen line `Bantay AI can make mistakes. It can't move money.` No edge function, migration, RPC, money or step-up code changed. Added four RNTL cases in `bantay_security_screen.test.tsx`: one call per unexplained event with no call for an explained one (and no repeats after AI state updates), AI label + safety line, template retained on a rejected invoke, and the five-newest cap. Checks: `npm run typecheck` exit 0 (admin/mobile/shared); `npm run lint` `✖ 62 problems (0 errors, 62 warnings)`; `npm run format:check` `All matched files use Prettier code style!` after `--write` on the two task files; `npx jest` `Test Suites: 63 passed, 63 total` / `Tests: 528 passed, 528 total`; `npm run check:copy` `PASS Copy audit clean across 170 files (17 justified allowlist match(es)).` No push, no hosted DB access, no `.env` touched. Device, VoiceOver and live `bantay-explain` against hosted NOT VERIFIED (owner/captain).
 - **2026-11-26, Backup Development Agent:** took over Stage 9A from Antigravity in `/Users/ronalbert/Personal Projects/davao-bank-hub` (branch `phase-9-hub`) and kept all eight uncommitted files. Finished the missing typed routes: `TimeDepositPlanner` and `Cards` are declared in `RootStackParamList` and registered on `UnavailableServiceScreen` until their own service branches land; the hub points the time-deposit row at `TimeDepositPlanner` and the credit-card row at `Cards`; the Profile entry carries an explicit `Simulation` subtitle. Added assertions for both new routes. Final checks in this worktree: `npm run typecheck` exit 0 (admin/mobile/shared), `npm run lint` `✖ 63 problems (0 errors, 63 warnings)`, `npm run format:check` clean, `npx jest` `Test Suites: 64 passed, 64 total` / `Tests: 537 passed, 537 total`, `npm run check:copy` `PASS Copy audit clean across 172 files (17 justified allowlist match(es)).` Device, Maestro, VoiceOver and hosted checks NOT VERIFIED (captain/owner). Money handlers untouched; no push, no hosted access, no `.env` read.

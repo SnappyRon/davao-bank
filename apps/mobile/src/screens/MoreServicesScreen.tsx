@@ -51,6 +51,10 @@ export type ServiceId =
  */
 export const SERVICES_ENABLED: ReadonlySet<ServiceId> = new Set<ServiceId>([
   'fx_converter',
+  'service_requests',
+  'branch_appointments',
+  'installment_calculator',
+  'remittance_tracker',
 ]);
 
 export const SERVICE_UNAVAILABLE_COPY = 'Not available in this demo yet';

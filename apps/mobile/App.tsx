@@ -75,6 +75,11 @@ import {
   MoreServicesScreen,
   UnavailableServiceScreen,
 } from './src/screens/MoreServicesScreen';
+import { ServiceRequestsScreen } from './src/screens/ServiceRequestsScreen';
+import { NewServiceRequestScreen } from './src/screens/NewServiceRequestScreen';
+import { BranchAppointmentsScreen } from './src/screens/BranchAppointmentsScreen';
+import { BookAppointmentScreen } from './src/screens/BookAppointmentScreen';
+import { InstallmentCalculatorScreen } from './src/screens/InstallmentCalculatorScreen';
 
 import { TransferScreen } from './src/screens/TransferScreen';
 import { PayBillsScreen } from './src/screens/PayBillsScreen';
@@ -569,22 +574,22 @@ export default function App() {
               />
               <RootStack.Screen
                 name="ServiceRequests"
-                component={UnavailableServiceScreen}
+                component={ServiceRequestsScreen}
                 options={{ presentation: 'card', animation: 'slide_from_right' }}
               />
               <RootStack.Screen
                 name="NewServiceRequest"
-                component={UnavailableServiceScreen}
+                component={NewServiceRequestScreen}
                 options={{ presentation: 'card', animation: 'slide_from_right' }}
               />
               <RootStack.Screen
                 name="BranchAppointments"
-                component={UnavailableServiceScreen}
+                component={BranchAppointmentsScreen}
                 options={{ presentation: 'card', animation: 'slide_from_right' }}
               />
               <RootStack.Screen
                 name="BookAppointment"
-                component={UnavailableServiceScreen}
+                component={BookAppointmentScreen}
                 options={{ presentation: 'card', animation: 'slide_from_right' }}
               />
               <RootStack.Screen
@@ -599,7 +604,7 @@ export default function App() {
               />
               <RootStack.Screen
                 name="InstallmentCalculator"
-                component={UnavailableServiceScreen}
+                component={InstallmentCalculatorScreen}
                 options={{ presentation: 'card', animation: 'slide_from_right' }}
               />
               <RootStack.Screen
