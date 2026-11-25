@@ -8,6 +8,7 @@ import { EmptyState } from '../../components/EmptyState';
 import { Skeleton } from '../../components/Skeleton';
 import { Pressable } from '../../components/Pressable';
 import { Button } from '../../components/Button';
+import { MASCOT_EMPTY } from '../../assets/illustrations';
 import {
   GroupedList,
   ListHairline,
@@ -31,6 +32,7 @@ interface HomeRecentActivityProps {
   onRetry: () => void;
   transactions: TransactionHistoryItem[];
   onNavigateToActivity?: () => void;
+  onSendMoney?: () => void;
   onSelectTransaction: (tx: TransactionHistoryItem) => void;
 }
 
@@ -40,6 +42,7 @@ export function HomeRecentActivity({
   onRetry,
   transactions,
   onNavigateToActivity,
+  onSendMoney,
   onSelectTransaction,
 }: HomeRecentActivityProps) {
   const rows = transactions.slice(0, MAX_ROWS);
@@ -74,7 +77,7 @@ export function HomeRecentActivity({
           <Text variant="bodyStrong" color={colors.ink}>
             Activity unavailable
           </Text>
-          <Text variant="caption" color={colors.textSecondary}>
+          <Text variant="caption" color={colors.textSecondary} accessibilityRole="alert">
             {error}
           </Text>
           <Button title="Try again" variant="secondary" onPress={onRetry} />
@@ -94,6 +97,10 @@ export function HomeRecentActivity({
         <EmptyState
           title="No activity yet"
           description="Money you send, receive and pay will show here."
+          illustration={MASCOT_EMPTY}
+          illustrationTestID="home-activity-empty-mascot"
+          actionTitle={onSendMoney ? 'Send money' : undefined}
+          onAction={onSendMoney}
           scrollable={false}
         />
       ) : (

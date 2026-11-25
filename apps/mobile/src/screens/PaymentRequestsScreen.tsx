@@ -6,7 +6,7 @@ import { StepUpSetupLink } from '../components/StepUpSetupLink';
 import { retryStepUp } from '../utils/stepUpRetry';
 import { useTotpPrompt } from '../context/PasswordPromptContext';
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, StyleSheet, RefreshControl, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, RefreshControl } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import {
   Send,
@@ -31,6 +31,8 @@ import {
   typography,
 } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
+import { reportNetworkResult } from '../lib/networkStatus';
+import { MASCOT_EMPTY, MASCOT_ERROR } from '../assets/illustrations';
 import { useSettings } from '../context/SettingsContext';
 import {
   FeatureScreen,
@@ -38,11 +40,13 @@ import {
   Button,
   Badge,
   EmptyState,
+  Skeleton,
   AmountText,
   Pressable,
   ReviewCard,
   AccountPickerSheet,
   formatAccountLabel,
+  useToast,
 } from '../components';
 import { commitButtonLabel } from '../utils/moneyFlow';
 import {
@@ -59,6 +63,7 @@ export function PaymentRequestsScreen() {
   const { showConfirmation, confirmSheet } = useConfirmSheet();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'PaymentRequests'>>();
+  const toast = useToast();
   const onClose = () => navigation.goBack();
   const [accounts, setAccounts] = useState<AccountBalance[]>([]);
   const [accountsLoading, setAccountsLoading] = useState(true);
@@ -66,6 +71,7 @@ export function PaymentRequestsScreen() {
   const loadAccounts = useCallback(async () => {
     setAccountsLoading(true);
     const { data, error } = await fetchAccountBalances(supabase);
+    reportNetworkResult(error);
     if (error) setAccountError(toUserMessage(error));
     else {
       setAccounts(data || []);
@@ -124,6 +130,7 @@ export function PaymentRequestsScreen() {
       ]);
 
       const reqError = inRes.error || outRes.error;
+      reportNetworkResult(reqError);
       if (reqError) {
         setRequestsError(toUserMessage(reqError));
       } else {
@@ -132,6 +139,7 @@ export function PaymentRequestsScreen() {
         setRequestsError(null);
       }
     } catch (err) {
+      reportNetworkResult(err);
       console.warn('Error loading payment requests:', err);
       setRequestsError(toUserMessage(err));
     } finally {
@@ -246,6 +254,7 @@ export function PaymentRequestsScreen() {
             } catch {
               // Ignore
             }
+            toast.show('Request declined');
             loadRequests();
           }
         } catch (err: any) {
@@ -279,6 +288,7 @@ export function PaymentRequestsScreen() {
             } catch {
               // Ignore
             }
+            toast.show('Request declined');
             loadRequests();
           }
         } catch (err: any) {
@@ -550,39 +560,48 @@ export function PaymentRequestsScreen() {
 
             <View style={styles.listArea}>
               {loading ? (
-                <ActivityIndicator
-                  size="small"
-                  color={colors.primary}
-                  style={{ marginTop: spacing.xl }}
-                />
-              ) : requestsError ? (
-                <View style={styles.errorContainer}>
-                  <View style={[styles.statusBanner, styles.statusBannerError]}>
-                    <Text
-                      variant="caption"
-                      color={colors.error}
-                      accessibilityRole="alert"
-                      style={styles.statusBannerText}
-                    >
-                      {requestsError}
-                    </Text>
-                  </View>
-                  <Button
-                    title="Try again"
-                    variant="secondary"
-                    onPress={() => {
-                      setLoading(true);
-                      setRequestsError(null);
-                      void loadRequests();
-                    }}
-                  />
+                <View
+                  style={styles.itemsList}
+                  accessibilityRole="progressbar"
+                  accessibilityLabel="Loading payment requests"
+                  testID="requests-skeleton"
+                >
+                  {Array.from({ length: 3 }, (_, index) => (
+                    <Skeleton
+                      key={index}
+                      width="100%"
+                      height={112}
+                      borderRadius={radius.md}
+                    />
+                  ))}
                 </View>
+              ) : requestsError ? (
+                <EmptyState
+                  title="Payment requests unavailable"
+                  description={requestsError}
+                  descriptionAccessibilityRole="alert"
+                  illustration={MASCOT_ERROR}
+                  illustrationTestID="requests-error-mascot"
+                  actionTitle="Try again"
+                  onAction={() => {
+                    setLoading(true);
+                    setRequestsError(null);
+                    void loadRequests();
+                  }}
+                  scrollable={false}
+                />
               ) : tab === 'incoming' ? (
                 incomingRequests.length === 0 ? (
                   <EmptyState
                     scrollable={false}
+                    illustration={MASCOT_EMPTY}
+                    illustrationTestID="requests-incoming-empty-mascot"
                     title="No incoming requests"
                     description="When another Davao Bank customer requests money from you, it will appear here."
+                    actionTitle="Request money"
+                    onAction={() =>
+                      navigation.navigate('QRHub', { initialTab: 'request' })
+                    }
                   />
                 ) : (
                   <View style={styles.itemsList}>
@@ -655,8 +674,12 @@ export function PaymentRequestsScreen() {
               ) : outgoingRequests.length === 0 ? (
                 <EmptyState
                   scrollable={false}
+                  illustration={MASCOT_EMPTY}
+                  illustrationTestID="requests-outgoing-empty-mascot"
                   title="No outgoing requests"
                   description="Payment requests you send to other Davao Bank users will be tracked here."
+                  actionTitle="Request money"
+                  onAction={() => navigation.navigate('QRHub', { initialTab: 'request' })}
                 />
               ) : (
                 <View style={styles.itemsList}>

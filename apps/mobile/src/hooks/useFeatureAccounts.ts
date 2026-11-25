@@ -5,6 +5,7 @@ import {
   type AccountBalance,
 } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
+import { reportNetworkResult } from '../lib/networkStatus';
 
 export function useFeatureAccounts() {
   const [accounts, setAccounts] = useState<AccountBalance[]>([]);
@@ -16,10 +17,12 @@ export function useFeatureAccounts() {
     setAccountError(null);
     try {
       const { data, error } = await fetchAccountBalances(supabase);
+      reportNetworkResult(error);
       if (!mounted.current) return;
       if (error) throw error;
       setAccounts(data ?? []);
     } catch (error) {
+      reportNetworkResult(error);
       if (mounted.current) setAccountError(toUserMessage(error));
     } finally {
       if (mounted.current) setAccountsLoading(false);

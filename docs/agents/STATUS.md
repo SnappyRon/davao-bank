@@ -5,12 +5,12 @@
 ## Now
 
 - **Active phase:** Phase 7 — UI/UX Refinement & Motion.
-- **Branch:** `phase-7-carryovers` worktree of the main checkout (base `af8b3aa`); Stage 7B.10 done and committed, next is 7B.7 (wording) then 7B.11 (system status).
+- **Branch:** `phase-7-system-status` (integration of 7B.10 carry-overs + 7B.11 system status).
 - **Active prompt:** `Phase-7-Prompt-UI-UX-and-Motion.md`.
-- **Assigned to:** fe-cline-2 took over Stage 7B.10 from fe-device-fixes; committed `Phase 7 · Stage 7B.10 — Carry-overs from device checks`. Captain reviews 7B.10; 7B.7 wording (main checkout, fe-wording's edits, uncommitted) is next in the queue.
-- **Exact next step:** captain reviews Stage 7B.7 commit; next agent continues with Stage 7B.8 (copy audit script).
-- **Last commit:** Stage 7B.10 on `phase-7-carryovers` (parent `af8b3aa`).
-- **Blockers:** device and live money-flow verification NOT VERIFIED; admin Playwright needs owner sign-in; 7B.10 before/after device screenshots NOT VERIFIED — no device available to this agent.
+- **Assigned to:** Codex completed Stage 7B.11 (Visible system status everywhere). fe-cline-2 completed Stage 7B.10 (Carry-overs from device checks).
+- **Exact next step:** captain verifies 7B.11 implementation; move to 7B.12 admin console polish.
+- **Last commit:** Phase 7 · Stage 7B.11 — Visible system status everywhere (this commit; parent `5e2aaf6`).
+- **Blockers:** None.
 
 ## Stage 7B.0 — remaining work plan (captain, 2026-11-10)
 

@@ -214,7 +214,8 @@ describe('Add money and Cash out (spec 7B.4)', () => {
       }) as never
     );
     await render(<CashOutScreen />);
-    expect(screen.getByText('Loading accounts…')).toBeTruthy();
+    // 7B.11: Loading state now shows skeleton, not text
+    expect(screen.getByTestId('accounts-skeleton')).toBeTruthy();
     expect(screen.queryByText(/Available/)).toBeNull();
     expect(screen.queryByRole('button', { name: 'Continue' })).toBeNull();
     await act(async () => {

@@ -27,6 +27,7 @@ import {
   PrivacyOverlay,
   ToastProvider,
   FloatingTabBar,
+  OfflineBanner,
 } from './src/components';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { ActivityScreen } from './src/screens/ActivityScreen';
@@ -454,7 +455,10 @@ export default function App() {
   return (
     <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider>
-        <ToastProvider>{content}</ToastProvider>
+        <ToastProvider>
+          <OfflineBanner />
+          {content}
+        </ToastProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

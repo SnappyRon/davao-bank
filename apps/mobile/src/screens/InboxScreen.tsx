@@ -5,7 +5,6 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { View, StyleSheet, FlatList, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  AlertCircle,
   ArrowDownLeft,
   ArrowUpRight,
   Bell,
@@ -31,6 +30,8 @@ import {
   type TransactionHistoryItem,
 } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
+import { reportNetworkResult } from '../lib/networkStatus';
+import { MASCOT_EMPTY, MASCOT_ERROR } from '../assets/illustrations';
 import {
   Screen,
   Text,
@@ -48,7 +49,6 @@ import {
 
 const UNREAD_DOT_SIZE = 8;
 const HEADER_ICON_SIZE = 18;
-const EMPTY_ICON_SIZE = 36;
 const SKELETON_ROWS = 3;
 
 interface InboxScreenProps {
@@ -189,6 +189,7 @@ export function InboxScreen({ onUnreadCountChange }: InboxScreenProps) {
     const loadId = ++loadIdRef.current;
     try {
       const { data, error: loadError } = await fetchNotifications(supabase);
+      reportNetworkResult(loadError);
       if (loadId !== loadIdRef.current) return;
       if (loadError || !data) {
         setError(toUserMessage(loadError ?? 'Inbox could not be loaded.', 'load'));
@@ -198,6 +199,7 @@ export function InboxScreen({ onUnreadCountChange }: InboxScreenProps) {
       setLoaded(true);
       setNotifications(data);
     } catch (err) {
+reportNetworkResult(err);
       if (loadId === loadIdRef.current) setError(toUserMessage(err, 'load'));
     } finally {
       if (loadId === loadIdRef.current) {
@@ -266,9 +268,13 @@ export function InboxScreen({ onUnreadCountChange }: InboxScreenProps) {
 
         if (!updateError) {
           setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+          toast.show('All notifications marked as read');
+        } else {
+          toast.show(toUserMessage(updateError), 'error');
         }
       }
     } catch (err) {
+      toast.show(toUserMessage(err), 'error');
       console.warn('Error marking all notifications as read:', err);
     } finally {
       setMarkingAll(false);
@@ -356,7 +362,9 @@ export function InboxScreen({ onUnreadCountChange }: InboxScreenProps) {
         <EmptyState
           title="Inbox unavailable"
           description={error}
-          icon={<AlertCircle size={EMPTY_ICON_SIZE} color={colors.redText} />}
+          descriptionAccessibilityRole="alert"
+          illustration={MASCOT_ERROR}
+          illustrationTestID="inbox-error-mascot"
           actionTitle="Try again"
           onAction={retry}
           refreshControl={refreshControl}
@@ -370,7 +378,8 @@ export function InboxScreen({ onUnreadCountChange }: InboxScreenProps) {
         <EmptyState
           title="You're all caught up"
           description="Money updates, requests and account notices will show here."
-          icon={<Bell size={EMPTY_ICON_SIZE} color={colors.textMuted} />}
+          illustration={MASCOT_EMPTY}
+          illustrationTestID="inbox-empty-mascot"
           refreshControl={refreshControl}
           style={{ paddingBottom: bottomClearance }}
         />

@@ -50,6 +50,9 @@ const DISCARD_TITLE = 'Discard changes?';
 const DISCARD_MESSAGE =
   'You have unsaved details. Are you sure you want to discard them?';
 
+export const STILL_WORKING_DELAY_MS = 2000;
+export const STILL_WORKING_MESSAGE = "Still working — don't close the app.";
+
 export function FeatureScreen({
   title,
   step,
@@ -95,6 +98,7 @@ export function FeatureScreen({
 
   const [scrolled, setScrolled] = useState(false);
   const [reduceTransparency, setReduceTransparency] = useState(false);
+  const [stillWorking, setStillWorking] = useState(false);
 
   useEffect(() => {
     AccessibilityInfo.isReduceTransparencyEnabled().then(setReduceTransparency);
@@ -106,6 +110,31 @@ export function FeatureScreen({
       sub?.remove();
     };
   }, []);
+
+  useEffect(() => {
+    if (!isProcessing) {
+      setStillWorking(false);
+      return;
+    }
+    const timer = setTimeout(() => {
+      setStillWorking(true);
+      AccessibilityInfo.announceForAccessibility(STILL_WORKING_MESSAGE);
+    }, STILL_WORKING_DELAY_MS);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [isProcessing]);
+
+  useEffect(() => {
+    if (typeof navigation?.setOptions === 'function') {
+      navigation.setOptions({ gestureEnabled: !isProcessing });
+    }
+    return () => {
+      if (typeof navigation?.setOptions === 'function') {
+        navigation.setOptions({ gestureEnabled: true });
+      }
+    };
+  }, [isProcessing, navigation]);
 
   // Two paths, one guard each (never both):
   // - `onBack` passed: the screen is hosted by a Modal (or closes itself).
@@ -185,7 +214,7 @@ export function FeatureScreen({
               Keyboard.dismiss();
             }}
             onPress={handleBack}
-            style={[styles.backButton, isProcessing && { opacity: 0.3 }]}
+            style={[styles.backButton, isProcessing && styles.backButtonDisabled]}
             hitSlop={spacing.sm}
           >
             <ChevronLeft size={24} color={colors.ink} />
@@ -226,9 +255,10 @@ export function FeatureScreen({
           contentContainerStyle={[
             styles.scrollContent,
             {
-              paddingBottom: footer
-                ? FOOTER_CLEARANCE + insets.bottom
-                : spacing.xl + insets.bottom,
+              paddingBottom:
+                footer || stillWorking
+                  ? FOOTER_CLEARANCE + insets.bottom
+                  : spacing.xl + insets.bottom,
             },
             contentContainerStyle,
           ]}
@@ -241,13 +271,23 @@ export function FeatureScreen({
         </ScrollView>
 
         {/* Sticky Footer */}
-        {footer ? (
+        {footer || stillWorking ? (
           <View
             style={[
               styles.footer,
               { paddingBottom: Math.max(insets.bottom, spacing.base) },
             ]}
           >
+            {stillWorking ? (
+              <Text
+                variant="caption"
+                color={colors.textSecondary}
+                align="center"
+                accessibilityLiveRegion="polite"
+              >
+                {STILL_WORKING_MESSAGE}
+              </Text>
+            ) : null}
             {footer}
           </View>
         ) : null}
@@ -293,6 +333,9 @@ const styles = StyleSheet.create({
     minHeight: size.touch,
     minWidth: size.touch,
   },
+  backButtonDisabled: {
+    opacity: 0.3,
+  },
   backLabel: {
     marginLeft: spacing.xs,
   },
@@ -326,6 +369,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
+    gap: spacing.sm,
     paddingHorizontal: spacing.screenSide,
     paddingTop: spacing.base,
     backgroundColor: colors.canvas,
