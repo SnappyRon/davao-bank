@@ -4,13 +4,13 @@
 
 ## Now
 
-- **Active phase:** Phase 7 + Phase 8 full app (`phase-8-integration`); both Phase 7 integration (7B–7D) and the 8F prepare-before-confirm fix are merged.
-- **Branch:** `phase-8-integration`; merged `phase-7-integration` (`728567a`) and `phase-8-bantay-ui` (`21977a4`) with `--no-ff`, preserving both feature sets.
-- **Active prompt:** this hand-back brief (backup agent finishes tool-copy-check's task, reports to captain).
-- **Assigned to:** Backup Development Agent; merge `phase-7-integration`, run local checks, merge the 8F risk-challenge fix from `phase-8-bantay-ui`, re-run checks, report to captain.
-- **Exact next step:** captain reviews the 8D score-test fix commit; device/Maestro/VoiceOver/hosted/Playwright checks remain with the owner.
-- **Last commit:** `Phase 8 · Fix — make 8D score tests independent of time of day`.
-- **Blockers:** none for `npm run test:db`: two consecutive runs at Manila 00:xx both report `277 passed, 0 failed` after the test-only fix. Device, Maestro, VoiceOver, hosted and Playwright checks NOT VERIFIED (owner/captain).
+- **Active phase:** Phase 9 · Stage 9D — Branch appointments BACKEND (spec §4.5).
+- **Branch:** `phase-9-appointments` (worktree at `../davao-bank-appointments`, based on `phase-8-integration`).
+- **Active prompt:** Phase 9 captain brief — branch appointments backend only.
+- **Assigned to:** Backup Development Agent (kilo-1).
+- **Exact next step:** none — stage complete, awaiting captain review.
+- **Last commit:** `Phase 9 · Stage 9D — Branch appointments backend` (this commit).
+- **Blockers:** none. Device, hosted, Maestro, VoiceOver, Playwright checks NOT VERIFIED (no hosted access per task rules). `npm run test:db`: 308 passed, 0 failed (includes new Phase 9 appointment checks with double-booking/capacity test).
 
 ## Stage 7B.0 — remaining work plan (captain, 2026-11-10)
 
@@ -261,6 +261,8 @@ Fix these before 7B:
 - **Follow-up:** add dedicated test accounts so live tests don't conflict with the presenter's real authenticator.
 
 ## Log (newest first)
+
+- **2026-11-26, Backup Development Agent (kilo-1):** Phase 9 · Stage 9D — Branch appointments backend (spec §4.5). Migration `supabase/migrations/20261129100000_phase9_branch_appointments.sql`: tables `branches` (fictional Davao areas), `appointment_slots`, `appointments`; RLS on all tables; customer RPCs `list_branches`, `list_open_slots`, `book_appointment` (row lock + capacity check + unique (slot_id,user_id) where booked double-booking guard + per-user limit), `get_my_appointments`, `cancel_appointment` (own, future only); admin RPCs `admin_list_appointments` / `admin_update_appointment` (assert_admin_aal2 + is_admin, audit_logs row, notification on status change); revoked from public/anon, executable by authenticated; seed demo branches/slots. Test harness `scripts/review/pglite-phase9-appointments.mjs` (incl. double-booking/capacity race-equivalent test) wired into `scripts/review/pglite-behavior.mjs`. Real output: `npm run typecheck` exit 0; `npm run lint` 0 errors; `npm run format:check` clean; `npm run test:db` 308 passed, 0 failed. No migration of money, no money movement, no hosted DB access, no push. Staged by name including STATUS.md.
 
 - **2026-11-26, Backup Development Agent:** captain-assigned Low fix in `scripts/review/pglite-phase8-bantay-risk.mjs`: the 9 '8D score' / `trusted_payees` assertions that evaluate at the engine's `now()` now derive the late-night points from the same database clock in Asia/Manila (`expectedNowScore(base)` reads `extract(hour from now() at time zone 'Asia/Manila')` and adds 10 for hours 0–5). Replaced the old fixed-02:00 assertion with one explicit fixed-time day-vs-night test (`2026-11-26T10:00+08` vs `2026-11-26T02:00+08`, no transfer history yet) that proves late night adds exactly 10. No risk engine, migration, funded RPC or test guard changed. `npm run test:db` twice: `277 passed, 0 failed` both times. `npx eslint` on the file: no output (pass). Note: standalone `npx prettier --check` flags this `.mjs` file because it was already unformatted at `HEAD`; `.mjs` is outside `format:check`'s glob and the file was not reformatted wholesale. No push, no hosted DB access.
 

@@ -6,6 +6,7 @@
 import { PGlite } from '@electric-sql/pglite'; import fs from 'node:fs'; import { fileURLToPath } from 'node:url';
 import { runPhase8BantayTests } from './pglite-phase8-bantay.mjs';
 import { runPhase8BantayRiskTests } from './pglite-phase8-bantay-risk.mjs';
+import { runPhase9AppointmentTests } from './pglite-phase9-appointments.mjs';
 const MIG=fileURLToPath(new URL('../../supabase/migrations', import.meta.url));
 const db=await PGlite.create(); await db.exec(fs.readFileSync(new URL('./pglite-boot.sql',import.meta.url),'utf8'));
 for (const f of fs.readdirSync(MIG).filter(f=>f.endsWith('.sql')).sort()) await db.exec(fs.readFileSync(`${MIG}/${f}`,'utf8'));
@@ -490,6 +491,8 @@ ok('8E anon cannot call the event writer', /permission denied/.test(r.err||''), 
 
 // ---- Phase 8 · Stage A: Bantay security center
 await runPhase8BantayTests({ db, as, su, cust, one, bal, ok, U, A, B, biller });
+// ---- Phase 9 · Stage 9D: Branch appointments backend
+await runPhase9AppointmentTests({ as, su, cust, one, ok, U, A, B });
 // ---- Phase 8 · Stage D: Bantay risk engine
 await runPhase8BantayRiskTests({ as, su, cust, bal, ok, U, A, B, biller });
 
