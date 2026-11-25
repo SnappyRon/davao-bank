@@ -29,7 +29,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['**/*.js', '**/*.cjs', '**/metro.config.js'],
+    files: ['**/*.js', '**/*.mjs', '**/*.cjs', '**/metro.config.js'],
     rules: {
       '@typescript-eslint/no-require-imports': 'off',
       'no-undef': 'off',
