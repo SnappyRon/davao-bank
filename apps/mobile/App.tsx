@@ -3,6 +3,8 @@ import { View, StyleSheet, ActivityIndicator, Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as ScreenCapture from 'expo-screen-capture';
+import * as SecureStore from 'expo-secure-store';
+import { useReducedMotion } from 'react-native-reanimated';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -53,6 +55,7 @@ import { ChangePasswordScreen } from './src/screens/ChangePasswordScreen';
 import { TransferScreen } from './src/screens/TransferScreen';
 import { PayBillsScreen } from './src/screens/PayBillsScreen';
 import { QRHubScreen } from './src/screens/QRHubScreen';
+import { OnboardingScreen, ONBOARDING_SEEN_KEY } from './src/screens/OnboardingScreen';
 
 export type RootStackParamList = {
   Tabs: undefined;
@@ -109,6 +112,18 @@ export default function App() {
   // Verify email: true right after sign-up (an email was just sent), so the
   // Resend cooldown starts on arrival.
   const [verifyJustSent, setVerifyJustSent] = useState(false);
+  const reduceMotion = useReducedMotion();
+  const [onboardingSeen, setOnboardingSeen] = useState<boolean>(true);
+
+  useEffect(() => {
+    SecureStore.getItemAsync(ONBOARDING_SEEN_KEY)
+      .then((val) => {
+        if (val !== 'true') {
+          setOnboardingSeen(false);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (Platform.OS === 'android') {
@@ -200,45 +215,54 @@ export default function App() {
       </View>
     );
   } else if (!isAuthenticated) {
-    content = (
-      <NavigationContainer>
-        <StatusBar style="dark" />
-        {authScreen === 'login' && (
-          <LoginScreen
-            onNavigateToSignUp={() => setAuthScreen('signup')}
-            onNavigateToForgotPassword={() => setAuthScreen('forgot')}
-            onNavigateToVerifyEmail={(email) => {
-              setTargetEmail(email);
-              setVerifyJustSent(false);
-              setAuthScreen('verify');
-            }}
-          />
-        )}
-        {authScreen === 'signup' && (
-          <SignUpScreen
-            onNavigateToLogin={() => setAuthScreen('login')}
-            onSignUpSuccess={(email) => {
-              setTargetEmail(email);
-              setVerifyJustSent(true);
-              setAuthScreen('verify');
-            }}
-          />
-        )}
-        {authScreen === 'verify' && (
-          <VerifyEmailScreen
-            email={targetEmail || session?.user?.email || ''}
-            justSent={verifyJustSent}
-            onNavigateToLogin={() => {
-              setVerifyJustSent(false);
-              setAuthScreen('login');
-            }}
-          />
-        )}
-        {authScreen === 'forgot' && (
-          <ForgotPasswordScreen onNavigateToLogin={() => setAuthScreen('login')} />
-        )}
-      </NavigationContainer>
-    );
+    if (!onboardingSeen) {
+      content = (
+        <NavigationContainer>
+          <StatusBar style="dark" />
+          <OnboardingScreen onFinish={() => setOnboardingSeen(true)} />
+        </NavigationContainer>
+      );
+    } else {
+      content = (
+        <NavigationContainer>
+          <StatusBar style="dark" />
+          {authScreen === 'login' && (
+            <LoginScreen
+              onNavigateToSignUp={() => setAuthScreen('signup')}
+              onNavigateToForgotPassword={() => setAuthScreen('forgot')}
+              onNavigateToVerifyEmail={(email) => {
+                setTargetEmail(email);
+                setVerifyJustSent(false);
+                setAuthScreen('verify');
+              }}
+            />
+          )}
+          {authScreen === 'signup' && (
+            <SignUpScreen
+              onNavigateToLogin={() => setAuthScreen('login')}
+              onSignUpSuccess={(email) => {
+                setTargetEmail(email);
+                setVerifyJustSent(true);
+                setAuthScreen('verify');
+              }}
+            />
+          )}
+          {authScreen === 'verify' && (
+            <VerifyEmailScreen
+              email={targetEmail || session?.user?.email || ''}
+              justSent={verifyJustSent}
+              onNavigateToLogin={() => {
+                setVerifyJustSent(false);
+                setAuthScreen('login');
+              }}
+            />
+          )}
+          {authScreen === 'forgot' && (
+            <ForgotPasswordScreen onNavigateToLogin={() => setAuthScreen('login')} />
+          )}
+        </NavigationContainer>
+      );
+    }
   } else if (!isEmailVerified) {
     content = (
       <NavigationContainer>
@@ -280,7 +304,7 @@ export default function App() {
               screenOptions={{
                 headerShown: false,
                 presentation: 'card',
-                animation: 'slide_from_right',
+                animation: reduceMotion ? 'fade' : 'slide_from_right',
               }}
             >
               <RootStack.Screen name="Tabs">
@@ -289,6 +313,7 @@ export default function App() {
                     tabBar={(props) => <FloatingTabBar {...props} />}
                     screenOptions={{
                       headerShown: false,
+                      animation: reduceMotion ? 'none' : 'fade',
                     }}
                   >
                     <Tab.Screen

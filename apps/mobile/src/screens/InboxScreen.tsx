@@ -172,6 +172,11 @@ function formatNotificationTime(iso: string, now = new Date()): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
+/* eslint-disable @typescript-eslint/no-require-imports */
+const duriEmptyIllustration = require('../../assets/illustrations/duri-empty-state.png');
+const duriErrorIllustration = require('../../assets/illustrations/duri-error-state.png');
+/* eslint-enable @typescript-eslint/no-require-imports */
+
 export function InboxScreen({ onUnreadCountChange }: InboxScreenProps) {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const insets = useSafeAreaInsets();
@@ -356,7 +361,7 @@ export function InboxScreen({ onUnreadCountChange }: InboxScreenProps) {
         <EmptyState
           title="Inbox unavailable"
           description={error}
-          icon={<AlertCircle size={EMPTY_ICON_SIZE} color={colors.redText} />}
+          illustration={duriErrorIllustration}
           actionTitle="Try again"
           onAction={retry}
           refreshControl={refreshControl}
@@ -370,7 +375,7 @@ export function InboxScreen({ onUnreadCountChange }: InboxScreenProps) {
         <EmptyState
           title="You're all caught up"
           description="Money updates, requests and account notices will show here."
-          icon={<Bell size={EMPTY_ICON_SIZE} color={colors.textMuted} />}
+          illustration={duriEmptyIllustration}
           refreshControl={refreshControl}
           style={{ paddingBottom: bottomClearance }}
         />

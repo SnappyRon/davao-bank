@@ -6,7 +6,6 @@ import type { RootStackParamList } from '../../App';
 import { maskAccountNumber } from '../utils/transactionDisplay';
 import { View, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import {
-  Users,
   Plus,
   Trash2,
   Edit2,
@@ -36,6 +35,11 @@ import {
   groupedListStyles,
   LIST_ICON_SIZE,
 } from '../components';
+
+/* eslint-disable @typescript-eslint/no-require-imports */
+const kadaNotFoundIllustration = require('../../assets/illustrations/kada-not-found.png');
+const duriErrorIllustration = require('../../assets/illustrations/duri-error-state.png');
+/* eslint-enable @typescript-eslint/no-require-imports */
 
 export function SavedRecipientsScreen() {
   const { showConfirmation, confirmSheet } = useConfirmSheet();
@@ -336,7 +340,9 @@ export function SavedRecipientsScreen() {
               </View>
             ) : filteredRecipients.length === 0 ? (
               <EmptyState
-                icon={<Users size={32} color={colors.primary} />}
+                illustration={
+                  searchQuery ? duriErrorIllustration : kadaNotFoundIllustration
+                }
                 title={searchQuery ? 'No matching recipients' : 'No saved recipients yet'}
                 description={
                   searchQuery

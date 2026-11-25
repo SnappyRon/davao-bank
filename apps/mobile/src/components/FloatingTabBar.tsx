@@ -1,10 +1,24 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, Keyboard, Platform, AccessibilityInfo } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  Keyboard,
+  Platform,
+  AccessibilityInfo,
+  Dimensions,
+} from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  useReducedMotion,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import * as Haptics from 'expo-haptics';
 import { BlurView } from 'expo-blur';
-import { colors, spacing, typography } from '@davao-bank/shared';
+import { colors, spacing, typography, motion } from '@davao-bank/shared';
+import { easing } from '../theme/easing';
 import { Text } from './Text';
 import { Pressable } from './Pressable';
 
@@ -32,8 +46,14 @@ export function tabScreenBottomClearance(safeAreaBottom: number): number {
 
 export function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
+  const reduceMotion = useReducedMotion();
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [reduceTransparency, setReduceTransparency] = useState(false);
+  const [rowWidth, setRowWidth] = useState(() => Dimensions.get('window').width - 32);
+
+  const numTabs = state.routes.length;
+  const tabWidth = numTabs > 0 ? (rowWidth - 16) / numTabs : 0;
+  const pillX = useSharedValue(state.index * tabWidth);
 
   useEffect(() => {
     AccessibilityInfo.isReduceTransparencyEnabled().then(setReduceTransparency);
@@ -45,6 +65,19 @@ export function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarP
       sub?.remove();
     };
   }, []);
+
+  useEffect(() => {
+    if (tabWidth > 0) {
+      if (reduceMotion) {
+        pillX.value = state.index * tabWidth;
+      } else {
+        pillX.value = withTiming(state.index * tabWidth, {
+          duration: motion.duration.short,
+          easing: easing.standard,
+        });
+      }
+    }
+  }, [state.index, tabWidth, reduceMotion, pillX]);
 
   useEffect(() => {
     const showSub = Keyboard.addListener(
@@ -61,7 +94,13 @@ export function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarP
     };
   }, []);
 
+  const pillAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: pillX.value }],
+  }));
+
   if (keyboardVisible) return null;
+
+  const isSolid = reduceTransparency || Platform.OS === 'android';
 
   return (
     <View
@@ -69,7 +108,7 @@ export function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarP
       accessibilityRole="tablist"
     >
       <View style={styles.pillContainer}>
-        {reduceTransparency ? (
+        {isSolid ? (
           <View style={[StyleSheet.absoluteFill, styles.solidFallback]} />
         ) : (
           <BlurView
@@ -79,7 +118,17 @@ export function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarP
           />
         )}
 
-        <View style={styles.tabRow}>
+        <View
+          style={styles.tabRow}
+          onLayout={(e) => setRowWidth(e.nativeEvent.layout.width)}
+        >
+          {tabWidth > 0 && (
+            <Animated.View
+              pointerEvents="none"
+              style={[styles.slidingPill, { width: tabWidth }, pillAnimatedStyle]}
+            />
+          )}
+
           {state.routes.map((route, index) => {
             const { options } = descriptors[route.key];
             const isFocused = state.index === index;
@@ -126,7 +175,7 @@ export function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarP
                 }
                 onPress={onPress}
                 feedbackType="none"
-                style={[styles.tabItem, isFocused && styles.activeTabPill]}
+                style={styles.tabItem}
                 hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
               >
                 <View style={styles.iconBox}>
@@ -199,6 +248,14 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   activeTabPill: {
+    backgroundColor: colors.primaryTint,
+  },
+  slidingPill: {
+    position: 'absolute',
+    left: 8,
+    top: (FLOATING_TAB_BAR_HEIGHT - 48) / 2,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: colors.primaryTint,
   },
   iconBox: {

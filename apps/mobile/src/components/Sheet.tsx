@@ -30,6 +30,7 @@ import {
   GestureHandlerRootView,
 } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BlurView } from 'expo-blur';
 import { X } from 'lucide-react-native';
 import { colors, elevation, motion, radius, size, spacing } from '@davao-bank/shared';
 import { easing } from '../theme/easing';
@@ -91,11 +92,23 @@ export function Sheet({
   // animation ends, so the sheet can slide down and the scrim fade out.
   const [modalVisible, setModalVisible] = useState(visible);
   const [iosKeyboardVisible, setIosKeyboardVisible] = useState(false);
+  const [reduceTransparency, setReduceTransparency] = useState(false);
   const shownRef = useRef(false);
   const visibleRef = useRef(visible);
   visibleRef.current = visible;
   const titleRef = useRef<React.ComponentRef<typeof RNText>>(null);
   const [swipeRelease, setSwipeRelease] = useState(0);
+
+  useEffect(() => {
+    AccessibilityInfo.isReduceTransparencyEnabled().then(setReduceTransparency);
+    const sub = AccessibilityInfo.addEventListener(
+      'reduceTransparencyChanged',
+      setReduceTransparency
+    );
+    return () => {
+      sub?.remove();
+    };
+  }, []);
 
   // 0 = closed, 1 = open. The scrim and the sheet run on separate timings.
   const scrimProgress = useSharedValue(0);
@@ -299,6 +312,9 @@ export function Sheet({
           accessibilityViewIsModal
         >
           <Animated.View style={[StyleSheet.absoluteFill, styles.scrim, scrimStyle]}>
+            {Platform.OS === 'ios' && !reduceTransparency ? (
+              <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
+            ) : null}
             <TouchableWithoutFeedback onPress={handleDismiss} accessible={false}>
               <View testID="sheet-backdrop" style={StyleSheet.absoluteFill} />
             </TouchableWithoutFeedback>

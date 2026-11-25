@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, Animated, type ViewStyle } from 'react-native';
+import { StyleSheet, Animated, type ViewStyle } from 'react-native';
+import { useReducedMotion } from 'react-native-reanimated';
 import { colors, radius } from '@davao-bank/shared';
-import { useReducedMotion } from '../hooks/useReducedMotion';
 
 export interface SkeletonProps {
   width?: number | string;
@@ -33,7 +33,7 @@ export function Skeleton({
           useNativeDriver: true,
         }),
         Animated.timing(opacity, {
-          toValue: 0.4,
+          toValue: 0.5,
           duration: 700,
           useNativeDriver: true,
         }),

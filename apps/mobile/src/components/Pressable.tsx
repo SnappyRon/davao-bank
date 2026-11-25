@@ -8,7 +8,8 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
-import { useReducedMotion } from '../hooks/useReducedMotion';
+import { useReducedMotion } from 'react-native-reanimated';
+import { motion } from '@davao-bank/shared';
 
 export type PressFeedbackType = 'scale' | 'highlight' | 'none';
 
@@ -71,7 +72,7 @@ export function Pressable({
     if (!disabled && animateScale) {
       Animated.timing(scaleAnim, {
         toValue: pressedScale,
-        duration: 100,
+        duration: motion.duration.micro,
         useNativeDriver: true,
       }).start();
     }
@@ -83,7 +84,7 @@ export function Pressable({
     if (!disabled && animateScale) {
       Animated.timing(scaleAnim, {
         toValue: 1,
-        duration: 150,
+        duration: motion.duration.short,
         useNativeDriver: true,
       }).start();
     }

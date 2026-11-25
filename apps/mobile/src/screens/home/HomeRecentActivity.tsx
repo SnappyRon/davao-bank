@@ -19,6 +19,9 @@ import {
   reversalOriginalFor,
 } from '../../utils/transactionDisplay';
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const duriEmptyIllustration = require('../../../assets/illustrations/duri-empty-state.png');
+
 /** Spec 7B.1: one grouped card with 5 rows; hairlines inset 72 (shared metrics). */
 const MAX_ROWS = 5;
 const SKELETON_ROWS = 3;
@@ -94,6 +97,7 @@ export function HomeRecentActivity({
         <EmptyState
           title="No activity yet"
           description="Money you send, receive and pay will show here."
+          illustration={duriEmptyIllustration}
           scrollable={false}
         />
       ) : (

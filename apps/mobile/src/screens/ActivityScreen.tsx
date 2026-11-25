@@ -4,7 +4,7 @@ import type { RootStackParamList } from '../../App';
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { View, StyleSheet, FlatList, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { AlertCircle, FileText, Search, SlidersHorizontal } from 'lucide-react-native';
+import { FileText, Search } from 'lucide-react-native';
 import {
   colors,
   size,
@@ -52,7 +52,6 @@ const ALL_ACCOUNTS = 'all';
 const SKELETON_ROWS = 4;
 const HEADER_ICON_SIZE = 18;
 const SEARCH_ICON_SIZE = 18;
-const EMPTY_ICON_SIZE = 36;
 
 const TYPE_FILTERS: { label: string; value: ActivityFilter }[] = [
   { label: 'All', value: 'all' },
@@ -122,6 +121,11 @@ function sectionTitle(iso: string, today: Date, yesterday: Date): string {
     year: 'numeric',
   });
 }
+
+/* eslint-disable @typescript-eslint/no-require-imports */
+const duriEmptyIllustration = require('../../assets/illustrations/duri-empty-state.png');
+const duriErrorIllustration = require('../../assets/illustrations/duri-error-state.png');
+/* eslint-enable @typescript-eslint/no-require-imports */
 
 export function ActivityScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -323,7 +327,7 @@ export function ActivityScreen() {
         <EmptyState
           title="Activity unavailable"
           description={error}
-          icon={<AlertCircle size={EMPTY_ICON_SIZE} color={colors.redText} />}
+          illustration={duriErrorIllustration}
           actionTitle="Try again"
           onAction={retry}
           refreshControl={refreshControl}
@@ -339,7 +343,7 @@ export function ActivityScreen() {
           <EmptyState
             title={emptyCopy.title}
             description={emptyCopy.description}
-            icon={<SlidersHorizontal size={EMPTY_ICON_SIZE} color={colors.textMuted} />}
+            illustration={query.trim() ? duriErrorIllustration : duriEmptyIllustration}
             refreshControl={refreshControl}
             style={{ paddingBottom: bottomClearance }}
           />

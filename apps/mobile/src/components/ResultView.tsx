@@ -1,12 +1,21 @@
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withSpring,
+  withDelay,
+  useReducedMotion,
+} from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
 import { toUserMessage } from '@davao-bank/shared';
 import { resultReceipt } from '../utils/resultReceipt';
 import { Check, Calendar, Send, AlertCircle } from 'lucide-react-native';
-import { colors, spacing, formatCentavosToPHP } from '@davao-bank/shared';
+import { colors, spacing, motion, formatCentavosToPHP } from '@davao-bank/shared';
+import { easing } from '../theme/easing';
 import { Text } from './Text';
 import { Button } from './Button';
 import { Card } from './Card';
@@ -45,6 +54,82 @@ export function ResultView({
   contextualActionTitle,
   onContextualAction,
 }: ResultViewProps) {
+  const reduceMotion = useReducedMotion();
+  const discScale = useSharedValue(reduceMotion ? 1 : 0.6);
+  const discOpacity = useSharedValue(reduceMotion ? 1 : 0);
+  const iconOpacity = useSharedValue(reduceMotion ? 1 : 0);
+  const titleOpacity = useSharedValue(reduceMotion ? 1 : 0);
+  const titleTranslateY = useSharedValue(reduceMotion ? 0 : 8);
+  const amountOpacity = useSharedValue(reduceMotion ? 1 : 0);
+  const amountTranslateY = useSharedValue(reduceMotion ? 0 : 8);
+
+  useEffect(() => {
+    if (reduceMotion) {
+      discScale.value = 1;
+      discOpacity.value = 1;
+      iconOpacity.value = 1;
+      titleOpacity.value = 1;
+      titleTranslateY.value = 0;
+      amountOpacity.value = 1;
+      amountTranslateY.value = 0;
+      return;
+    }
+
+    discOpacity.value = withTiming(1, { duration: motion.duration.short });
+    discScale.value = withSpring(1, motion.spring.pop);
+
+    iconOpacity.value = withDelay(
+      80,
+      withTiming(1, { duration: 360, easing: easing.enter })
+    );
+
+    titleOpacity.value = withDelay(
+      140,
+      withTiming(1, { duration: motion.duration.medium, easing: easing.enter })
+    );
+    titleTranslateY.value = withDelay(
+      140,
+      withTiming(0, { duration: motion.duration.medium, easing: easing.enter })
+    );
+
+    amountOpacity.value = withDelay(
+      200,
+      withTiming(1, { duration: motion.duration.medium, easing: easing.enter })
+    );
+    amountTranslateY.value = withDelay(
+      200,
+      withTiming(0, { duration: motion.duration.medium, easing: easing.enter })
+    );
+  }, [
+    reduceMotion,
+    discScale,
+    discOpacity,
+    iconOpacity,
+    titleOpacity,
+    titleTranslateY,
+    amountOpacity,
+    amountTranslateY,
+  ]);
+
+  const discAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: discOpacity.value,
+    transform: [{ scale: discScale.value }],
+  }));
+
+  const iconAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: iconOpacity.value,
+  }));
+
+  const titleAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: titleOpacity.value,
+    transform: [{ translateY: titleTranslateY.value }],
+  }));
+
+  const amountAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: amountOpacity.value,
+    transform: [{ translateY: amountTranslateY.value }],
+  }));
+
   const [shareError, setShareError] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
   const share = async () => {
@@ -122,39 +207,43 @@ export function ResultView({
 
   return (
     <View style={styles.container}>
-      <View
+      <Animated.View
         accessible={false}
         accessibilityElementsHidden
         importantForAccessibility="no-hide-descendants"
-        style={[styles.iconDisc, { backgroundColor: getDiscBg() }]}
+        style={[styles.iconDisc, { backgroundColor: getDiscBg() }, discAnimatedStyle]}
       >
-        {getIcon()}
-      </View>
+        <Animated.View style={iconAnimatedStyle}>{getIcon()}</Animated.View>
+      </Animated.View>
 
-      <Text
-        accessibilityRole="header"
-        variant="h2"
-        color={colors.ink}
-        align="center"
-        style={styles.title}
-      >
-        {title}
-      </Text>
-
-      {displayAmount ? (
+      <Animated.View style={titleAnimatedStyle}>
         <Text
-          variant="amount"
+          accessibilityRole="header"
+          variant="h2"
           color={colors.ink}
           align="center"
-          style={styles.amount}
-          numberOfLines={1}
-          adjustsFontSizeToFit
-          minimumFontScale={0.7}
-          maxFontSizeMultiplier={1.4}
-          accessibilityLabel={hideBalance ? 'Amount hidden' : undefined}
+          style={styles.title}
         >
-          {displayAmount}
+          {title}
         </Text>
+      </Animated.View>
+
+      {displayAmount ? (
+        <Animated.View style={amountAnimatedStyle}>
+          <Text
+            variant="amount"
+            color={colors.ink}
+            align="center"
+            style={styles.amount}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.7}
+            maxFontSizeMultiplier={1.4}
+            accessibilityLabel={hideBalance ? 'Amount hidden' : undefined}
+          >
+            {displayAmount}
+          </Text>
+        </Animated.View>
       ) : null}
 
       {details.length > 0 ? (

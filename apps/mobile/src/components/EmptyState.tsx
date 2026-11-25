@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   ScrollView,
@@ -7,8 +7,15 @@ import {
   type ImageSourcePropType,
   type ViewStyle,
 } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withSpring,
+  useReducedMotion,
+} from 'react-native-reanimated';
 import { Inbox } from 'lucide-react-native';
-import { colors, radius, spacing } from '@davao-bank/shared';
+import { colors, radius, spacing, motion } from '@davao-bank/shared';
 import { Text } from './Text';
 import { Button } from './Button';
 
@@ -38,11 +45,31 @@ export function EmptyState({
   scrollable = true,
 }: EmptyStateProps) {
   const message = description || subtitle;
+  const reduceMotion = useReducedMotion();
+  const illustrationOpacity = useSharedValue(reduceMotion ? 1 : 0);
+  const illustrationY = useSharedValue(reduceMotion ? 0 : 8);
+
+  useEffect(() => {
+    if (illustration) {
+      if (reduceMotion) {
+        illustrationOpacity.value = 1;
+        illustrationY.value = 0;
+      } else {
+        illustrationOpacity.value = withTiming(1, { duration: motion.duration.medium });
+        illustrationY.value = withSpring(0, motion.spring.pop);
+      }
+    }
+  }, [illustration, reduceMotion, illustrationOpacity, illustrationY]);
+
+  const illustrationAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: illustrationOpacity.value,
+    transform: [{ translateY: illustrationY.value }],
+  }));
 
   const content = (
     <View style={[styles.inner, !scrollable && style]}>
       {illustration ? (
-        <View style={styles.illustrationBox}>
+        <Animated.View style={[styles.illustrationBox, illustrationAnimatedStyle]}>
           {React.isValidElement(illustration) ? (
             illustration
           ) : (
@@ -53,7 +80,7 @@ export function EmptyState({
               accessible={false}
             />
           )}
-        </View>
+        </Animated.View>
       ) : (
         <View style={styles.iconCircle}>
           {icon || <Inbox size={32} color={colors.textMuted} />}
