@@ -20,9 +20,13 @@ jest.mock('react-native-safe-area-context', () => ({
 
 const mockRpc = jest.fn();
 const mockListFactors = jest.fn();
+const mockInvoke = jest.fn();
 jest.mock('../lib/supabase', () => ({
   supabase: {
     rpc: (fn: string, params?: unknown) => mockRpc(fn, params),
+    functions: {
+      invoke: (fn: string, options?: unknown) => mockInvoke(fn, options),
+    },
     auth: {
       mfa: { listFactors: () => mockListFactors() },
     },
@@ -71,6 +75,7 @@ describe('BantaySecurityScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockHideBalance = false;
+    mockInvoke.mockResolvedValue({ data: {}, error: null });
     mockConfirmBiometricPayment.mockResolvedValue({ success: true });
     mockPromptTotp.mockResolvedValue({ success: true });
     mockListFactors.mockResolvedValue({
@@ -435,6 +440,133 @@ describe('BantaySecurityScreen', () => {
           /A payment of about ₱5,000–₱10,000 to •• 1234 needed extra confirmation/
         )
       ).toBeTruthy();
+    });
+
+    const setTimeline = (data: unknown) => {
+      mockRpc.mockImplementation((fn: string) => {
+        if (fn === 'get_security_timeline') {
+          return Promise.resolve({ data, error: null });
+        }
+        return Promise.resolve({ data: DEFAULT_SETTINGS, error: null });
+      });
+    };
+
+    const makeEvent = (
+      id: string,
+      createdAt: string,
+      overrides: Record<string, unknown> = {}
+    ) => ({
+      id,
+      kind: 'new_device',
+      severity: 'high',
+      score: 10,
+      facts: null,
+      explanation: null,
+      explanation_source: null,
+      status: 'open',
+      related_transaction_id: null,
+      created_at: createdAt,
+      ...overrides,
+    });
+
+    it('requests Bantay AI once per unexplained event and never for explained events', async () => {
+      setTimeline([
+        makeEvent('ai-1', '2026-11-26T10:00:00.000Z'),
+        makeEvent('ai-2', '2026-11-26T09:00:00.000Z'),
+        makeEvent('ai-3', '2026-11-26T08:00:00.000Z', {
+          explanation: 'Already explained on the server.',
+          explanation_source: 'template',
+        }),
+      ]);
+      mockInvoke.mockResolvedValue({
+        data: { explanation: 'AI line', explanation_source: 'ai' },
+        error: null,
+      });
+
+      await render(<BantaySecurityScreen />);
+      await screen.findByText('Security timeline');
+
+      await waitFor(() => expect(mockInvoke).toHaveBeenCalledTimes(2));
+      expect(mockInvoke).toHaveBeenCalledWith('bantay-explain', {
+        body: { event_id: 'ai-1' },
+      });
+      expect(mockInvoke).toHaveBeenCalledWith('bantay-explain', {
+        body: { event_id: 'ai-2' },
+      });
+      expect(mockInvoke).not.toHaveBeenCalledWith('bantay-explain', {
+        body: { event_id: 'ai-3' },
+      });
+
+      // The AI state updates re-run the effect; the session set stops repeats.
+      await waitFor(() =>
+        expect(screen.getAllByText('Explained by Bantay AI')).toHaveLength(2)
+      );
+      expect(mockInvoke).toHaveBeenCalledTimes(2);
+    });
+
+    it('shows the AI label and the safety line when Bantay AI explains an event', async () => {
+      setTimeline([makeEvent('ai-4', '2026-11-26T10:00:00.000Z')]);
+      mockInvoke.mockResolvedValue({
+        data: {
+          explanation: 'AI explanation for this sign-in.',
+          explanation_source: 'ai',
+        },
+        error: null,
+      });
+
+      await render(<BantaySecurityScreen />);
+      expect(await screen.findByText('AI explanation for this sign-in.')).toBeTruthy();
+      expect(screen.getByText('Explained by Bantay AI')).toBeTruthy();
+      expect(
+        screen.getByText("Bantay AI can make mistakes. It can't move money.")
+      ).toBeTruthy();
+    });
+
+    it('keeps the template explanation and label when the AI call fails', async () => {
+      setTimeline([
+        makeEvent('ai-5', '2026-11-26T10:00:00.000Z', {
+          kind: 'risky_payment_challenged',
+          facts: { amount_band: '5000_10000', payee_suffix: '1234' },
+        }),
+      ]);
+      mockInvoke.mockRejectedValue(new Error('edge function down'));
+
+      await render(<BantaySecurityScreen />);
+      expect(await screen.findByText('Payment review required')).toBeTruthy();
+      await waitFor(() => expect(mockInvoke).toHaveBeenCalledTimes(1));
+      expect(
+        screen.getByText(
+          /A payment of about ₱5,000–₱10,000 to •• 1234 needed extra confirmation/
+        )
+      ).toBeTruthy();
+      expect(screen.getByText('Bantay')).toBeTruthy();
+      expect(screen.queryByText('Explained by Bantay AI')).toBeNull();
+    });
+
+    it('requests at most the five newest unexplained events', async () => {
+      setTimeline(
+        Array.from({ length: 7 }, (_, i) =>
+          makeEvent(
+            `ai-new-${i}`,
+            new Date(Date.UTC(2026, 10, 26, 10 - i, 0, 0)).toISOString()
+          )
+        )
+      );
+
+      await render(<BantaySecurityScreen />);
+      await screen.findByText('Security timeline');
+      await waitFor(() => expect(mockInvoke).toHaveBeenCalledTimes(5));
+      for (let i = 0; i < 5; i++) {
+        expect(mockInvoke).toHaveBeenCalledWith('bantay-explain', {
+          body: { event_id: `ai-new-${i}` },
+        });
+      }
+      expect(mockInvoke).not.toHaveBeenCalledWith('bantay-explain', {
+        body: { event_id: 'ai-new-5' },
+      });
+      expect(mockInvoke).not.toHaveBeenCalledWith('bantay-explain', {
+        body: { event_id: 'ai-new-6' },
+      });
     });
 
     it('marks event as confirmed with "This was me"', async () => {

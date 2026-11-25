@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Image, StyleSheet } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -71,6 +71,7 @@ const BAR_HEIGHT = 8;
 const SKELETON_CARD_HEIGHT = 180;
 const SKELETON_ROW_HEIGHT = 64;
 const LIMIT_PRESETS = [10000, 50000, 100000, 500000];
+const MAX_AI_EXPLANATIONS_PER_LOAD = 5;
 
 type TwoStepState = 'on' | 'off' | 'unknown';
 
@@ -167,6 +168,10 @@ export function BantaySecurityScreen() {
   const [unlockActionLoading, setUnlockActionLoading] = useState(false);
 
   const loadSeqRef = useRef(0);
+  // Requested ids live for this screen session: a re-render or a fresh timeline
+  // fetch must never re-request an event we already asked Bantay AI about.
+  const requestedExplanationsRef = useRef<Set<string>>(new Set());
+  const isMountedRef = useRef(true);
 
   const load = useCallback(async () => {
     const seq = ++loadSeqRef.current;
@@ -214,6 +219,47 @@ export function BantaySecurityScreen() {
       void load();
     }, [load])
   );
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  // The timeline always shows the curated template. For rows with no stored
+  // explanation, ask Bantay AI once and replace that row only on success.
+  useEffect(() => {
+    if (loading || timeline.length === 0) return;
+    const pending = timeline
+      .filter(
+        (event) => !event.explanation && !requestedExplanationsRef.current.has(event.id)
+      )
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, MAX_AI_EXPLANATIONS_PER_LOAD);
+    if (pending.length === 0) return;
+
+    pending.forEach((event) => requestedExplanationsRef.current.add(event.id));
+    pending.forEach((event) => {
+      void explainBantayEvent(event.id).then((result) => {
+        if (!isMountedRef.current || result.error) return;
+        const text = result.explanation;
+        if (!text) return;
+        setTimeline((current) =>
+          current.map((item) =>
+            item.id === event.id
+              ? {
+                  ...item,
+                  explanation: text,
+                  explanation_source:
+                    result.explanation_source === 'ai' ? 'ai' : 'template',
+                }
+              : item
+          )
+        );
+      });
+    });
+  }, [loading, timeline]);
 
   const handleLockAccount = () => {
     showConfirmation({
@@ -716,6 +762,9 @@ export function BantaySecurityScreen() {
             <Text variant="title" color={colors.ink} accessibilityRole="header">
               Security timeline
             </Text>
+            <Text variant="caption" color={colors.textMuted}>
+              Bantay AI can make mistakes. It can't move money.
+            </Text>
             {timeline.length === 0 ? (
               <EmptyState
                 scrollable={false}
@@ -727,6 +776,10 @@ export function BantaySecurityScreen() {
                 {timeline.map((event, index) => {
                   const explanation =
                     event.explanation || bantayTemplate(event.kind, event.facts);
+                  const explanationLabel =
+                    event.explanation_source === 'ai'
+                      ? 'Explained by Bantay AI'
+                      : 'Bantay';
                   const title = bantayEventTitle(event.kind);
                   const time = formatEventTime(event.created_at);
 
@@ -759,6 +812,9 @@ export function BantaySecurityScreen() {
                             </Text>
                             <Text variant="caption" color={colors.textSecondary}>
                               {explanation}
+                            </Text>
+                            <Text variant="caption" color={colors.textMuted}>
+                              {explanationLabel}
                             </Text>
                             {time ? (
                               <Text variant="caption" color={colors.textMuted}>
