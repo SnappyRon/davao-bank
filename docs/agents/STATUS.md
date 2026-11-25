@@ -4,12 +4,12 @@
 
 ## Now
 
-- **Active phase:** Phase 7 — Track 7D (Accounts & Activity).
-- **Branch:** `phase-7d-activity` (worktree of `phase-7-integration`).
+- **Active phase:** Phase 7 — integration (`phase-7-integration` @ `8720f9c`).
+- **Branch:** `phase-7-integration` (backup agent took over Antigravity's uncommitted Activity account-param work).
 - **Active prompt:** `Phase-7-Prompt-UI-UX-and-Motion.md` / `ROADMAP.md` §9 Track 7D.
-- **Assigned to:** Antigravity (fe-motion) completed Track 7D-b Activity redesign, filters Sheet and TransactionRow.
-- **Exact next step:** captain reviews the completed 7D Activity commit; device checks remain with the owner.
-- **Last commit:** Phase 7 · Stage 7D — Activity filters and transaction rows (this commit; parent `fadbd95`).
+- **Assigned to:** Backup Development Agent (hand-back from fe-device-fixes); task: Activity screen starts filtered to the account passed by Account detail's "See all".
+- **Exact next step:** captain reviews the Activity account-param fix commit; device/Maestro checks remain with the owner.
+- **Last commit:** `Phase 7 · Fix — Activity account filter from Account detail` (this commit; parent `8720f9c`).
 - **Blockers:** none. Device checks, Maestro regression, and VoiceOver NOT VERIFIED.
 
 ## Stage 7B.0 — remaining work plan (captain, 2026-11-10)
@@ -261,6 +261,8 @@ Fix these before 7B:
 - **Follow-up:** add dedicated test accounts so live tests don't conflict with the presenter's real authenticator.
 
 ## Log (newest first)
+
+- **2026-11-26, Backup Development Agent:** took over fe-device-fixes's uncommitted work on `phase-7-integration` (base `8720f9c`); kept Antigravity's ActivityScreen and activity_screen.test.tsx changes and the new activity_account_param.test.tsx, and added a test that the route-param filter can still be changed and cleared. `ActivityScreen` reads `accountId` from `BottomTabParamList['ActivityTab']` (typed in `App.tsx`), applies it once, consumes it with `setParams({ accountId: undefined })`, and waits for accounts to load before validating the requested account; existing Activity behaviour and tests are unchanged otherwise. Checks: `npm run typecheck` exit 0; `npm run lint` 0 errors (62 warnings); `npm run format:check` PASS; `npx jest` 47 suites / 401 tests PASS; `npm run check:copy` PASS. Committed `Phase 7 · Fix — Activity account filter from Account detail`. Staged by name; pre-existing `node_modules` deletions left untouched. No hosted database access, no push, no money or step-up handler changes. Device, Maestro and VoiceOver NOT VERIFIED — captain/owner to run.
 
 - **2026-11-26, Antigravity:** completed Track 7D-b Activity redesign, filters Sheet and TransactionRow on branch `phase-7d-activity` (base `fadbd95`). Implemented top search field, compact account selector opening existing `AccountPickerSheet`, Filters button with active count badge opening new `ActivityFilterSheet` (transaction types, presets + custom date range, direction, status, Clear/Apply), and removable filter chips. Redesigned `TransactionRow` with flexible layout, top-aligned icon disc, and preserved `AmountText` with minFontScale 0.7 for large amounts (₱100,000,000.00) at 360 pt and 1.4× scaling. Retained all 7B.11 states (skeleton loading, offline banner, error + retry, empty states). Checks: typecheck PASS (exit 0), lint PASS (0 errors, 62 warnings), format:check PASS, unit 44 suites / 372 tests PASS (including 14 new filter and row tests), check:copy PASS. No routes or balance card touched; no DB changes; staged by name.
 

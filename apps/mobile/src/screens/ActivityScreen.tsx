@@ -1,6 +1,8 @@
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
+import type { RouteProp } from '@react-navigation/native';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { RootStackParamList } from '../../App';
+import type { RootStackParamList, BottomTabParamList } from '../../App';
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { View, StyleSheet, FlatList, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -162,6 +164,9 @@ const duriErrorIllustration = require('../../assets/illustrations/duri-error-sta
 
 export function ActivityScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const tabNavigation =
+    useNavigation<BottomTabNavigationProp<BottomTabParamList, 'ActivityTab'>>();
+  const route = useRoute<RouteProp<BottomTabParamList, 'ActivityTab'>>();
   const insets = useSafeAreaInsets();
   const { hideBalance } = useSettings();
 
@@ -226,8 +231,21 @@ export function ActivityScreen() {
     void loadHistory();
   };
 
+  // "See all" from Account detail opens this tab with an account to filter by.
+  // Apply it once, then clear it so a later visit with the same account applies again.
+  const routeAccountId = route?.params?.accountId;
+  const tabNavigationRef = useRef(tabNavigation);
+  tabNavigationRef.current = tabNavigation;
+  useEffect(() => {
+    if (!routeAccountId) return;
+    setSelectedAccount(routeAccountId);
+    tabNavigationRef.current.setParams({ accountId: undefined });
+  }, [routeAccountId]);
+
   useEffect(() => {
     if (selectedAccount === ALL_ACCOUNTS) return;
+    // Accounts are still loading: keep a requested account until we can check it.
+    if (accounts.length === 0) return;
     if (
       accounts.length <= 1 ||
       !accounts.some((account) => account.account_id === selectedAccount)
