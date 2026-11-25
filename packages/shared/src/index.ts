@@ -10,3 +10,4 @@ export * from './bantay/facts';
 export * from './bantay/templates';
 export * from './bantay/gemini';
 export * from './bantay/signin';
+export * from './serviceRequests';
