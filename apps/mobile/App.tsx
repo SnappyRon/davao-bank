@@ -99,7 +99,7 @@ export type RootStackParamList = {
   About: undefined;
   PersonalDetails: undefined;
   ExportStatement: undefined;
-  FXRates: undefined;
+  FXRates: { mode?: 'convert' } | undefined;
   ScheduledPayments: undefined;
   SavedRecipients: undefined;
   ChangePassword: undefined;
