@@ -605,8 +605,9 @@ export async function runPhase8_5OpsTests({ as, su, cust, ok, U, A, B, biller })
     )
   ).map((x) => x.tablename);
   ok(
-    '8.5 publication: only staff_activity_events is published (local PGlite check)',
-    JSON.stringify(published) === JSON.stringify(['staff_activity_events']),
+    '8.5 publication: staff_activity_events and merged security_events only (local PGlite check)',
+    JSON.stringify(published) ===
+      JSON.stringify(['security_events', 'staff_activity_events']),
     JSON.stringify(published)
   );
 }

@@ -8,8 +8,8 @@
 - **Branch:** `phase-8-integration`; merged all five branches with `--no-ff` in captain's order: bantay-alerts, 8.5 ops UI, 9 service requests, 9 appointments, 9 FX converter.
 - **Active prompt:** captain's full-build merge brief (final full suite after `npm ci`).
 - **Assigned to:** Backup Development Agent; merge each branch, run `npm run typecheck` and `npx jest` after each, keep migrations byte-identical and ordered, then run the full suite after `npm ci`.
-- **Exact next step:** commit the FX-converter merge, then `npm ci` and the full suite (typecheck, lint, format:check, jest, test:db, build:admin, check:copy); report `git log --oneline -7`.
-- **Last commit:** `Phase 8 · Merge — phase-9-fx-converter`.
+- **Exact next step:** captain reviews the full-build merge series and the one publication-test fix; hosted migrations, device/Maestro/VoiceOver and Playwright checks remain with captain/owner.
+- **Last commit:** `Phase 8 · Fix — 8.5 publication test expects merged Bantay table`.
 - **Blockers:** none locally. Device, Maestro, VoiceOver, hosted and Playwright/aal2 staff session checks NOT VERIFIED (owner/captain). Hosted alerts migration NOT APPLIED by this agent; captain reports the 8.5A migration is applied. `.env` symlinks untouched.
 
 ## Stage 7B.0 — remaining work plan (captain, 2026-11-10)
@@ -261,6 +261,8 @@ Fix these before 7B:
 - **Follow-up:** add dedicated test accounts so live tests don't conflict with the presenter's real authenticator.
 
 ## Log (newest first)
+
+- **2026-11-26, Backup Development Agent:** full-build hand-back complete. Ran `npm ci` after the last merge: `added 1500 packages, and audited 1504 packages in 18s`, `29 moderate severity vulnerabilities` (no `npm audit fix` run). Final suite: `npm run typecheck` exit 0 (admin/mobile/shared); `npm run lint` `✖ 63 problems (0 errors, 63 warnings)`; `npm run format:check` `All matched files use Prettier code style!`; `npx jest` `Test Suites: 63 passed, 63 total` / `Tests: 524 passed, 524 total`; `npm run test:db` `423 passed, 0 failed`; `npm run build:admin` `✓ Compiled successfully in 544ms`; `npm run check:copy` `PASS Copy audit clean across 170 files (17 justified allowlist match(es)).` First `test:db` run after the merges was `422 passed, 1 failed` on `8.5 publication: only staff_activity_events is published` — an integration seam, not a merge mistake: `20261128000000_phase8_5_ops_backend.sql` creates `supabase_realtime` with `staff_activity_events`, then the later guarded `20261128100000_phase8_bantay_alerts.sql` adds `security_events` (both RLS-protected). Updated only that stale expectation in `scripts/review/pglite-phase8-5-ops.mjs` to the exact merged set `['security_events','staff_activity_events']` — strict equality retained, no guard weakened, no migration edited. Rerun: `423 passed, 0 failed`. Migrations remain byte-identical to their source branches. No push, no hosted DB access, no `.env` touched.
 
 - **2026-11-26, Backup Development Agent:** merge 5 of 5 (`phase-9-fx-converter` @ `15e032f`) — final branch. `App.tsx` auto-merged cleanly; only `docs/agents/STATUS.md` conflicted (resolved by keeping both Now states' relevant information and both log entries). FX branch adds no migration. Verified all four required migrations byte-identical to their branches (`cmp` exit 0: `IDENTICAL_20261128000000`, `IDENTICAL_20261128100000`, `IDENTICAL_20261129000000`, `IDENTICAL_20261129100000`) and in order. Post-merge checks: `npm run typecheck` exit 0 (admin/mobile/shared); `npx jest` `Test Suites: 63 passed, 63 total` / `Tests: 524 passed, 524 total`. No push, no hosted DB access, no `.env` touched.
 
