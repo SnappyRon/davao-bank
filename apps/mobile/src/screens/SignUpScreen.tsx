@@ -59,7 +59,7 @@ export function SignUpScreen({ onNavigateToLogin, onSignUpSuccess }: SignUpScree
       });
 
       if (error) {
-        setErrorMessage(toUserMessage(error));
+        setErrorMessage(toUserMessage(error, 'account'));
         return;
       }
 
@@ -67,7 +67,7 @@ export function SignUpScreen({ onNavigateToLogin, onSignUpSuccess }: SignUpScree
         onSignUpSuccess(email.trim());
       }
     } catch (err: any) {
-      setErrorMessage(toUserMessage(err));
+      setErrorMessage(toUserMessage(err, 'account'));
     } finally {
       setLoading(false);
     }

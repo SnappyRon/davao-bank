@@ -47,7 +47,7 @@ export function LoginScreen({
           onNavigateToVerifyEmail(email.trim());
           return;
         }
-        setErrorMessage(toUserMessage(error));
+        setErrorMessage(toUserMessage(error, 'account'));
         return;
       }
 
@@ -57,7 +57,7 @@ export function LoginScreen({
         return;
       }
     } catch (err: any) {
-      setErrorMessage(toUserMessage(err));
+      setErrorMessage(toUserMessage(err, 'account'));
     } finally {
       setLoading(false);
     }
@@ -161,7 +161,7 @@ export function LoginScreen({
             align="center"
             style={styles.disclaimerText}
           >
-            Simulated Prototype · Academic Use Only
+            Simulated prototype · Academic use only
           </Text>
         </ScrollView>
       </KeyboardAvoidingView>

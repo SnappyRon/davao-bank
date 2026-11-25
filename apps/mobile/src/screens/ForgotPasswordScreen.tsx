@@ -34,14 +34,14 @@ export function ForgotPasswordScreen({ onNavigateToLogin }: ForgotPasswordScreen
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email.trim());
       if (error) {
-        setErrorMessage(toUserMessage(error));
+        setErrorMessage(toUserMessage(error, 'account'));
       } else {
         setMessage(
           'Check your email. Open the link in the email to set a new password, then sign in here.'
         );
       }
     } catch (err: unknown) {
-      setErrorMessage(toUserMessage(err));
+      setErrorMessage(toUserMessage(err, 'account'));
     } finally {
       setLoading(false);
     }

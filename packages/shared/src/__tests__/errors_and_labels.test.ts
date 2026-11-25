@@ -65,6 +65,23 @@ describe('toUserMessage error sanitizer', () => {
       'Something went wrong. No money was sent. Try again.'
     );
   });
+
+  it('omits money copy when context is "account"', () => {
+    expect(toUserMessage('Network request failed', 'account')).toBe(
+      'You appear to be offline. Check your connection and try again.'
+    );
+    expect(toUserMessage('Failed to fetch', 'account')).toBe(
+      'You appear to be offline. Check your connection and try again.'
+    );
+    expect(toUserMessage('psql error: table not found', 'account')).toBe(
+      'Something went wrong. Try again.'
+    );
+    expect(toUserMessage('psql error: foreign key constraint violation', 'account')).toBe(
+      'Something went wrong. Try again.'
+    );
+    expect(toUserMessage('random backend error', 'account')).not.toContain('money');
+    expect(toUserMessage('Network request failed', 'account')).not.toContain('money');
+  });
 });
 
 describe('typeLabel formatter', () => {

@@ -61,7 +61,7 @@ export function VerifyEmailScreen({
         return;
       }
       if (refreshError || !session) {
-        setError(toUserMessage(refreshError));
+        setError(toUserMessage(refreshError, 'account'));
         return;
       }
       if (!session.user?.email_confirmed_at) {
@@ -70,7 +70,7 @@ export function VerifyEmailScreen({
         );
       }
     } catch (err: unknown) {
-      setError(toUserMessage(err));
+      setError(toUserMessage(err, 'account'));
     } finally {
       setChecking(false);
     }
@@ -89,13 +89,13 @@ export function VerifyEmailScreen({
       });
 
       if (resendError) {
-        setError(toUserMessage(resendError));
+        setError(toUserMessage(resendError, 'account'));
       } else {
         setMessage('We sent a new verification email. Check your inbox.');
         setCooldown(RESEND_COOLDOWN_SECONDS);
       }
     } catch (err: unknown) {
-      setError(toUserMessage(err));
+      setError(toUserMessage(err, 'account'));
     } finally {
       setResending(false);
     }

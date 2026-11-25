@@ -134,7 +134,7 @@ export function SavedRecipientsScreen() {
       });
 
       if (error) {
-        setFormError(toUserMessage(error));
+        setFormError(toUserMessage(error, 'account'));
         return;
       }
 
@@ -146,7 +146,7 @@ export function SavedRecipientsScreen() {
         loadRecipients();
       }
     } catch (err: unknown) {
-      setFormError(toUserMessage(err));
+      setFormError(toUserMessage(err, 'account'));
     } finally {
       setSubmitting(false);
     }
@@ -181,14 +181,14 @@ export function SavedRecipientsScreen() {
         .eq('id', id);
       if (!mountedRef.current) return;
       if (error) {
-        setEditError(toUserMessage(error));
+        setEditError(toUserMessage(error, 'account'));
       } else {
         setEditingId(null);
         toast.show('Nickname updated');
         loadRecipients();
       }
     } catch (err: unknown) {
-      if (mountedRef.current) setEditError(toUserMessage(err));
+      if (mountedRef.current) setEditError(toUserMessage(err, 'account'));
     } finally {
       if (mountedRef.current) setSavingEdit(false);
     }
@@ -215,7 +215,7 @@ export function SavedRecipientsScreen() {
           .eq('id', recipient.id);
 
         if (error) {
-          toast.show(toUserMessage(error), 'error');
+          toast.show(toUserMessage(error, 'account'), 'error');
         } else {
           toast.show('Recipient removed');
           loadRecipients();

@@ -43,7 +43,7 @@ class StatementInputError extends Error {
 function errorMessage(err: unknown): string {
   return err instanceof Error && err.name === 'StatementInputError'
     ? err.message
-    : toUserMessage(err);
+    : toUserMessage(err, 'account');
 }
 
 export function ExportStatementScreen() {

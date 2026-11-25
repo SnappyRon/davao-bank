@@ -5,7 +5,7 @@ declare const __DEV__: boolean | undefined;
 export const RECEIPT_NOT_FOUND_MESSAGE =
   'Receipt unavailable. This transaction could not be found.';
 
-export type UserMessageContext = 'money' | 'load';
+export type UserMessageContext = 'money' | 'load' | 'account';
 
 /**
  * Maps raw backend or Supabase errors to friendly, safe, user-facing copy.
@@ -23,7 +23,11 @@ export function toUserMessage(
   let availableBalance: string | number | undefined;
   let context: UserMessageContext = 'money';
 
-  if (availableBalanceOrContext === 'load' || availableBalanceOrContext === 'money') {
+  if (
+    availableBalanceOrContext === 'load' ||
+    availableBalanceOrContext === 'money' ||
+    availableBalanceOrContext === 'account'
+  ) {
     context = availableBalanceOrContext;
   } else if (
     typeof availableBalanceOrContext === 'object' &&
@@ -135,12 +139,17 @@ export function toUserMessage(
   }
 
   if (lower.includes('failed to fetch') || lower.includes('network request failed')) {
-    return context === 'load'
-      ? 'You appear to be offline.'
-      : 'You appear to be offline. Nothing was sent.';
+    if (context === 'load') {
+      return 'You appear to be offline.';
+    }
+    if (context === 'account') {
+      return 'You appear to be offline. Check your connection and try again.';
+    }
+    return 'You appear to be offline. Nothing was sent.';
   }
 
-  return context === 'load'
-    ? 'Something went wrong. Try again.'
-    : 'Something went wrong. No money was sent. Try again.';
+  if (context === 'load' || context === 'account') {
+    return 'Something went wrong. Try again.';
+  }
+  return 'Something went wrong. No money was sent. Try again.';
 }
