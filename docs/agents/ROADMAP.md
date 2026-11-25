@@ -137,10 +137,20 @@ A separate category of coding agents (Cline and OpenCode, free models) that take
 
 **Review**
 
-| Agent (tab)        | Role                                                                                                                                                                 |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `qa-reviewer` (19) | Read-only (OpenCode Plan mode). Reviews each backup commit the captain sends; the captain verifies findings, routes accepted ones back as fix tasks, and re-reviews. |
-| `ux-reviewer` (23) | Read-only UI/UX reviewer (OpenCode Plan mode, `roles/ui-ux-reviewer.md`). Reviews mobile, admin and design commits for spec, copy, states, accessibility and motion. |
+| Agent (tab)          | Role                                                                                                                                                                                                                                               |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `qa-reviewer` (19)   | Read-only (OpenCode Plan mode). Reviews each backup commit the captain sends; the captain verifies findings, routes accepted ones back as fix tasks, and re-reviews.                                                                               |
+| `ux-reviewer` (23)   | Read-only UI/UX reviewer (OpenCode Plan mode, `roles/ui-ux-reviewer.md`). Reviews mobile, admin and design commits for spec, copy, states, accessibility and motion.                                                                               |
+| `ci-reviewer` (24)   | CI/CD Engineer backup (OpenCode Plan, `roles/ci-cd-engineer.md`). Build validation, tests, dependency/config checks and merge readiness of every branch before integration.                                                                        |
+| `ai-specialist` (25) | AI Integration Specialist (OpenCode Plan, `roles/ai-integration-specialist.md`). Bantay AI model calls, prompts, output validation, fallbacks, privacy, rate limits and cost; works with the backend implementer and Security through the captain. |
+
+**Coordination**
+
+| Agent (tab)        | Role                                                                                                                                                                                                                                                                                                              |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `coordinator` (26) | Integration Coordinator (OpenCode, `roles/integration-coordinator.md`). Keeps `docs/agents/OWNERSHIP.md` (tasks, folders, file ownership, shared-file order, merge order, decisions); checks every brief for overlap before it goes out; predicts merge conflicts. Writes only that file; the captain commits it. |
+
+**Who does what:** implementers (Cline and OpenCode build agents, primary Codex/Antigravity) write code; `ux-designer` writes specs; `qa-reviewer`, `ux-reviewer`, `ci-reviewer`, `ai-specialist` and `be-opencode-2` (while its queue is empty) review read-only; `coordinator` and the captain coordinate integration. All report to the captain.
 
 Merge note: `343fc54` (7B.8) adds `check:copy` to CI and fails until 7B.7 clears its 12 listed violations, so 7B.8 merges after 7B.7.
 
