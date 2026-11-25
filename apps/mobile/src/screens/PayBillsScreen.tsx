@@ -40,6 +40,7 @@ import {
   deleteSavedBillerRecord,
   phase8UserMessage,
   isConfirmationRequired,
+  deriveScheduleRiskKey,
   type SavedBiller,
 } from '../hooks/usePhase8Contracts';
 import { BillerStep, getCategoryIcon } from './pay-bills/BillerStep';
@@ -384,8 +385,21 @@ export function PayBillsScreen() {
       }
     } catch (err: any) {
       if (isConfirmationRequired(err)) {
+        // create_scheduled_payment derives its key server-side with the biller
+        // id as target; the risk guard itself scores the biller's account id.
         triggerChallenge({
-          idempotencyKey,
+          idempotencyKey:
+            timing === 'now'
+              ? idempotencyKey
+              : deriveScheduleRiskKey({
+                  userId: selectedAccount.user_id,
+                  kind: 'bill',
+                  targetId: selectedBiller.id,
+                  amount: centavos,
+                  startDate: scheduledDate,
+                }),
+          amount: centavos,
+          toAccountId: selectedBiller.account_id,
           onRetry: () => handleSubmitPayment(),
           onCancel: () => setErrorMessage('Not authorized. Nothing was sent.'),
         });

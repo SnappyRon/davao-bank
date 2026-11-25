@@ -7,7 +7,11 @@ import { StepUpSetupLink } from '../components/StepUpSetupLink';
 import { retryStepUp } from '../utils/stepUpRetry';
 import { useTotpPrompt } from '../context/PasswordPromptContext';
 import { useRiskChallenge } from '../hooks/useRiskChallenge';
-import { isConfirmationRequired } from '../hooks/usePhase8Contracts';
+import {
+  deriveScheduleRiskKey,
+  isConfirmationRequired,
+  resolveRiskTargetId,
+} from '../hooks/usePhase8Contracts';
 import { recoverTransfer, isUncertainTransferError } from '../utils/transferRecovery';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
@@ -344,8 +348,19 @@ export function TransferScreen() {
 
       if (schedErr) {
         if (isConfirmationRequired(schedErr)) {
+          // create_scheduled_transfer_to_number derives its key on the server
+          // as _schedule_risk_key(caller, 'transfer', to_account, amount, start_date).
+          const targetId = await resolveRiskTargetId(recipientAccountNumber);
           triggerChallenge({
-            idempotencyKey,
+            idempotencyKey: deriveScheduleRiskKey({
+              userId: selectedAccount.user_id,
+              kind: 'transfer',
+              targetId,
+              amount: centavos,
+              startDate: scheduledDate,
+            }),
+            amount: centavos,
+            toAccountId: targetId,
             onRetry: () => executeScheduledTransfer(centavos),
             onCancel: () => setErrorMessage('Not authorized. Nothing was sent.'),
           });
@@ -390,6 +405,8 @@ export function TransferScreen() {
       if (isConfirmationRequired(error)) {
         triggerChallenge({
           idempotencyKey,
+          amount: centavos,
+          toAccountNumber: recipientAccountNumber,
           onRetry: () => executeServerTransfer(centavos),
           onCancel: () => setErrorMessage('Not authorized. Nothing was sent.'),
         });

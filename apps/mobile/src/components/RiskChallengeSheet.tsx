@@ -10,6 +10,7 @@ export interface RiskChallengeSheetProps {
   visible: boolean;
   score?: number | null;
   message?: string;
+  error?: string | null;
   confirming?: boolean;
   onConfirm: () => void | Promise<void>;
   onCancel: () => void;
@@ -20,6 +21,7 @@ export function RiskChallengeSheet({
   visible,
   score,
   message,
+  error,
   confirming = false,
   onConfirm,
   onCancel,
@@ -69,6 +71,12 @@ export function RiskChallengeSheet({
         <Text variant="body" color={colors.ink}>
           {displayMessage}
         </Text>
+
+        {error ? (
+          <Text variant="body" color={colors.redText} accessibilityRole="alert">
+            {error}
+          </Text>
+        ) : null}
 
         {typeof score === 'number' && score > 0 ? (
           <View style={styles.scoreRow}>

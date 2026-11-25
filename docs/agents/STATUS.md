@@ -4,13 +4,13 @@
 
 ## Now
 
-- **Active phase:** Phase 7 — UI/UX Refinement & Motion.
-- **Branch:** `phase-7-ui-motion`; admin polish merged from `phase-7-admin-polish`.
-- **Active prompt:** `Phase-7-Prompt-UI-UX-and-Motion.md`.
-- **Assigned to:** Codex completed Stage 7B.5; captain review pending.
-- **Exact next step:** captain reviews the 7B.5 commit and exact handler diffs; verify results and receipt sharing on a device with owner sign-in.
-- **Last commit:** Stage 7B.5 (this commit; parent `9270631`).
-- **Blockers:** device and live money-flow verification NOT VERIFIED; admin Playwright needs owner sign-in.
+- **Active phase:** Phase 8 — Bantay security center and risk challenge (mobile UI).
+- **Branch:** `phase-8-bantay-ui`; head `bbaaed8` plus the 8F prepare-before-confirm fix in progress.
+- **Active task:** Security finding — call `prepare_risk_challenge` before `confirm_risky_payment` (first challenge and expired challenge), then repeat the same money RPC with the same key.
+- **Assigned to:** Backup Development Agent took over from Antigravity (which ran out of usage); report to captain.
+- **Exact next step:** captain reviews this fix commit, including the derived schedule keys and unchanged money/step-up handler bodies.
+- **Last commit:** `bbaaed8` before this fix; this fix uses `Phase 8 · Fix — 8F call prepare_risk_challenge before confirm`.
+- **Blockers:** device and hosted/live verification NOT VERIFIED (no hosted access in this task).
 
 ## Stage 7B.0 — remaining work plan (captain, 2026-11-10)
 
@@ -248,6 +248,8 @@ Fix these before 7B:
 - **Follow-up:** add dedicated test accounts so live tests don't conflict with the presenter's real authenticator.
 
 ## Log (newest first)
+
+- **2026-11-26, Backup Development Agent:** took over from Antigravity on `phase-8-bantay-ui` at `bbaaed8`; kept its uncommitted `usePhase8Contracts.ts` diff (prepare RPC + expiry matcher). Wired `useRiskChallenge` to call `prepare_risk_challenge` before every `confirm_risky_payment`, re-prepare once on `Challenge expired`, and only then repeat the money RPC with the same key. Call sites pass the scored amount and target; scheduled flows use the server's `_schedule_risk_key` format, and paying a request reuses the original key on retry. Added RNTL coverage for first challenge, expired challenge, and cancel. Checks and limitations are in the final report to the captain.
 
 - **2026-11-25, Codex:** resumed and completed 7B.5 after captain approved success-handler haptic removal and refreshed server account balance. ResultView now handles outcomes, server-derived rows, privacy-aware receipt share and contextual actions; money/request success flows wired, confirmed structured database rejections show Not sent, uncertain transfer remains unchanged. Updated UI-only assertions per captain direction; RPC/step-up/idempotency checks retained. Typecheck exit 0, lint 0 errors / 63 warnings, unit 38 suites / 334 tests; format check exit 1 only untracked `ONBOARDING.md`. Full handler diffs and limitations in PHASE7_REPORT.md. Device, VoiceOver, live money and sharing NOT VERIFIED — captain/owner to verify. Next: captain review this commit.
 
