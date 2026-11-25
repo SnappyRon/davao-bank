@@ -223,15 +223,15 @@ export function ScheduledPaymentsScreen() {
                         ? 'neutral'
                         : 'danger'
                   }
-                  label={
-{selectedSchedule.status === 'active'
-  ? 'Active'
-  : selectedSchedule.status === 'completed'
-    ? 'Completed'
-    : selectedSchedule.status === 'cancelled'
-      ? 'Cancelled'
-      : selectedSchedule.status.toUpperCase()}
-                  }
+                  label={{
+                    selectedSchedule.status === 'active'
+                      ? 'Active'
+                      : selectedSchedule.status === 'completed'
+                        ? 'Completed'
+                        : selectedSchedule.status === 'cancelled'
+                          ? 'Cancelled'
+                          : selectedSchedule.status.toUpperCase()
+                }}
                 />
               </View>
 
