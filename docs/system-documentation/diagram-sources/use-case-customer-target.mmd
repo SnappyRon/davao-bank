@@ -1,0 +1,31 @@
+flowchart LR
+  CU(["Customer"])
+  subgraph M["Davao Bank mobile app — target scope"]
+    direction TB
+    U1(["Register, verify email, sign in"])
+    U2(["View balances and My accounts"])
+    U3(["Transfer money"])
+    U4(["Cash-in / cash-out (simulated)"])
+    U5(["Pay bills, save billers, reminders"])
+    U6(["Schedule one-time or recurring payment"])
+    U7(["Show or scan QR, request money"])
+    U8(["Search and filter activity, view receipts"])
+    U9(["Export statement, monthly summary"])
+    U10(["Read notifications"])
+    U11(["Set up two-step code, app lock"])
+    U12(["Bantay: timeline, daily limit, lock account"])
+    U13(["Confirm or report a security event"])
+    U14(["More services: FX converter, savings goals,<br/>service requests, appointments, installments,<br/>card, investments (simulated)"])
+    U15(["Crypto demo wallet (devnet, stretch)"])
+    X1(["Authorize: password or biometrics + authenticator code"])
+    X2(["Answer a risk challenge"])
+  end
+  CU --- U1 & U2 & U3 & U4 & U5 & U6 & U7 & U8
+  CU --- U9 & U10 & U11 & U12 & U13 & U14 & U15
+  U3 -. include .-> X1
+  U4 -. include .-> X1
+  U5 -. include .-> X1
+  U6 -. include .-> X1
+  U7 -. include .-> X1
+  U3 -. extend .-> X2
+  U5 -. extend .-> X2

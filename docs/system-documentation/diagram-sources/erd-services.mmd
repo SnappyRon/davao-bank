@@ -1,0 +1,22 @@
+erDiagram
+  profiles ||--o{ service_requests : "files"
+  profiles ||--o{ appointments : "books"
+  demo_branches ||--o{ appointment_slots : "offers"
+  appointment_slots ||--o{ appointments : "holds"
+  profiles ||--o{ savings_goals : "sets"
+  accounts |o--o{ savings_goals : "linked (optional)"
+  profiles ||--o| credit_cards : "has (simulated)"
+  credit_cards ||--o{ credit_card_statements : "issues"
+  investment_funds ||--o{ investment_nav_history : "prices"
+  profiles ||--o{ investment_holdings : "owns units"
+  investment_funds ||--o{ investment_holdings : "of"
+  profiles ||--o{ investment_orders : "places"
+  profiles ||--o| crypto_wallets : "custodial address (9.5)"
+  profiles ||--o{ crypto_conversions : "buy / sell (9.5)"
+  transactions ||--o| crypto_conversions : "reserve transfer"
+  staff_activity_events }o--|| transactions : "live feed refers to"
+  service_requests { uuid id PK text type jsonb details text status text staff_note }
+  appointments { uuid id PK uuid slot_id FK text status text idempotency_key }
+  savings_goals { uuid id PK text name bigint target_amount_cents date target_date bigint monthly_deposit_cents text status }
+  crypto_conversions { uuid id PK text state text idempotency_key text signature bigint amount }
+  staff_activity_events { bigint id PK text kind jsonb masked_payload timestamptz created_at }

@@ -1,0 +1,24 @@
+erDiagram
+  profiles ||--|| security_limits : "daily limit, lock, pending limit"
+  profiles ||--o{ user_devices : "registers"
+  user_devices ||--o{ device_sessions : "maps JWT session"
+  profiles ||--o{ security_events : "has"
+  profiles ||--o{ risk_challenges : "must confirm"
+  profiles ||--o{ trusted_payees : "trusts"
+  profiles ||--o{ security_cases : "subject of"
+  security_events |o--o{ security_cases : "opened from"
+  profiles ||--o{ saved_billers : "saves"
+  billers ||--o{ saved_billers : "for"
+  profiles ||--o{ push_tokens : "device token (unused in Expo Go)"
+  profiles ||--o{ bantay_step_up_failures : "failed codes"
+  profiles |o--o{ signin_signal_attempts : "hashed sign-in signals"
+  security_settings { boolean money_step_up_enabled int step_up_window_seconds }
+  security_limits { uuid user_id PK bigint daily_transfer_limit_centavos timestamptz locked_at timestamptz unlock_after bigint pending_limit_centavos timestamptz pending_limit_effective_at }
+  security_events { uuid id PK uuid user_id FK text kind text severity int score jsonb facts text explanation text explanation_source text status }
+  risk_challenges { uuid id PK uuid user_id FK text idempotency_key int score jsonb facts timestamptz expires_at timestamptz confirmed_at }
+  user_devices { uuid id PK uuid user_id FK text install_id text label boolean trusted }
+  device_sessions { uuid session_id PK uuid user_id FK uuid device_id FK }
+  trusted_payees { uuid user_id PK text account_number PK }
+  security_cases { uuid id PK uuid user_id FK text opened_by uuid event_id FK text status text staff_note }
+  saved_billers { uuid id PK uuid user_id FK uuid biller_id FK text reference text nickname smallint due_day boolean remind }
+  signin_signal_attempts { uuid id PK text email_hash text ip_hash uuid user_id FK }

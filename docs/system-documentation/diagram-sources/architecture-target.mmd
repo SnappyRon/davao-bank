@@ -1,0 +1,48 @@
+flowchart LR
+  subgraph C["1 · Client tier"]
+    direction TB
+    MA["Customer mobile app<br/>React Native · Expo SDK 58"]
+    AC["Staff administration console<br/>Next.js 16 · React 19"]
+    SH["Shared package<br/>@davao-bank/shared"]
+  end
+  subgraph A["2 · API tier (Supabase)"]
+    direction TB
+    AU["Supabase Auth<br/>password · TOTP (aal2) · JWT"]
+    PR["PostgREST<br/>RLS on every request"]
+    RT["Realtime<br/>staff live channel (8.5)"]
+  end
+  subgraph D["3 · Data and logic tier (PostgreSQL)"]
+    direction TB
+    BG["Bantay guards<br/>lock · daily limit · risk score"]
+    ME["Money engine<br/>_transfer_core"]
+    LG[("Ledger<br/>transactions · ledger_entries")]
+    FT[("Feature and security tables")]
+    AL[("audit_logs · security_events")]
+    CR["pg_cron jobs"]
+  end
+  subgraph E["4 · Edge tier"]
+    direction TB
+    EF["Edge Functions (Deno)<br/>fx-sync · bantay-explain<br/>sign-in signal · crypto worker (9.5)"]
+    VA["Secrets / Vault"]
+  end
+  subgraph X["5 · External services"]
+    direction TB
+    GM["Google Gemini API"]
+    FR["Frankfurter API (ECB rates)"]
+    SO["Solana devnet (9.5)"]
+  end
+  MA --> AU
+  MA --> PR
+  AC --> PR
+  AC -.-> RT
+  SH -.- MA
+  SH -.- AC
+  PR --> BG --> ME --> LG
+  PR --> FT
+  ME --> AL
+  CR --> ME
+  PR --> EF
+  EF --> VA
+  EF -->|masked facts| GM
+  EF --> FR
+  EF -.-> SO
