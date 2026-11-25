@@ -1,6 +1,7 @@
 'use client';
 
-import { sentenceCase, formatReferenceId } from '@/lib/dashboardDisplay';
+import { sentenceCase } from '@/lib/dashboardDisplay';
+import { formatReferenceId } from '@davao-bank/shared';
 
 import React, { useState } from 'react';
 import { Code } from 'lucide-react';
@@ -66,7 +67,9 @@ export function AuditClient({ initialLogs }: AuditClientProps) {
             variant={log.actor_role === 'admin' ? 'info' : 'neutral'}
           />
           {log.actor_id ? (
-            <div className={styles.monoMutedSmall}>{formatReferenceId(log.actor_id)}...</div>
+            <div className={styles.monoMutedSmall}>
+              {formatReferenceId(log.actor_id)}...
+            </div>
           ) : null}
         </div>
       ),

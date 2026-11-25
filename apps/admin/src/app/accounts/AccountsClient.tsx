@@ -391,8 +391,7 @@ export function AccountsClient({ initialAccounts, allUsers }: AccountsClientProp
               <div className={styles.ledgerEffectBox}>
                 <div className={styles.ledgerEffectLabel}>EXACT LEDGER EFFECT</div>
                 <div className={`${styles.previewAmount} tabular-nums`}>
-                  {adjustDirection}{' '}
-                  {formatCentavosToPHP(adjustmentCentavos)} on{' '}
+                  {adjustDirection} {formatCentavosToPHP(adjustmentCentavos)} on{' '}
                   {adjustModalAccount.account_number} → New balance:{' '}
                   {formatCentavosToPHP(projectedBalance)}
                 </div>
