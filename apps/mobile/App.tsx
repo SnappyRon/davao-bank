@@ -26,8 +26,13 @@ import {
   Text,
   PrivacyOverlay,
   ToastProvider,
+  useToast,
   FloatingTabBar,
 } from './src/components';
+import {
+  registerDeviceOncePerSession,
+  resetDeviceSessionFlag,
+} from './src/utils/deviceRegistration';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { ActivityScreen } from './src/screens/ActivityScreen';
 import { InboxScreen } from './src/screens/InboxScreen';
@@ -95,6 +100,58 @@ const RootStack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<BottomTabParamList>();
 
 type AuthScreenState = 'login' | 'signup' | 'verify' | 'forgot';
+
+function BantaySessionTracker({
+  userId,
+  onAlert,
+}: {
+  userId: string | null;
+  onAlert: () => void;
+}) {
+  const toast = useToast();
+
+  useEffect(() => {
+    if (userId) {
+      void registerDeviceOncePerSession();
+    } else {
+      resetDeviceSessionFlag();
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    if (!userId || typeof supabase.channel !== 'function') return;
+
+    const channel = supabase
+      .channel(`security_events:${userId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'security_events',
+          filter: `user_id=eq.${userId}`,
+        },
+        (payload: {
+          new?: { severity?: string; explanation?: string; kind?: string };
+        }) => {
+          if (payload?.new?.severity === 'high') {
+            const msg =
+              payload.new.explanation ||
+              'Security alert: high-risk activity detected on your account.';
+            toast.show(msg, 'error');
+            onAlert();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [userId, onAlert, toast]);
+
+  return null;
+}
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -177,9 +234,11 @@ export default function App() {
 
   // Inbox badge: loads at start / sign-in and on returning to the foreground,
   // not only after Inbox is opened. Signing out resets it to 0.
-  const { count: unreadCount, setCount: setUnreadCount } = useUnreadNotificationCount(
-    session?.user?.id ?? null
-  );
+  const {
+    count: unreadCount,
+    setCount: setUnreadCount,
+    refresh: refreshUnreadCount,
+  } = useUnreadNotificationCount(session?.user?.id ?? null);
 
   const isAuthenticated = Boolean(session?.user);
   const isEmailVerified = Boolean(session?.user?.email_confirmed_at);
@@ -468,7 +527,16 @@ export default function App() {
   return (
     <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider>
-        <ToastProvider>{content}</ToastProvider>
+        <ToastProvider>
+          <BantaySessionTracker
+            userId={session?.user?.id ?? null}
+            onAlert={() => {
+              setUnreadCount(unreadCount + 1);
+              void refreshUnreadCount();
+            }}
+          />
+          {content}
+        </ToastProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

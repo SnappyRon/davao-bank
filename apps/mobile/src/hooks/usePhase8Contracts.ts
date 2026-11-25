@@ -9,6 +9,23 @@ export interface SecuritySettings {
   daily_transfer_limit_centavos: number;
   spent_today_centavos: number;
   remaining_today_centavos: number;
+  locked?: boolean;
+  unlock_after?: string | null;
+  pending_limit_centavos?: number | null;
+  pending_limit_effective_at?: string | null;
+}
+
+export interface SecurityEvent {
+  id: string;
+  kind: string;
+  severity: 'info' | 'warning' | 'high';
+  score: number | null;
+  facts: Record<string, unknown> | null;
+  explanation: string | null;
+  explanation_source: 'ai' | 'template' | null;
+  status: 'open' | 'confirmed_me' | 'reported_not_me' | 'dismissed';
+  related_transaction_id: string | null;
+  created_at: string;
 }
 
 export interface PayeeLookupResult {
@@ -67,6 +84,12 @@ function extractRawMessage(error: unknown): string {
   return '';
 }
 
+export function isConfirmationRequired(error: unknown): boolean {
+  if (!error) return false;
+  const msg = extractRawMessage(error).toLowerCase();
+  return msg.includes('confirmation required');
+}
+
 export function phase8UserMessage(error: unknown): string {
   const lower = extractRawMessage(error).toLowerCase();
   if (lower.includes('daily limit reached')) {
@@ -77,6 +100,18 @@ export function phase8UserMessage(error: unknown): string {
     (lower.includes('100000') && lower.includes('50000000'))
   ) {
     return 'Daily limit must be between ₱1,000.00 and ₱500,000.00.';
+  }
+  if (lower.includes('account is locked') || lower.includes('account_locked')) {
+    return 'Account is locked for outgoing money. Unlock it in Bantay.';
+  }
+  if (lower.includes('unlock not available yet')) {
+    return 'Unlock is not available yet. Please wait for the countdown to complete.';
+  }
+  if (lower.includes('challenge expired')) {
+    return 'Security confirmation expired. Please try again.';
+  }
+  if (lower.includes('confirmation required')) {
+    return 'Confirmation required for this transaction.';
   }
   return toUserMessage(error);
 }
@@ -89,6 +124,14 @@ function normalizeSecuritySettings(raw: unknown): SecuritySettings | null {
     daily_transfer_limit_centavos: Number(row.daily_transfer_limit_centavos) || 0,
     spent_today_centavos: Number(row.spent_today_centavos) || 0,
     remaining_today_centavos: Number(row.remaining_today_centavos) || 0,
+    locked: Boolean(row.locked),
+    unlock_after: typeof row.unlock_after === 'string' ? row.unlock_after : null,
+    pending_limit_centavos:
+      row.pending_limit_centavos != null ? Number(row.pending_limit_centavos) : null,
+    pending_limit_effective_at:
+      typeof row.pending_limit_effective_at === 'string'
+        ? row.pending_limit_effective_at
+        : null,
   };
 }
 
@@ -108,6 +151,112 @@ export async function setDailyLimitRpc(p_limit_centavos: number): Promise<{
   const { data, error } = await supabase.rpc('set_daily_limit', { p_limit_centavos });
   if (error) return { data: null, error };
   return { data: normalizeSecuritySettings(data), error: null };
+}
+
+export async function lockMyAccountRpc(): Promise<{
+  data: unknown;
+  error: unknown;
+}> {
+  const { data, error } = await supabase.rpc('lock_my_account');
+  return { data, error };
+}
+
+export async function requestUnlockRpc(): Promise<{
+  data: SecuritySettings | null;
+  error: unknown;
+}> {
+  const { data, error } = await supabase.rpc('request_unlock');
+  if (error) return { data: null, error };
+  return { data: normalizeSecuritySettings(data), error: null };
+}
+
+export async function completeUnlockRpc(): Promise<{
+  data: SecuritySettings | null;
+  error: unknown;
+}> {
+  const { data, error } = await supabase.rpc('complete_unlock');
+  if (error) return { data: null, error };
+  return { data: normalizeSecuritySettings(data), error: null };
+}
+
+export async function fetchSecurityTimeline(limit = 50): Promise<{
+  data: SecurityEvent[];
+  error: unknown;
+}> {
+  if (typeof supabase.rpc !== 'function') {
+    return { data: [], error: null };
+  }
+  const { data, error } = await supabase.rpc('get_security_timeline', {
+    p_limit: limit,
+  });
+  if (error) return { data: [], error };
+  const rows = Array.isArray(data) ? data : [];
+  return { data: rows as SecurityEvent[], error: null };
+}
+
+export async function markEventRpc(
+  eventId: string,
+  status: 'confirmed_me' | 'reported_not_me'
+): Promise<{ error: unknown }> {
+  const { error } = await supabase.rpc('mark_event', {
+    p_event_id: eventId,
+    p_status: status,
+  });
+  return { error };
+}
+
+export async function confirmRiskyPaymentRpc(
+  idempotencyKey: string
+): Promise<{ data: unknown; error: unknown }> {
+  const { data, error } = await supabase.rpc('confirm_risky_payment', {
+    p_idempotency_key: idempotencyKey,
+  });
+  return { data, error };
+}
+
+export async function registerDeviceRpc(
+  installId: string,
+  label?: string
+): Promise<{ error: unknown }> {
+  if (typeof supabase.rpc !== 'function') {
+    return { error: null };
+  }
+  const { error } = await supabase.rpc('register_device', {
+    p_install_id: installId,
+    p_label: label ?? null,
+  });
+  return { error };
+}
+
+export async function registerPasswordChangeRpc(): Promise<{ error: unknown }> {
+  if (typeof supabase.rpc !== 'function') {
+    return { error: null };
+  }
+  const { error } = await supabase.rpc('register_password_change');
+  return { error };
+}
+
+export async function explainBantayEvent(
+  eventId: string
+): Promise<{ explanation?: string; explanation_source?: string; error?: unknown }> {
+  try {
+    if (typeof supabase.functions?.invoke !== 'function') {
+      return {};
+    }
+    const { data, error } = await supabase.functions.invoke('bantay-explain', {
+      body: { event_id: eventId },
+    });
+    if (error) return { error };
+    return {
+      explanation: typeof data?.explanation === 'string' ? data.explanation : undefined,
+      explanation_source:
+        typeof data?.explanation_source === 'string'
+          ? data.explanation_source
+          : undefined,
+    };
+  } catch (err) {
+    return { error: err };
+  }
 }
 
 export async function fetchPayeeLookup(accountNumber: string): Promise<{
