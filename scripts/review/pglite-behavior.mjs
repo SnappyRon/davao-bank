@@ -4,6 +4,7 @@
 // Run: npm i -D @electric-sql/pglite && node scripts/review/pglite-behavior.mjs
 // Limits: single connection (no true concurrency), no pg_cron/pg_net/Edge Functions — concurrency still needs a live DB.
 import { PGlite } from '@electric-sql/pglite'; import fs from 'node:fs'; import { fileURLToPath } from 'node:url';
+import { runPhase8BantayTests } from './pglite-phase8-bantay.mjs';
 const MIG=fileURLToPath(new URL('../../supabase/migrations', import.meta.url));
 const db=await PGlite.create(); await db.exec(fs.readFileSync(new URL('./pglite-boot.sql',import.meta.url),'utf8'));
 for (const f of fs.readdirSync(MIG).filter(f=>f.endsWith('.sql')).sort()) await db.exec(fs.readFileSync(`${MIG}/${f}`,'utf8'));
@@ -311,6 +312,8 @@ ok('7B.9 history: non-bill rows have null biller_name', !r.err && r.rows.filter(
 r=await cust(U.B,`select count(*)::int n from get_account_transactions($1)`,[A.id]); ok('7B.9 history: B gets no rows for A\'s account', one(r)===0, r.err);
 r=await cust(U.B,`select count(*)::int n from get_account_transactions() where biller_name is not null`); ok('7B.9 history: B sees no biller names (no own bill payments)', one(r)===0, r.err);
 r=await as('anon',null,`select * from get_account_transactions(null)`); ok('7B.9 history: anon cannot execute get_account_transactions', /permission denied/.test(r.err||''), r.err);
+// ---- Phase 8 · Stage A: Bantay security center
+await runPhase8BantayTests({ db, as, su, cust, one, bal, ok, U, A, B, biller });
 // ---- Reconciliation
 const rec=await reconcile();
 ok('Reconciliation: every transfer/reversal/bill nets to zero', Number(rec.unbalanced)===0, JSON.stringify(rec));
