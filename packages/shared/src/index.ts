@@ -4,6 +4,7 @@ export * from './types';
 export * from './supabase/client';
 export * from './utils/qr';
 export * from './utils/fx';
+export * from './utils/installments';
 export * from './utils/errors';
 export * from './utils/transactions';
 export * from './bantay/facts';
