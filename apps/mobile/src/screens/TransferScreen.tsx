@@ -6,6 +6,7 @@ import { AccountLoadStatus } from '../components/AccountLoadStatus';
 import { StepUpSetupLink } from '../components/StepUpSetupLink';
 import { retryStepUp } from '../utils/stepUpRetry';
 import { useTotpPrompt } from '../context/PasswordPromptContext';
+import { useConfirmSheet } from '../hooks/useConfirmSheet';
 import { recoverTransfer, isUncertainTransferError } from '../utils/transferRecovery';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
@@ -376,6 +377,68 @@ export function TransferScreen() {
     setLoading(false);
 
     if (error) {
+      // Stage 8F: Risk challenge — if the RPC returns 'Confirmation required',
+      // show a challenge sheet and retry with confirm_risky_payment.
+      const isConfirmationRequired = (error: unknown): boolean => {
+  if (typeof error === 'string') return error.includes('Confirmation required');
+  if (error && typeof error === 'object' && 'message' in error) return (error as { message: string }).message.includes('Confirmation required');
+  return false;
+};
+      if (isConfirmationRequired(error)) {
+        setErrorMessage(null);
+        const { showConfirmation, confirmSheet } = useConfirmSheet();
+        // Show the challenge sheet with "Confirm it's me" and "Not me" options
+        showConfirmation({
+          title: 'Confirmation required',
+          message: 'This payment has been flagged for review. Confirm it\'s you to authorize.',
+          confirmLabel: 'Confirm it\'s me',
+          cancelLabel: 'Not me',
+          destructive: false,
+          onConfirm: async () => {
+            // Call confirm_risky_payment with the same idempotency key
+            const { error: confirmError } = await retryStepUp(() => supabase.rpc('confirm_risky_payment', { p_idempotency_key: idempotencyKey }), promptTotp);
+            if (confirmError) {
+              setErrorMessage(toUserMessage(confirmError, selectedAccount?.balance));
+            } else {
+              // Re-run the same transfer with the same idempotency key
+              setErrorMessage(null);
+              const { data: retryData, error: retryError } = await retryStepUp(
+                () => executeTransfer(supabase, params),
+                promptTotp
+              );
+              setLoading(false);
+              if (retryError) {
+                setErrorMessage(toUserMessage(retryError, selectedAccount?.balance));
+              } else if (retryData) {
+                if (shouldSaveRecipient && saveNickname.trim()) {
+                  try {
+                    await supabase.rpc('add_saved_recipient', {
+                      p_account_number: recipientAccountNumber.trim(),
+                      p_nickname: saveNickname.trim(),
+                    });
+                  } catch {
+                    // Non-blocking if save fails
+                  }
+                }
+                setErrorMessage(null);
+                setSuccessResult(retryData);
+                setStep('success');
+              }
+            }
+          },
+          onCancel: async () => {
+            // User selected "Not me" — lock the account
+            const { data: lockData, error: lockError } = await retryStepUp(() => supabase.rpc('lock_my_account'), promptTotp);
+            if (lockError) setErrorMessage(toUserMessage(lockError, selectedAccount?.balance));
+            else setErrorMessage('Account locked. Unlock in Bantay to send money.');
+            setLoading(false);
+          },
+        });
+        // Note: the confirmSheet is rendered by the useConfirmSheet hook's useEffect
+        // and will auto-close after the action completes. We return early to avoid
+        // double-rendering the error state.
+        return;
+      }
       try {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       } catch {

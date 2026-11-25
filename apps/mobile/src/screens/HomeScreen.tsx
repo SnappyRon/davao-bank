@@ -51,6 +51,7 @@ import { SuspendedScreen } from './SuspendedScreen';
 import { HomeBalanceCard } from './home/HomeBalanceCard';
 import { HomeUpcomingPayments } from './home/HomeUpcomingPayments';
 import { HomeRecentActivity } from './home/HomeRecentActivity';
+import { fetchBillReminders, type BillReminder } from '../hooks/usePhase8Contracts';
 
 /** Spec 7B.1 header: 56 pt tall, avatar 40 inside a 44 pt hit area. */
 const HEADER_HEIGHT = 56;
@@ -97,8 +98,9 @@ export function HomeScreen({
   const loadIdRef = useRef(0);
   const [refreshing, setRefreshing] = useState<boolean>(false);
 
-  // Upcoming scheduled payments & Pending requests
+  // Upcoming scheduled payments, bill reminders & Pending requests
   const [upcomingSchedules, setUpcomingSchedules] = useState<ScheduledPayment[]>([]);
+  const [billReminders, setBillReminders] = useState<BillReminder[]>([]);
   const [pendingRequestsCount, setPendingRequestsCount] = useState<number>(0);
 
   // Dev health check
@@ -172,6 +174,15 @@ export function HomeScreen({
           .limit(3);
         if (schedData && isCurrent()) {
           setUpcomingSchedules(schedData as ScheduledPayment[]);
+        }
+      } catch {
+        // Non-critical
+      }
+
+      try {
+        const remRes = await fetchBillReminders();
+        if (!remRes.error && isCurrent()) {
+          setBillReminders(remRes.data);
         }
       } catch {
         // Non-critical
@@ -382,8 +393,15 @@ export function HomeScreen({
         {/* Coming up (only when there are items) */}
         <HomeUpcomingPayments
           schedules={upcomingSchedules}
+          billReminders={billReminders}
           hideBalance={hideBalance}
           onOpenSchedules={() => navigation.navigate('ScheduledPayments')}
+          onOpenBillReminder={(reminder) =>
+            navigation.navigate('PayBills', {
+              billerId: reminder.biller_id,
+              reference: reminder.reference,
+            })
+          }
         />
 
         {/* Recent activity */}

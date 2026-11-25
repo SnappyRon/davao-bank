@@ -523,13 +523,18 @@ describe('TransferScreen - F1 State & Receipt Guarantees', () => {
       .mockResolvedValue({ data: [initialAccounts[0]], error: null });
     mockRouteParams = { recipientAccount: '1099999999' };
     const { supabase } = jest.requireMock('../lib/supabase');
-    jest.mocked(supabase.rpc).mockResolvedValueOnce({
-      data: {
-        id: '8f043910-1234-4567-8901-123456789012',
-        amount: 12345,
-        next_run_date: '2026-11-10',
-      },
-      error: null,
+    jest.mocked(supabase.rpc).mockImplementation((fn: string) => {
+      if (fn === 'create_scheduled_transfer_to_number') {
+        return Promise.resolve({
+          data: {
+            id: '8f043910-1234-4567-8901-123456789012',
+            amount: 12345,
+            next_run_date: '2026-11-10',
+          },
+          error: null,
+        });
+      }
+      return Promise.resolve({ data: null, error: null });
     });
     await render(<TransferScreen />);
     await screen.findByText('Step 2 of 3');

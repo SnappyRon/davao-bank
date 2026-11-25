@@ -1,4 +1,4 @@
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../App';
 import { useFeatureAccounts } from '../hooks/useFeatureAccounts';
@@ -6,7 +6,7 @@ import { AccountLoadStatus } from '../components/AccountLoadStatus';
 import { StepUpSetupLink } from '../components/StepUpSetupLink';
 import { retryStepUp } from '../utils/stepUpRetry';
 import { useTotpPrompt } from '../context/PasswordPromptContext';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, StyleSheet } from 'react-native';
 import {
   spacing,
@@ -21,6 +21,7 @@ import { supabase } from '../lib/supabase';
 import { isConfirmedRejection } from '../utils/resultReceipt';
 import { ResultView } from '../components/ResultView';
 import { useSettings } from '../context/SettingsContext';
+import { useConfirmSheet } from '../hooks/useConfirmSheet';
 import {
   FeatureScreen,
   AmountInput,
@@ -28,9 +29,17 @@ import {
   AccountStep,
   AccountPickerSheet,
   RecipientChip,
+  useToast,
 } from '../components';
 import { commitButtonLabel, describeReferenceFormat } from '../utils/moneyFlow';
 import { useInFlightGuard } from '../hooks/useInFlightGuard';
+import {
+  fetchSavedBillers,
+  updateSavedBillerRecord,
+  deleteSavedBillerRecord,
+  phase8UserMessage,
+  type SavedBiller,
+} from '../hooks/usePhase8Contracts';
 import { BillerStep, getCategoryIcon } from './pay-bills/BillerStep';
 import { ReferenceStep } from './pay-bills/ReferenceStep';
 import { WhenPicker, type PaymentTiming } from '../components/WhenPicker';
@@ -42,14 +51,25 @@ type Step = 'source' | 'biller' | 'reference' | 'amount' | 'review' | 'success';
 
 export function PayBillsScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  let routeParams: RootStackParamList['PayBills'];
+  try {
+    routeParams = useRoute<RouteProp<RootStackParamList, 'PayBills'>>().params;
+  } catch {
+    routeParams = undefined;
+  }
   const onClose = () => navigation.goBack();
   const { accounts, accountsLoading, accountError, loadAccounts } = useFeatureAccounts();
+  const { showConfirmation, confirmSheet } = useConfirmSheet();
+  const toast = useToast();
 
   const promptTotp = useTotpPrompt();
   const { confirmBiometricPayment, hideBalance } = useSettings();
 
   const [step, setStep] = useState<Step>('biller');
   const [billers, setBillers] = useState<Biller[]>([]);
+  const [savedBillers, setSavedBillers] = useState<SavedBiller[]>([]);
+  const [savedBillersLoading, setSavedBillersLoading] = useState(true);
+  const [savedBillersError, setSavedBillersError] = useState<string | null>(null);
   const [selectedBiller, setSelectedBiller] = useState<Biller | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -85,6 +105,8 @@ export function PayBillsScreen() {
   const guardMoneyAction = useInFlightGuard();
 
   // With 2+ accounts the source picker comes first (once, after accounts load).
+  const afterSourceStepRef = useRef<Step>('biller');
+  const billerPrefillAppliedRef = useRef(false);
   useEffect(() => {
     if (sourceStepPendingRef.current && !accountsLoading && accounts.length > 0) {
       sourceStepPendingRef.current = false;
@@ -93,10 +115,51 @@ export function PayBillsScreen() {
     }
   }, [accountsLoading, accounts.length]);
 
+  const loadSavedBillers = useCallback(async () => {
+    setSavedBillersLoading(true);
+    setSavedBillersError(null);
+    try {
+      const { data, error } = await fetchSavedBillers();
+      if (error) {
+        setSavedBillersError(phase8UserMessage(error));
+        setSavedBillers([]);
+      } else {
+        setSavedBillers(data);
+      }
+    } catch (err) {
+      setSavedBillersError(phase8UserMessage(err));
+      setSavedBillers([]);
+    } finally {
+      setSavedBillersLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     loadBillers();
+    void loadSavedBillers();
     resetForm();
-  }, []);
+  }, [loadSavedBillers]);
+
+  useEffect(() => {
+    if (
+      billerPrefillAppliedRef.current ||
+      !routeParams?.billerId ||
+      billers.length === 0 ||
+      accountsLoading ||
+      accounts.length === 0
+    ) {
+      return;
+    }
+    const matched = billers.find((b) => b.id === routeParams.billerId);
+    if (!matched) return;
+    billerPrefillAppliedRef.current = true;
+    setSelectedBiller(matched);
+    const refVal = routeParams.reference?.trim() ?? '';
+    setReference(refVal);
+    const targetStep: Step = refVal ? 'amount' : 'reference';
+    afterSourceStepRef.current = targetStep;
+    setStep(accounts.length >= 2 ? 'source' : targetStep);
+  }, [routeParams, billers, accountsLoading, accounts.length]);
 
   const resetForm = () => {
     setStep('biller');
@@ -174,6 +237,57 @@ export function PayBillsScreen() {
     setReference('');
     setRefError(null);
     setStep('reference');
+  };
+
+  const handleSelectSavedBiller = (saved: SavedBiller) => {
+    const matched = billers.find((b) => b.id === saved.biller_id);
+    if (!matched) return;
+    setSelectedBiller(matched);
+    setReference(saved.reference);
+    setRefError(null);
+    setStep('amount');
+  };
+
+  const handleUpdateSavedBiller = async (
+    id: string,
+    patch: { nickname: string; due_day: number | null; remind: boolean }
+  ): Promise<boolean> => {
+    try {
+      const { error } = await updateSavedBillerRecord(id, patch);
+      if (error) {
+        toast.show(phase8UserMessage(error), 'error');
+        return false;
+      }
+      toast.show('Saved biller updated');
+      await loadSavedBillers();
+      return true;
+    } catch (err) {
+      toast.show(phase8UserMessage(err), 'error');
+      return false;
+    }
+  };
+
+  const handleDeleteSavedBiller = (saved: SavedBiller) => {
+    showConfirmation({
+      title: 'Remove saved biller',
+      message: `Remove "${saved.nickname}" from your saved billers?`,
+      confirmLabel: 'Remove',
+      cancelLabel: 'Cancel',
+      destructive: true,
+      onConfirm: async () => {
+        try {
+          const { error } = await deleteSavedBillerRecord(saved.id);
+          if (error) {
+            toast.show(phase8UserMessage(error), 'error');
+          } else {
+            toast.show('Saved biller removed');
+            await loadSavedBillers();
+          }
+        } catch (err) {
+          toast.show(phase8UserMessage(err), 'error');
+        }
+      },
+    });
   };
 
   const handleReferenceContinue = () => {
@@ -283,7 +397,9 @@ export function PayBillsScreen() {
     setSelectedAccountId(accountId);
     setErrorMessage(null);
     if (step === 'source') {
-      setStep('biller');
+      const next = afterSourceStepRef.current;
+      afterSourceStepRef.current = 'biller';
+      setStep(next);
       return;
     }
     const account = accounts.find((a) => a.account_id === accountId);
@@ -365,6 +481,13 @@ export function PayBillsScreen() {
                 selectedCategory={selectedCategory}
                 onSelectCategory={setSelectedCategory}
                 onSelectBiller={handleSelectBiller}
+                savedBillers={savedBillers}
+                savedBillersLoading={savedBillersLoading}
+                savedBillersError={savedBillersError}
+                onRetrySavedBillers={() => void loadSavedBillers()}
+                onSelectSavedBiller={handleSelectSavedBiller}
+                onUpdateSavedBiller={handleUpdateSavedBiller}
+                onDeleteSavedBiller={handleDeleteSavedBiller}
               />
             )}
 
@@ -447,11 +570,17 @@ export function PayBillsScreen() {
                 hideBalance={hideBalance}
                 onDone={onClose}
                 onPayAgain={() => navigation.replace('PayBills')}
+                isAlreadySaved={savedBillers.some(
+                  (s) =>
+                    s.biller_id === selectedBiller.id && s.reference === reference.trim()
+                )}
+                onSavedBiller={() => void loadSavedBillers()}
               />
             )}
           </View>
         )
       )}
+      {confirmSheet}
       <StepUpSetupLink error={errorMessage} onClose={onClose} />
       <AccountPickerSheet
         visible={accountPickerOpen}

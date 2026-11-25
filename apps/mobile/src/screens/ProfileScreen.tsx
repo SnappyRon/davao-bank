@@ -7,6 +7,7 @@ import {
   Info,
   LogOut,
   ChevronRight,
+  Shield,
   ShieldCheck,
   CheckCircle2,
   Users,
@@ -395,6 +396,13 @@ export function ProfileScreen({
         <View style={styles.section}>
           <SectionTitle>Security</SectionTitle>
           <GroupedList testID="profile-group-security">
+            <SettingsRow
+              icon={<Shield size={iconSize} color={colors.primary} />}
+              title="Bantay security center"
+              subtitle="Daily transfer limit & protections"
+              onPress={() => navigation.navigate('BantaySecurity')}
+            />
+            <ListHairline />
             <SettingsRow
               icon={<ShieldCheck size={iconSize} color={colors.primary} />}
               title="Two-step verification"
