@@ -8,6 +8,7 @@ import {
   KeyRound,
   ChevronRight,
   AlertCircle,
+  Info,
 } from 'lucide-react-native';
 import {
   colors,
@@ -23,6 +24,7 @@ import { useSettings } from '../context/SettingsContext';
 import { useTotpPrompt } from '../context/PasswordPromptContext';
 import { useInFlightGuard } from '../hooks/useInFlightGuard';
 import { retryStepUp } from '../utils/stepUpRetry';
+import { useConfirmSheet } from '../hooks/useConfirmSheet';
 import {
   DAILY_LIMIT_MIN_CENTAVOS,
   DAILY_LIMIT_MAX_CENTAVOS,
@@ -35,8 +37,8 @@ import {
   Text,
   Card,
   Button,
-  AmountText,
   AmountInput,
+  AmountText,
   EmptyState,
   Skeleton,
   Pressable,
@@ -44,7 +46,7 @@ import {
   ListHairline,
   groupedListStyles,
   LIST_ICON_SIZE,
-  useToast,
+  useToast as useComponentToast,
 } from '../components';
 import { StepUpSetupLink } from '../components/StepUpSetupLink';
 
@@ -79,7 +81,7 @@ function normalizeReturnedSettings(
 
 export function BantaySecurityScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const toast = useToast();
+  const toast = useComponentToast();
   const appLock = useAppLock();
   const { hideBalance, confirmBiometricPayment } = useSettings();
   const promptTotp = useTotpPrompt();
