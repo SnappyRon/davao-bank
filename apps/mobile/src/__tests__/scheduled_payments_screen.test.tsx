@@ -132,4 +132,42 @@ describe('ScheduledPaymentsScreen', () => {
     });
     expect(screen.getByText('Next: 2026-12-01')).toBeTruthy();
   });
+
+  it('shows "Completed" badge and "Paid <date>" for completed schedules and sorts them below active ones', async () => {
+    const completedSchedule: ScheduledPayment = {
+      ...sampleSchedule,
+      id: 'sched-002',
+      status: 'completed',
+      frequency: 'once',
+      next_run_date: '2026-11-05',
+      to_account_last4: '9999',
+    };
+
+    // Return completed schedule first in the API response
+    mockRpc.mockResolvedValueOnce({
+      data: [completedSchedule, sampleSchedule],
+      error: null,
+    });
+
+    await render(<ScheduledPaymentsScreen />);
+
+    // Active schedule should appear first even though completed came first in raw response
+    const cards = await screen.findAllByRole('button', { name: /View schedule for/ });
+    expect(cards).toHaveLength(2);
+
+    expect(screen.getByText('Transfer · •••• 3210')).toBeTruthy();
+    expect(screen.getByText('Next: 2026-12-01')).toBeTruthy();
+
+    expect(screen.getByText('Transfer · •••• 9999')).toBeTruthy();
+    expect(screen.getByText('Paid 2026-11-05')).toBeTruthy();
+    expect(screen.queryByText('Next: 2026-11-05')).toBeNull();
+    expect(screen.getByText('Completed')).toBeTruthy();
+
+    // Tap completed schedule to view detail
+    fireEvent.press(cards[1]);
+
+    expect(await screen.findByText('Schedule Details')).toBeTruthy();
+    expect(screen.getByText('Paid')).toBeTruthy();
+    expect(screen.queryByText('Next Execution')).toBeNull();
+  });
 });

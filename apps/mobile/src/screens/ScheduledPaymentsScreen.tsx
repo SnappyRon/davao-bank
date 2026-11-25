@@ -58,7 +58,12 @@ export function ScheduledPaymentsScreen() {
         setLoadError(toUserMessage(error, 'load'));
         setSchedules([]);
       } else if (data) {
-        setSchedules(data as ScheduledPayment[]);
+        const sorted = [...(data as ScheduledPayment[])].sort((a, b) => {
+          const aActive = a.status === 'active' ? 0 : 1;
+          const bActive = b.status === 'active' ? 0 : 1;
+          return aActive - bActive;
+        });
+        setSchedules(sorted);
       }
     } catch (err: unknown) {
       if (mountedRef.current) {
@@ -194,13 +199,13 @@ export function ScheduledPaymentsScreen() {
                         : 'danger'
                   }
                   label={
-                    selectedSchedule.status === 'active'
-                      ? 'Active'
-                      : selectedSchedule.status === 'completed'
-                        ? 'Completed'
-                        : selectedSchedule.status === 'cancelled'
-                          ? 'Cancelled'
-                          : selectedSchedule.status
+{selectedSchedule.status === 'active'
+  ? 'Active'
+  : selectedSchedule.status === 'completed'
+    ? 'Completed'
+    : selectedSchedule.status === 'cancelled'
+      ? 'Cancelled'
+      : selectedSchedule.status.toUpperCase()}
                   }
                 />
               </View>
@@ -260,7 +265,11 @@ export function ScheduledPaymentsScreen() {
 
               <View style={styles.row}>
                 <Text variant="body" color="textSecondary">
+<<<<<<< HEAD
                   Next execution
+=======
+                  {selectedSchedule.status === 'completed' ? 'Paid' : 'Next Execution'}
+>>>>>>> carryovers/phase-7-carryovers
                 </Text>
                 <Text variant="bodyStrong">{selectedSchedule.next_run_date}</Text>
               </View>
@@ -373,7 +382,9 @@ export function ScheduledPaymentsScreen() {
                         : `Transfer · •••• ${item.to_account_last4 || item.to_account_number?.slice(-4) || item.to_account?.slice(-4) || '••••'}`}
                     </Text>
                     <Text variant="caption" color="textSecondary">
-                      Next: {item.next_run_date}
+                      {item.status === 'completed'
+                        ? `Paid ${item.next_run_date}`
+                        : `Next: ${item.next_run_date}`}
                     </Text>
                   </View>
 
@@ -392,7 +403,7 @@ export function ScheduledPaymentsScreen() {
                             ? 'neutral'
                             : 'danger'
                       }
-                      label={item.frequency}
+                      label={item.status === 'completed' ? 'Completed' : item.frequency}
                     />
                   </View>
                 </View>

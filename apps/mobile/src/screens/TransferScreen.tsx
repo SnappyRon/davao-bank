@@ -39,6 +39,7 @@ import {
   AccountStep,
   AccountPickerSheet,
   formatAccountLabel,
+  useToast,
 } from '../components';
 import { commitButtonLabel } from '../utils/moneyFlow';
 import { useInFlightGuard } from '../hooks/useInFlightGuard';
@@ -55,6 +56,7 @@ type TransferStep = 'source' | 'recipient' | 'amount' | 'review' | 'success';
 // Never add Transfer to a React Navigation linking config: the davaobank app scheme matches QR payloads.
 export function TransferScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const toast = useToast();
   const onClose = () => navigation.goBack();
   const { accounts, accountsLoading, accountError, loadAccounts } = useFeatureAccounts();
   const route = useRoute<RouteProp<RootStackParamList, 'Transfer'>>();
@@ -232,7 +234,9 @@ export function TransferScreen() {
 
   // §0.9 Item 2: Confirmation before discarding flow with input on any step
   const hasInput =
-    Boolean(recipientAccountNumber || amountStr || reference) && step !== 'success';
+    Boolean(recipientAccountNumber || amountStr || reference) &&
+    step !== 'success' &&
+    !uncertain;
 
   const handleSelectOwnAccount = (acc: AccountBalance) => {
     setRecipientAccountNumber(acc.account_number);
@@ -450,16 +454,37 @@ export function TransferScreen() {
 
   const commitAction = timing === 'now' ? 'send' : 'schedule';
 
-  const footer =
-    step === 'amount' ? (
-      <Button title="Continue" onPress={handleNextFromAmount} />
-    ) : step === 'review' ? (
+  const footer = uncertain ? (
+    <View style={styles.uncertainActions}>
       <Button
-        title={commitButtonLabel(commitAction, centavosAmount, loading)}
-        onPress={() => void guardMoneyAction(handleConfirmTransfer)}
+        title="Check status"
         loading={loading}
+        onPress={() =>
+          void guardMoneyAction(async () => {
+            setLoading(true);
+            await executeServerTransfer(centavosAmount);
+          })
+        }
       />
-    ) : undefined;
+      <Button
+        title="Done"
+        variant="secondary"
+        disabled={loading}
+        onPress={() => {
+          toast.show('Check Activity to confirm your transfer status', 'info');
+          navigation.goBack();
+        }}
+      />
+    </View>
+  ) : step === 'amount' ? (
+    <Button title="Continue" onPress={handleNextFromAmount} />
+  ) : step === 'review' ? (
+    <Button
+      title={commitButtonLabel(commitAction, centavosAmount, loading)}
+      onPress={() => void guardMoneyAction(handleConfirmTransfer)}
+      loading={loading}
+    />
+  ) : undefined;
 
   const accountsReady =
     firstStepDecided && !accountsLoading && !accountError && accounts.length > 0;
@@ -468,7 +493,7 @@ export function TransferScreen() {
     <FeatureScreen
       stepCount={step === 'success' ? undefined : inputSteps.length}
       isDirty={hasInput}
-      isProcessing={loading || uncertain}
+      isProcessing={loading}
       step={stepIndex >= 0 ? stepIndex + 1 : undefined}
       onPrevStep={() => {
         setErrorMessage(null);
@@ -636,6 +661,9 @@ const styles = StyleSheet.create({
   container: {
     paddingBottom: spacing.xl,
     gap: spacing.base,
+  },
+  uncertainActions: {
+    gap: spacing.sm,
   },
   errorCard: {
     flexDirection: 'row',
