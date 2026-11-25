@@ -15,6 +15,7 @@ import {
   QrCode,
   Inbox,
   User,
+  Lock,
 } from 'lucide-react-native';
 import {
   colors,
@@ -33,8 +34,10 @@ import {
   type ScheduledPayment,
 } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
+import { fetchSecuritySettings } from '../hooks/usePhase8Contracts';
 import { useSettings } from '../context/SettingsContext';
 import {
+  useToast,
   Screen,
   Text,
   ActionTile,
@@ -86,6 +89,16 @@ export function HomeScreen({
   const [accountPickerVisible, setAccountPickerVisible] = useState(false);
   const { hideBalance, toggleHideBalance } = useSettings();
   const insets = useSafeAreaInsets();
+  const toast = useToast();
+  const [isLocked, setIsLocked] = useState(false);
+
+  const handleActionTilePress = (screen: keyof RootStackParamList) => {
+    if (isLocked) {
+      toast.show('Account locked — Unlock in Bantay', 'error');
+      return;
+    }
+    navigation.navigate(screen as never);
+  };
 
   const [loading, setLoading] = useState<boolean>(true);
   // Set when the balance load fails; the card then reads "Balance unavailable".
@@ -126,11 +139,17 @@ export function HomeScreen({
       }
 
       try {
-        const [profileRes, accountsRes, txRes] = await Promise.all([
+        const [profileRes, accountsRes, txRes, secRes] = await Promise.all([
           fetchUserProfile(supabase, userId),
           fetchAccountBalances(supabase),
           fetchTransactionHistory(supabase),
+          fetchSecuritySettings().catch(() => ({ data: null, error: null })),
         ]);
+        if (secRes?.data?.locked) {
+          setIsLocked(true);
+        } else {
+          setIsLocked(false);
+        }
         if (!isCurrent()) return;
 
         if (profileRes.data) setProfile(profileRes.data);
@@ -310,6 +329,30 @@ export function HomeScreen({
           onRetry={retryLoad}
         />
 
+        {/* Locked account banner */}
+        {isLocked && (
+          <Pressable
+            style={styles.lockedBanner}
+            onPress={() => navigation.navigate('BantaySecurity')}
+            feedbackType="highlight"
+            accessibilityRole="button"
+            accessibilityLabel="Account locked — Unlock in Bantay"
+          >
+            <View style={styles.lockedIconBox}>
+              <Lock size={TILE_ICON_SIZE} color={colors.redText} />
+            </View>
+            <View style={styles.requestsText}>
+              <Text variant="bodyStrong" color={colors.redText}>
+                Account locked — Unlock in Bantay
+              </Text>
+              <Text variant="caption" color={colors.textSecondary}>
+                Outgoing transfers and bill payments are paused
+              </Text>
+            </View>
+            <ChevronRight size={TILE_ICON_SIZE} color={colors.textMuted} />
+          </Pressable>
+        )}
+
         {/* Pending payment requests */}
         {pendingRequestsCount > 0 && (
           <Pressable
@@ -341,13 +384,13 @@ export function HomeScreen({
             label="Transfer"
             color="blue"
             icon={<Send size={TILE_ICON_SIZE} color={actionTileIconColor('blue')} />}
-            onPress={() => navigation.navigate('Transfer')}
+            onPress={() => handleActionTilePress('Transfer')}
           />
           <ActionTile
             label="Pay bills"
             color="orange"
             icon={<Zap size={TILE_ICON_SIZE} color={actionTileIconColor('orange')} />}
-            onPress={() => navigation.navigate('PayBills')}
+            onPress={() => handleActionTilePress('PayBills')}
           />
           <ActionTile
             label="QR"
@@ -361,7 +404,7 @@ export function HomeScreen({
             icon={
               <PlusCircle size={TILE_ICON_SIZE} color={actionTileIconColor('green')} />
             }
-            onPress={() => navigation.navigate('AddMoney')}
+            onPress={() => handleActionTilePress('AddMoney')}
           />
           <ActionTile
             label="Cash out"
@@ -369,7 +412,7 @@ export function HomeScreen({
             icon={
               <MinusCircle size={TILE_ICON_SIZE} color={actionTileIconColor('red')} />
             }
-            onPress={() => navigation.navigate('CashOut')}
+            onPress={() => handleActionTilePress('CashOut')}
           />
           <ActionTile
             label="Schedule"
@@ -380,7 +423,7 @@ export function HomeScreen({
                 color={actionTileIconColor('yellow')}
               />
             }
-            onPress={() => navigation.navigate('ScheduledPayments')}
+            onPress={() => handleActionTilePress('ScheduledPayments')}
           />
         </ActionTileGrid>
 
@@ -480,6 +523,24 @@ const styles = StyleSheet.create({
     height: AVATAR_SIZE,
     borderRadius: radius.pill,
     backgroundColor: colors.primaryTint,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  lockedBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: colors.tintRed,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.redText,
+  },
+  lockedIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, Animated, type ViewStyle } from 'react-native';
+import { StyleSheet, Animated, type ViewStyle } from 'react-native';
 import { colors, radius } from '@davao-bank/shared';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 
@@ -8,6 +8,7 @@ export interface SkeletonProps {
   height?: number;
   borderRadius?: number;
   style?: ViewStyle;
+  testID?: string;
 }
 
 export function Skeleton({
@@ -15,6 +16,7 @@ export function Skeleton({
   height = 20,
   borderRadius = radius.sm,
   style,
+  testID,
 }: SkeletonProps) {
   const reduceMotion = useReducedMotion();
   const opacity = useRef(new Animated.Value(0.5)).current;
@@ -46,6 +48,7 @@ export function Skeleton({
 
   return (
     <Animated.View
+      testID={testID}
       style={[
         styles.skeleton,
         {

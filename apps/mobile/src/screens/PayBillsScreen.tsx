@@ -22,6 +22,7 @@ import { isConfirmedRejection } from '../utils/resultReceipt';
 import { ResultView } from '../components/ResultView';
 import { useSettings } from '../context/SettingsContext';
 import { useConfirmSheet } from '../hooks/useConfirmSheet';
+import { useRiskChallenge } from '../hooks/useRiskChallenge';
 import {
   FeatureScreen,
   AmountInput,
@@ -38,6 +39,7 @@ import {
   updateSavedBillerRecord,
   deleteSavedBillerRecord,
   phase8UserMessage,
+  isConfirmationRequired,
   type SavedBiller,
 } from '../hooks/usePhase8Contracts';
 import { BillerStep, getCategoryIcon } from './pay-bills/BillerStep';
@@ -103,6 +105,7 @@ export function PayBillsScreen() {
   // Step content renders only after the decision, so the wrong step never flashes.
   const [firstStepDecided, setFirstStepDecided] = useState(false);
   const guardMoneyAction = useInFlightGuard();
+  const { triggerChallenge, challengeSheet } = useRiskChallenge();
 
   // With 2+ accounts the source picker comes first (once, after accounts load).
   const afterSourceStepRef = useRef<Step>('biller');
@@ -380,6 +383,14 @@ export function PayBillsScreen() {
         setStep('success');
       }
     } catch (err: any) {
+      if (isConfirmationRequired(err)) {
+        triggerChallenge({
+          idempotencyKey,
+          onRetry: () => handleSubmitPayment(),
+          onCancel: () => setErrorMessage('Not authorized. Nothing was sent.'),
+        });
+        return;
+      }
       setResultError(err);
       setErrorMessage(toUserMessage(err?.message, selectedAccount?.balance));
     } finally {
@@ -581,6 +592,7 @@ export function PayBillsScreen() {
         )
       )}
       {confirmSheet}
+      {challengeSheet}
       <StepUpSetupLink error={errorMessage} onClose={onClose} />
       <AccountPickerSheet
         visible={accountPickerOpen}

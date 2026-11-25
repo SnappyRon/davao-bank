@@ -4,11 +4,17 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
   ShieldCheck,
+  ShieldAlert,
+  AlertTriangle,
+  CheckCircle2,
   Lock,
+  Unlock,
   KeyRound,
   ChevronRight,
   AlertCircle,
   Info,
+  Smartphone,
+  Sliders,
 } from 'lucide-react-native';
 import {
   colors,
@@ -29,9 +35,18 @@ import {
   DAILY_LIMIT_MIN_CENTAVOS,
   DAILY_LIMIT_MAX_CENTAVOS,
   fetchSecuritySettings,
+  setDailyLimitRpc,
+  lockMyAccountRpc,
+  requestUnlockRpc,
+  completeUnlockRpc,
+  fetchSecurityTimeline,
+  markEventRpc,
+  explainBantayEvent,
   phase8UserMessage,
   type SecuritySettings,
+  type SecurityEvent,
 } from '../hooks/usePhase8Contracts';
+import { bantayTemplate, bantayEventTitle } from '../utils/bantayTemplates';
 import {
   FeatureScreen,
   Text,
@@ -44,6 +59,7 @@ import {
   Pressable,
   GroupedList,
   ListHairline,
+  Badge,
   groupedListStyles,
   LIST_ICON_SIZE,
   useToast as useComponentToast,
@@ -57,6 +73,16 @@ const LIMIT_PRESETS = [10000, 50000, 100000, 500000];
 
 type TwoStepState = 'on' | 'off' | 'unknown';
 
+function formatEventTime(isoString: string): string {
+  try {
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  } catch {
+    return '';
+  }
+}
+
 function normalizeReturnedSettings(
   raw: unknown,
   fallbackLimit: number,
@@ -69,6 +95,14 @@ function normalizeReturnedSettings(
       daily_transfer_limit_centavos: Number(row.daily_transfer_limit_centavos) || 0,
       spent_today_centavos: Number(row.spent_today_centavos) || 0,
       remaining_today_centavos: Number(row.remaining_today_centavos) || 0,
+      locked: Boolean(row.locked),
+      unlock_after: typeof row.unlock_after === 'string' ? row.unlock_after : null,
+      pending_limit_centavos:
+        row.pending_limit_centavos != null ? Number(row.pending_limit_centavos) : null,
+      pending_limit_effective_at:
+        typeof row.pending_limit_effective_at === 'string'
+          ? row.pending_limit_effective_at
+          : null,
     };
   }
   const spent = previous.spent_today_centavos;
@@ -76,7 +110,37 @@ function normalizeReturnedSettings(
     daily_transfer_limit_centavos: fallbackLimit,
     spent_today_centavos: spent,
     remaining_today_centavos: Math.max(fallbackLimit - spent, 0),
+    locked: previous.locked,
+    unlock_after: previous.unlock_after,
+    pending_limit_centavos: previous.pending_limit_centavos,
+    pending_limit_effective_at: previous.pending_limit_effective_at,
   };
+}
+
+function renderTimelineIcon(kind: string) {
+  switch (kind) {
+    case 'risky_payment_challenged':
+    case 'risky_payment_warning':
+      return <ShieldAlert size={LIST_ICON_SIZE} color={colors.orangeText} />;
+    case 'risky_payment_confirmed':
+      return <CheckCircle2 size={LIST_ICON_SIZE} color={colors.primary} />;
+    case 'new_device':
+      return <Smartphone size={LIST_ICON_SIZE} color={colors.blueText} />;
+    case 'signin_failures':
+    case 'code_failures':
+      return <Lock size={LIST_ICON_SIZE} color={colors.redText} />;
+    case 'password_changed':
+    case 'mfa_changed':
+      return <KeyRound size={LIST_ICON_SIZE} color={colors.blueText} />;
+    case 'limit_changed':
+      return <Sliders size={LIST_ICON_SIZE} color={colors.ink} />;
+    case 'account_locked':
+      return <Lock size={LIST_ICON_SIZE} color={colors.redText} />;
+    case 'account_unlocked':
+      return <Unlock size={LIST_ICON_SIZE} color={colors.primary} />;
+    default:
+      return <ShieldCheck size={LIST_ICON_SIZE} color={colors.primary} />;
+  }
 }
 
 export function BantaySecurityScreen() {
@@ -86,8 +150,10 @@ export function BantaySecurityScreen() {
   const { hideBalance, confirmBiometricPayment } = useSettings();
   const promptTotp = useTotpPrompt();
   const guardSave = useInFlightGuard();
+  const { showConfirmation, confirmSheet } = useConfirmSheet();
 
   const [settings, setSettings] = useState<SecuritySettings | null>(null);
+  const [timeline, setTimeline] = useState<SecurityEvent[]>([]);
   const [twoStep, setTwoStep] = useState<TwoStepState>('unknown');
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -97,6 +163,7 @@ export function BantaySecurityScreen() {
   const [inputError, setInputError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [unlockActionLoading, setUnlockActionLoading] = useState(false);
 
   const loadSeqRef = useRef(0);
 
@@ -105,9 +172,10 @@ export function BantaySecurityScreen() {
     setLoading(true);
     setLoadError(null);
     try {
-      const [secRes, mfaRes] = await Promise.all([
+      const [secRes, mfaRes, timelineRes] = await Promise.all([
         fetchSecuritySettings(),
         supabase.auth.mfa.listFactors(),
+        fetchSecurityTimeline(50),
       ]);
       if (seq !== loadSeqRef.current) return;
 
@@ -116,6 +184,12 @@ export function BantaySecurityScreen() {
         setLoadError(phase8UserMessage(secRes.error));
       } else {
         setSettings(secRes.data);
+      }
+
+      if (!timelineRes.error && timelineRes.data) {
+        setTimeline(timelineRes.data);
+      } else {
+        setTimeline([]);
       }
 
       if (!mfaRes.error && mfaRes.data) {
@@ -140,6 +214,120 @@ export function BantaySecurityScreen() {
     }, [load])
   );
 
+  const handleLockAccount = () => {
+    showConfirmation({
+      title: 'Lock account',
+      message:
+        'Locked accounts can’t send or receive money until they are unlocked. Scheduled payments pause while locked.',
+      confirmLabel: 'Lock account',
+      cancelLabel: 'Cancel',
+      destructive: true,
+      onConfirm: async () => {
+        try {
+          const { error } = await lockMyAccountRpc();
+          if (error) {
+            toast.show(phase8UserMessage(error), 'error');
+          } else {
+            toast.show('Account locked.', 'error');
+            await load();
+          }
+        } catch (err) {
+          toast.show(phase8UserMessage(err), 'error');
+        }
+      },
+    });
+  };
+
+  const handleRequestUnlock = async () => {
+    setUnlockActionLoading(true);
+    try {
+      const bioResult = await confirmBiometricPayment({
+        title: 'Request unlock',
+        message: 'Confirm your identity to request unlocking your account.',
+      });
+      if (!bioResult.success) {
+        if (bioResult.cancelled) {
+          toast.show('Unlock request was cancelled.', 'info');
+        } else {
+          toast.show(bioResult.error || 'Authorization failed.', 'error');
+        }
+        return;
+      }
+      const { data, error } = await retryStepUp(() => requestUnlockRpc(), promptTotp);
+      if (error) {
+        toast.show(phase8UserMessage(error), 'error');
+      } else {
+        toast.show('Unlock requested. 1-hour wait started.');
+        if (data) setSettings(data);
+        else await load();
+      }
+    } catch (err) {
+      toast.show(phase8UserMessage(err), 'error');
+    } finally {
+      setUnlockActionLoading(false);
+    }
+  };
+
+  const handleCompleteUnlock = async () => {
+    setUnlockActionLoading(true);
+    try {
+      const bioResult = await confirmBiometricPayment({
+        title: 'Unlock account',
+        message: 'Confirm your identity to unlock your account.',
+      });
+      if (!bioResult.success) {
+        if (bioResult.cancelled) {
+          toast.show('Unlock was cancelled.', 'info');
+        } else {
+          toast.show(bioResult.error || 'Authorization failed.', 'error');
+        }
+        return;
+      }
+      const { data, error } = await retryStepUp(() => completeUnlockRpc(), promptTotp);
+      if (error) {
+        toast.show(phase8UserMessage(error), 'error');
+      } else {
+        toast.show('Account unlocked. Outgoing money is available.');
+        if (data) setSettings(data);
+        else await load();
+      }
+    } catch (err) {
+      toast.show(phase8UserMessage(err), 'error');
+    } finally {
+      setUnlockActionLoading(false);
+    }
+  };
+
+  const handleMarkEvent = async (
+    eventId: string,
+    status: 'confirmed_me' | 'reported_not_me'
+  ) => {
+    try {
+      const { error } = await markEventRpc(eventId, status);
+      if (error) {
+        toast.show(phase8UserMessage(error), 'error');
+      } else {
+        toast.show(status === 'confirmed_me' ? 'Confirmed as you' : 'Reported activity');
+        await load();
+      }
+    } catch (err) {
+      toast.show(phase8UserMessage(err), 'error');
+    }
+  };
+
+  const handleReportNotMe = (event: SecurityEvent) => {
+    showConfirmation({
+      title: 'Report suspicious activity',
+      message: 'Reporting this will lock your account to protect your money.',
+      confirmLabel: 'Report & lock',
+      cancelLabel: 'Cancel',
+      destructive: true,
+      onConfirm: async () => {
+        await handleMarkEvent(event.id, 'reported_not_me');
+      },
+    });
+  };
+
   const startEditing = () => {
     setInputError(null);
     setSaveError(null);
@@ -154,7 +342,13 @@ export function BantaySecurityScreen() {
   const cancelEditing = () => {
     if (saving) return;
     setIsEditing(false);
+    setInputError(null);
+    setSaveError(null);
     setNewLimitStr('');
+  };
+
+  const handleSelectPreset = (pesos: number) => {
+    setNewLimitStr(pesos.toString());
     setInputError(null);
     setSaveError(null);
   };
@@ -164,163 +358,268 @@ export function BantaySecurityScreen() {
     setInputError(null);
     setSaveError(null);
 
-    const centavos = phpToCentavos(newLimitStr);
-    if (centavos < DAILY_LIMIT_MIN_CENTAVOS || centavos > DAILY_LIMIT_MAX_CENTAVOS) {
+    const centavos = phpToCentavos(newLimitStr.trim());
+    if (
+      isNaN(centavos) ||
+      centavos < DAILY_LIMIT_MIN_CENTAVOS ||
+      centavos > DAILY_LIMIT_MAX_CENTAVOS
+    ) {
       setInputError('Enter a limit between ₱1,000.00 and ₱500,000.00.');
+      return;
+    }
+
+    if (centavos === settings.daily_transfer_limit_centavos) {
+      setIsEditing(false);
       return;
     }
 
     setSaving(true);
     try {
-      const authResult = await confirmBiometricPayment({
-        title: 'Authorize limit change',
-        message: `Confirm changing your daily transfer limit to ${formatCentavosToPHP(centavos)}`,
+      const bioMessage = `Confirm changing daily transfer limit to ${formatCentavosToPHP(centavos)}`;
+      const bioResult = await confirmBiometricPayment({
+        title: 'Change daily limit',
+        message: bioMessage,
       });
-      if (!authResult.success) {
-        setSaveError(
-          authResult.cancelled
-            ? 'Not authorized. Daily limit was not changed.'
-            : authResult.error || 'Not authorized. Daily limit was not changed.'
-        );
+
+      if (!bioResult.success) {
+        setSaving(false);
+        if (bioResult.cancelled) {
+          setSaveError('Not authorized. Daily limit was not changed.');
+        } else {
+          setSaveError(bioResult.error || 'Authorization failed.');
+        }
         return;
       }
 
       const { data, error } = await retryStepUp(
-        () =>
-          supabase.rpc('set_daily_limit', {
-            p_limit_centavos: centavos,
-          }),
+        () => setDailyLimitRpc(centavos),
         promptTotp
       );
 
       if (error) {
         setSaveError(phase8UserMessage(error));
+        setSaving(false);
         return;
       }
 
-      setSettings(normalizeReturnedSettings(data, centavos, settings));
+      const updated = normalizeReturnedSettings(data, centavos, settings);
+      setSettings(updated);
       setIsEditing(false);
-      setNewLimitStr('');
+      setSaving(false);
       toast.show('Daily limit updated');
     } catch (err) {
       setSaveError(phase8UserMessage(err));
-    } finally {
       setSaving(false);
     }
   };
 
-  const limit = settings?.daily_transfer_limit_centavos ?? 0;
-  const spent = settings?.spent_today_centavos ?? 0;
-  const remaining = settings?.remaining_today_centavos ?? 0;
-  const usedRatio = limit > 0 ? Math.min(Math.max(spent / limit, 0), 1) : 0;
-  const usedPct = Math.round(usedRatio * 100);
-  const barColor =
-    usedPct >= 100 ? colors.redText : usedPct >= 80 ? colors.orangeText : colors.primary;
+  const isOffline = loadError && loadError.toLowerCase().includes('offline');
 
   const twoStepSubtitle =
     twoStep === 'on'
-      ? 'On · Authenticator app active'
+      ? 'On · Authenticator app'
       : twoStep === 'off'
-        ? 'Off · Set up required before sending money'
-        : 'Check status';
+        ? 'Off · Recommended for security'
+        : 'Loading…';
+
+  const isLocked = Boolean(settings?.locked);
+  const unlockAfterDate = settings?.unlock_after ? new Date(settings.unlock_after) : null;
+  const isUnlockReady = unlockAfterDate ? unlockAfterDate.getTime() <= Date.now() : false;
 
   return (
-    <FeatureScreen
-      title="Bantay security center"
-      isDirty={isEditing && newLimitStr.trim().length > 0}
-      isProcessing={saving}
-    >
-      {loading ? (
-        <View style={styles.section} testID="bantay-loading">
-          <Skeleton width="100%" height={SKELETON_CARD_HEIGHT} style={styles.skeleton} />
-          <Skeleton width="100%" height={SKELETON_ROW_HEIGHT} style={styles.skeleton} />
-          <Skeleton width="100%" height={SKELETON_ROW_HEIGHT} style={styles.skeleton} />
+    <FeatureScreen title="Bantay security center" onBack={() => navigation.goBack()}>
+      {isOffline ? (
+        <View style={styles.offlineBanner}>
+          <Text variant="caption" color={colors.ink}>
+            You’re offline — data will refresh when you’re back
+          </Text>
         </View>
-      ) : loadError ? (
-        <EmptyState
-          title="Security settings unavailable"
-          description={loadError}
-          icon={<AlertCircle size={32} color={colors.redText} />}
-          actionTitle="Try again"
-          onAction={() => void load()}
-          scrollable={false}
-        />
+      ) : null}
+
+      {loading ? (
+        <View style={styles.content} testID="bantay-loading">
+          <Skeleton
+            height={SKELETON_CARD_HEIGHT}
+            style={styles.skeleton}
+            testID="bantay-status-skeleton"
+          />
+          <Skeleton
+            height={SKELETON_CARD_HEIGHT}
+            style={styles.skeleton}
+            testID="bantay-skeleton-card"
+          />
+          <View style={styles.section}>
+            <Skeleton height={SKELETON_ROW_HEIGHT} style={styles.skeleton} />
+            <Skeleton height={SKELETON_ROW_HEIGHT} style={styles.skeleton} />
+          </View>
+        </View>
+      ) : loadError && !settings ? (
+        <View style={styles.content}>
+          <EmptyState
+            title="Security settings unavailable"
+            description={loadError}
+            actionTitle="Try again"
+            onAction={() => void load()}
+          />
+        </View>
       ) : !settings ? (
-        <EmptyState
-          title="No security settings"
-          description="Your daily transfer limit settings could not be found."
-          icon={<ShieldCheck size={32} color={colors.textMuted} />}
-          actionTitle="Try again"
-          onAction={() => void load()}
-          scrollable={false}
-        />
+        <View style={styles.content}>
+          <EmptyState
+            title="No security settings"
+            description="Your security settings could not be found."
+            actionTitle="Try again"
+            onAction={() => void load()}
+          />
+        </View>
       ) : (
         <View style={styles.content}>
-          {/* Daily Transfer Limit Card */}
-          <Card variant="default" style={styles.limitCard}>
+          {/* Status Card (§1.1) */}
+          <Card style={styles.statusCard}>
+            <View style={styles.cardHeader}>
+              <View
+                style={[
+                  groupedListStyles.disc,
+                  isLocked ? styles.lockedDisc : styles.headerDisc,
+                ]}
+              >
+                {isLocked ? (
+                  <Lock size={LIST_ICON_SIZE} color={colors.redText} />
+                ) : (
+                  <ShieldCheck size={LIST_ICON_SIZE} color={colors.primary} />
+                )}
+              </View>
+              <View style={styles.headerText}>
+                <Text variant="title" color={colors.ink} accessibilityRole="header">
+                  {isLocked ? 'Account locked' : 'Protected'}
+                </Text>
+                <Text variant="caption" color={colors.textSecondary}>
+                  {isLocked
+                    ? unlockAfterDate
+                      ? isUnlockReady
+                        ? 'Unlock request is ready'
+                        : `You can unlock at ${formatEventTime(settings.unlock_after || '')}`
+                      : 'Locked for outgoing money'
+                    : 'Outgoing transfers and bills are checked'}
+                </Text>
+              </View>
+            </View>
+
+            {settings.pending_limit_centavos ? (
+              <View style={styles.pendingLimitRow}>
+                <Info size={16} color={colors.orangeText} />
+                <Text variant="caption" color={colors.orangeText} style={{ flex: 1 }}>
+                  Limit change pending · Applies 12 h from request
+                </Text>
+              </View>
+            ) : null}
+
+            {isLocked ? (
+              unlockAfterDate ? (
+                <Button
+                  title={isUnlockReady ? 'Unlock' : 'Unlock (countdown in progress)'}
+                  variant={isUnlockReady ? 'primary' : 'secondary'}
+                  disabled={!isUnlockReady || unlockActionLoading}
+                  loading={unlockActionLoading}
+                  onPress={handleCompleteUnlock}
+                  accessibilityLabel="Unlock account"
+                />
+              ) : (
+                <Button
+                  title="Request unlock"
+                  variant="secondary"
+                  loading={unlockActionLoading}
+                  onPress={handleRequestUnlock}
+                  accessibilityLabel="Request unlock"
+                />
+              )
+            ) : (
+              <Button
+                title="Lock my account"
+                variant="destructive"
+                onPress={handleLockAccount}
+                accessibilityLabel="Lock my account"
+              />
+            )}
+          </Card>
+
+          {/* Daily Limit Card */}
+          <Card style={styles.limitCard}>
             <View style={styles.cardHeader}>
               <View style={[groupedListStyles.disc, styles.headerDisc]}>
-                <ShieldCheck size={LIST_ICON_SIZE} color={colors.primary} />
+                <Sliders size={LIST_ICON_SIZE} color={colors.primary} />
               </View>
               <View style={styles.headerText}>
                 <Text variant="title" color={colors.ink} accessibilityRole="header">
                   Daily transfer limit
                 </Text>
                 <Text variant="caption" color={colors.textSecondary}>
-                  Applies to transfers and bill payments each day
+                  Applies to outgoing transfers and bill payments
                 </Text>
               </View>
             </View>
 
             <View style={styles.limitAmountRow}>
               <AmountText
-                amountCentavos={limit}
+                amountCentavos={settings.daily_transfer_limit_centavos}
                 hidden={hideBalance}
-                variant="amount"
+                variant="title"
                 color={colors.ink}
                 showSign={false}
-                maxFontSizeMultiplier={1.4}
               />
             </View>
 
-            <View
-              style={styles.barTrack}
-              accessible
-              accessibilityLabel={`Daily limit ${usedPct} percent used`}
-            >
+            <View style={styles.barTrack}>
               <View
                 style={[
                   styles.barFill,
-                  { width: `${usedPct}%`, backgroundColor: barColor },
+                  {
+                    width: `${Math.min(
+                      100,
+                      Math.max(
+                        0,
+                        settings.daily_transfer_limit_centavos > 0
+                          ? (settings.spent_today_centavos /
+                              settings.daily_transfer_limit_centavos) *
+                              100
+                          : 0
+                      )
+                    )}%`,
+                    backgroundColor:
+                      settings.remaining_today_centavos <= 0
+                        ? colors.redText
+                        : colors.primary,
+                  },
                 ]}
               />
             </View>
 
             <View style={styles.metrics}>
               <View style={styles.metricRow}>
-                <Text variant="body" color={colors.textSecondary}>
+                <Text variant="caption" color={colors.textSecondary}>
                   Spent today
                 </Text>
                 <AmountText
-                  amountCentavos={spent}
+                  amountCentavos={settings.spent_today_centavos}
                   hidden={hideBalance}
-                  variant="bodyStrong"
-                  color={colors.ink}
+                  variant="caption"
+                  color={colors.textSecondary}
                   showSign={false}
-                  maxFontSizeMultiplier={1.4}
                 />
               </View>
               <View style={styles.metricRow}>
-                <Text variant="body" color={colors.textSecondary}>
+                <Text variant="caption" color={colors.textSecondary}>
                   Remaining today
                 </Text>
                 <AmountText
-                  amountCentavos={remaining}
+                  amountCentavos={settings.remaining_today_centavos}
                   hidden={hideBalance}
-                  variant="bodyStrong"
-                  color={remaining === 0 ? colors.redText : colors.primary}
+                  variant="caption"
+                  color={
+                    settings.remaining_today_centavos <= 0
+                      ? colors.redText
+                      : colors.textSecondary
+                  }
                   showSign={false}
-                  maxFontSizeMultiplier={1.4}
                 />
               </View>
             </View>
@@ -328,24 +627,22 @@ export function BantaySecurityScreen() {
             {isEditing ? (
               <View style={styles.editSection}>
                 <AmountInput
-                  label="New daily limit"
                   value={newLimitStr}
                   onChangeText={(val) => {
                     setNewLimitStr(val);
-                    if (inputError) setInputError(null);
+                    setInputError(null);
+                    setSaveError(null);
                   }}
-                  presetAmounts={LIMIT_PRESETS}
-                  helperText="₱1,000.00 to ₱500,000.00"
-                  error={inputError}
+                  error={inputError || undefined}
+                  presetChips={LIMIT_PRESETS}
                 />
 
                 {saveError ? (
                   <View style={styles.errorBanner}>
-                    <AlertCircle size={18} color={colors.redText} />
+                    <AlertCircle size={16} color={colors.redText} />
                     <Text
                       variant="caption"
                       color={colors.redText}
-                      accessibilityRole="alert"
                       style={styles.errorText}
                     >
                       {saveError}
@@ -353,7 +650,7 @@ export function BantaySecurityScreen() {
                   </View>
                 ) : null}
 
-                <StepUpSetupLink error={saveError} onClose={() => navigation.goBack()} />
+                <StepUpSetupLink error={saveError} onClose={() => setSaveError(null)} />
 
                 <View style={styles.editButtons}>
                   <Button
@@ -364,10 +661,10 @@ export function BantaySecurityScreen() {
                     style={styles.halfBtn}
                   />
                   <Button
-                    title={saving ? 'Saving…' : 'Save limit'}
+                    title="Save limit"
+                    variant="primary"
                     onPress={() => void guardSave(handleSaveLimit)}
                     loading={saving}
-                    disabled={!newLimitStr.trim()}
                     style={styles.halfBtn}
                   />
                 </View>
@@ -380,6 +677,88 @@ export function BantaySecurityScreen() {
               />
             )}
           </Card>
+
+          {/* Security Timeline (§1.3) */}
+          <View style={styles.section}>
+            <Text variant="title" color={colors.ink} accessibilityRole="header">
+              Security timeline
+            </Text>
+            {timeline.length === 0 ? (
+              <EmptyState
+                scrollable={false}
+                title="No security events yet"
+                description="Security events and alerts will appear here."
+              />
+            ) : (
+              <GroupedList>
+                {timeline.map((event, index) => {
+                  const explanation =
+                    event.explanation || bantayTemplate(event.kind, event.facts);
+                  const title = bantayEventTitle(event.kind);
+                  const time = formatEventTime(event.created_at);
+
+                  return (
+                    <React.Fragment key={event.id}>
+                      {index > 0 ? <ListHairline /> : null}
+                      <View style={styles.timelineRow}>
+                        <View style={styles.timelineHeader}>
+                          <View
+                            style={[
+                              groupedListStyles.disc,
+                              event.severity === 'high'
+                                ? styles.highSeverityDisc
+                                : styles.headerDisc,
+                            ]}
+                          >
+                            {renderTimelineIcon(event.kind)}
+                          </View>
+                          <View style={styles.timelineText}>
+                            <Text variant="bodyStrong" color={colors.ink}>
+                              {title}
+                            </Text>
+                            <Text variant="caption" color={colors.textSecondary}>
+                              {explanation}
+                            </Text>
+                            {time ? (
+                              <Text variant="caption" color={colors.textMuted}>
+                                {time}
+                              </Text>
+                            ) : null}
+                          </View>
+                          {event.status === 'confirmed_me' ? (
+                            <Badge label="Confirmed" variant="neutral" />
+                          ) : event.status === 'reported_not_me' ? (
+                            <Badge label="Reported" variant="danger" />
+                          ) : null}
+                        </View>
+
+                        {event.status === 'open' ? (
+                          <View style={styles.eventActions}>
+                            <Button
+                              title="This was me"
+                              variant="secondary"
+                              onPress={() =>
+                                void handleMarkEvent(event.id, 'confirmed_me')
+                              }
+                              accessibilityLabel={`This was me, ${title}`}
+                              style={styles.eventBtn}
+                            />
+                            <Button
+                              title="Not me"
+                              variant="destructive"
+                              onPress={() => handleReportNotMe(event)}
+                              accessibilityLabel={`Not me, ${title}`}
+                              style={styles.eventBtn}
+                            />
+                          </View>
+                        ) : null}
+                      </View>
+                    </React.Fragment>
+                  );
+                })}
+              </GroupedList>
+            )}
+          </View>
 
           {/* Protections Status Links */}
           <View style={styles.section}>
@@ -459,6 +838,7 @@ export function BantaySecurityScreen() {
           </View>
         </View>
       )}
+      {confirmSheet}
     </FeatureScreen>
   );
 }
@@ -473,6 +853,11 @@ const styles = StyleSheet.create({
   skeleton: {
     borderRadius: radius.md,
   },
+  statusCard: {
+    padding: spacing.lg,
+    borderRadius: radius.md,
+    gap: spacing.base,
+  },
   limitCard: {
     padding: spacing.lg,
     borderRadius: radius.md,
@@ -486,9 +871,21 @@ const styles = StyleSheet.create({
   headerDisc: {
     backgroundColor: colors.primaryTint,
   },
+  lockedDisc: {
+    backgroundColor: colors.tintRed,
+  },
+  highSeverityDisc: {
+    backgroundColor: colors.tintOrange,
+  },
   headerText: {
     flex: 1,
     gap: spacing.xs,
+  },
+  pendingLimitRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.xs,
   },
   limitAmountRow: {
     paddingTop: spacing.xs,
@@ -525,6 +922,13 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     backgroundColor: colors.tintRed,
   },
+  offlineBanner: {
+    padding: spacing.sm,
+    backgroundColor: colors.surfaceSubtle,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    marginBottom: spacing.xs,
+  },
   errorText: {
     flex: 1,
   },
@@ -537,5 +941,27 @@ const styles = StyleSheet.create({
   },
   rowText: {
     flex: 1,
+  },
+  timelineRow: {
+    padding: spacing.base,
+    gap: spacing.sm,
+  },
+  timelineHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.md,
+  },
+  timelineText: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  eventActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    paddingTop: spacing.xs,
+    paddingLeft: LIST_ICON_SIZE + spacing.md,
+  },
+  eventBtn: {
+    minHeight: 36,
   },
 });

@@ -1,4 +1,6 @@
 import { useConfirmSheet } from '../hooks/useConfirmSheet';
+import { useRiskChallenge } from '../hooks/useRiskChallenge';
+import { isConfirmationRequired } from '../hooks/usePhase8Contracts';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../App';
@@ -89,6 +91,7 @@ export function PaymentRequestsScreen() {
   // payment is a success; every other message is an error.
   const [statusKind, setStatusKind] = useState<'success' | 'error'>('error');
   const guardPay = useInFlightGuard();
+  const { triggerChallenge, challengeSheet } = useRiskChallenge();
   // Spec 7B.4: paying a request goes through the standard Review first.
   const [resultError, setResultError] = useState<unknown>(null);
   const [paymentResult, setPaymentResult] = useState<ResultResponse | null>(null);
@@ -204,6 +207,14 @@ export function PaymentRequestsScreen() {
       );
 
       if (error) {
+        if (isConfirmationRequired(error)) {
+          triggerChallenge({
+            idempotencyKey: key,
+            onRetry: () => void handlePay(req),
+            onCancel: () => setStatusMessage('Not authorized. Nothing was sent.'),
+          });
+          return false;
+        }
         setResultError(error);
         setStatusMessage(toUserMessage(error.message, sourceAcc.balance));
       } else {
@@ -216,6 +227,14 @@ export function PaymentRequestsScreen() {
         if (onPaymentSuccess) onPaymentSuccess();
       }
     } catch (err: any) {
+      if (isConfirmationRequired(err)) {
+        triggerChallenge({
+          idempotencyKey: key,
+          onRetry: () => void handlePay(req),
+          onCancel: () => setStatusMessage('Not authorized. Nothing was sent.'),
+        });
+        return false;
+      }
       setStatusMessage(toUserMessage(err?.message, sourceAcc.balance));
     } finally {
       setActionLoadingId(null);
@@ -715,6 +734,7 @@ export function PaymentRequestsScreen() {
       )}
       <StepUpSetupLink error={statusMessage} onClose={onClose} />
       {confirmSheet}
+      {challengeSheet}
     </FeatureScreen>
   );
 }

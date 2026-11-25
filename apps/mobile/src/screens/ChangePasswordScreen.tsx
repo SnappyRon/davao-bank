@@ -4,6 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors, spacing, radius, toUserMessage } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
+import { registerPasswordChangeRpc } from '../hooks/usePhase8Contracts';
 import { usePasswordPrompt, useTotpPrompt } from '../context/PasswordPromptContext';
 import { FeatureScreen, Text, TextField, Button, ResultView } from '../components';
 import type { RootStackParamList } from '../../App';
@@ -156,6 +157,11 @@ export function ChangePasswordScreen() {
       if (error) {
         stop(changePasswordErrorMessage(error));
         return;
+      }
+      try {
+        await registerPasswordChangeRpc();
+      } catch {
+        // Non-blocking
       }
       if (inFlight.current !== runId) return;
       inFlight.current = null;

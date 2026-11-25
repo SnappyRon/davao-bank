@@ -77,7 +77,12 @@ describe('BantaySecurityScreen', () => {
       data: { totp: [{ id: 'f-1', status: 'verified' }] },
       error: null,
     });
-    mockRpc.mockResolvedValue({ data: DEFAULT_SETTINGS, error: null });
+    mockRpc.mockImplementation((fn: string) => {
+      if (fn === 'get_security_timeline') {
+        return Promise.resolve({ data: [], error: null });
+      }
+      return Promise.resolve({ data: DEFAULT_SETTINGS, error: null });
+    });
   });
 
   it('shows loading skeleton while security settings are loading', async () => {
@@ -212,17 +217,30 @@ describe('BantaySecurityScreen', () => {
   });
 
   it('retries set_daily_limit with TOTP prompt when server returns STEP_UP_REQUIRED', async () => {
-    mockRpc
-      .mockResolvedValueOnce({ data: DEFAULT_SETTINGS, error: null })
-      .mockResolvedValueOnce({ data: null, error: { message: 'STEP_UP_REQUIRED' } })
-      .mockResolvedValueOnce({
-        data: {
-          daily_transfer_limit_centavos: 10_000_000,
-          spent_today_centavos: 500_000,
-          remaining_today_centavos: 9_500_000,
-        },
-        error: null,
-      });
+    let limitCallCount = 0;
+    mockRpc.mockImplementation((fn: string) => {
+      if (fn === 'get_security_settings') {
+        return Promise.resolve({ data: DEFAULT_SETTINGS, error: null });
+      }
+      if (fn === 'get_security_timeline') {
+        return Promise.resolve({ data: [], error: null });
+      }
+      if (fn === 'set_daily_limit') {
+        limitCallCount++;
+        if (limitCallCount === 1) {
+          return Promise.resolve({ data: null, error: { message: 'STEP_UP_REQUIRED' } });
+        }
+        return Promise.resolve({
+          data: {
+            daily_transfer_limit_centavos: 10_000_000,
+            spent_today_centavos: 500_000,
+            remaining_today_centavos: 9_500_000,
+          },
+          error: null,
+        });
+      }
+      return Promise.resolve({ data: null, error: null });
+    });
 
     await render(<BantaySecurityScreen />);
     await screen.findByText('₱50,000.00');
@@ -233,5 +251,256 @@ describe('BantaySecurityScreen', () => {
 
     await waitFor(() => expect(mockPromptTotp).toHaveBeenCalledTimes(1));
     expect(await screen.findByText('₱100,000.00')).toBeTruthy();
+  });
+
+  describe('Status card & Lock / Unlock flow (§1.1)', () => {
+    it('shows Protected status and allows locking account with confirmation', async () => {
+      mockRpc.mockImplementation((fn: string) => {
+        if (fn === 'get_security_settings') {
+          return Promise.resolve({
+            data: { ...DEFAULT_SETTINGS, locked: false },
+            error: null,
+          });
+        }
+        if (fn === 'get_security_timeline') {
+          return Promise.resolve({ data: [], error: null });
+        }
+        if (fn === 'lock_my_account') {
+          return Promise.resolve({ data: { success: true }, error: null });
+        }
+        return Promise.resolve({ data: null, error: null });
+      });
+
+      await render(<BantaySecurityScreen />);
+      expect(await screen.findByText('Protected')).toBeTruthy();
+      expect(screen.getByText('Outgoing transfers and bills are checked')).toBeTruthy();
+
+      // Press "Lock my account"
+      await fireEvent.press(screen.getByRole('button', { name: 'Lock my account' }));
+      // Confirm sheet appears with title "Lock account"
+      expect(screen.getAllByText('Lock account').length).toBeGreaterThanOrEqual(1);
+      expect(
+        screen.getByText(/Locked accounts can’t send or receive money/)
+      ).toBeTruthy();
+      await fireEvent.press(screen.getByRole('button', { name: 'Lock account' }));
+
+      await waitFor(() =>
+        expect(mockRpc).toHaveBeenCalledWith('lock_my_account', undefined)
+      );
+    });
+
+    it('shows Locked status and requests unlock', async () => {
+      mockRpc.mockImplementation((fn: string) => {
+        if (fn === 'get_security_settings') {
+          return Promise.resolve({
+            data: { ...DEFAULT_SETTINGS, locked: true, unlock_after: null },
+            error: null,
+          });
+        }
+        if (fn === 'get_security_timeline') {
+          return Promise.resolve({ data: [], error: null });
+        }
+        if (fn === 'request_unlock') {
+          return Promise.resolve({
+            data: {
+              ...DEFAULT_SETTINGS,
+              locked: true,
+              unlock_after: new Date(Date.now() + 3600000).toISOString(),
+            },
+            error: null,
+          });
+        }
+        return Promise.resolve({ data: null, error: null });
+      });
+
+      await render(<BantaySecurityScreen />);
+      expect(await screen.findByText('Account locked')).toBeTruthy();
+      expect(screen.getByText('Locked for outgoing money')).toBeTruthy();
+
+      const requestUnlockBtn = screen.getByRole('button', { name: 'Request unlock' });
+      await fireEvent.press(requestUnlockBtn);
+
+      await waitFor(() =>
+        expect(mockRpc).toHaveBeenCalledWith('request_unlock', undefined)
+      );
+    });
+
+    it('shows countdown when unlock_after is in future', async () => {
+      const futureDate = new Date(Date.now() + 1800000).toISOString(); // 30 mins
+      mockRpc.mockImplementation((fn: string) => {
+        if (fn === 'get_security_settings') {
+          return Promise.resolve({
+            data: { ...DEFAULT_SETTINGS, locked: true, unlock_after: futureDate },
+            error: null,
+          });
+        }
+        if (fn === 'get_security_timeline') {
+          return Promise.resolve({ data: [], error: null });
+        }
+        return Promise.resolve({ data: null, error: null });
+      });
+
+      await render(<BantaySecurityScreen />);
+      expect(await screen.findByText('Account locked')).toBeTruthy();
+      expect(screen.getByText(/You can unlock at/)).toBeTruthy();
+      const unlockBtn = screen.getByRole('button', { name: 'Unlock account' });
+      expect(unlockBtn.props.accessibilityState?.disabled).toBe(true);
+    });
+
+    it('shows ready status and completes unlock when unlock_after is past', async () => {
+      const pastDate = new Date(Date.now() - 60000).toISOString(); // 1 min ago
+      mockRpc.mockImplementation((fn: string) => {
+        if (fn === 'get_security_settings') {
+          return Promise.resolve({
+            data: { ...DEFAULT_SETTINGS, locked: true, unlock_after: pastDate },
+            error: null,
+          });
+        }
+        if (fn === 'get_security_timeline') {
+          return Promise.resolve({ data: [], error: null });
+        }
+        if (fn === 'complete_unlock') {
+          return Promise.resolve({
+            data: { ...DEFAULT_SETTINGS, locked: false, unlock_after: null },
+            error: null,
+          });
+        }
+        return Promise.resolve({ data: null, error: null });
+      });
+
+      await render(<BantaySecurityScreen />);
+      expect(await screen.findByText('Unlock request is ready')).toBeTruthy();
+      const unlockBtn = screen.getByRole('button', { name: 'Unlock account' });
+      expect(unlockBtn.props.accessibilityState?.disabled).toBe(false);
+
+      await fireEvent.press(unlockBtn);
+      await waitFor(() =>
+        expect(mockRpc).toHaveBeenCalledWith('complete_unlock', undefined)
+      );
+    });
+  });
+
+  describe('Security timeline & Event handling (§1.3)', () => {
+    const mockEvents = [
+      {
+        id: 'evt-1',
+        kind: 'new_device',
+        severity: 'high',
+        status: 'open',
+        explanation: 'Signed in from an unrecognized Android device in Davao City.',
+        facts: { device: 'Android', city: 'Davao City' },
+        created_at: new Date().toISOString(),
+      },
+      {
+        id: 'evt-2',
+        kind: 'risky_payment_challenged',
+        severity: 'medium',
+        status: 'open',
+        explanation: null, // template fallback test
+        facts: { amount_band: '5000_10000', payee_suffix: '1234' },
+        created_at: new Date().toISOString(),
+      },
+    ];
+
+    it('renders timeline with events and template fallback', async () => {
+      mockRpc.mockImplementation((fn: string) => {
+        if (fn === 'get_security_settings') {
+          return Promise.resolve({ data: DEFAULT_SETTINGS, error: null });
+        }
+        if (fn === 'get_security_timeline') {
+          return Promise.resolve({ data: mockEvents, error: null });
+        }
+        return Promise.resolve({ data: null, error: null });
+      });
+
+      await render(<BantaySecurityScreen />);
+      expect(await screen.findByText('Security timeline')).toBeTruthy();
+      expect(screen.getByText('New device sign-in')).toBeTruthy();
+      expect(
+        screen.getByText('Signed in from an unrecognized Android device in Davao City.')
+      ).toBeTruthy();
+
+      // Template fallback for event 2
+      expect(screen.getByText('Payment review required')).toBeTruthy();
+      expect(
+        screen.getByText(
+          /A payment of about ₱5,000–₱10,000 to •• 1234 needed extra confirmation/
+        )
+      ).toBeTruthy();
+    });
+
+    it('marks event as confirmed with "This was me"', async () => {
+      mockRpc.mockImplementation((fn: string, params?: any) => {
+        if (fn === 'get_security_settings') {
+          return Promise.resolve({ data: DEFAULT_SETTINGS, error: null });
+        }
+        if (fn === 'get_security_timeline') {
+          return Promise.resolve({ data: [mockEvents[0]], error: null });
+        }
+        if (fn === 'mark_event') {
+          expect(params).toEqual({
+            p_event_id: 'evt-1',
+            p_status: 'confirmed_me',
+          });
+          return Promise.resolve({ data: { success: true }, error: null });
+        }
+        return Promise.resolve({ data: null, error: null });
+      });
+
+      await render(<BantaySecurityScreen />);
+      await screen.findByText('New device sign-in');
+
+      const thisWasMeBtn = screen.getByRole('button', {
+        name: 'This was me, New device sign-in',
+      });
+      await fireEvent.press(thisWasMeBtn);
+
+      await waitFor(() =>
+        expect(mockRpc).toHaveBeenCalledWith('mark_event', {
+          p_event_id: 'evt-1',
+          p_status: 'confirmed_me',
+        })
+      );
+      expect(mockToastShow).toHaveBeenCalledWith('Confirmed as you');
+    });
+
+    it('marks event as not me and locks account', async () => {
+      mockRpc.mockImplementation((fn: string, params?: any) => {
+        if (fn === 'get_security_settings') {
+          return Promise.resolve({ data: DEFAULT_SETTINGS, error: null });
+        }
+        if (fn === 'get_security_timeline') {
+          return Promise.resolve({ data: [mockEvents[0]], error: null });
+        }
+        if (fn === 'mark_event') {
+          expect(params).toEqual({
+            p_event_id: 'evt-1',
+            p_status: 'reported_not_me',
+          });
+          return Promise.resolve({ data: { success: true }, error: null });
+        }
+        return Promise.resolve({ data: null, error: null });
+      });
+
+      await render(<BantaySecurityScreen />);
+      await screen.findByText('New device sign-in');
+
+      const notMeBtn = screen.getByRole('button', {
+        name: 'Not me, New device sign-in',
+      });
+      await fireEvent.press(notMeBtn);
+
+      // Confirm sheet appears
+      expect(screen.getByText('Report suspicious activity')).toBeTruthy();
+      await fireEvent.press(screen.getByRole('button', { name: 'Report & lock' }));
+
+      await waitFor(() =>
+        expect(mockRpc).toHaveBeenCalledWith('mark_event', {
+          p_event_id: 'evt-1',
+          p_status: 'reported_not_me',
+        })
+      );
+      expect(mockToastShow).toHaveBeenCalledWith('Reported activity');
+    });
   });
 });
