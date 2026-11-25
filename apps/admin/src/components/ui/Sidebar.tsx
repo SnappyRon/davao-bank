@@ -10,6 +10,8 @@ import {
   ArrowLeftRight,
   ClipboardList,
   CalendarClock,
+  CalendarDays,
+  FileText,
   Building2,
   LogOut,
   Menu,
@@ -40,6 +42,16 @@ export function Sidebar({ adminEmail, adminName }: SidebarProps) {
     { label: 'Accounts', href: '/accounts', icon: <CreditCard size={20} /> },
     { label: 'Transactions', href: '/transactions', icon: <ArrowLeftRight size={20} /> },
     { label: 'Schedules', href: '/schedules', icon: <CalendarClock size={20} /> },
+    {
+      label: 'Service requests',
+      href: '/service-requests',
+      icon: <FileText size={20} />,
+    },
+    {
+      label: 'Appointments',
+      href: '/appointments',
+      icon: <CalendarDays size={20} />,
+    },
     { label: 'Billers', href: '/billers', icon: <Building2 size={20} /> },
     { label: 'Audit log', href: '/audit', icon: <ClipboardList size={20} /> },
   ];

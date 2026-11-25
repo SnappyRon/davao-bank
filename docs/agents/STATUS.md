@@ -4,13 +4,13 @@
 
 ## Now
 
-- **Active phase:** Phase 7 + Phase 8/8.5/Phase 9 full app (`phase-8-integration`): all five captain branches merged — Bantay alerts + Kada art, 8.5 ops dashboard, FX converter, service requests and branch appointments.
-- **Branch:** `phase-8-integration`; merged all five branches with `--no-ff` in captain's order: bantay-alerts, 8.5 ops UI, 9 service requests, 9 appointments, 9 FX converter.
-- **Active prompt:** captain's full-build merge brief (final full suite after `npm ci`).
-- **Assigned to:** Backup Development Agent; merge each branch, run `npm run typecheck` and `npx jest` after each, keep migrations byte-identical and ordered, then run the full suite after `npm ci`.
-- **Exact next step:** commit the FX-converter merge, then `npm ci` and the full suite (typecheck, lint, format:check, jest, test:db, build:admin, check:copy); report `git log --oneline -7`.
-- **Last commit:** `Phase 8 · Merge — phase-9-fx-converter`.
-- **Blockers:** none locally. Device, Maestro, VoiceOver, hosted and Playwright/aal2 staff session checks NOT VERIFIED (owner/captain). Hosted alerts migration NOT APPLIED by this agent; captain reports the 8.5A migration is applied. `.env` symlinks untouched.
+- **Active phase:** Phase 9 · Stage 9F — admin service requests and appointments (isolated worktree `davao-bank-admin-services`).
+- **Branch:** `phase-9-admin-services`, based on `phase-8-integration` at `fc59513 Phase 8 · Merge — phase-9-fx-converter`. No push, no merge into another branch.
+- **Active prompt:** captain's Stage 9F brief for the admin service screens; spec `git show phase-9-services-spec:docs/specs/phase-9-more-services-spec.md`.
+- **Assigned to:** fe-opencode (OpenCode, Big Pickle); admin-only UI plus the mandatory `STATUS.md` and `PHASE9_REPORT.md` handoff files.
+- **Exact next step:** captain reviews this branch, then merges `phase-9-admin-services` into `phase-8-integration` (package ownership: only new admin service files, `Sidebar.tsx`, RTL tests and Playwright spec; no backend/migration/money edits).
+- **Last commit:** `Phase 9 · Stage 9F — Admin service requests and appointments` (hash reported to the captain in the final reply; report uses the repo-standard `(this commit)` notation).
+- **Blockers:** none locally. Playwright/aal2 staff session, real hosted RPC data, device and Maestro checks NOT VERIFIED — owner must supply `ADMIN_STORAGE_STATE`. Hosted database untouched; `.env` files only symlinked, never read.
 
 ## Stage 7B.0 — remaining work plan (captain, 2026-11-10)
 
@@ -434,3 +434,4 @@ Fix these before 7B:
 - **2026-11-08, Codex:** committed Stages A–D (`05f7f34`, `b4ca28e`, `d419a19`, `80b5699`). Started Stage E (helper and suite edits, uncommitted). Stopped: out of credits.
 - **2026-11-08, Owner:** chose TOTP plus biometrics, step-up on every outgoing money action, biometric app lock, and a separate Phase 6.5.
 - **2026-11-08, Claude Code:** iOS simulator UAT finished for Phase 6. The device fix `eb0cefb` was verified.
+- **2026-11-26, fe-opencode (Stage 9F):** implemented `/service-requests` and `/appointments` staff screens on `phase-9-admin-services` from `fc59513`: server-side aal2 session pages, shared read hook with aal2/offline/error/empty/skeleton states, status/type filters, branch/date filters, masked detail drawers, status change with staff note, `Simulation` labels, sidebar links. Reused the existing aal2 RPCs and UI primitives; no backend, migration, money engine, `.env` content or hosted access. Checks run in the worktree after `npm ci`: typecheck PASS, lint 0 errors / 63 pre-existing warnings, format PASS, `npx jest` 65 suites / 536 tests PASS, `check:copy` PASS (177 files), `build:admin` PASS with both new routes. Playwright spec `e2e/admin/admin-services.spec.ts` is skipped with `NOT VERIFIED — needs owner sign-in` (3 skipped) using a temporary no-webServer config because the default webServer timed out behind a port-3000 dev server; no owner storage state. Next: captain review and merge; owner supplies `ADMIN_STORAGE_STATE` for real aal2 Playwright evidence. See `PHASE9_REPORT.md`.
