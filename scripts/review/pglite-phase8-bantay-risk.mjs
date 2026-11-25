@@ -108,9 +108,47 @@ export async function runPhase8BantayRiskTests({ as, su, cust, bal, ok, U, A, B,
   const key2 = 'p8d-challenge-expired';
   const prepared2 = await cust(H, `select prepare_risk_challenge($1,$2,$3) p`, [RACC.id, 2000000, key2]);
   ok('8D challenge: second risky payment prepares a challenge', !prepared2.err && prepared2.rows?.[0]?.p?.challenge_required === true, prepared2.err || JSON.stringify(prepared2.rows?.[0]?.p));
-  await su(`update risk_challenges set expires_at=now()-interval '1 minute' where idempotency_key=$1`, [key2]);
+  await su(`update risk_challenges set expires_at=now()-interval '1 minute' where user_id=$1 and idempotency_key=$2`, [H, key2]);
   r = await cust(H, `select confirm_risky_payment($1)`, [key2]);
   ok('8D challenge: expired challenge is rejected', r.err === 'Challenge expired', r.err);
+
+  // QA fix: an expired row must be renewable with the same key. The money RPC
+  // refreshes it inside its (rolled-back) transaction and still asks to confirm;
+  // prepare_risk_challenge commits the refreshed row for the client.
+  r = await cust(H, `select transfer($1,$2,2000000,$3,'risky-expired')`, [HACC.id, RACC.id, key2]);
+  ok('8D challenge: money RPC on expired key asks to confirm again', r.err === 'Confirmation required', r.err);
+  const refreshed = await cust(H, `select prepare_risk_challenge($1,$2,$3) p`, [RACC.id, 2000000, key2]);
+  ok('8D challenge: re-preparing an expired key raises a fresh challenge',
+    !refreshed.err && refreshed.rows?.[0]?.p?.challenge_required === true &&
+      Number(refreshed.rows?.[0]?.p?.score) >= 70,
+    refreshed.err || JSON.stringify(refreshed.rows?.[0]?.p));
+  const renewed = (await su(`select score, expires_at>now() as fresh, confirmed_at from risk_challenges where user_id=$1 and idempotency_key=$2`, [H, key2]))[0];
+  ok('8D challenge: refreshed row has a future expiry and cleared confirmation',
+    renewed?.fresh === true && renewed.confirmed_at === null && Number(renewed.score) >= 70,
+    JSON.stringify(renewed));
+  r = await cust(H, `select confirm_risky_payment($1)`, [key2]);
+  ok('8D challenge: refreshed challenge confirms', !r.err && r.rows?.[0]?.confirm_risky_payment?.ok === true, r.err || JSON.stringify(r.rows));
+  r = await cust(H, `select transfer($1,$2,2000000,$3,'risky-refresh') t`, [HACC.id, RACC.id, key2]);
+  ok('8D challenge: payment with the refreshed key succeeds',
+    !r.err && (await bal(HACC.id)) === 1000000, r.err || String(await bal(HACC.id)));
+
+  // QA fix: keys are scoped per user. R never sees H's already-confirmed key1
+  // challenge, even though both rows can use the same idempotency key.
+  await su(`insert into security_events(user_id,kind,severity) values($1,'password_changed','warning')`, [R]);
+  const crossUser = await cust(R, `select prepare_risk_challenge($1,$2,$3) p`, [A.id, 2000000, key1]);
+  ok('8D challenge: another user reusing a confirmed key gets a fresh challenge',
+    !crossUser.err && crossUser.rows?.[0]?.p?.challenge_required === true &&
+      Number(crossUser.rows?.[0]?.p?.score) >= 70,
+    crossUser.err || JSON.stringify(crossUser.rows?.[0]?.p));
+  const shared = await su(`select user_id, confirmed_at from risk_challenges where idempotency_key=$1 order by user_id`, [key1]);
+  ok('8D challenge: the same key is stored separately per user',
+    shared.length === 2 &&
+      shared.some(x => x.user_id === H && x.confirmed_at !== null) &&
+      shared.some(x => x.user_id === R && x.confirmed_at === null),
+    JSON.stringify(shared));
+  // Money idempotency keys are global, so a second customer reusing key1 at the
+  // money RPC would short-circuit as a replay before the risk guard. Scoping is
+  // therefore verified at the challenge layer above (prepare + stored rows).
 
   // ---- 3. Lock, cron failure and unlock -------------------------------------------
   const L = '99999999-9999-9999-9999-999999999999';

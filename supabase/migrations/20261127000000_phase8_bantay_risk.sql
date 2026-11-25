@@ -63,12 +63,15 @@ create table public.device_sessions (
 create table public.risk_challenges (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles(id) on delete cascade,
-  idempotency_key text not null unique,
+  idempotency_key text not null,
   score int not null check (score between 0 and 100),
   facts jsonb not null default '{}'::jsonb,
   expires_at timestamptz not null,
   confirmed_at timestamptz null,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  -- A key is unique per customer, never across customers: another user's
+  -- confirmed challenge must not satisfy this customer's money RPC guard.
+  unique (user_id, idempotency_key)
 );
 
 create table public.trusted_payees (
@@ -195,6 +198,7 @@ create or replace function public._bantay_band(p_score int)
 returns text
 language sql
 immutable
+set search_path = ''
 as $$
   select case
     when p_score is null then 'allow'
@@ -216,6 +220,7 @@ create or replace function public._schedule_risk_key(
 returns text
 language sql
 immutable
+set search_path = ''
 as $$
   select 'plan:' || coalesce(p_user_id::text, '') || ':' || coalesce(p_kind, '') ||
     ':' || coalesce(p_target::text, '') || ':' || coalesce(p_amount::text, '') ||
@@ -555,6 +560,8 @@ declare
   v_facts jsonb;
   v_score int;
   v_band text;
+  v_challenge public.risk_challenges%rowtype;
+  v_exists boolean;
 begin
   -- pg_cron calls _transfer_core with no JWT: risk is scored at schedule creation.
   if auth.uid() is null or p_user_id is null or p_amount is null or p_amount <= 0 then
@@ -584,19 +591,33 @@ begin
   end if;
 
   if v_band = 'challenge' then
-    if exists (
-      select 1 from public.risk_challenges
-      where user_id = p_user_id
-        and idempotency_key = p_idempotency_key
-        and confirmed_at is not null
-        and expires_at > now()
-    ) then
-      return;
-    end if;
+    -- A key used by another customer is never this customer's confirmation.
+    select * into v_challenge
+    from public.risk_challenges
+    where user_id = p_user_id and idempotency_key = p_idempotency_key;
+    v_exists := found;
 
-    if not exists (
-      select 1 from public.risk_challenges where idempotency_key = p_idempotency_key
-    ) then
+    if v_exists then
+      if v_challenge.confirmed_at is not null and v_challenge.expires_at > now() then
+        return;
+      end if;
+
+      -- An expired row must be renewable with the same key, otherwise the
+      -- customer is stuck with "Challenge expired" forever. Refreshing clears
+      -- any stale confirmation, so a fresh aal2 confirmation is still required.
+      if v_challenge.expires_at <= now() then
+        update public.risk_challenges
+        set score = v_score,
+            facts = v_facts,
+            expires_at = now() + interval '30 minutes',
+            confirmed_at = null
+        where id = v_challenge.id;
+
+        perform public._bantay_event(
+          p_user_id, 'risky_payment_challenged', 'high', v_score, v_facts
+        );
+      end if;
+    else
       insert into public.risk_challenges
         (user_id, idempotency_key, score, facts, expires_at)
       values
@@ -634,6 +655,8 @@ declare
   v_facts jsonb;
   v_score int;
   v_band text;
+  v_challenge public.risk_challenges%rowtype;
+  v_exists boolean;
 begin
   if v_caller_id is null then
     raise exception 'Authentication required';
@@ -650,13 +673,13 @@ begin
     'to_account_id', p_to_account
   );
 
-  if exists (
-    select 1 from public.risk_challenges
-    where user_id = v_caller_id
-      and idempotency_key = p_idempotency_key
-      and confirmed_at is not null
-      and expires_at > now()
-  ) then
+  -- Scope the lookup to this caller; never borrow another user's confirmation.
+  select * into v_challenge
+  from public.risk_challenges
+  where user_id = v_caller_id and idempotency_key = p_idempotency_key;
+  v_exists := found;
+
+  if v_exists and v_challenge.confirmed_at is not null and v_challenge.expires_at > now() then
     return jsonb_build_object(
       'challenge_required', false, 'score', v_score, 'facts', v_facts,
       'idempotency_key', p_idempotency_key
@@ -664,9 +687,7 @@ begin
   end if;
 
   if v_band = 'challenge' then
-    if not exists (
-      select 1 from public.risk_challenges where idempotency_key = p_idempotency_key
-    ) then
+    if not v_exists then
       insert into public.risk_challenges
         (user_id, idempotency_key, score, facts, expires_at)
       values
@@ -678,6 +699,23 @@ begin
       perform public.write_audit(
         'risk_challenge_created', 'risk_challenges', p_idempotency_key,
         jsonb_build_object('score', v_score, 'band', v_band)
+      );
+    elsif v_challenge.expires_at <= now() then
+      -- Re-preparing with the same key renews the challenge; confirmation is
+      -- cleared so the customer must pass aal2 step-up again.
+      update public.risk_challenges
+      set score = v_score,
+          facts = v_facts,
+          expires_at = now() + interval '30 minutes',
+          confirmed_at = null
+      where id = v_challenge.id;
+
+      perform public._bantay_event(
+        v_caller_id, 'risky_payment_challenged', 'high', v_score, v_facts
+      );
+      perform public.write_audit(
+        'risk_challenge_refreshed', 'risk_challenges', p_idempotency_key,
+        jsonb_build_object('score', v_score, 'band', v_band, 'refreshed', true)
       );
     end if;
 

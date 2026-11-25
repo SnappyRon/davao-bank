@@ -142,3 +142,48 @@ The DB run includes all 166 pre-existing checks plus the new score/challenge/loc
 - Hosted Supabase auth internals: `npx supabase db query --linked --read-only "select extname from pg_extension order by extname"` returned `ProjectRefNotLinkedError: Cannot find project ref. Have you run supabase link?` in this worktree. I could not inspect or write hosted `auth.sessions`, `auth.refresh_tokens` or `auth.mfa_factors`; the lock and trigger code is written against the documented Supabase Auth schema, guarded with `to_regclass`/exception handling, and its hosted behaviour is **NOT VERIFIED**. No hosted writes were attempted.
 - No hosted migration was applied and `.env` was never read or printed; `test:bantay`/Playwright/live auth flows remain for the reviewer.
 - Actual session revocation after `lock_my_account` and the real MFA trigger installation depend on hosted privileges and are NOT VERIFIED locally.
+
+## QA fix round — `182505a` (expired / cross-user risk challenges)
+
+Implemented the accepted Medium finding in the **unapplied** migration `20261127000000_phase8_bantay_risk.sql` (no applied migration was edited):
+
+- `risk_challenges` now has `unique (user_id, idempotency_key)` instead of a global unique key. The same key can belong to two different customers without one borrowing the other's confirmation.
+- `assert_payment_risk` and `prepare_risk_challenge` now look up challenges by `(p_user_id/user_id, idempotency_key)`. A confirmed, unexpired row still short-circuits for that same customer only.
+- An expired row is now **renewed with the same key**: `score`, `facts` and `expires_at` are refreshed and `confirmed_at` is cleared, so a fresh aal2 confirmation is required. This also covers a row that was confirmed but expired before the money RPC ran, which previously stayed stuck at `Challenge expired`.
+- Because PostgreSQL rolls back writes made before `RAISE`, the renewal inside `assert_payment_risk` is not committed; the client must call `prepare_risk_challenge(key)` again. That RPC commits the renewal and writes a `risk_challenge_refreshed` audit row (new rows in the money RPC still produce 'Confirmation required' as before).
+- D12 is untouched: `_transfer_core`, `withdraw`, `create_scheduled_payment` and `create_scheduled_transfer_to_number` keep exactly the same guard lines from `182505a`. `run_due_scheduled_payments` and the ledger are unchanged.
+- Info finding applied: `set search_path = ''` added to `_bantay_band` and `_schedule_risk_key` for uniformity.
+
+**Captain decision recorded:** `prepare_risk_challenge` and the `risky_payment_warning` event kind are **ratified as contract additions** to 8D; both are kept. Warning-band events continue to use `kind = 'risky_payment_warning'` with `severity = 'warning'`.
+
+New PGlite cases in `scripts/review/pglite-phase8-bantay-risk.mjs`:
+
+- expired key → `confirm_risky_payment` still returns `Challenge expired` → money RPC returns `Confirmation required` → re-prepare returns a fresh challenge with a future expiry and cleared confirmation → confirm succeeds → payment with the same key succeeds;
+- another customer reusing an already-confirmed key gets their own unconfirmed challenge, and two separate rows exist for the same key;
+- an initial attempt to exercise the cross-user case through the money RPC was removed because money idempotency keys are global by design (`transactions.idempotency_key`), so the second customer's call short-circuits as a replay before the risk guard. Scoping is verified at the challenge layer instead.
+
+Checks after the fix (real output):
+
+```
+$ npm run typecheck
+(exit 0; admin, mobile and shared tsc --noEmit all clean)
+
+$ npm run lint
+✖ 63 problems (0 errors, 63 warnings)
+
+$ npm run format:check
+Checking formatting...
+All matched files use Prettier code style!
+
+$ npm run test:unit
+Test Suites: 38 passed, 38 total
+Tests:       334 passed, 334 total
+Snapshots:   0 total
+Time:        6.662 s
+Ran all test suites in 3 projects.
+
+$ npm run test:db
+242 passed, 0 failed
+```
+
+Intermediate `test:db` run was `242 passed, 1 failed` (the invalid cross-user money-RPC assertion described above); it was replaced with the challenge-layer assertions and the final run above is clean. Hosted verification remains NOT VERIFIED for the reasons recorded earlier; no hosted access was used in this fix round.
