@@ -131,7 +131,8 @@ const EVENT_LABELS: Record<string, string> = {
 
 export function eventTitle(kind: string): string {
   return (
-    EVENT_LABELS[kind] || kind.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase())
+    EVENT_LABELS[kind] ||
+    kind.replace(/_/g, ' ').replace(/^./, (c) => c.charAt(0).toUpperCase())
   );
 }
 

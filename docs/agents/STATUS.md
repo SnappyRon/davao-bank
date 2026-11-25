@@ -8,8 +8,8 @@
 - **Branch:** `phase-8.5-ops-ui` (worktree `davao-bank-ops-ui`); 8.5A backend merged as `54b1e11`.
 - **Active prompt:** Stage 8.5B — live operations dashboard backed only by real 8.5A RPCs/tables.
 - **Assigned to:** Codex; implement dashboard, Jest/RTL coverage, NOT VERIFIED Playwright coverage, then run all checks and commit.
-- **Exact next step:** commit the out-of-scope Activity test mock fix, then run full checks and commit Stage 8.5B by file name.
-- **Last commit:** `Phase 8 · Merge — 8.5A backend` (`54b1e11`); the Activity test mock fix is uncommitted here.
+- **Exact next step:** commit the out-of-scope copy-check fix, then commit Stage 8.5B by file name and report real check output.
+- **Last commit:** `Phase 7 · Fix — Activity test mock for useRoute` (`faad42f`); the copy-check fix is uncommitted here.
 - **Blockers:** Playwright, hosted Supabase and device checks NOT VERIFIED (owner sign-in/captain only). No `.env` read, no hosted writes.
 
 ## Stage 7B.0 — remaining work plan (captain, 2026-11-10)
@@ -261,6 +261,8 @@ Fix these before 7B:
 - **Follow-up:** add dedicated test accounts so live tests don't conflict with the presenter's real authenticator.
 
 ## Log (newest first)
+
+- **2026-11-26, Codex:** full checks after the Activity test fix: `npx jest` PASS (61 suites, 500 tests), `npm run build:admin` exit 0. `npm run check:copy` found a pre-existing violation in `apps/admin/src/lib/securityCases.ts:134` (`eventTitle` fallback used bare `.toUpperCase()`). Out-of-scope fix: use the checker-approved `c.charAt(0).toUpperCase()` form (same sentence-case output); rerun `npm run check:copy` PASS across 167 files. Stage 8.5B code remains uncommitted. No `.env`, hosted DB, push or money/step-up changes.
 
 - **2026-11-26, Codex:** took over Stage 8.5B on worktree `davao-bank-ops-ui` (`phase-8.5-ops-ui`, base `54b1e11`). Out-of-scope fix found by the full Jest run: `monthly_summary_screen.test.tsx` mocked `@react-navigation/native` without `useRoute`, so the `728567a` Activity account-filter change crashed it. Added `useRoute: () => ({ params: undefined })` only to that test; targeted rerun `npx jest --selectProjects mobile --runInBand apps/mobile/src/__tests__/monthly_summary_screen.test.tsx` PASS (1 suite, 6 tests). Stage 8.5B dashboard code remains uncommitted; next step is full checks and the stage commit. No `.env`, hosted DB, push or money/step-up changes.
 
