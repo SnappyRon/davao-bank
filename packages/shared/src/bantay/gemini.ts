@@ -116,6 +116,60 @@ export function isSafeExplanation(text: string): boolean {
   return true;
 }
 
+function amountBandRange(facts: PromptFacts): { min: number; max: number } | null {
+  switch (facts.amount_band) {
+    case 'under_1000':
+      return { min: 0, max: 100_000 };
+    case '1000_5000':
+      return { min: 100_000, max: 500_000 };
+    case '5000_10000':
+      return { min: 500_000, max: 1_000_000 };
+    case 'over_10000':
+      return { min: 1_000_000, max: Number.POSITIVE_INFINITY };
+    default:
+      return null;
+  }
+}
+
+function extractMoneyAmounts(text: string): number[] {
+  const matches = text.matchAll(/₱\s*([0-9][0-9,]*(?:\.[0-9]+)?)/gi);
+  return Array.from(matches, (match) => Number(match[1]?.replace(/,/g, '')));
+}
+
+function extractAccountSuffixes(text: string): string[] {
+  return Array.from(text.matchAll(/\u2022{2}\s*(\d{4})/g), (match) => match[1]);
+}
+
+function extractNumbers(text: string): number[] {
+  return Array.from(text.matchAll(/\b(\d+)(?:\.\d+)?\b/g), (match) => Number(match[1]));
+}
+
+function isAllowedAmount(amount: number, facts: PromptFacts): boolean {
+  const range = amountBandRange(facts);
+  return range !== null && amount > 0 && amount >= range.min && amount < range.max;
+}
+
+function isAllowedNumber(value: number, facts: PromptFacts): boolean {
+  if (isAllowedAmount(value, facts)) return true;
+  return facts.payee_suffix !== 'none' && value >= 0 && value < 10000;
+}
+
+/** Reject invented amounts, account endings and dates unless they match masked facts. */
+export function isValidExplanationForFacts(text: string, facts: PromptFacts): boolean {
+  if (!text) return false;
+  if (extractMoneyAmounts(text).some((amount) => !isAllowedAmount(amount, facts)))
+    return false;
+  const suffixes = extractAccountSuffixes(text);
+  if (suffixes.length > 0 && facts.payee_suffix === 'none') return false;
+  if (
+    facts.payee_suffix !== 'none' &&
+    suffixes.some((suffix) => suffix !== facts.payee_suffix)
+  )
+    return false;
+  if (text.match(/\b\d{4}-\d{2}-\d{2}\b/)) return false;
+  return extractNumbers(text).every((value) => isAllowedNumber(value, facts));
+}
+
 /**
  * Ask Gemini for a plain-language explanation. Every failure mode returns the
  * template; the raw model or network error is never exposed.
@@ -143,7 +197,13 @@ export async function explainBantayEvent(
     if (!response.ok) return fallback;
 
     const text = extractGeminiText(await response.json());
-    if (!text || !isSafeExplanation(text)) return fallback;
+    if (
+      !text ||
+      !isSafeExplanation(text) ||
+      !isValidExplanationForFacts(text, options.facts)
+    ) {
+      return fallback;
+    }
     return { explanation: text, explanation_source: 'ai' };
   } catch {
     return fallback;

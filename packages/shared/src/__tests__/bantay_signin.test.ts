@@ -4,6 +4,7 @@ import {
   hmacSha256,
   normalizeSigninIdentifier,
   shouldEmitSigninEvent,
+  SIGNIN_FAILURE_THRESHOLD,
   SIGNIN_SIGNAL_RESPONSE,
   type SigninDigest,
 } from '../bantay/signin';
@@ -83,6 +84,7 @@ describe('Bantay sign-in signal helpers', () => {
   });
 
   it('uses 5 failures in 15 minutes for either bucket', () => {
+    expect(SIGNIN_FAILURE_THRESHOLD).toBe(5);
     expect(shouldEmitSigninEvent(4, 4)).toBe(false);
     expect(shouldEmitSigninEvent(5, 0)).toBe(true);
     expect(shouldEmitSigninEvent(0, 5)).toBe(true);
