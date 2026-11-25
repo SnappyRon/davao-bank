@@ -166,7 +166,7 @@ revoke all on function public._validate_service_request_details(text, jsonb)
 create or replace function public._generate_service_reference()
 returns text
 language sql
-immutable
+volatile
 set search_path = ''
 as $$
   select 'DB-' ||
@@ -176,6 +176,11 @@ $$;
 
 revoke all on function public._generate_service_reference()
   from public, anon, authenticated;
+
+-- Unique constraint on reference to prevent duplicates
+alter table public.service_requests
+  add constraint service_requests_reference_key
+  unique (reference);
 
 -- ------------------------------------------------------------------------------
 -- 5. Helper: send notification on status change
@@ -259,22 +264,36 @@ begin
   perform public._validate_service_request_details(p_type, p_details);
 
   -- Rate limit: max 10 requests per user per day (Philippine Time)
+  -- Compute day window in Asia/Manila to avoid UTC shift
   select count(*)::int into v_daily_count
   from public.service_requests
   where user_id = v_caller_id
-    and created_at >= (now() at time zone 'Asia/Manila')::date::timestamptz;
+    and created_at >= (
+      (now() at time zone 'Asia/Manila')::date
+      at time zone 'Asia/Manila'
+    );
 
   if v_daily_count >= 10 then
     raise exception 'Daily service request limit reached (maximum 10 requests per day)';
   end if;
 
-  -- Generate reference
-  v_reference := public._generate_service_reference();
+  -- Generate reference with retry on collision (unique constraint)
+  for i in 1..5 loop
+    v_reference := public._generate_service_reference();
+    begin
+      insert into public.service_requests (user_id, type, details, reference)
+      values (v_caller_id, p_type, p_details, v_reference)
+      returning id into v_request_id;
+      exit;
+    exception when unique_violation then
+      -- Retry with new reference
+      continue;
+    end;
+  end loop;
 
-  -- Insert request
-  insert into public.service_requests (user_id, type, details, reference)
-  values (v_caller_id, p_type, p_details, v_reference)
-  returning id into v_request_id;
+  if v_request_id is null then
+    raise exception 'Failed to generate unique reference after retries';
+  end if;
 
   -- Audit log
   perform public.write_audit(
@@ -399,7 +418,7 @@ grant execute on function public.cancel_service_request(uuid) to authenticated;
 
 -- ------------------------------------------------------------------------------
 -- 9. Admin RPC: admin_list_service_requests
---    aal2 + is_admin required, audit_logs row
+--    aal2 + is_admin required (read-only, no audit)
 -- ------------------------------------------------------------------------------
 create or replace function public.admin_list_service_requests(
   p_status text default null
