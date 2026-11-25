@@ -8,3 +8,5 @@ import type { ImageSourcePropType } from 'react-native';
 export const MASCOT_EMPTY: ImageSourcePropType = require('../../assets/illustrations/duri-empty-state.png');
 export const MASCOT_ERROR: ImageSourcePropType = require('../../assets/illustrations/duri-error-state.png');
 export const MASCOT_NOT_FOUND: ImageSourcePropType = require('../../assets/illustrations/kada-not-found.png');
+/** Interim Bantay face: Kada with the '?' removed. Decorative only. */
+export const MASCOT_BANTAY: ImageSourcePropType = require('../../assets/illustrations/bantay-kada.png');

@@ -194,6 +194,21 @@ export async function fetchSecurityTimeline(limit = 50): Promise<{
   return { data: rows as SecurityEvent[], error: null };
 }
 
+/** Whether the caller has an unresolved high-severity Bantay event. */
+export async function fetchHasOpenHighSecurityEvent(): Promise<boolean> {
+  try {
+    const { data, error } = await supabase
+      .from('security_events')
+      .select('id')
+      .eq('severity', 'high')
+      .eq('status', 'open')
+      .limit(1);
+    return !error && Array.isArray(data) && data.length > 0;
+  } catch {
+    return false;
+  }
+}
+
 export async function markEventRpc(
   eventId: string,
   status: 'confirmed_me' | 'reported_not_me'

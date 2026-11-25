@@ -273,7 +273,10 @@ describe('BantaySecurityScreen', () => {
 
       await render(<BantaySecurityScreen />);
       expect(await screen.findByText('Protected')).toBeTruthy();
-      expect(screen.getByText('Outgoing transfers and bills are checked')).toBeTruthy();
+      expect(screen.getByText('Bantay is watching your account')).toBeTruthy();
+      expect(
+        screen.getAllByText('Outgoing transfers and bills are checked').length
+      ).toBeGreaterThanOrEqual(1);
 
       // Press "Lock my account"
       await fireEvent.press(screen.getByRole('button', { name: 'Lock my account' }));
@@ -315,7 +318,10 @@ describe('BantaySecurityScreen', () => {
 
       await render(<BantaySecurityScreen />);
       expect(await screen.findByText('Account locked')).toBeTruthy();
-      expect(screen.getByText('Locked for outgoing money')).toBeTruthy();
+      expect(screen.getByText('Bantay is guarding your locked account')).toBeTruthy();
+      expect(
+        screen.getAllByText('Locked for outgoing money').length
+      ).toBeGreaterThanOrEqual(1);
 
       const requestUnlockBtn = screen.getByRole('button', { name: 'Request unlock' });
       await fireEvent.press(requestUnlockBtn);
@@ -342,7 +348,7 @@ describe('BantaySecurityScreen', () => {
 
       await render(<BantaySecurityScreen />);
       expect(await screen.findByText('Account locked')).toBeTruthy();
-      expect(screen.getByText(/You can unlock at/)).toBeTruthy();
+      expect(screen.getAllByText(/You can unlock at/).length).toBeGreaterThanOrEqual(1);
       const unlockBtn = screen.getByRole('button', { name: 'Unlock account' });
       expect(unlockBtn.props.accessibilityState?.disabled).toBe(true);
     });
@@ -369,7 +375,9 @@ describe('BantaySecurityScreen', () => {
       });
 
       await render(<BantaySecurityScreen />);
-      expect(await screen.findByText('Unlock request is ready')).toBeTruthy();
+      expect(
+        screen.getAllByText('Unlock request is ready').length
+      ).toBeGreaterThanOrEqual(1);
       const unlockBtn = screen.getByRole('button', { name: 'Unlock account' });
       expect(unlockBtn.props.accessibilityState?.disabled).toBe(false);
 

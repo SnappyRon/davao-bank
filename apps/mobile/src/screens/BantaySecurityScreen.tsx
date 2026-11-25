@@ -1,5 +1,5 @@
 import React, { useCallback, useRef, useState } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, Image, StyleSheet } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
@@ -24,6 +24,7 @@ import {
   phpToCentavos,
 } from '@davao-bank/shared';
 import type { RootStackParamList } from '../../App';
+import { MASCOT_BANTAY } from '../assets/illustrations';
 import { supabase } from '../lib/supabase';
 import { useAppLock } from '../context/AppLockContext';
 import { useSettings } from '../context/SettingsContext';
@@ -217,6 +218,7 @@ export function BantaySecurityScreen() {
   const handleLockAccount = () => {
     showConfirmation({
       title: 'Lock account',
+      image: MASCOT_BANTAY,
       message:
         'Locked accounts can’t send or receive money until they are unlocked. Scheduled payments pause while locked.',
       confirmLabel: 'Lock account',
@@ -425,6 +427,19 @@ export function BantaySecurityScreen() {
   const isLocked = Boolean(settings?.locked);
   const unlockAfterDate = settings?.unlock_after ? new Date(settings.unlock_after) : null;
   const isUnlockReady = unlockAfterDate ? unlockAfterDate.getTime() <= Date.now() : false;
+  // The mascot is decorative; these live lines carry the state (spec §2.1).
+  const heroLine = isLocked
+    ? 'Bantay is guarding your locked account'
+    : 'Bantay is watching your account';
+  const heroSubline = isLocked
+    ? unlockAfterDate
+      ? isUnlockReady
+        ? 'Unlock request is ready'
+        : `You can unlock at ${formatEventTime(settings?.unlock_after || '')}`
+      : 'Locked for outgoing money'
+    : settings?.pending_limit_centavos
+      ? 'Limit change pending · Applies 12 h from request'
+      : 'Outgoing transfers and bills are checked';
 
   return (
     <FeatureScreen title="Bantay security center" onBack={() => navigation.goBack()}>
@@ -473,6 +488,24 @@ export function BantaySecurityScreen() {
         </View>
       ) : (
         <View style={styles.content}>
+          {/* Mascot hero (spec §2.1). Static image, no animation. */}
+          <View style={styles.heroRow}>
+            <Image
+              source={MASCOT_BANTAY}
+              style={styles.heroImage}
+              accessible={false}
+              resizeMode="contain"
+            />
+            <View style={styles.heroText}>
+              <Text variant="title" color={colors.ink} accessibilityRole="header">
+                {heroLine}
+              </Text>
+              <Text variant="caption" color={colors.textSecondary}>
+                {heroSubline}
+              </Text>
+            </View>
+          </View>
+
           {/* Status Card (§1.1) */}
           <Card style={styles.statusCard}>
             <View style={styles.cardHeader}>
@@ -712,6 +745,14 @@ export function BantaySecurityScreen() {
                           >
                             {renderTimelineIcon(event.kind)}
                           </View>
+                          {explanation ? (
+                            <Image
+                              source={MASCOT_BANTAY}
+                              style={styles.timelineAvatar}
+                              accessible={false}
+                              resizeMode="contain"
+                            />
+                          ) : null}
                           <View style={styles.timelineText}>
                             <Text variant="bodyStrong" color={colors.ink}>
                               {title}
@@ -847,6 +888,19 @@ const styles = StyleSheet.create({
   content: {
     gap: spacing.xl,
   },
+  heroRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.base,
+  },
+  heroImage: {
+    width: 120,
+    height: 120,
+  },
+  heroText: {
+    flex: 1,
+    gap: spacing.xs,
+  },
   section: {
     gap: spacing.md,
   },
@@ -950,6 +1004,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: spacing.md,
+  },
+  timelineAvatar: {
+    width: 24,
+    height: 24,
   },
   timelineText: {
     flex: 1,

@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef } from 'react';
-import { View, StyleSheet, ScrollView, RefreshControl } from 'react-native';
+import { View, Image, StyleSheet, ScrollView, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -15,7 +15,6 @@ import {
   QrCode,
   Inbox,
   User,
-  Lock,
 } from 'lucide-react-native';
 import {
   colors,
@@ -34,7 +33,11 @@ import {
   type ScheduledPayment,
 } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
-import { fetchSecuritySettings } from '../hooks/usePhase8Contracts';
+import {
+  fetchHasOpenHighSecurityEvent,
+  fetchSecuritySettings,
+} from '../hooks/usePhase8Contracts';
+import { MASCOT_BANTAY } from '../assets/illustrations';
 import { reportNetworkResult } from '../lib/networkStatus';
 import { useSettings } from '../context/SettingsContext';
 import {
@@ -94,6 +97,7 @@ export function HomeScreen({
   const insets = useSafeAreaInsets();
   const toast = useToast();
   const [isLocked, setIsLocked] = useState(false);
+  const [hasHighAlert, setHasHighAlert] = useState(false);
 
   const handleActionTilePress = (screen: keyof RootStackParamList) => {
     if (isLocked) {
@@ -145,18 +149,21 @@ export function HomeScreen({
       }
 
       try {
-        const [profileRes, accountsRes, txRes, savedHomeId, secRes] = await Promise.all([
-          fetchUserProfile(supabase, userId),
-          fetchAccountBalances(supabase),
-          fetchTransactionHistory(supabase),
-          SecureStore.getItemAsync(SHOW_ON_HOME_ACCOUNT_KEY).catch(() => null),
-          fetchSecuritySettings().catch(() => ({ data: null, error: null })),
-        ]);
+        const [profileRes, accountsRes, txRes, savedHomeId, secRes, highAlert] =
+          await Promise.all([
+            fetchUserProfile(supabase, userId),
+            fetchAccountBalances(supabase),
+            fetchTransactionHistory(supabase),
+            SecureStore.getItemAsync(SHOW_ON_HOME_ACCOUNT_KEY).catch(() => null),
+            fetchSecuritySettings().catch(() => ({ data: null, error: null })),
+            fetchHasOpenHighSecurityEvent(),
+          ]);
         if (secRes?.data?.locked) {
           setIsLocked(true);
         } else {
           setIsLocked(false);
         }
+        if (isCurrent()) setHasHighAlert(highAlert);
         if (!isCurrent()) return;
 
         reportNetworkResult(accountsRes.error || txRes.error || profileRes.error);
@@ -273,6 +280,14 @@ export function HomeScreen({
     setAccountPickerVisible(false);
   };
 
+  // One calm Bantay indicator: the locked state replaces the old red banner,
+  // so Home never shows two lock indicators at once.
+  const bantayLabel = isLocked
+    ? 'Account locked — Unlock in Bantay'
+    : hasHighAlert
+      ? 'Check Bantay: new alert'
+      : 'Bantay is watching your account';
+
   // The ScrollView sits inside Screen's SafeAreaView, which already pads the
   // bottom inset. Content ends 16 pt above the floating tab bar.
   const tabBarTopFromBottom =
@@ -343,29 +358,30 @@ export function HomeScreen({
           onPressCard={() => navigation.navigate('MyAccounts')}
         />
 
-        {/* Locked account banner */}
-        {isLocked && (
-          <Pressable
-            style={styles.lockedBanner}
-            onPress={() => navigation.navigate('BantaySecurity')}
-            feedbackType="highlight"
-            accessibilityRole="button"
-            accessibilityLabel="Account locked — Unlock in Bantay"
-          >
-            <View style={styles.lockedIconBox}>
-              <Lock size={TILE_ICON_SIZE} color={colors.redText} />
-            </View>
-            <View style={styles.requestsText}>
-              <Text variant="bodyStrong" color={colors.redText}>
-                Account locked — Unlock in Bantay
-              </Text>
-              <Text variant="caption" color={colors.textSecondary}>
-                Outgoing transfers and bill payments are paused
-              </Text>
-            </View>
-            <ChevronRight size={TILE_ICON_SIZE} color={colors.textMuted} />
-          </Pressable>
-        )}
+        {/* One calm Bantay indicator, under the balance card. No balance info. */}
+        <Pressable
+          style={[
+            styles.bantayRow,
+            isLocked ? styles.bantayRowLocked : null,
+            !isLocked && hasHighAlert ? styles.bantayRowAlert : null,
+          ]}
+          onPress={() => navigation.navigate('BantaySecurity')}
+          feedbackType="highlight"
+          accessibilityRole="button"
+          accessibilityLabel={bantayLabel}
+        >
+          <Image source={MASCOT_BANTAY} style={styles.bantayAvatar} accessible={false} />
+          <View style={styles.bantayText}>
+            <Text
+              variant="bodyStrong"
+              color={isLocked ? colors.redText : colors.ink}
+              accessibilityRole="text"
+            >
+              {bantayLabel}
+            </Text>
+          </View>
+          <ChevronRight size={TILE_ICON_SIZE} color={colors.textMuted} />
+        </Pressable>
 
         {/* Pending payment requests */}
         {pendingRequestsCount > 0 && (
@@ -541,23 +557,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  lockedBanner: {
+  bantayRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
-    backgroundColor: colors.tintRed,
-    padding: spacing.md,
-    borderRadius: radius.md,
+    gap: spacing.sm,
+    minHeight: size.touch,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.base,
+    backgroundColor: colors.surface,
     borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+  },
+  bantayRowLocked: {
+    backgroundColor: colors.tintRed,
     borderColor: colors.redText,
   },
-  lockedIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: radius.pill,
-    backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
+  bantayRowAlert: {
+    borderColor: colors.orangeText,
+  },
+  bantayAvatar: {
+    width: 28,
+    height: 28,
+  },
+  bantayText: {
+    flex: 1,
   },
   requestsBanner: {
     flexDirection: 'row',
