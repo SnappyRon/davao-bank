@@ -8,9 +8,9 @@
 - **Branch:** `phase-8-integration`; Phase 7 integration merged from `phase-7-integration` (`728567a`) with both feature sets preserved.
 - **Active prompt:** this hand-back brief (backup agent finishes tool-copy-check's task, reports to captain).
 - **Assigned to:** Backup Development Agent; merge `phase-7-integration`, run local checks, then merge the pending 8F risk-challenge fix from `phase-8-bantay-ui`.
-- **Exact next step:** commit the Phase 7 merge, run `npm ci` then typecheck / lint / jest / `test:db` / `check:copy`; fix only merge mistakes.
-- **Last commit:** `Phase 8 · Fix — Remove absolute node_modules symlinks` (after merge `af6643d`, parents `307affe` + `728567a`).
-- **Blockers:** waiting for `Phase 8 · Fix — 8F call prepare_risk_challenge before confirm` on `phase-8-bantay-ui` before the second merge. Device, Maestro, VoiceOver, hosted and Playwright checks NOT VERIFIED (owner/captain).
+- **Exact next step:** wait for `Phase 8 · Fix — 8F call prepare_risk_challenge before confirm` on `phase-8-bantay-ui`, merge it with `--no-ff`, re-run all checks, then report to captain.
+- **Last commit:** `Phase 8 · Fix — Merge seams for Activity route mock and admin copy` (after merge `af6643d`, parents `307affe` + `728567a`).
+- **Blockers:** waiting for the 8F fix commit on `phase-8-bantay-ui`. Device, Maestro, VoiceOver, hosted and Playwright checks NOT VERIFIED (owner/captain). All five local checks pass after the Phase 7 merge (see log).
 
 ## Stage 7B.0 — remaining work plan (captain, 2026-11-10)
 
@@ -261,6 +261,10 @@ Fix these before 7B:
 - **Follow-up:** add dedicated test accounts so live tests don't conflict with the presenter's real authenticator.
 
 ## Log (newest first)
+
+- **2026-11-26, Backup Development Agent:** Phase 7 merge checks complete. `npm ci --prefer-offline` added 1463 packages (29 moderate audit advisories reported; no `npm audit fix` run). After fixing the two seams below: `npm run typecheck` exit 0 (admin/mobile/shared); `npm run lint` `✖ 67 problems (0 errors, 67 warnings)`; `npx jest` `Test Suites: 59 passed, 59 total` / `Tests: 477 passed, 477 total`; `npm run test:db` `277 passed, 0 failed`; `npm run check:copy` `PASS Copy audit clean across 160 files (15 justified allowlist match(es)).` Real command output is in the hand-back report. No push, no hosted DB access; money/step-up handlers untouched.
+
+- **2026-11-26, Backup Development Agent:** fixed two merge-only failures (separate commit `Phase 8 · Fix — Merge seams for Activity route mock and admin copy`): (1) `apps/mobile/src/__tests__/monthly_summary_screen.test.tsx` mocks `@react-navigation/native` but lacked `useRoute`, which Phase 7D's `ActivityScreen` now imports — added `useRoute: () => ({ params: undefined })`, matching the other Activity/route test mocks, with no assertion weakened; (2) `apps/admin/src/lib/securityCases.ts:134` used `.toUpperCase()` in the fallback event title and failed Phase 7's new copy audit — replaced with the existing `sentenceCase` helper from `apps/admin/src/lib/dashboardDisplay.ts` (same sentence-case output, no allowlist entry added). No money/step-up code changed.
 
 - **2026-11-26, Backup Development Agent:** removed the two tracked `node_modules` symlinks that arrived with the Phase 7 merge (`node_modules` → `/Users/ronalbert/Personal Projects/davao-bank/node_modules` and `apps/mobile/node_modules` → its sibling). They point into another worktree and `npm ci` through them would modify that folder, which this brief forbids; `docs/agents/notes/phase-8-integration.md` records the same hazard from the earlier integration run. Removed only the symlinks (not their targets) in this worktree, committed as `Phase 8 · Fix — Remove absolute node_modules symlinks` before installing dependencies locally. No source or money/step-up code changed.
 

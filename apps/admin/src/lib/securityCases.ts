@@ -1,4 +1,5 @@
 /** Presentation and routing helpers for the Bantay security-case console. */
+import { sentenceCase } from '@/lib/dashboardDisplay';
 
 export type SecurityCaseStatus = 'open' | 'investigating' | 'resolved';
 export type CaseFilter = SecurityCaseStatus | 'all';
@@ -130,9 +131,7 @@ const EVENT_LABELS: Record<string, string> = {
 };
 
 export function eventTitle(kind: string): string {
-  return (
-    EVENT_LABELS[kind] || kind.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase())
-  );
+  return EVENT_LABELS[kind] || sentenceCase(kind);
 }
 
 const SIGNAL_LABELS: Record<string, string> = {
