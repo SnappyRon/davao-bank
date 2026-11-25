@@ -22,26 +22,46 @@ export async function runPhase8BantayRiskTests({ as, su, cust, bal, ok, U, A, B,
       [uid, toAccount, amount, at === 'now()' ? 'now()' : at]))[0]?.r;
   const today = (await su(`select (now() at time zone 'Asia/Manila')::date d`))[0].d;
 
+  // Stage 8D adds 10 points when the evaluation hour in Asia/Manila is 00:00-05:00.
+  // Checks evaluated at the engine's own now() must expect those points from the
+  // same database clock, so they pass at any time of day. The engine and its
+  // migration stay untouched.
+  const expectedNowScore = async (base) => {
+    const row = (await su(`select extract(hour from (now() at time zone 'Asia/Manila'))::int h`))[0];
+    const lateNight = row.h >= 0 && row.h <= 5 ? 10 : 0;
+    return base + lateNight;
+  };
+
   // ---- 1. Score signals and bands -------------------------------------------------
   const R = '66666666-6666-6666-6666-666666666666';
   const RACC = await makeUser(R, 'risk@t.test');
   await cust(R, `select deposit($1,5000000,'p8d-funder','fund')`, [RACC.id]);
   await su(`insert into trusted_payees(user_id,account_number) values($1,$2) on conflict do nothing`, [R, B.account_number]);
 
+  // Explicit late-night proof: both evaluations use fixed Manila timestamps and
+  // there is no transfer history yet, so the only difference is the +10 signal.
+  const daytime = await risk(R, B.id, 1000, '2026-11-26T10:00:00+08');
+  const lateNight = await risk(R, B.id, 1000, '2026-11-26T02:00:00+08');
+  ok('8D score: late night adds exactly 10 points',
+    daytime?.score === 0 && !daytime?.signals?.includes('late_night') &&
+      lateNight?.score === 10 && lateNight?.hour_manila === 2 &&
+      lateNight?.signals?.includes('late_night'),
+    JSON.stringify({ daytime, lateNight }));
+
   let v = await risk(R, B.id, 1000);
-  ok('8D score: baseline with trusted payee is 0', v?.score === 0 && v?.band === 'allow', JSON.stringify(v));
+  ok('8D score: baseline with trusted payee is 0', v?.score === (await expectedNowScore(0)) && v?.band === 'allow', JSON.stringify(v));
 
   v = await risk(R, A.id, 1000);
-  ok('8D score: new payee adds 30', v?.score === 30 && v?.signals?.includes('new_payee'), JSON.stringify(v));
+  ok('8D score: new payee adds 30', v?.score === (await expectedNowScore(30)) && v?.signals?.includes('new_payee'), JSON.stringify(v));
 
   v = await risk(R, B.id, 2000000);
-  ok('8D score: amount over ₱10,000 without history adds 30', v?.score === 30 && v?.signals?.includes('high_amount'), JSON.stringify(v));
+  ok('8D score: amount over ₱10,000 without history adds 30', v?.score === (await expectedNowScore(30)) && v?.signals?.includes('high_amount'), JSON.stringify(v));
 
   for (let i = 1; i <= 3; i++) {
     await su(`select _transfer_core($1,$2,$3,1000,$4,'rapid')`, [R, RACC.id, B.id, 'p8d-rapid-' + i]);
   }
   v = await risk(R, B.id, 1000);
-  ok('8D score: ≥3 outgoing payments in 10 min adds 20', v?.score === 20 && v?.rapid_payments === true, JSON.stringify(v));
+  ok('8D score: ≥3 outgoing payments in 10 min adds 20', v?.score === (await expectedNowScore(20)) && v?.rapid_payments === true, JSON.stringify(v));
   await su(`update transactions set created_at=now()-interval '2 hours' where idempotency_key like 'p8d-rapid-%'`);
 
   for (let i = 1; i <= 5; i++) {
@@ -49,16 +69,13 @@ export async function runPhase8BantayRiskTests({ as, su, cust, bal, ok, U, A, B,
   }
   await su(`update transactions set created_at=now()-interval '2 hours' where idempotency_key like 'p8d-median-%'`);
   v = await risk(R, B.id, 40000);
-  ok('8D score: >3× 90-day median with ≥5 payments adds 30', v?.score === 30 && v?.amount_band === 'over_3x_usual', JSON.stringify(v));
+  ok('8D score: >3× 90-day median with ≥5 payments adds 30', v?.score === (await expectedNowScore(30)) && v?.amount_band === 'over_3x_usual', JSON.stringify(v));
 
   await su(`update transactions set created_at=now()-interval '91 days' where idempotency_key like 'p8d-median-%'`);
   await su(`insert into security_events(user_id,kind,severity) values($1,'mfa_changed','warning')`, [R]);
   v = await risk(R, B.id, 1000);
-  ok('8D score: recent mfa_changed adds 25', v?.score === 25 && v?.signals?.includes('recent_auth_change'), JSON.stringify(v));
+  ok('8D score: recent mfa_changed adds 25', v?.score === (await expectedNowScore(25)) && v?.signals?.includes('recent_auth_change'), JSON.stringify(v));
   await su(`delete from security_events where user_id=$1 and kind='mfa_changed'`, [R]);
-
-  v = await risk(R, B.id, 1000, '2026-11-26T02:00:00+08');
-  ok('8D score: Manila 00:00–05:00 adds 10', v?.score === 10 && v?.signals?.includes('late_night'), JSON.stringify(v));
 
   const sessionId = '77777777-7777-7777-7777-777777777777';
   const devClaims = freshClaims(R, { session_id: sessionId });
@@ -68,10 +85,10 @@ export async function runPhase8BantayRiskTests({ as, su, cust, bal, ok, U, A, B,
   ok('8D register_device: repeat registration is not new', !r.err && r.rows?.[0]?.d?.new_device === false, r.err || JSON.stringify(r.rows?.[0]?.d));
   r = await as('authenticated', R, `select prepare_risk_challenge($1,$2,$3) p`, [B.id, 1000, 'p8d-device-key'], devClaims);
   const devRisk = r.rows?.[0]?.p?.facts;
-  ok('8D score: untrusted device first seen <24 h adds 25', !r.err && Number(devRisk?.score) === 25 && devRisk?.signals?.includes('new_device'), r.err || JSON.stringify(devRisk));
+  ok('8D score: untrusted device first seen <24 h adds 25', !r.err && Number(devRisk?.score) === (await expectedNowScore(25)) && devRisk?.signals?.includes('new_device'), r.err || JSON.stringify(devRisk));
   await su(`update user_devices set trusted=true where user_id=$1 and install_id='p8d-install-1'`, [R]);
   r = await as('authenticated', R, `select prepare_risk_challenge($1,$2,$3) p`, [B.id, 1000, 'p8d-device-key-2'], devClaims);
-  ok('8D score: trusted device removes the 25-point signal', Number(r.rows?.[0]?.p?.facts?.score) === 0, JSON.stringify(r.rows?.[0]?.p?.facts));
+  ok('8D score: trusted device removes the 25-point signal', Number(r.rows?.[0]?.p?.facts?.score) === (await expectedNowScore(0)), JSON.stringify(r.rows?.[0]?.p?.facts));
 
   for (const [score, expected] of [[0, 'allow'], [39, 'allow'], [40, 'warning'], [69, 'warning'], [70, 'challenge'], [100, 'challenge']]) {
     const band = (await su(`select _bantay_band($1) b`, [score]))[0]?.b;
@@ -224,9 +241,11 @@ export async function runPhase8BantayRiskTests({ as, su, cust, bal, ok, U, A, B,
 
   // trusted_payees removes the new-payee signal
   const payeeA = (await risk(M, A.id, 1000)).score;
+  const expectedPayeeA = await expectedNowScore(30);
   await su(`insert into trusted_payees(user_id,account_number) values($1,$2) on conflict do nothing`, [M, A.account_number]);
   const payeeB = (await risk(M, A.id, 1000)).score;
-  ok('8D trusted_payees: removes the new-payee points', Number(payeeA) === 30 && Number(payeeB) === 0, `${payeeA} → ${payeeB}`);
+  const expectedPayeeB = await expectedNowScore(0);
+  ok('8D trusted_payees: removes the new-payee points', Number(payeeA) === expectedPayeeA && Number(payeeB) === expectedPayeeB, `${payeeA} → ${payeeB} (expected ${expectedPayeeA} → ${expectedPayeeB})`);
 
   // mark_event: confirmed_me trusts the payee; reported_not_me locks and opens a case
   const eventId = (await su(`select id from security_events where user_id=$1 and kind='limit_changed' order by created_at desc limit 1`, [M]))[0]?.id;
