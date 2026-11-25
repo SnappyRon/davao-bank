@@ -8,9 +8,9 @@
 - **Branch:** `phase-8-integration`; merged `phase-7-integration` (`728567a`) and `phase-8-bantay-ui` (`21977a4`) with `--no-ff`, preserving both feature sets.
 - **Active prompt:** this hand-back brief (backup agent finishes tool-copy-check's task, reports to captain).
 - **Assigned to:** Backup Development Agent; merge `phase-7-integration`, run local checks, merge the 8F risk-challenge fix from `phase-8-bantay-ui`, re-run checks, report to captain.
-- **Exact next step:** re-run typecheck / lint / jest / test:db / check:copy after the 8F merge, commit the STATUS/log with the real results, and report the commits and checks to the captain.
-- **Last commit:** `Phase 8 · Merge — 8F risk challenge fix` (merges `21977a4` into the Phase 7 merge line `7c97c08`).
-- **Blockers:** none for local checks. Device, Maestro, VoiceOver, hosted and Playwright checks NOT VERIFIED (owner/captain).
+- **Exact next step:** captain reviews the merge commits; re-run `npm run test:db` after 08:00 AEDT (05:00 Manila) for a clean 8D score suite, then run device/Maestro/VoiceOver/hosted/Playwright checks.
+- **Last commit:** `Phase 8 · Merge — 8F risk challenge fix` (merges `21977a4` into the Phase 7 merge line `7c97c08`), followed by the STATUS-only commit for the final check log.
+- **Blockers:** `npm run test:db` reports `268 passed, 9 failed` when run during Manila 00:00–05:00: all 9 are pre-existing 8D score assertions using `now()` that pick up the `late_night` signal (`hour_manila: 0`). The same suite passed `277 passed, 0 failed` earlier today at 23:5x Manila; the 8F merge changed only mobile UI/hooks/tests. NOT a merge regression and not fixed (out of scope). Device, Maestro, VoiceOver, hosted and Playwright checks NOT VERIFIED (owner/captain).
 
 ## Stage 7B.0 — remaining work plan (captain, 2026-11-10)
 
@@ -261,6 +261,8 @@ Fix these before 7B:
 - **Follow-up:** add dedicated test accounts so live tests don't conflict with the presenter's real authenticator.
 
 ## Log (newest first)
+
+- **2026-11-26, Backup Development Agent:** final post-8F-merge checks on `fb3174d`. Real output: `npm run typecheck` exit 0 (admin/mobile/shared); `npm run lint` `✖ 67 problems (0 errors, 67 warnings)`; `npx jest` `Test Suites: 59 passed, 59 total` / `Tests: 479 passed, 479 total`; `npm run check:copy` `PASS Copy audit clean across 160 files (15 justified allowlist match(es)).`; `npm run test:db` `268 passed, 9 failed` at Manila 00:04. All 9 failures are 8D score assertions that call `_compute_payment_risk(..., now())` and expect no `late_night` signal (`baseline with trusted payee is 0`, `new payee adds 30`, `amount over ₱10,000 adds 30`, `≥3 outgoing payments adds 20`, `>3× median adds 30`, `recent mfa_changed adds 25`, `untrusted device adds 25`, `trusted device removes the 25-point signal`, `trusted_payees removes the new-payee points`); each shows `signals` containing `late_night` and `hour_manila: 0`. The same suite passed `277 passed, 0 failed` earlier today before Manila midnight. `git diff --name-status 7c97c08..fb3174d` shows only mobile UI/hooks/tests + STATUS.md changed in the 8F merge, so this is a pre-existing time-of-day test issue, not a merge regression. No test guard weakened, no hosted DB access, no push, no money/step-up handler edits by this agent beyond the 8F fix branch's own committed work.
 
 - **2026-11-26, Backup Development Agent:** Phase 7 merge checks complete. `npm ci --prefer-offline` added 1463 packages (29 moderate audit advisories reported; no `npm audit fix` run). After fixing the two seams below: `npm run typecheck` exit 0 (admin/mobile/shared); `npm run lint` `✖ 67 problems (0 errors, 67 warnings)`; `npx jest` `Test Suites: 59 passed, 59 total` / `Tests: 477 passed, 477 total`; `npm run test:db` `277 passed, 0 failed`; `npm run check:copy` `PASS Copy audit clean across 160 files (15 justified allowlist match(es)).` Real command output is in the hand-back report. No push, no hosted DB access; money/step-up handlers untouched.
 
