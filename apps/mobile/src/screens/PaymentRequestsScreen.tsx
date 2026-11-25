@@ -166,7 +166,8 @@ export function PaymentRequestsScreen() {
 
   const handlePay = async (
     req: PaymentRequest,
-    chosenAccount?: AccountBalance
+    chosenAccount?: AccountBalance,
+    retryKey?: string
   ): Promise<boolean> => {
     if (actionLoadingId) return false;
 
@@ -183,8 +184,8 @@ export function PaymentRequestsScreen() {
     setActionLoadingId(req.id);
     setStatusMessage(null);
 
-    // Generate idempotency key once before confirmation
-    const key = generateIdempotencyKey('pay_req');
+    // Generate once before confirmation; a risk-challenge retry reuses it.
+    const key = retryKey ?? generateIdempotencyKey('pay_req');
 
     // Biometric / Password authorization gate (§Fix 6)
     const authenticated = await confirmBiometricPayment({
@@ -218,7 +219,9 @@ export function PaymentRequestsScreen() {
         if (isConfirmationRequired(error)) {
           triggerChallenge({
             idempotencyKey: key,
-            onRetry: () => void handlePay(req),
+            amount: req.amount,
+            toAccountId: req.requester_account,
+            onRetry: () => void handlePay(req, sourceAcc, key),
             onCancel: () => setStatusMessage('Not authorized. Nothing was sent.'),
           });
           return false;
@@ -238,7 +241,9 @@ export function PaymentRequestsScreen() {
       if (isConfirmationRequired(err)) {
         triggerChallenge({
           idempotencyKey: key,
-          onRetry: () => void handlePay(req),
+          amount: req.amount,
+          toAccountId: req.requester_account,
+          onRetry: () => void handlePay(req, sourceAcc, key),
           onCancel: () => setStatusMessage('Not authorized. Nothing was sent.'),
         });
         return false;

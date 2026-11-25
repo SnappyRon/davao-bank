@@ -4,13 +4,13 @@
 
 ## Now
 
-- **Active phase:** Phase 7 + Phase 8 full app (`phase-8-integration`).
-- **Branch:** `phase-8-integration`; Phase 7 integration merged from `phase-7-integration` (`728567a`) with both feature sets preserved.
+- **Active phase:** Phase 7 + Phase 8 full app (`phase-8-integration`); both Phase 7 integration (7B–7D) and the 8F prepare-before-confirm fix are merged.
+- **Branch:** `phase-8-integration`; merged `phase-7-integration` (`728567a`) and `phase-8-bantay-ui` (`21977a4`) with `--no-ff`, preserving both feature sets.
 - **Active prompt:** this hand-back brief (backup agent finishes tool-copy-check's task, reports to captain).
-- **Assigned to:** Backup Development Agent; merge `phase-7-integration`, run local checks, then merge the pending 8F risk-challenge fix from `phase-8-bantay-ui`.
-- **Exact next step:** wait for `Phase 8 · Fix — 8F call prepare_risk_challenge before confirm` on `phase-8-bantay-ui`, merge it with `--no-ff`, re-run all checks, then report to captain.
-- **Last commit:** `Phase 8 · Fix — Merge seams for Activity route mock and admin copy` (after merge `af6643d`, parents `307affe` + `728567a`).
-- **Blockers:** waiting for the 8F fix commit on `phase-8-bantay-ui`. Device, Maestro, VoiceOver, hosted and Playwright checks NOT VERIFIED (owner/captain). All five local checks pass after the Phase 7 merge (see log).
+- **Assigned to:** Backup Development Agent; merge `phase-7-integration`, run local checks, merge the 8F risk-challenge fix from `phase-8-bantay-ui`, re-run checks, report to captain.
+- **Exact next step:** re-run typecheck / lint / jest / test:db / check:copy after the 8F merge, commit the STATUS/log with the real results, and report the commits and checks to the captain.
+- **Last commit:** `Phase 8 · Merge — 8F risk challenge fix` (merges `21977a4` into the Phase 7 merge line `7c97c08`).
+- **Blockers:** none for local checks. Device, Maestro, VoiceOver, hosted and Playwright checks NOT VERIFIED (owner/captain).
 
 ## Stage 7B.0 — remaining work plan (captain, 2026-11-10)
 
@@ -279,6 +279,7 @@ Fix these before 7B:
 - **2026-11-25, Frontend Developer 2:** Stage 7B.7 Wording completed (`Phase 7 · Stage 7B.7 — Wording`). Applied sentence-case and wording replacements across screens in apps/mobile: screen titles, headers, labels, buttons, badges, placeholders, and error messages; eliminated exclamation marks, raw UUIDs, regexes, and uppercase status values in money flows. Money/step-up handler bodies (RPC payloads, idempotency keys, error mapping) remained byte-identical to base with captain-approved string replacements only (masked accounts '•• 1234', sentence-case prompt titles, cancel message 'Not authorized. Nothing was sent.'). Updated `toUserMessage` with 'load' context returning 'You appear to be offline.' on load-only screens. Checks: typecheck exit 0, lint 0 errors (63 warnings), format:check clean (untracked ONBOARDING.md excluded), unit 38 suites / 335 tests pass. Device, VoiceOver, and live money NOT VERIFIED — captain/owner to verify. Next: Stage 7B.8 (copy audit script) owned by next agent.
 
 - **2026-11-25, fe-cline (substitute):** took over Stage 7C from fe-motion in `davao-bank-frontend` on `phase-7-frontend` (fe-motion's uncommitted changes kept). Implemented motion tokens, all 12 motion patterns at component level, mascots/onboarding (3-slide onboarding, SecureStore flag), translucent surfaces (tab bar, FeatureScreen header, Sheet scrim), illustrations (duri-empty/duri-error/kada-not-found, biller category icons), deleted the old `useReducedMotion` hook project-wide. Checks: typecheck exit 0 (admin, mobile, shared); lint 0 errors (64 warnings); format:check clean; unit 39 suites / 339 tests passed. Committed as `Phase 7 · Stage 7C — Motion and illustrations`. Device checks, Maestro regression, 60 fps, VoiceOver NOT VERIFIED.
+- **2026-11-26, Backup Development Agent (from `phase-8-bantay-ui`):** commit `21977a4` took over from Antigravity at `bbaaed8`; kept its uncommitted `usePhase8Contracts.ts` diff (prepare RPC + expiry matcher). Wired `useRiskChallenge` to call `prepare_risk_challenge` before every `confirm_risky_payment`, re-prepare once on `Challenge expired`, and only then repeat the money RPC with the same key. Call sites pass the scored amount and target; scheduled flows use the server's `_schedule_risk_key` format, and paying a request reuses the original key on retry. Added RNTL coverage for first challenge, expired challenge, and cancel. Merged into this branch with `--no-ff`; post-merge check results are logged separately below. Device, hosted and live money NOT VERIFIED.
 
 - **2026-11-25, Codex:** resumed and completed 7B.5 after captain approved success-handler haptic removal and refreshed server account balance. ResultView now handles outcomes, server-derived rows, privacy-aware receipt share and contextual actions; money/request success flows wired, confirmed structured database rejections show Not sent, uncertain transfer remains unchanged. Updated UI-only assertions per captain direction; RPC/step-up/idempotency checks retained. Typecheck exit 0, lint 0 errors / 63 warnings, unit 38 suites / 334 tests; format check exit 1 only untracked `ONBOARDING.md`. Full handler diffs and limitations in PHASE7_REPORT.md. Device, VoiceOver, live money and sharing NOT VERIFIED — captain/owner to verify. Next: captain review this commit.
 

@@ -214,6 +214,80 @@ export async function confirmRiskyPaymentRpc(
   return { data, error };
 }
 
+/**
+ * Creates or renews the caller's risk challenge for this key. Must run BEFORE
+ * confirm_risky_payment: the money RPC's 'Confirmation required' RAISE rolls
+ * back any server-side insert or renewal made inside it.
+ *
+ * `toAccountId` is the destination account UUID used by the server risk guard.
+ * When the caller only knows an account number, `resolveRiskTargetId` resolves
+ * it where RLS permits; otherwise null is sent (the RPC still scopes the
+ * challenge to the signed-in caller and the supplied key).
+ */
+export async function prepareRiskChallengeRpc(params: {
+  toAccountId?: string | null;
+  toAccountNumber?: string | null;
+  amount: number;
+  idempotencyKey: string;
+}): Promise<{ data: unknown; error: unknown }> {
+  let toAccountId = params.toAccountId ?? null;
+  if (!toAccountId && params.toAccountNumber) {
+    toAccountId = await resolveRiskTargetId(params.toAccountNumber);
+  }
+  const { data, error } = await supabase.rpc('prepare_risk_challenge', {
+    p_to_account: toAccountId,
+    p_amount: params.amount,
+    p_idempotency_key: params.idempotencyKey,
+  });
+  return { data, error };
+}
+
+/** Best-effort account-number → UUID lookup; RLS hides other customers' rows. */
+export async function resolveRiskTargetId(
+  accountNumber: string | null | undefined
+): Promise<string | null> {
+  const cleaned = accountNumber?.trim();
+  if (!cleaned) return null;
+  try {
+    const { data } = await supabase
+      .from('accounts')
+      .select('id')
+      .eq('account_number', cleaned)
+      .maybeSingle();
+    const id = (data as { id?: unknown } | null)?.id;
+    return typeof id === 'string' ? id : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Mirrors public._schedule_risk_key: the scheduled-payment RPC derives its
+ * idempotency key on the server, so a challenge for that flow must use this
+ * exact key (not the client's one-off payment key).
+ */
+export function deriveScheduleRiskKey(params: {
+  userId: string | null;
+  kind: 'transfer' | 'bill';
+  targetId: string | null;
+  amount: number;
+  startDate: string;
+}): string {
+  return [
+    'plan',
+    params.userId ?? '',
+    params.kind,
+    params.targetId ?? '',
+    String(params.amount),
+    params.startDate ?? '',
+  ].join(':');
+}
+
+export function isChallengeExpired(error: unknown): boolean {
+  if (!error) return false;
+  return extractRawMessage(error).toLowerCase().includes('challenge expired');
+}
+
 export async function registerDeviceRpc(
   installId: string,
   label?: string
