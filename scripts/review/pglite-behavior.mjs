@@ -6,6 +6,7 @@
 import { PGlite } from '@electric-sql/pglite'; import fs from 'node:fs'; import { fileURLToPath } from 'node:url';
 import { runPhase8BantayTests } from './pglite-phase8-bantay.mjs';
 import { runPhase8BantayRiskTests } from './pglite-phase8-bantay-risk.mjs';
+import { runPhase8_5OpsTests } from './pglite-phase8-5-ops.mjs';
 const MIG=fileURLToPath(new URL('../../supabase/migrations', import.meta.url));
 const db=await PGlite.create(); await db.exec(fs.readFileSync(new URL('./pglite-boot.sql',import.meta.url),'utf8'));
 for (const f of fs.readdirSync(MIG).filter(f=>f.endsWith('.sql')).sort()) await db.exec(fs.readFileSync(`${MIG}/${f}`,'utf8'));
@@ -325,6 +326,8 @@ r=await as('anon',null,`select * from get_account_transactions(null)`); ok('7B.9
 await runPhase8BantayTests({ db, as, su, cust, one, bal, ok, U, A, B, biller });
 // ---- Phase 8 · Stage D: Bantay risk engine
 await runPhase8BantayRiskTests({ as, su, cust, bal, ok, U, A, B, biller });
+// ---- Phase 8.5A: operations dashboard backend
+await runPhase8_5OpsTests({ as, su, cust, ok, U, A, B, biller });
 // ---- Reconciliation
 const rec=await reconcile();
 ok('Reconciliation: every transfer/reversal/bill nets to zero', Number(rec.unbalanced)===0, JSON.stringify(rec));
