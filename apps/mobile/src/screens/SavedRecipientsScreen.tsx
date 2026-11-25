@@ -16,7 +16,7 @@ import {
 } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
 import { reportNetworkResult } from '../lib/networkStatus';
-import { MASCOT_ERROR, MASCOT_NOT_FOUND } from '../assets/illustrations';
+import { MASCOT_ERROR } from '../assets/illustrations';
 import {
   FeatureScreen,
   Text,
@@ -35,6 +35,10 @@ import {
 } from '../components';
 
 const SKELETON_ROWS = 3;
+/* eslint-disable @typescript-eslint/no-require-imports */
+const kadaNotFoundIllustration = require('../../assets/illustrations/kada-not-found.png');
+const duriErrorIllustration = require('../../assets/illustrations/duri-error-state.png');
+/* eslint-enable @typescript-eslint/no-require-imports */
 
 export function SavedRecipientsScreen() {
   const { showConfirmation, confirmSheet } = useConfirmSheet();
@@ -350,7 +354,9 @@ export function SavedRecipientsScreen() {
               </View>
             ) : filteredRecipients.length === 0 ? (
               <EmptyState
-                illustration={searchQuery ? MASCOT_ERROR : MASCOT_NOT_FOUND}
+                illustration={
+                  searchQuery ? duriErrorIllustration : kadaNotFoundIllustration
+                }
                 illustrationTestID={
                   searchQuery ? 'recipients-no-matches-mascot' : 'recipients-empty-mascot'
                 }

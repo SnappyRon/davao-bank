@@ -31,7 +31,6 @@ import {
 } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
 import { reportNetworkResult } from '../lib/networkStatus';
-import { MASCOT_EMPTY, MASCOT_ERROR } from '../assets/illustrations';
 import {
   Screen,
   Text,
@@ -172,6 +171,11 @@ function formatNotificationTime(iso: string, now = new Date()): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
+/* eslint-disable @typescript-eslint/no-require-imports */
+const duriEmptyIllustration = require('../../assets/illustrations/duri-empty-state.png');
+const duriErrorIllustration = require('../../assets/illustrations/duri-error-state.png');
+/* eslint-enable @typescript-eslint/no-require-imports */
+
 export function InboxScreen({ onUnreadCountChange }: InboxScreenProps) {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const insets = useSafeAreaInsets();
@@ -199,7 +203,7 @@ export function InboxScreen({ onUnreadCountChange }: InboxScreenProps) {
       setLoaded(true);
       setNotifications(data);
     } catch (err) {
-reportNetworkResult(err);
+      reportNetworkResult(err);
       if (loadId === loadIdRef.current) setError(toUserMessage(err, 'load'));
     } finally {
       if (loadId === loadIdRef.current) {
@@ -363,7 +367,7 @@ reportNetworkResult(err);
           title="Inbox unavailable"
           description={error}
           descriptionAccessibilityRole="alert"
-          illustration={MASCOT_ERROR}
+          illustration={duriErrorIllustration}
           illustrationTestID="inbox-error-mascot"
           actionTitle="Try again"
           onAction={retry}
@@ -378,7 +382,7 @@ reportNetworkResult(err);
         <EmptyState
           title="You're all caught up"
           description="Money updates, requests and account notices will show here."
-          illustration={MASCOT_EMPTY}
+          illustration={duriEmptyIllustration}
           illustrationTestID="inbox-empty-mascot"
           refreshControl={refreshControl}
           style={{ paddingBottom: bottomClearance }}

@@ -18,7 +18,7 @@ import {
   toUserMessage,
 } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
-import { FeatureScreen, Text, Pressable, ResultView } from '../components';
+import { FeatureScreen, Text, Pressable, ResultView, GuidanceTip } from '../components';
 import { useSettings } from '../context/SettingsContext';
 import {
   isConfirmedRejection,
@@ -183,6 +183,10 @@ export function QRHubScreen() {
       {!accountsLoading && !accountError && accounts.length > 0 && (
         <>
           <View style={styles.container}>
+            <GuidanceTip
+              storageKey="tip_qr_seen"
+              tipText="Show your QR code to receive money, or switch to Scan to pay another customer."
+            />
             {/* Navigation Tabs */}
             <View style={styles.tabBar}>
               <Pressable

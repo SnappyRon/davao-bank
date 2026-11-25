@@ -166,7 +166,7 @@ describe('ScheduledPaymentsScreen', () => {
     // Tap completed schedule to view detail
     fireEvent.press(cards[1]);
 
-    expect(await screen.findByText('Schedule Details')).toBeTruthy();
+    expect(await screen.findByText('Schedule details')).toBeTruthy();
     expect(screen.getByText('Paid')).toBeTruthy();
     expect(screen.queryByText('Next Execution')).toBeNull();
   });

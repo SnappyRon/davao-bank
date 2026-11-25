@@ -230,7 +230,7 @@ export function ScheduledPaymentsScreen() {
                         ? 'Completed'
                         : selectedSchedule.status === 'cancelled'
                           ? 'Cancelled'
-                          : selectedSchedule.status.toUpperCase()
+                          : selectedSchedule.status
                   }
                 />
               </View>

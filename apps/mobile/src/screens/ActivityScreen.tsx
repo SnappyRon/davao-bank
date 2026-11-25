@@ -18,7 +18,6 @@ import {
 } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
 import { reportNetworkResult } from '../lib/networkStatus';
-import { MASCOT_EMPTY, MASCOT_ERROR } from '../assets/illustrations';
 import {
   Screen,
   Text,
@@ -123,6 +122,11 @@ function sectionTitle(iso: string, today: Date, yesterday: Date): string {
     year: 'numeric',
   });
 }
+
+/* eslint-disable @typescript-eslint/no-require-imports */
+const duriEmptyIllustration = require('../../assets/illustrations/duri-empty-state.png');
+const duriErrorIllustration = require('../../assets/illustrations/duri-error-state.png');
+/* eslint-enable @typescript-eslint/no-require-imports */
 
 export function ActivityScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -263,7 +267,7 @@ export function ActivityScreen() {
       return {
         title: 'No matches',
         description: 'Try another note or account number.',
-        illustration: MASCOT_ERROR,
+        illustration: duriErrorIllustration,
         illustrationTestID: 'activity-no-matches-mascot',
         actionTitle: 'Clear search',
         onAction: () => setQuery(''),
@@ -273,7 +277,7 @@ export function ActivityScreen() {
       return {
         title: 'Nothing here yet',
         description: FILTERED_EMPTY[selectedFilter],
-        illustration: MASCOT_EMPTY,
+        illustration: duriEmptyIllustration,
         illustrationTestID: 'activity-empty-mascot',
         actionTitle: 'Show all activity',
         onAction: () => setSelectedFilter('all'),
@@ -285,7 +289,7 @@ export function ActivityScreen() {
       return {
         title: 'No activity yet',
         description: `No activity on ${label} yet.`,
-        illustration: MASCOT_EMPTY,
+        illustration: duriEmptyIllustration,
         illustrationTestID: 'activity-empty-mascot',
         actionTitle: 'Show all accounts',
         onAction: () => setSelectedAccount(ALL_ACCOUNTS),
@@ -294,7 +298,7 @@ export function ActivityScreen() {
     return {
       title: 'No activity yet',
       description: 'Money you send, receive and pay will show here.',
-      illustration: MASCOT_EMPTY,
+      illustration: duriEmptyIllustration,
       illustrationTestID: 'activity-empty-mascot',
       actionTitle: 'Send money',
       onAction: () => navigation.navigate('Transfer'),
@@ -352,7 +356,7 @@ export function ActivityScreen() {
           title="Activity unavailable"
           description={error}
           descriptionAccessibilityRole="alert"
-          illustration={MASCOT_ERROR}
+          illustration={duriErrorIllustration}
           illustrationTestID="activity-error-mascot"
           actionTitle="Try again"
           onAction={retry}
@@ -397,7 +401,7 @@ export function ActivityScreen() {
               accessibilityRole="header"
               style={styles.sectionHeaderText}
             >
-              {section.title}
+              {section.title.toLocaleUpperCase('en-US')}
             </Text>
             <GroupedList>
               {section.data.map((item, index) => (

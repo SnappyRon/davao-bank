@@ -88,7 +88,7 @@ export function PersonalDetailsScreen() {
         setInitialPhoneNumber(ph);
       }
     } catch (err: unknown) {
-reportNetworkResult(err);
+      reportNetworkResult(err);
       setLoadError(toUserMessage(err, 'load'));
     } finally {
       setLoading(false);

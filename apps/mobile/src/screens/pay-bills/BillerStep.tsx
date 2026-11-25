@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import { View, StyleSheet, ScrollView, Image } from 'react-native';
 import { Zap, Droplet, Wifi, Smartphone, Layers } from 'lucide-react-native';
 import {
   colors,
@@ -12,6 +12,7 @@ import { Text } from '../../components/Text';
 import { TextField } from '../../components/TextField';
 import { Chip } from '../../components/Chip';
 import { Pressable } from '../../components/Pressable';
+import { GuidanceTip } from '../../components/GuidanceTip';
 
 interface BillerStepProps {
   billers: Biller[];
@@ -22,18 +23,39 @@ interface BillerStepProps {
   onSelectBiller: (biller: Biller) => void;
 }
 
-export const getCategoryIcon = (category: BillerCategory) => {
+/* eslint-disable @typescript-eslint/no-require-imports */
+const categoryImages: Partial<Record<BillerCategory, ReturnType<typeof require>>> = {
+  electricity: require('../../../assets/icons/billers/biller-category-electricity.png'),
+  water: require('../../../assets/icons/billers/biller-category-water.png'),
+  internet: require('../../../assets/icons/billers/biller-category-internet.png'),
+};
+/* eslint-enable @typescript-eslint/no-require-imports */
+
+export const getCategoryIcon = (category: BillerCategory, iconSize = 40) => {
+  const imageSource = categoryImages[category];
+  if (imageSource) {
+    return (
+      <Image
+        source={imageSource}
+        style={{ width: iconSize, height: iconSize }}
+        resizeMode="contain"
+        accessible={false}
+      />
+    );
+  }
+
+  const iconDim = Math.round(iconSize * 0.55);
   switch (category) {
     case 'electricity':
-      return <Zap size={20} color={colors.yellow} />;
+      return <Zap size={iconDim} color={colors.yellow} />;
     case 'water':
-      return <Droplet size={20} color={colors.blue} />;
+      return <Droplet size={iconDim} color={colors.blue} />;
     case 'internet':
-      return <Wifi size={20} color={colors.primary} />;
+      return <Wifi size={iconDim} color={colors.primary} />;
     case 'mobile':
-      return <Smartphone size={20} color={colors.orange} />;
+      return <Smartphone size={iconDim} color={colors.orange} />;
     default:
-      return <Layers size={20} color={colors.textSecondary} />;
+      return <Layers size={iconDim} color={colors.textSecondary} />;
   }
 };
 
@@ -55,6 +77,10 @@ export function BillerStep({
 
   return (
     <View style={styles.stepContainer}>
+      <GuidanceTip
+        storageKey="tip_pay_bills_seen"
+        tipText="Search for your utility or choose a category below to pay a bill."
+      />
       <TextField
         placeholder="Search biller or utility..."
         value={searchQuery}
@@ -69,15 +95,20 @@ export function BillerStep({
         contentContainerStyle={styles.categoryChips}
       >
         {[
-          { id: 'all', label: 'All' },
-          { id: 'electricity', label: 'Electricity' },
-          { id: 'water', label: 'Water' },
-          { id: 'internet', label: 'Internet' },
-          { id: 'mobile', label: 'Mobile' },
+          { id: 'all', label: 'All', icon: undefined },
+          {
+            id: 'electricity',
+            label: 'Electricity',
+            icon: getCategoryIcon('electricity', 16),
+          },
+          { id: 'water', label: 'Water', icon: getCategoryIcon('water', 16) },
+          { id: 'internet', label: 'Internet', icon: getCategoryIcon('internet', 16) },
+          { id: 'mobile', label: 'Mobile', icon: getCategoryIcon('mobile', 16) },
         ].map((cat) => (
           <Chip
             key={cat.id}
             label={cat.label}
+            icon={cat.icon}
             selected={selectedCategory === cat.id}
             onPress={() => onSelectCategory(cat.id)}
           />

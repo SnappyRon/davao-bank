@@ -11,11 +11,11 @@ import Animated, {
   useAnimatedStyle,
   withTiming,
   runOnJS,
+  useReducedMotion,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react-native';
 import { colors, radius, spacing, motion } from '@davao-bank/shared';
-import { useReducedMotion } from '../hooks/useReducedMotion';
 import { easing } from '../theme/easing';
 import { Text } from './Text';
 import { Pressable } from './Pressable';

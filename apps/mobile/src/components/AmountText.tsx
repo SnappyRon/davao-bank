@@ -1,6 +1,13 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { StyleSheet, type TextStyle } from 'react-native';
-import { colors, formatCentavosToPHP } from '@davao-bank/shared';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  useReducedMotion,
+} from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
+import { colors, formatCentavosToPHP, motion } from '@davao-bank/shared';
 import { Text, type TextVariant } from './Text';
 
 export interface AmountTextProps {
@@ -25,21 +32,58 @@ export function AmountText({
   showSign = true,
   maxFontSizeMultiplier = 1.4,
 }: AmountTextProps) {
+  const reduceMotion = useReducedMotion();
+  const opacity = useSharedValue(1);
+  const isFirstMount = useRef(true);
+  const prevValRef = useRef({ amountCentavos, hidden });
+
+  useEffect(() => {
+    if (isFirstMount.current) {
+      isFirstMount.current = false;
+      return;
+    }
+
+    if (
+      prevValRef.current.amountCentavos !== amountCentavos ||
+      prevValRef.current.hidden !== hidden
+    ) {
+      try {
+        Haptics.selectionAsync();
+      } catch {
+        // Haptics optional
+      }
+
+      if (!reduceMotion) {
+        opacity.value = 0.2;
+        opacity.value = withTiming(1, { duration: motion.duration.short });
+      } else {
+        opacity.value = 1;
+      }
+      prevValRef.current = { amountCentavos, hidden };
+    }
+  }, [amountCentavos, hidden, reduceMotion, opacity]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+  }));
+
   if (hidden) {
     return (
-      <Text
-        variant={variant}
-        color={color || colors.ink}
-        tabularNums
-        numberOfLines={1}
-        adjustsFontSizeToFit
-        minimumFontScale={0.7}
-        style={[styles.base, style]}
-        accessibilityLabel="Amount hidden"
-        maxFontSizeMultiplier={maxFontSizeMultiplier}
-      >
-        ₱••••••
-      </Text>
+      <Animated.View style={animatedStyle}>
+        <Text
+          variant={variant}
+          color={color || colors.ink}
+          tabularNums
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.7}
+          style={[styles.base, style]}
+          accessibilityLabel="Amount hidden"
+          maxFontSizeMultiplier={maxFontSizeMultiplier}
+        >
+          ₱••••••
+        </Text>
+      </Animated.View>
     );
   }
 
@@ -59,19 +103,21 @@ export function AmountText({
   }
 
   return (
-    <Text
-      variant={variant}
-      color={displayColor}
-      tabularNums
-      numberOfLines={1}
-      adjustsFontSizeToFit
-      minimumFontScale={0.7}
-      style={[styles.base, style]}
-      maxFontSizeMultiplier={maxFontSizeMultiplier}
-    >
-      {sign}
-      {formatted}
-    </Text>
+    <Animated.View style={animatedStyle}>
+      <Text
+        variant={variant}
+        color={displayColor}
+        tabularNums
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.7}
+        style={[styles.base, style]}
+        maxFontSizeMultiplier={maxFontSizeMultiplier}
+      >
+        {sign}
+        {formatted}
+      </Text>
+    </Animated.View>
   );
 }
 

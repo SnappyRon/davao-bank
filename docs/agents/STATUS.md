@@ -5,12 +5,12 @@
 ## Now
 
 - **Active phase:** Phase 7 — UI/UX Refinement & Motion.
-- **Branch:** `phase-7-system-status` (integration of 7B.10 carry-overs + 7B.11 system status).
+- **Branch:** `phase-7-integration` (integration of 7B.8, 7B.10, 7B.11 and 7C).
 - **Active prompt:** `Phase-7-Prompt-UI-UX-and-Motion.md`.
-- **Assigned to:** Codex completed Stage 7B.11 (Visible system status everywhere). fe-cline-2 completed Stage 7B.10 (Carry-overs from device checks).
-- **Exact next step:** captain verifies 7B.11 implementation; move to 7B.12 admin console polish.
-- **Last commit:** Phase 7 · Stage 7B.11 — Visible system status everywhere (this commit; parent `5e2aaf6`).
-- **Blockers:** None.
+- **Assigned to:** Codex integrating stages 7B.8, 7B.10, 7B.11 and 7C on the captain's instruction.
+- **Exact next step:** captain reviews the completed integration branch; device checks remain with the owner.
+- **Last commit:** Phase 7 · Merge — 7C Motion and illustrations (this merge commit).
+- **Blockers:** none. Device checks, Maestro regression, 60 fps and VoiceOver NOT VERIFIED.
 
 ## Stage 7B.0 — remaining work plan (captain, 2026-11-10)
 
@@ -156,6 +156,18 @@ Deferred to their planned steps (not in the fix round): receipt reference/Share/
   - [ ] Live suites: pass with live DB (customer1 pre-existing MFA noted).
   - [ ] Device proof: screenshots for item 10 in report.
 
+## Stage 7C Checklist (fe-cline, taking over from fe-motion; branch `phase-7-frontend`)
+
+- [x] **Motion tokens** — `packages/shared/src/theme/tokens.ts` `motion` table per the 7C spec (durations micro 100 / short 150 / medium 250 / long 320 / expressive 480; easing standard/enter/exit; springs sheet damping 26 stiffness 260 mass 1, pop damping 14 stiffness 180 mass 1); `counterDuration` removed earlier (7A).
+- [x] **12 motion patterns** — 1 press scale 1→0.97 + `primaryPressed` (Pressable, micro/short); 2 list-row highlight (Pressable `highlight`); 3 tab cross-fade + sliding pill (FloatingTabBar, `animation: 'fade'`, `none` under Reduce Motion); 3b feature-screen push/pop (native stack, `slide_from_right`, `fade` under Reduce Motion); 4 sheet open with scrim fade + slide up (Sheet); 5 sheet close/swipe with `spring.sheet` settle, guard-run swipe (Sheet); 6 commit tap → busy label/spinner (money-flow sticky footers, handler bodies untouched); 7 step-change body transition — NOT animated inside money flows (kept untouched to avoid money-flow risk; screen push/pop covers 3b — flagged for captain); 8 confirmed result icon disc `spring.pop`, check stroke draw, title/amount fade + rise 8 pt (ResultView); 9 validation fail → `redText` border, error fades in, warning haptic once (TextField); 10 skeleton pulse 0.5↔0.9 over 1.4 s, no pulse under Reduce Motion (Skeleton); 11 balance hide/show and amount change cross-fade, no counting (AmountText); 12 toast fade in + 12 pt drop, auto-dismiss 4 s, errors stay (Toast).
+- [x] **Reduce Motion everywhere** — Reanimated's `useReducedMotion` used in all animated components; old `apps/mobile/src/hooks/useReducedMotion.ts` deleted; project-wide imports switched to Reanimated's hook.
+- [x] **Mascots, onboarding and storytelling (D6)** — `OnboardingScreen` (3 slides, skippable, `expo-secure-store` seen flag, page dots, Back/Next/swipe, fade-in art on mount); `GuidanceTip` dismissible one-time tip (Pay bills).
+- [x] **Translucent surfaces (D7)** — floating tab bar blur + `Reduce Transparency`/Android solid fallback; `FeatureScreen` header blur once content scrolls under; Sheet scrim blur (`colors.scrim`) + solid fallback; never on cards/rows/balance/inputs/long text; max two blur views.
+- [x] **Illustrations (D1, D2, D6)** — `duri-empty-state` (Inbox empty, Activity empty, Home recent activity), `duri-error-state` (Activity/Inbox error, search no results), `kada-not-found` (Saved recipients empty, recipient search), biller category icons (Pay bills chips, 40 pt, Lucide fallback for Mobile); `accessible={false}`, fade in once on mount, never in money flows/tab bar/balance.
+- [x] **Gate checks** — typecheck exit 0 (admin, mobile, shared); lint 0 errors (64 pre-existing warnings); format:check clean; unit 39 suites / 339 tests passed.
+- [ ] **Device checks** — recordings, 60 fps, Reduce Motion vs off, Reduce Transparency vs off: NOT VERIFIED (device checks not run by this agent).
+- [ ] **Maestro regression / VoiceOver:** NOT VERIFIED (captain/owner).
+
 ## Stage 7A — reviewer findings (2026-11-08, Claude Code)
 
 Re-ran on `4027d98`: typecheck 0 errors, lint 0 errors (97 warnings), unit 75/75, PGlite 90/90, contrast 31/31, token drift pass, 0 `TouchableOpacity`. Money logic in `WithdrawModal` (`handleConfirmWithdraw`, step-up) is unchanged. Good.
@@ -253,6 +265,8 @@ Fix these before 7B:
 - **2026-11-25, fe-cline-2:** took over Stage 7B.10 from fe-device-fixes on worktree `phase-7-carryovers` (base `af8b3aa`); kept fe-device-fixes's uncommitted changes and finished the stage. Committed `Phase 7 · Stage 7B.10 — Carry-overs from device checks`. Changes: `ScheduledPaymentsScreen` shows "Completed" badge + "Paid <date>" and sorts completed below active; Transfer uncertain state exits via "Check status" (reuses `recoverTransfer`/`executeServerTransfer` with the same idempotency key — no new money) + "Done" (toast + back); `LockScreen` is biometrics-first with password only after "Use password"; `TwoStepSetupScreen` is a `FeatureScreen` titled "Two-step verification" with 200 pt QR, monospace setup-key box with Copy and "Open in authenticator app"; `TotpPromptOverlay` defaults to "Enter your authenticator code" and auto-submits on 6 digits; `StepUpSetupLink` navigates directly to `TwoStepSetup`. Large-text amount fitting and the PayBills biller hint were already fixed in 7B.6/7B.4; the optimistic App lock switch was already in `ProfileScreen`. Fixes: `transfer_screen.test.tsx` mocks now satisfy `MoneyOperationResult` (typecheck); `npx prettier --write` on the 6 task files prettier flagged. Checks: typecheck exit 0; lint 0 errors (63 warnings); format:check clean on task files; unit 41 suites / 344 tests pass. Device screenshots/behaviour NOT VERIFIED — no device available. `customer1`'s authenticator untouched; no hosted writes, no push, no merge.
 
 - **2026-11-25, Frontend Developer 2:** Stage 7B.7 Wording completed (`Phase 7 · Stage 7B.7 — Wording`). Applied sentence-case and wording replacements across screens in apps/mobile: screen titles, headers, labels, buttons, badges, placeholders, and error messages; eliminated exclamation marks, raw UUIDs, regexes, and uppercase status values in money flows. Money/step-up handler bodies (RPC payloads, idempotency keys, error mapping) remained byte-identical to base with captain-approved string replacements only (masked accounts '•• 1234', sentence-case prompt titles, cancel message 'Not authorized. Nothing was sent.'). Updated `toUserMessage` with 'load' context returning 'You appear to be offline.' on load-only screens. Checks: typecheck exit 0, lint 0 errors (63 warnings), format:check clean (untracked ONBOARDING.md excluded), unit 38 suites / 335 tests pass. Device, VoiceOver, and live money NOT VERIFIED — captain/owner to verify. Next: Stage 7B.8 (copy audit script) owned by next agent.
+
+- **2026-11-25, fe-cline (substitute):** took over Stage 7C from fe-motion in `davao-bank-frontend` on `phase-7-frontend` (fe-motion's uncommitted changes kept). Implemented motion tokens, all 12 motion patterns at component level, mascots/onboarding (3-slide onboarding, SecureStore flag), translucent surfaces (tab bar, FeatureScreen header, Sheet scrim), illustrations (duri-empty/duri-error/kada-not-found, biller category icons), deleted the old `useReducedMotion` hook project-wide. Checks: typecheck exit 0 (admin, mobile, shared); lint 0 errors (64 warnings); format:check clean; unit 39 suites / 339 tests passed. Committed as `Phase 7 · Stage 7C — Motion and illustrations`. Device checks, Maestro regression, 60 fps, VoiceOver NOT VERIFIED.
 
 - **2026-11-25, Codex:** resumed and completed 7B.5 after captain approved success-handler haptic removal and refreshed server account balance. ResultView now handles outcomes, server-derived rows, privacy-aware receipt share and contextual actions; money/request success flows wired, confirmed structured database rejections show Not sent, uncertain transfer remains unchanged. Updated UI-only assertions per captain direction; RPC/step-up/idempotency checks retained. Typecheck exit 0, lint 0 errors / 63 warnings, unit 38 suites / 334 tests; format check exit 1 only untracked `ONBOARDING.md`. Full handler diffs and limitations in PHASE7_REPORT.md. Device, VoiceOver, live money and sharing NOT VERIFIED — captain/owner to verify. Next: captain review this commit.
 

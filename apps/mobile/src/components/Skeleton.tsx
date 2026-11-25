@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { StyleSheet, Animated, type ViewStyle } from 'react-native';
+import { useReducedMotion } from 'react-native-reanimated';
 import { colors, radius } from '@davao-bank/shared';
-import { useReducedMotion } from '../hooks/useReducedMotion';
 
 export interface SkeletonProps {
   width?: number | string;

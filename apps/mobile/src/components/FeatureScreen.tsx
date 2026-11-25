@@ -191,7 +191,7 @@ export function FeatureScreen({
         ]}
       >
         {scrolled &&
-          (reduceTransparency ? (
+          (reduceTransparency || Platform.OS === 'android' ? (
             <View style={[StyleSheet.absoluteFill, styles.solidHeaderBackground]} />
           ) : (
             <BlurView

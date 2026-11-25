@@ -122,7 +122,7 @@ export function HomeScreen({
         }
         userId = data.user.id;
       } catch (err) {
-reportNetworkResult(err);
+        reportNetworkResult(err);
         if (isCurrent()) setAccountsError(toUserMessage(err, 'load'));
         return;
       }
