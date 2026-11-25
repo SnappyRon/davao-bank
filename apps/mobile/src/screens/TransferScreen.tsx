@@ -289,20 +289,18 @@ export function TransferScreen() {
 
     const bioMessage =
       timing === 'now'
-        ? `Confirm transfer of ${formatCentavosToPHP(centavos)} to account ${recipientAccountNumber}`
-        : `Confirm scheduling transfer of ${formatCentavosToPHP(centavos)} to account ${recipientAccountNumber}`;
+        ? `Confirm transfer of ${formatCentavosToPHP(centavos)} to account •• ${recipientAccountNumber.slice(-4)}`
+        : `Confirm scheduling transfer of ${formatCentavosToPHP(centavos)} to account •• ${recipientAccountNumber.slice(-4)}`;
 
     const bioResult = await confirmBiometricPayment({
-      title: timing === 'now' ? 'Authorize Transfer' : 'Authorize Scheduled Transfer',
+      title: timing === 'now' ? 'Authorize transfer' : 'Authorize scheduled transfer',
       message: bioMessage,
     });
 
     if (!bioResult.success) {
       setLoading(false);
       if (bioResult.cancelled) {
-        setErrorMessage(
-          'Transfer authorization was cancelled. You can retry whenever ready.'
-        );
+        setErrorMessage('Not authorized. Nothing was sent.');
       } else {
         setErrorMessage(bioResult.error || 'Transfer authorization failed.');
       }

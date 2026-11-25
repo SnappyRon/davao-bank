@@ -112,8 +112,8 @@ export function CashOutScreen() {
 
     // 1. Biometric / Password confirmation
     const bioResult = await confirmBiometricPayment({
-      title: 'Authorize Cash-Out',
-      message: `Confirm cash-out of ${formatCentavosToPHP(centavos)} from account ${selectedAccount.account_number}`,
+      title: 'Authorize cash out',
+      message: `Confirm cash-out of ${formatCentavosToPHP(centavos)} from account •• ${selectedAccount.account_number.slice(-4)}`,
     });
 
     if (!bioResult.success) {
