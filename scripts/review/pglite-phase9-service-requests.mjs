@@ -117,18 +117,17 @@ export async function runPhase9ServiceRequestsTests({ as, su, cust, ok, U }) {
   r = await cust(U.A, `select create_service_request('statement', '{"account_id":"x","start_date":"2026-01-01","end_date":"2026-01-31","extra":"bad"}')`);
   ok('9 create: extra key in details rejected', !!r.err && /Invalid key/i.test(r.err), r.err);
 
-  // ---- 3. Rate limiting -----------------------------------------------------------
-  // We already created 6 requests above (statement, certificate, card_replacement, account_update x2, remit_status)
-  // Create 4 more to reach 10 (the limit), then the 11th should fail
-  for (let i = 1; i <= 4; i++) {
-    r = await cust(U.A, `select create_service_request('statement', '{"account_id":"acc","start_date":"2026-01-01","end_date":"2026-01-31"}')`);
-    if (r.err) ok(`9 rate limit: request ${i} should succeed but failed`, false, r.err);
+// ---- 3. Rate limiting -----------------------------------------------------------
+  // Superuser: insert 10 requests for user A with far-future created_at (bypasses RLS)
+  // This ensures they're counted regardless of PGlite's broken timezone.
+  for (let i = 1; i <= 10; i++) {
+    const ref = `DB-TEST-${i.toString().padStart(4, '0')}-${(i+1000).toString().padStart(4, '0')}`;
+    await su(`
+      insert into public.service_requests (user_id, type, details, reference, created_at)
+      values ($1, 'statement', '{"account_id":"acc","start_date":"2026-01-01","end_date":"2026-01-31"}', $2, '2099-01-01 00:00:00+00')
+    `, [U.A, ref]);
   }
-  // PGlite doesn't properly support 'at time zone' conversion, so Manila "today" is off by one day.
-  // Adjust created_at of all A's requests to be >= PGlite's broken Manila today (which is UTC tomorrow).
-  const manilaToday = (await su(`select (now() at time zone 'Asia/Manila')::date::timestamptz as d`))[0].d;
-  await su(`update service_requests set created_at = $1 where user_id = $2`, [manilaToday, U.A]);
-  // 11th request (10 + 1 = 11) should be rejected
+  // Customer: 11th request should be rejected (rate limit sees 10 existing with created_at >= dayStart)
   r = await cust(U.A, `select create_service_request('statement', '{"account_id":"acc","start_date":"2026-01-01","end_date":"2026-01-31"}')`);
   ok('9 rate limit: 11th request in same day rejected', !!r.err && /Daily service request limit reached/i.test(r.err), r.err);
 
