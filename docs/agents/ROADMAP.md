@@ -2,51 +2,51 @@
 
 > The single plan for what is built, in what order, and by whom. `STATUS.md` tracks day-to-day progress; this file tracks phases, dependencies and agent assignments. Updated by the captain only.
 >
-> **State: plan approved by the owner (D11, D12, 2026-11-25). D13–D16 still open.** Phase 8D–8F started 2026-11-25; the Gemini call in 8E also waits for D14; Phase 9.5 waits for Phase 9 and D16.
+> **State: plan approved by the owner (D11, D12, D13, 2026-11-25). D14–D16 still open.** Phase 8D–8F started 2026-11-25; the Gemini call in 8E also waits for D14; Phase 9.5 waits for Phase 9 and D16.
 
 ## 1. Where we are (verified against git, 2026-11-25)
 
-| Phase                                | Scope                                                                                                                  | State                                                         | Evidence                             |
-| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------ |
-| 1–6.5                                | Setup, DB/auth, core banking, admin, redesign, hardening, TOTP step-up, app lock                                       | Done                                                          | `STATUS.md` Stages table             |
-| 7A                                   | Foundations (type, tokens, shared components)                                                                          | Done                                                          | `6441fc0`, `b6d09e4`, `93cb757`      |
-| 7B.0–7B.6, 7B.9, 7B.12               | Navigation, Home, lists, Profile, money-flow sequence, ResultView, responsive/a11y, notification wording, admin polish | Done (reviews deferred to the end by owner)                   | head `af8b3aa`                       |
-| 7B.7 Wording                         | —                                                                                                                      | In progress, `fe-wording` (main checkout, uncommitted)        | `git status`                         |
-| 7B.8 Copy audit script               | —                                                                                                                      | Agent reports done; not yet committed on `phase-7-copy-check` | branch at `af8b3aa`                  |
-| 7B.10 Device carry-overs             | —                                                                                                                      | In progress, `fe-device-fixes`                                | branch at `af8b3aa`                  |
-| 7B.11 System status                  | —                                                                                                                      | In progress, `fe-system-status`                               | branch at `af8b3aa`                  |
-| 7C Motion/mascots                    | —                                                                                                                      | In progress, `fe-motion`                                      | branch at `af8b3aa`                  |
-| 7B gate                              | Screenshots, Maestro, live suites                                                                                      | Not started (blocked: customer1 authenticator)                | —                                    |
-| 8A Bantay security center (backend)  | Daily limit, payee lookup                                                                                              | Committed, not merged                                         | `1eb4d13` (`phase-8-bantay-backend`) |
-| 8B Bills + monthly summary (backend) | Saved billers, reminders, summary                                                                                      | Committed, not merged                                         | `781b6a0` (`phase-8-bills-backend`)  |
-| 8C Phase 8 screens (frontend)        | Bantay screen (limits), payee on Review, saved billers, summary                                                        | Committed, not merged                                         | `394ac09` (`phase-8-frontend`)       |
-| 8 push notifications (D8)            | Real push                                                                                                              | Not started — needs paid Apple account + dev build            | —                                    |
-| 9 Savings goals (D4)                 | Separate goal accounts + interest projection                                                                           | Not started                                                   | —                                    |
-| 10 Release                           | Builds, distribution, docs                                                                                             | Not started                                                   | —                                    |
+| Phase                                | Scope                                                                                                                  | State                                                                                      | Evidence                             |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------ |
+| 1–6.5                                | Setup, DB/auth, core banking, admin, redesign, hardening, TOTP step-up, app lock                                       | Done                                                                                       | `STATUS.md` Stages table             |
+| 7A                                   | Foundations (type, tokens, shared components)                                                                          | Done                                                                                       | `6441fc0`, `b6d09e4`, `93cb757`      |
+| 7B.0–7B.6, 7B.9, 7B.12               | Navigation, Home, lists, Profile, money-flow sequence, ResultView, responsive/a11y, notification wording, admin polish | Done (reviews deferred to the end by owner)                                                | head `af8b3aa`                       |
+| 7B.7 Wording                         | —                                                                                                                      | In progress, `fe-wording` (main checkout, uncommitted)                                     | `git status`                         |
+| 7B.8 Copy audit script               | —                                                                                                                      | Agent reports done; not yet committed on `phase-7-copy-check`                              | branch at `af8b3aa`                  |
+| 7B.10 Device carry-overs             | —                                                                                                                      | In progress, `fe-device-fixes`                                                             | branch at `af8b3aa`                  |
+| 7B.11 System status                  | —                                                                                                                      | In progress, `fe-system-status`                                                            | branch at `af8b3aa`                  |
+| 7C Motion/mascots                    | —                                                                                                                      | In progress, `fe-motion`                                                                   | branch at `af8b3aa`                  |
+| 7B gate                              | Screenshots, Maestro, live suites                                                                                      | Not started (blocked: customer1 authenticator)                                             | —                                    |
+| 8A Bantay security center (backend)  | Daily limit, payee lookup                                                                                              | Committed, not merged                                                                      | `1eb4d13` (`phase-8-bantay-backend`) |
+| 8B Bills + monthly summary (backend) | Saved billers, reminders, summary                                                                                      | Committed, not merged                                                                      | `781b6a0` (`phase-8-bills-backend`)  |
+| 8C Phase 8 screens (frontend)        | Bantay screen (limits), payee on Review, saved billers, summary                                                        | Committed, not merged                                                                      | `394ac09` (`phase-8-frontend`)       |
+| 8 push notifications (D8)            | Real push                                                                                                              | Not possible in Expo Go (D13) — in-app alerts (Inbox + Realtime) instead; owner to confirm | —                                    |
+| 9 Savings goals (D4)                 | Separate goal accounts + interest projection                                                                           | Not started                                                                                | —                                    |
+| 10 Release                           | Builds, distribution, docs                                                                                             | Not started                                                                                | —                                    |
 
 ## 2. What changes in this revision
 
 1. **Bantay AI joins Phase 8** as stages **8D–8H**. It extends 8A/8C (same Bantay screen, same `security_limits` table, same guard pattern in `_transfer_core`). It does not redo them. Spec: `Phase-8-Bantay-AI-Prompt.md`.
 2. **Crypto wallet becomes Phase 9.5**, a demo-only stretch after Phase 9, behind a build flag, on Solana devnet. It is skipped if Phase 9 is late. Spec: `Phase-9.5-Crypto-Demo-Prompt.md`.
-3. **Phase 10 distribution changes** from public store release to TestFlight / internal builds (pending D13).
+3. **Phase 10 distribution: Expo Go** (owner decision D13, 2026-11-25). No store, no TestFlight, no paid Apple account. Phase 10 = a reliable Expo Go demo setup (Metro on the laptop, LAN or tunnel), seeded demo accounts and docs.
 4. **Consolidations** (so nothing conflicts with work already committed):
    - The 8A daily limit stays as built. 8D only adds "raising the limit takes effect after 12 h" (lowering stays immediate).
    - The 8C Bantay screen is extended (timeline, lock, alerts), not replaced.
    - High-risk transfers use **challenge → confirm**: no money is reserved, so the ledger and money states are unchanged. This replaces the earlier "pending hold" idea.
    - Disputed funds: staff use the existing `admin_set_account_status` freeze, linked to a case. There is no new partial-hold money logic. This replaces the earlier "temporary hold" idea.
    - "Move funds to a locked savings goal" is **removed**.
-   - Push alerts move to Phase 10 with D8. Bantay alerts use the Inbox + Supabase Realtime until then.
+   - Real push (D8) is not available in Expo Go. Bantay alerts use the Inbox + Supabase Realtime (in-app toast) only.
 
 ## 3. Owner decisions needed before work starts
 
-| #   | Decision                                                                                                                                                                                           | Captain recommendation                           |
-| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
-| D11 | Approve the Bantay AI and crypto recommendation (this file + the two prompts)                                                                                                                      | **Approved 2026-11-25**                          |
-| D12 | Allow one more guard line in `_transfer_core` (risk check, next to the 8A daily-limit guard) and a lock guard in `withdraw` and `create_scheduled_payment` / `create_scheduled_transfer_to_number` | **Approved 2026-11-25**                          |
-| D13 | Phase 10: TestFlight / internal builds instead of a public store release (Apple 5.1.1(ix), 3.1.5)                                                                                                  | Approve                                          |
-| D14 | Owner creates a Gemini API key in Google AI Studio and stores it as a Supabase secret (`GEMINI_API_KEY`). Free tier, masked data only                                                              | Approve; owner does it, agents never see the key |
-| D15 | Hosted auth config: `jwt_expiry` 3600 → 900 s, so a revoked session dies within 15 min                                                                                                             | Approve; owner applies                           |
-| D16 | Phase 9.5 only: new Edge Function dependency `@solana/web3.js` (exact pin, imported with `npm:` in the Deno function; not in the mobile app) + a devnet keypair in Supabase Vault                  | Decide at the start of 9.5, not now              |
+| #   | Decision                                                                                                                                                                                           | Captain recommendation                                                                                                                   |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| D11 | Approve the Bantay AI and crypto recommendation (this file + the two prompts)                                                                                                                      | **Approved 2026-11-25**                                                                                                                  |
+| D12 | Allow one more guard line in `_transfer_core` (risk check, next to the 8A daily-limit guard) and a lock guard in `withdraw` and `create_scheduled_payment` / `create_scheduled_transfer_to_number` | **Approved 2026-11-25**                                                                                                                  |
+| D13 | Distribution: TestFlight / internal builds vs Expo Go                                                                                                                                              | **Decided 2026-11-25: Expo Go** — no push (D8), no Face ID on iOS in Expo Go (falls back to passcode/password), demo needs Metro running |
+| D14 | Owner creates a Gemini API key in Google AI Studio and stores it as a Supabase secret (`GEMINI_API_KEY`). Free tier, masked data only                                                              | Approve; owner does it, agents never see the key                                                                                         |
+| D15 | Hosted auth config: `jwt_expiry` 3600 → 900 s, so a revoked session dies within 15 min                                                                                                             | Approve; owner applies                                                                                                                   |
+| D16 | Phase 9.5 only: new Edge Function dependency `@solana/web3.js` (exact pin, imported with `npm:` in the Deno function; not in the mobile app) + a devnet keypair in Supabase Vault                  | Decide at the start of 9.5, not now                                                                                                      |
 
 ## 4. Implementation order and dependencies
 
@@ -100,11 +100,11 @@ All agents report progress, findings and blockers to the captain only (Herdr tab
 
 ## 7. Postponed / removed
 
-| Item                                     | Decision           | Why                                                                                        |
-| ---------------------------------------- | ------------------ | ------------------------------------------------------------------------------------------ |
-| Move funds to a locked savings goal      | Removed            | Redundant with the lock; moves money mid-incident; same pattern as the "safe account" scam |
-| Trained ML fraud model                   | Removed            | No labelled data, unexplainable; rules + per-user baseline instead                         |
-| Supabase password/MFA verification hooks | Not used           | Teams/Enterprise only                                                                      |
-| Push alerts                              | Phase 10 (with D8) | Needs a paid Apple account and a dev build                                                 |
-| Real (mainnet) DVO token, public crypto  | Never              | Securities / VASP licensing; store policies                                                |
-| Partial fund holds                       | Not built          | Existing freeze covers the demo; avoids new balance math                                   |
+| Item                                     | Decision               | Why                                                                                        |
+| ---------------------------------------- | ---------------------- | ------------------------------------------------------------------------------------------ |
+| Move funds to a locked savings goal      | Removed                | Redundant with the lock; moves money mid-incident; same pattern as the "safe account" scam |
+| Trained ML fraud model                   | Removed                | No labelled data, unexplainable; rules + per-user baseline instead                         |
+| Supabase password/MFA verification hooks | Not used               | Teams/Enterprise only                                                                      |
+| Push alerts                              | Dropped (D13: Expo Go) | Expo Go cannot receive remote push; in-app alerts cover the demo                           |
+| Real (mainnet) DVO token, public crypto  | Never                  | Securities / VASP licensing; store policies                                                |
+| Partial fund holds                       | Not built              | Existing freeze covers the demo; avoids new balance math                                   |
