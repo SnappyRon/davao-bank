@@ -9,7 +9,7 @@
 - **Active prompt:** this hand-back brief (backup agent finishes tool-copy-check's task, reports to captain).
 - **Assigned to:** Backup Development Agent; merge `phase-7-integration`, run local checks, then merge the pending 8F risk-challenge fix from `phase-8-bantay-ui`.
 - **Exact next step:** commit the Phase 7 merge, run `npm ci` then typecheck / lint / jest / `test:db` / `check:copy`; fix only merge mistakes.
-- **Last commit:** `Phase 8 · Merge — Phase 7 integration (7B–7D)` (this commit; parent `307affe` + `728567a`).
+- **Last commit:** `Phase 8 · Fix — Remove absolute node_modules symlinks` (after merge `af6643d`, parents `307affe` + `728567a`).
 - **Blockers:** waiting for `Phase 8 · Fix — 8F call prepare_risk_challenge before confirm` on `phase-8-bantay-ui` before the second merge. Device, Maestro, VoiceOver, hosted and Playwright checks NOT VERIFIED (owner/captain).
 
 ## Stage 7B.0 — remaining work plan (captain, 2026-11-10)
@@ -261,6 +261,8 @@ Fix these before 7B:
 - **Follow-up:** add dedicated test accounts so live tests don't conflict with the presenter's real authenticator.
 
 ## Log (newest first)
+
+- **2026-11-26, Backup Development Agent:** removed the two tracked `node_modules` symlinks that arrived with the Phase 7 merge (`node_modules` → `/Users/ronalbert/Personal Projects/davao-bank/node_modules` and `apps/mobile/node_modules` → its sibling). They point into another worktree and `npm ci` through them would modify that folder, which this brief forbids; `docs/agents/notes/phase-8-integration.md` records the same hazard from the earlier integration run. Removed only the symlinks (not their targets) in this worktree, committed as `Phase 8 · Fix — Remove absolute node_modules symlinks` before installing dependencies locally. No source or money/step-up code changed.
 
 - **2026-11-26, Backup Development Agent:** took over tool-copy-check's full-app task on `phase-8-integration` (clean `307affe`). Waited for `phase-7-integration` to receive `728567a` (`Phase 7 · Fix — Activity account filter from Account detail`), then merged it with `--no-ff`. Resolved 8 conflicts by preserving both branches: `App.tsx` (7D MyAccounts/AccountDetail routes plus Phase 8 BantaySecurity/MonthlySummary routes and both `BantaySessionTracker` and `OfflineBanner`), `HomeScreen.tsx` (7D tappable balance card and saved-home account plus Phase 8 lock banner, security settings and bill reminders), `ActivityScreen.tsx` (7D redesign with Phase 8 Monthly summary action retained), `BillerStep.tsx` (7D guidance tip plus Phase 8 saved billers), `Skeleton.tsx`, `components/index.ts`, `errors_and_labels.test.ts` (both test cases). `errors.ts`, `PHASE7_REPORT.md`, `package.json` / lockfile auto-merged with both Phase 7 copy-context and Phase 8 guard copy and Next 16.4.6. `git grep -nE '^(<<<<<<<|>>>>>>>|=======)$'` printed nothing. Checks after the merge are in the next log entry. No push, no hosted DB access, no money/step-up handler edits.
 
