@@ -223,7 +223,7 @@ export function ScheduledPaymentsScreen() {
                         ? 'neutral'
                         : 'danger'
                   }
-                  label={{
+                  label={
                     selectedSchedule.status === 'active'
                       ? 'Active'
                       : selectedSchedule.status === 'completed'
@@ -231,7 +231,7 @@ export function ScheduledPaymentsScreen() {
                         : selectedSchedule.status === 'cancelled'
                           ? 'Cancelled'
                           : selectedSchedule.status.toUpperCase()
-                }}
+                  }
                 />
               </View>
 
@@ -290,7 +290,7 @@ export function ScheduledPaymentsScreen() {
 
               <View style={styles.row}>
                 <Text variant="body" color="textSecondary">
-{selectedSchedule.status === 'completed' ? 'Paid' : 'Next execution'}
+                  {selectedSchedule.status === 'completed' ? 'Paid' : 'Next execution'}
                 </Text>
                 <Text variant="bodyStrong">{selectedSchedule.next_run_date}</Text>
               </View>
@@ -330,38 +330,10 @@ export function ScheduledPaymentsScreen() {
                 Execution history
               </Text>
 
-<<<<<<< HEAD
-              {runs.map((run) => (
-                <View key={run.id} style={styles.runRow}>
-                  <View style={styles.runStatusIcon}>
-                    {run.status === 'completed' ? (
-                      <CheckCircle2 size={20} color={colors.primary} />
-                    ) : (
-                      <XCircle size={20} color={colors.redText} />
-                    )}
-                  </View>
-                  <View style={styles.runTextContainer}>
-                    <Text variant="bodyStrong">
-                      {run.run_date} ·{' '}
-                      {run.status === 'completed' ? 'Completed' : 'Failed'}
-                    </Text>
-                    {run.failure_reason && (
-                      <Text variant="caption" color="redText">
-                        {run.failure_reason}
-                      </Text>
-                    )}
-                    {run.transaction_id && (
-                      <Text variant="caption" color="textMuted">
-                        Reference no. {formatReferenceId(run.transaction_id)}
-                      </Text>
-                    )}
-                  </View>
-=======
               {runsLoading ? (
                 <View style={styles.runsSkeleton} testID="schedule-runs-skeleton">
                   <Skeleton width="100%" height={56} style={styles.runSkeletonCard} />
                   <Skeleton width="100%" height={56} style={styles.runSkeletonCard} />
->>>>>>> carryovers/phase-7-system-status
                 </View>
               ) : runsError ? (
                 <View style={styles.runsErrorBox}>
@@ -400,7 +372,7 @@ export function ScheduledPaymentsScreen() {
                       )}
                       {run.transaction_id && (
                         <Text variant="caption" color="textMuted">
-                          Ref: {run.transaction_id.slice(0, 8)}...
+                          Reference no. {formatReferenceId(run.transaction_id)}
                         </Text>
                       )}
                     </View>
@@ -464,42 +436,6 @@ export function ScheduledPaymentsScreen() {
                         )}
                       </View>
 
-<<<<<<< HEAD
-                  <View style={styles.cardHeaderInfo}>
-                    <Text variant="bodyStrong">
-                      {item.kind === 'bill'
-                        ? item.biller_name || item.note || 'Bill Payment'
-                        : `Transfer · •••• ${item.to_account_last4 || item.to_account_number?.slice(-4) || item.to_account?.slice(-4) || '••••'}`}
-                    </Text>
-                    <Text variant="caption" color="textSecondary">
-                      {item.status === 'completed'
-                        ? `Paid ${item.next_run_date}`
-                        : `Next: ${item.next_run_date}`}
-                    </Text>
-                  </View>
-
-                  <View style={styles.cardHeaderAmount}>
-                    <AmountText
-                      amountCentavos={item.amount}
-                      variant="bodyStrong"
-                      direction="outgoing"
-                      hidden={hideBalance}
-                    />
-                    <Badge
-                      variant={
-                        item.status === 'active'
-                          ? 'success'
-                          : item.status === 'completed'
-                            ? 'neutral'
-                            : 'danger'
-                      }
-                      label={item.status === 'completed' ? 'Completed' : item.frequency}
-                    />
-                  </View>
-                </View>
-              </Pressable>
-            ))}
-=======
                       <View style={styles.cardHeaderInfo}>
                         <Text variant="bodyStrong">
                           {item.kind === 'bill'
@@ -507,7 +443,9 @@ export function ScheduledPaymentsScreen() {
                             : `Transfer · •••• ${item.to_account_last4 || item.to_account_number?.slice(-4) || item.to_account?.slice(-4) || '••••'}`}
                         </Text>
                         <Text variant="caption" color="textSecondary">
-                          Next: {item.next_run_date}
+                          {item.status === 'completed'
+                            ? `Paid ${item.next_run_date}`
+                            : `Next: ${item.next_run_date}`}
                         </Text>
                       </View>
 
@@ -526,13 +464,14 @@ export function ScheduledPaymentsScreen() {
                                 ? 'neutral'
                                 : 'danger'
                           }
-                          label={item.frequency}
+                          label={
+                            item.status === 'completed' ? 'Completed' : item.frequency
+                          }
                         />
                       </View>
                     </View>
                   </Pressable>
                 ))}
->>>>>>> carryovers/phase-7-system-status
 
                 {schedules.length === 0 && (
                   <EmptyState
