@@ -115,25 +115,32 @@ A separate category of coding agents (Cline and OpenCode, free models) that take
 
 **Frontend department**
 
-| Agent (tab)       | Role                     | Current queue                                                                                                                    |
-| ----------------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
-| `fe-cline` (15)   | Motion and system status | 7C (`davao-bank-frontend`, from `fe-motion`) → 7B.11 (`davao-bank-status`, from `fe-system-status`)                              |
-| `fe-cline-2` (17) | Device fixes and copy    | 7B.10 (`davao-bank-carryovers`, from `fe-device-fixes`) → 7B.7 + the 12 check-copy violations (main checkout, from `fe-wording`) |
-| `fe-cline-3` (20) | Phase 8 mobile features  | 8F (`davao-bank-p8-ui`, from `fe-phase8-screens`)                                                                                |
+| Agent (tab)       | Role                     | Current queue                                                                                 |
+| ----------------- | ------------------------ | --------------------------------------------------------------------------------------------- |
+| `fe-cline` (15)   | Motion and system status | 7C done `fee30e6` → 7B.11 (`davao-bank-status`, from `fe-system-status`)                      |
+| `fe-cline-2` (17) | Device fixes and copy    | 7B.10 done `5e2aaf6` → 7B.7 + the 12 check-copy violations (main checkout, from `fe-wording`) |
+| `fe-cline-3` (20) | Phase 8 mobile features  | 8F (`davao-bank-p8-ui`, from `fe-phase8-screens`)                                             |
 
 **Backend department**
 
-| Agent (tab)          | Role                           | Current queue                                                                                  |
-| -------------------- | ------------------------------ | ---------------------------------------------------------------------------------------------- |
-| `be-opencode` (16)   | Database and security          | 7B.8 done `343fc54` → 8D + `jwt_expiry = 900` (`davao-bank-bantay`, from `be-bantay-security`) |
-| `be-opencode-2` (18) | Integration and edge functions | 8E (`davao-bank-bills`, from `be-bills-summary`)                                               |
-| `be-opencode-3` (21) | QA tooling and tests           | 8H (`davao-bank-tests`, new)                                                                   |
+| Agent (tab)          | Role                           | Current queue                                                                          |
+| -------------------- | ------------------------------ | -------------------------------------------------------------------------------------- |
+| `be-opencode` (16)   | Database and security          | 7B.8 `343fc54`, 8D `182505a` done → 7B.8 review fix; owns 8D fixes                     |
+| `be-opencode-2` (18) | Integration and edge functions | 8E done `316f718` → second read-only reviewer (code quality) while its queue is empty  |
+| `be-opencode-3` (21) | QA tooling and tests           | 8H done `2174d5f` → 8G admin cases (`davao-bank-admin-cases`, from `fe-general-codex`) |
+
+**Design department**
+
+| Agent (tab)        | Role           | Current queue                                                                                                     |
+| ------------------ | -------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `ux-designer` (22) | UI/UX designer | Bantay screens and admin cases spec, then 8F audit against it (`davao-bank-design`, branch `phase-8-design-spec`) |
 
 **Review**
 
 | Agent (tab)        | Role                                                                                                                                                                 |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `qa-reviewer` (19) | Read-only (OpenCode Plan mode). Reviews each backup commit the captain sends; the captain verifies findings, routes accepted ones back as fix tasks, and re-reviews. |
+| `ux-reviewer` (23) | Read-only UI/UX reviewer (OpenCode Plan mode, `roles/ui-ux-reviewer.md`). Reviews mobile, admin and design commits for spec, copy, states, accessibility and motion. |
 
 Merge note: `343fc54` (7B.8) adds `check:copy` to CI and fails until 7B.7 clears its 12 listed violations, so 7B.8 merges after 7B.7.
 
