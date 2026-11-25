@@ -8,8 +8,8 @@
 - **Branch:** `phase-8.5-ops-ui` (worktree `davao-bank-ops-ui`); 8.5A backend merged as `54b1e11`.
 - **Active prompt:** Stage 8.5B — live operations dashboard backed only by real 8.5A RPCs/tables.
 - **Assigned to:** Codex; implement dashboard, Jest/RTL coverage, NOT VERIFIED Playwright coverage, then run all checks and commit.
-- **Exact next step:** commit the out-of-scope copy-check fix, then commit Stage 8.5B by file name and report real check output.
-- **Last commit:** `Phase 7 · Fix — Activity test mock for useRoute` (`faad42f`); the copy-check fix is uncommitted here.
+- **Exact next step:** commit the out-of-scope spec-format fix, then commit Stage 8.5B by file name and report real check output.
+- **Last commit:** `Phase 8 · Fix — Sentence-case fallback in security event titles` (`9deb533`); Stage 8.5B code and the spec-format fix are uncommitted here.
 - **Blockers:** Playwright, hosted Supabase and device checks NOT VERIFIED (owner sign-in/captain only). No `.env` read, no hosted writes.
 
 ## Stage 7B.0 — remaining work plan (captain, 2026-11-10)
@@ -261,6 +261,8 @@ Fix these before 7B:
 - **Follow-up:** add dedicated test accounts so live tests don't conflict with the presenter's real authenticator.
 
 ## Log (newest first)
+
+- **2026-11-26, Codex:** reviewed the uncommitted dashboard and found a real comparison bug: `aggregateTimeseries` looked up previous buckets by the current bucket's timestamp, so the previous series would always be empty. Previous buckets are now aligned by position in the sorted series; the Jest fixture uses a different previous-period timestamp and asserts the `₱700.00` previous cell. Hero/metric comparison notes now wait for the previous RPC and never show a fake percentage while it loads or after an error. Final local checks before commit all exit 0: typecheck 3/3 workspaces, lint `✖ 61 problems (0 errors, 61 warnings)`, format PASS, `npx jest` `61 suites / 500 tests`, `npm run build:admin` `✓ Compiled successfully`, `npm run check:copy` `PASS ... 167 files`. `npm ci` was rerun after restoring real `node_modules`; tracked `node_modules` symlinks restored again and not staged. Also formatted the pre-existing `docs/specs/phase-8.5-ops-backend-spec.md` table so `format:check` passes; that fix is committed separately. Stage 8.5B code remains uncommitted. Playwright/hosted/device NOT VERIFIED. No `.env`, hosted DB, push, money or step-up changes.
 
 - **2026-11-26, Codex:** full checks after the Activity test fix: `npx jest` PASS (61 suites, 500 tests), `npm run build:admin` exit 0. `npm run check:copy` found a pre-existing violation in `apps/admin/src/lib/securityCases.ts:134` (`eventTitle` fallback used bare `.toUpperCase()`). Out-of-scope fix: use the checker-approved `c.charAt(0).toUpperCase()` form (same sentence-case output); rerun `npm run check:copy` PASS across 167 files. Stage 8.5B code remains uncommitted. No `.env`, hosted DB, push or money/step-up changes.
 
