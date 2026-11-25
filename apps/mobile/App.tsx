@@ -71,6 +71,10 @@ import { BantaySecurityScreen } from './src/screens/BantaySecurityScreen';
 import { MonthlySummaryScreen } from './src/screens/MonthlySummaryScreen';
 import { MyAccountsScreen } from './src/screens/MyAccountsScreen';
 import { AccountDetailScreen } from './src/screens/AccountDetailScreen';
+import {
+  MoreServicesScreen,
+  UnavailableServiceScreen,
+} from './src/screens/MoreServicesScreen';
 
 import { TransferScreen } from './src/screens/TransferScreen';
 import { PayBillsScreen } from './src/screens/PayBillsScreen';
@@ -105,6 +109,29 @@ export type RootStackParamList = {
   ChangePassword: undefined;
   MyAccounts: undefined;
   AccountDetail: { accountId: string; account?: AccountBalance };
+  MoreServices: undefined;
+  ServiceRequests: { initialRequestId?: string } | undefined;
+  NewServiceRequest:
+    | {
+        initialType?:
+          | 'statement'
+          | 'certificate'
+          | 'card_replacement'
+          | 'account_update'
+          | 'remit_status';
+      }
+    | undefined;
+  BranchAppointments: { initialAppointmentId?: string } | undefined;
+  BookAppointment: { branchId?: string; date?: string } | undefined;
+  SavingsGoals: { initialTab?: 'goals' | 'time_deposit' } | undefined;
+  TimeDepositPlanner: undefined;
+  InstallmentCalculator:
+    | {
+        initialAmountCentavos?: number;
+        initialTermMonths?: 3 | 6 | 12 | 24;
+      }
+    | undefined;
+  Cards: undefined;
 };
 
 export type BottomTabParamList = {
@@ -533,6 +560,51 @@ export default function App() {
               <RootStack.Screen
                 name="AccountDetail"
                 component={AccountDetailScreen}
+                options={{ presentation: 'card', animation: 'slide_from_right' }}
+              />
+              <RootStack.Screen
+                name="MoreServices"
+                component={MoreServicesScreen}
+                options={{ presentation: 'card', animation: 'slide_from_right' }}
+              />
+              <RootStack.Screen
+                name="ServiceRequests"
+                component={UnavailableServiceScreen}
+                options={{ presentation: 'card', animation: 'slide_from_right' }}
+              />
+              <RootStack.Screen
+                name="NewServiceRequest"
+                component={UnavailableServiceScreen}
+                options={{ presentation: 'card', animation: 'slide_from_right' }}
+              />
+              <RootStack.Screen
+                name="BranchAppointments"
+                component={UnavailableServiceScreen}
+                options={{ presentation: 'card', animation: 'slide_from_right' }}
+              />
+              <RootStack.Screen
+                name="BookAppointment"
+                component={UnavailableServiceScreen}
+                options={{ presentation: 'card', animation: 'slide_from_right' }}
+              />
+              <RootStack.Screen
+                name="SavingsGoals"
+                component={UnavailableServiceScreen}
+                options={{ presentation: 'card', animation: 'slide_from_right' }}
+              />
+              <RootStack.Screen
+                name="TimeDepositPlanner"
+                component={UnavailableServiceScreen}
+                options={{ presentation: 'card', animation: 'slide_from_right' }}
+              />
+              <RootStack.Screen
+                name="InstallmentCalculator"
+                component={UnavailableServiceScreen}
+                options={{ presentation: 'card', animation: 'slide_from_right' }}
+              />
+              <RootStack.Screen
+                name="Cards"
+                component={UnavailableServiceScreen}
                 options={{ presentation: 'card', animation: 'slide_from_right' }}
               />
             </RootStack.Navigator>

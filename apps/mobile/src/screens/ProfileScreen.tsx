@@ -18,6 +18,7 @@ import {
   ScanFace,
   KeyRound,
   EyeOff,
+  LayoutGrid,
 } from 'lucide-react-native';
 import {
   colors,
@@ -388,6 +389,13 @@ export function ProfileScreen({
               icon={<FileText size={iconSize} color={colors.primary} />}
               title="Statements"
               onPress={() => navigation.navigate('ExportStatement')}
+            />
+            <ListHairline />
+            <SettingsRow
+              icon={<LayoutGrid size={iconSize} color={colors.primary} />}
+              title="More services"
+              subtitle="Simulation — tools, requests and calculators"
+              onPress={() => navigation.navigate('MoreServices')}
             />
           </GroupedList>
         </View>
