@@ -4,13 +4,13 @@
 
 ## Now
 
-- **Active phase:** Phase 7 + Phase 8 full app (`phase-8-integration`).
-- **Branch:** `phase-8-integration`; Phase 7 integration merged from `phase-7-integration` (`728567a`) with both feature sets preserved.
-- **Active prompt:** this hand-back brief (backup agent finishes tool-copy-check's task, reports to captain).
-- **Assigned to:** Backup Development Agent; merge `phase-7-integration`, run local checks, then merge the pending 8F risk-challenge fix from `phase-8-bantay-ui`.
-- **Exact next step:** commit the Phase 7 merge, run `npm ci` then typecheck / lint / jest / `test:db` / `check:copy`; fix only merge mistakes.
-- **Last commit:** `Phase 8 · Merge — Phase 7 integration (7B–7D)` (this commit; parent `307affe` + `728567a`).
-- **Blockers:** waiting for `Phase 8 · Fix — 8F call prepare_risk_challenge before confirm` on `phase-8-bantay-ui` before the second merge. Device, Maestro, VoiceOver, hosted and Playwright checks NOT VERIFIED (owner/captain).
+- **Active phase:** Phase 8.5B operations dashboard screens (captain prompt).
+- **Branch:** `phase-8.5-ops-ui` (worktree `davao-bank-ops-ui`); 8.5A backend merged as `54b1e11`.
+- **Active prompt:** Stage 8.5B — live operations dashboard backed only by real 8.5A RPCs/tables.
+- **Assigned to:** Codex; implement dashboard, Jest/RTL coverage, NOT VERIFIED Playwright coverage, then run all checks and commit.
+- **Exact next step:** commit the out-of-scope Activity test mock fix, then run full checks and commit Stage 8.5B by file name.
+- **Last commit:** `Phase 8 · Merge — 8.5A backend` (`54b1e11`); the Activity test mock fix is uncommitted here.
+- **Blockers:** Playwright, hosted Supabase and device checks NOT VERIFIED (owner sign-in/captain only). No `.env` read, no hosted writes.
 
 ## Stage 7B.0 — remaining work plan (captain, 2026-11-10)
 
@@ -261,6 +261,8 @@ Fix these before 7B:
 - **Follow-up:** add dedicated test accounts so live tests don't conflict with the presenter's real authenticator.
 
 ## Log (newest first)
+
+- **2026-11-26, Codex:** took over Stage 8.5B on worktree `davao-bank-ops-ui` (`phase-8.5-ops-ui`, base `54b1e11`). Out-of-scope fix found by the full Jest run: `monthly_summary_screen.test.tsx` mocked `@react-navigation/native` without `useRoute`, so the `728567a` Activity account-filter change crashed it. Added `useRoute: () => ({ params: undefined })` only to that test; targeted rerun `npx jest --selectProjects mobile --runInBand apps/mobile/src/__tests__/monthly_summary_screen.test.tsx` PASS (1 suite, 6 tests). Stage 8.5B dashboard code remains uncommitted; next step is full checks and the stage commit. No `.env`, hosted DB, push or money/step-up changes.
 
 - **2026-11-26, Backup Development Agent:** took over tool-copy-check's full-app task on `phase-8-integration` (clean `307affe`). Waited for `phase-7-integration` to receive `728567a` (`Phase 7 · Fix — Activity account filter from Account detail`), then merged it with `--no-ff`. Resolved 8 conflicts by preserving both branches: `App.tsx` (7D MyAccounts/AccountDetail routes plus Phase 8 BantaySecurity/MonthlySummary routes and both `BantaySessionTracker` and `OfflineBanner`), `HomeScreen.tsx` (7D tappable balance card and saved-home account plus Phase 8 lock banner, security settings and bill reminders), `ActivityScreen.tsx` (7D redesign with Phase 8 Monthly summary action retained), `BillerStep.tsx` (7D guidance tip plus Phase 8 saved billers), `Skeleton.tsx`, `components/index.ts`, `errors_and_labels.test.ts` (both test cases). `errors.ts`, `PHASE7_REPORT.md`, `package.json` / lockfile auto-merged with both Phase 7 copy-context and Phase 8 guard copy and Next 16.4.6. `git grep -nE '^(<<<<<<<|>>>>>>>|=======)$'` printed nothing. Checks after the merge are in the next log entry. No push, no hosted DB access, no money/step-up handler edits.
 
