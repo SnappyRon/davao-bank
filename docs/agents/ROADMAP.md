@@ -150,6 +150,8 @@ A separate category of coding agents (Cline and OpenCode, free models) that take
 | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `coordinator` (26) | Integration Coordinator (OpenCode, `roles/integration-coordinator.md`). Keeps `docs/agents/OWNERSHIP.md` (tasks, folders, file ownership, shared-file order, merge order, decisions); checks every brief for overlap before it goes out; predicts merge conflicts. Writes only that file; the captain commits it. |
 
+**Added 2026-11-26:** `fe-opencode` (OpenCode, Big Pickle) — frontend builder for the admin console; first task 8.5B operations dashboard screens (`davao-bank-ops-ui`, branch `phase-8.5-ops-ui`).
+
 **Who does what:** implementers (Cline and OpenCode build agents, primary Codex/Antigravity) write code; `ux-designer` writes specs; `qa-reviewer`, `ux-reviewer`, `ci-reviewer`, `ai-specialist` and `be-opencode-2` (while its queue is empty) review read-only; `coordinator` and the captain coordinate integration. All report to the captain.
 
 Merge note: `343fc54` (7B.8) adds `check:copy` to CI and fails until 7B.7 clears its 12 listed violations, so 7B.8 merges after 7B.7.
