@@ -26,6 +26,7 @@
     "test:schedules": "node --env-file=.env --import tsx scripts/test-phase5-schedules.ts",
     "test:qr": "node --env-file=.env --import tsx scripts/test-phase5-qr-requests.ts",
     "test:fx": "node --env-file=.env --import tsx scripts/test-phase5-fx.ts",
+    "test:bantay": "node --env-file=.env --import tsx scripts/test-bantay.mjs",
     "test:db": "node scripts/review/pglite-behavior.mjs",
     "test:unit": "jest",
     "test:contrast": "node --import tsx scripts/check-contrast.ts"
