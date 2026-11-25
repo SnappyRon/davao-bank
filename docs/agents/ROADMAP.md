@@ -108,3 +108,14 @@ All agents report progress, findings and blockers to the captain only (Herdr tab
 | Push alerts                              | Dropped (D13: Expo Go) | Expo Go cannot receive remote push; in-app alerts cover the demo                           |
 | Real (mainnet) DVO token, public crypto  | Never                  | Securities / VASP licensing; store policies                                                |
 | Partial fund holds                       | Not built              | Existing freeze covers the demo; avoids new balance math                                   |
+
+## 8. Substitute agents (2026-11-25)
+
+All Antigravity agents hit the weekly Gemini quota and Codex hit its limit (resets 2026-11-26 00:12). Two substitutes take over the pending work, resume from each stopped agent's uncommitted changes (kept, not redone) and report to the captain. The stopped agents must not be restarted on these tasks.
+
+| Substitute               | Tool                                                           | Queue (in order)                                                                                                                                                                                                                                                           |
+| ------------------------ | -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `fe-cline` (tab 15)      | Cline CLI                                                      | 1. 7C (`davao-bank-frontend`, from `fe-motion`) · 2. 7B.10 (`davao-bank-carryovers`, from `fe-device-fixes`) · 3. 7B.11 (`davao-bank-status`, from `fe-system-status`) · 4. 7B.7 (main checkout, from `fe-wording`) · 5. 8F (`davao-bank-p8-ui`, from `fe-phase8-screens`) |
+| `be-openrouter` (tab 16) | Cline CLI + OpenRouter (`--data-dir ~/.cline-openrouter/data`) | 1. 7B.8 (`davao-bank-copycheck`, from `tool-copy-check`) · 2. 8D + `jwt_expiry = 900` (`davao-bank-bantay`, from `be-bantay-security`) · 3. 8E (`davao-bank-bills`, from `be-bills-summary`)                                                                               |
+
+Phase 8G (admin cases) and the 8-merge stay with `fe-general-codex` after its reset.
