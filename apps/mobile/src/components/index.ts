@@ -31,3 +31,4 @@ export * from './RecipientChip';
 export * from './WhenPicker';
 export * from './OfflineBanner';
 export * from './GuidanceTip';
+export * from './ActivityFilterSheet';

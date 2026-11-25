@@ -128,29 +128,44 @@ export function TransactionRow({
       disabled={!onPress}
       style={[groupedListStyles.row, styles.container, style]}
     >
-      <View style={[groupedListStyles.disc, { backgroundColor: bg }]}>{icon}</View>
-
-      <View style={styles.text}>
-        <Text variant="bodyStrong" color={colors.ink} numberOfLines={1}>
-          {title}
-        </Text>
-        <Text variant="caption" color={colors.textMuted} numberOfLines={1}>
-          {meta}
-        </Text>
+      <View style={[groupedListStyles.disc, styles.disc, { backgroundColor: bg }]}>
+        {icon}
       </View>
 
-      <View style={styles.trailing}>
-        <AmountText
-          amountCentavos={transaction.amount}
-          direction={isCredit ? 'incoming' : 'outgoing'}
-          color={isReversed ? colors.textMuted : undefined}
-          variant="bodyStrong"
-          hidden={hideBalance}
-          maxFontSizeMultiplier={AMOUNT_MAX_SCALE}
-          style={isReversed ? styles.struck : undefined}
-        />
-        {badge ? (
-          <Badge label={badge.label} variant={badge.variant} style={styles.badge} />
+      <View style={styles.main}>
+        <View style={styles.rowTop}>
+          <Text
+            variant="bodyStrong"
+            color={colors.ink}
+            numberOfLines={1}
+            style={styles.title}
+          >
+            {title}
+          </Text>
+          <View style={styles.trailing}>
+            <AmountText
+              amountCentavos={transaction.amount}
+              direction={isCredit ? 'incoming' : 'outgoing'}
+              color={isReversed ? colors.textMuted : undefined}
+              variant="bodyStrong"
+              hidden={hideBalance}
+              maxFontSizeMultiplier={AMOUNT_MAX_SCALE}
+              style={isReversed ? styles.struck : undefined}
+            />
+            {badge ? (
+              <Badge label={badge.label} variant={badge.variant} style={styles.badge} />
+            ) : null}
+          </View>
+        </View>
+        {meta ? (
+          <Text
+            variant="caption"
+            color={colors.textMuted}
+            numberOfLines={1}
+            style={styles.meta}
+          >
+            {meta}
+          </Text>
         ) : null}
       </View>
     </Pressable>
@@ -161,14 +176,36 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: colors.surface,
   },
-  text: {
+  disc: {
+    alignSelf: 'flex-start',
+    marginTop: 2,
+  },
+  main: {
     flex: 1,
+    gap: 2,
+  },
+  rowTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  title: {
+    flex: 1,
+    minWidth: 120,
+  },
+  meta: {
+    marginTop: 2,
   },
   trailing: {
     alignItems: 'flex-end',
+    flexShrink: 0,
+    alignSelf: 'flex-end',
   },
   badge: {
     alignSelf: 'flex-end',
+    marginTop: 2,
   },
   struck: {
     textDecorationLine: 'line-through',

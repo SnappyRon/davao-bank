@@ -159,19 +159,27 @@ describe('ActivityScreen (7B.2)', () => {
     expect(screen.getByText('No matches')).toBeTruthy();
   });
 
-  it('filters by account with 36 pt chips', async () => {
+  it('filters by account with 36 pt chips and compact account selector', async () => {
     await render(<ActivityScreen />);
     await screen.findByText('Sent to •• 7943');
 
-    const chip = screen.getByRole('button', { name: 'Checking •• 4455' });
-    expect(chip).toHaveStyle({ minHeight: 36 });
-    await fireEvent.press(chip);
+    // Tap compact account selector to open AccountPickerSheet
+    await fireEvent.press(screen.getByRole('button', { name: 'All accounts' }));
+    const accountRow = screen.getByRole('button', { name: /Checking •• 4455/ });
+    await fireEvent.press(accountRow);
 
+    // List is filtered to Checking transactions
     expect(screen.getByText('Sent to •• 6666')).toBeTruthy();
     expect(screen.queryByText('Sent to •• 7943')).toBeNull();
-    expect(screen.getByRole('button', { name: 'Checking •• 4455' })).toBeSelected();
 
-    await fireEvent.press(screen.getByRole('button', { name: 'All accounts' }));
+    // Active removable chip is shown and is 36 pt tall
+    const chip = screen.getByRole('button', {
+      name: 'Remove Checking •• 4455 filter',
+    });
+    expect(chip).toHaveStyle({ minHeight: 36 });
+
+    // Tap active chip to remove filter
+    await fireEvent.press(chip);
     expect(screen.getByText('Sent to •• 7943')).toBeTruthy();
   });
 
@@ -282,7 +290,9 @@ describe('ActivityScreen (7B.2)', () => {
   it('uses the bank credit wording for the adjustments chip and its empty text', async () => {
     await render(<ActivityScreen />);
     await screen.findByText('Sent to •• 7943');
-    await fireEvent.press(screen.getByRole('button', { name: 'Bank credits & debits' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Filters' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Adjustments' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Apply' }));
     expect(screen.getByText('No bank credits or debits yet.')).toBeTruthy();
   });
 
@@ -299,13 +309,15 @@ describe('ActivityScreen (7B.2)', () => {
     });
 
     expect(screen.getByText('Savings · To •• 7943 · 2:41 AM')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Checking •• 4455' })).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'All accounts' }));
+    expect(screen.getByRole('button', { name: /Checking •• 4455/ })).toBeTruthy();
   });
 
   it('falls back to all accounts when the chosen account disappears', async () => {
     await render(<ActivityScreen />);
     await screen.findByText('Sent to •• 7943');
-    await fireEvent.press(screen.getByRole('button', { name: 'Checking •• 4455' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'All accounts' }));
+    await fireEvent.press(screen.getByRole('button', { name: /Checking •• 4455/ }));
     expect(screen.queryByText('Sent to •• 7943')).toBeNull();
 
     (fetchAccountBalances as jest.Mock).mockResolvedValueOnce({
@@ -317,7 +329,7 @@ describe('ActivityScreen (7B.2)', () => {
     });
 
     expect(await screen.findByText('Sent to •• 7943')).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'All accounts' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'All accounts' })).toBeTruthy();
   });
 
   it('shows the refresh error above the empty state when the filtered list is empty', async () => {

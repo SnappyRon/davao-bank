@@ -4,13 +4,13 @@
 
 ## Now
 
-- **Active phase:** Phase 7 — UI/UX Refinement & Motion.
-- **Branch:** `phase-7-integration` (integration of 7B.8, 7B.10, 7B.11 and 7C).
-- **Active prompt:** `Phase-7-Prompt-UI-UX-and-Motion.md`.
-- **Assigned to:** Codex integrating stages 7B.8, 7B.10, 7B.11 and 7C on the captain's instruction.
-- **Exact next step:** captain reviews the completed integration branch; device checks remain with the owner.
-- **Last commit:** Phase 7 · Merge — 7C Motion and illustrations (this merge commit).
-- **Blockers:** none. Device checks, Maestro regression, 60 fps and VoiceOver NOT VERIFIED.
+- **Active phase:** Phase 7 — Track 7D (Accounts & Activity).
+- **Branch:** `phase-7d-activity` (worktree of `phase-7-integration`).
+- **Active prompt:** `Phase-7-Prompt-UI-UX-and-Motion.md` / `ROADMAP.md` §9 Track 7D.
+- **Assigned to:** Antigravity (fe-motion) completed Track 7D-b Activity redesign, filters Sheet and TransactionRow.
+- **Exact next step:** captain reviews the completed 7D Activity commit; device checks remain with the owner.
+- **Last commit:** Phase 7 · Stage 7D — Activity filters and transaction rows (this commit; parent `fadbd95`).
+- **Blockers:** none. Device checks, Maestro regression, and VoiceOver NOT VERIFIED.
 
 ## Stage 7B.0 — remaining work plan (captain, 2026-11-10)
 
@@ -261,6 +261,8 @@ Fix these before 7B:
 - **Follow-up:** add dedicated test accounts so live tests don't conflict with the presenter's real authenticator.
 
 ## Log (newest first)
+
+- **2026-11-26, Antigravity:** completed Track 7D-b Activity redesign, filters Sheet and TransactionRow on branch `phase-7d-activity` (base `fadbd95`). Implemented top search field, compact account selector opening existing `AccountPickerSheet`, Filters button with active count badge opening new `ActivityFilterSheet` (transaction types, presets + custom date range, direction, status, Clear/Apply), and removable filter chips. Redesigned `TransactionRow` with flexible layout, top-aligned icon disc, and preserved `AmountText` with minFontScale 0.7 for large amounts (₱100,000,000.00) at 360 pt and 1.4× scaling. Retained all 7B.11 states (skeleton loading, offline banner, error + retry, empty states). Checks: typecheck PASS (exit 0), lint PASS (0 errors, 62 warnings), format:check PASS, unit 44 suites / 372 tests PASS (including 14 new filter and row tests), check:copy PASS. No routes or balance card touched; no DB changes; staged by name.
 
 - **2026-11-25, fe-cline-2:** took over Stage 7B.10 from fe-device-fixes on worktree `phase-7-carryovers` (base `af8b3aa`); kept fe-device-fixes's uncommitted changes and finished the stage. Committed `Phase 7 · Stage 7B.10 — Carry-overs from device checks`. Changes: `ScheduledPaymentsScreen` shows "Completed" badge + "Paid <date>" and sorts completed below active; Transfer uncertain state exits via "Check status" (reuses `recoverTransfer`/`executeServerTransfer` with the same idempotency key — no new money) + "Done" (toast + back); `LockScreen` is biometrics-first with password only after "Use password"; `TwoStepSetupScreen` is a `FeatureScreen` titled "Two-step verification" with 200 pt QR, monospace setup-key box with Copy and "Open in authenticator app"; `TotpPromptOverlay` defaults to "Enter your authenticator code" and auto-submits on 6 digits; `StepUpSetupLink` navigates directly to `TwoStepSetup`. Large-text amount fitting and the PayBills biller hint were already fixed in 7B.6/7B.4; the optimistic App lock switch was already in `ProfileScreen`. Fixes: `transfer_screen.test.tsx` mocks now satisfy `MoneyOperationResult` (typecheck); `npx prettier --write` on the 6 task files prettier flagged. Checks: typecheck exit 0; lint 0 errors (63 warnings); format:check clean on task files; unit 41 suites / 344 tests pass. Device screenshots/behaviour NOT VERIFIED — no device available. `customer1`'s authenticator untouched; no hosted writes, no push, no merge.
 
