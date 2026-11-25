@@ -1,5 +1,5 @@
 import React from 'react';
-import { ScrollView, StyleSheet, type ViewStyle } from 'react-native';
+import { View, ScrollView, StyleSheet, type ViewStyle } from 'react-native';
 import { colors, radius, spacing, typography } from '@davao-bank/shared';
 import { Text } from './Text';
 import { Pressable } from './Pressable';
@@ -12,9 +12,10 @@ export interface ChipProps {
   selected?: boolean;
   onPress: () => void;
   style?: ViewStyle;
+  icon?: React.ReactNode;
 }
 
-export function Chip({ label, selected = false, onPress, style }: ChipProps) {
+export function Chip({ label, selected = false, onPress, style, icon }: ChipProps) {
   return (
     <Pressable
       onPress={onPress}
@@ -23,8 +24,14 @@ export function Chip({ label, selected = false, onPress, style }: ChipProps) {
       accessibilityLabel={label}
       feedbackType="scale"
       hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
-      style={[styles.chip, selected ? styles.selectedChip : styles.unselectedChip, style]}
+      style={[
+        styles.chip,
+        Boolean(icon) && styles.chipWithIcon,
+        selected ? styles.selectedChip : styles.unselectedChip,
+        style,
+      ]}
     >
+      {icon ? <View style={styles.iconContainer}>{icon}</View> : null}
       <Text
         variant="label"
         maxFontSizeMultiplier={1.4}
@@ -100,6 +107,15 @@ const styles = StyleSheet.create({
   selectedChip: {
     backgroundColor: colors.primaryTint,
     borderColor: colors.primary,
+  },
+  chipWithIcon: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+    paddingLeft: spacing.sm,
+  },
+  iconContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   label: {
     fontFamily: typography.fonts.bold,

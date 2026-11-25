@@ -1,18 +1,24 @@
 import { useConfirmSheet } from '../hooks/useConfirmSheet';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, StyleSheet, Alert } from 'react-native';
-import { Send, Zap, CheckCircle2, XCircle, AlertCircle } from 'lucide-react-native';
+import { View, StyleSheet } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '../../App';
+import { Send, Zap, CheckCircle2, XCircle } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import {
   colors,
   spacing,
   radius,
   formatCentavosToPHP,
+  formatReferenceId,
   toUserMessage,
   type ScheduledPayment,
   type ScheduledPaymentRun,
 } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
+import { reportNetworkResult } from '../lib/networkStatus';
+import { MASCOT_EMPTY, MASCOT_ERROR } from '../assets/illustrations';
 import { useSettings } from '../context/SettingsContext';
 import {
   FeatureScreen,
@@ -22,17 +28,26 @@ import {
   AmountText,
   Badge,
   EmptyState,
+  Skeleton,
   Pressable,
+  useToast,
 } from '../components';
+
+const SKELETON_CARDS = 3;
+const SCHEDULE_CARD_SKELETON_HEIGHT = 76;
 
 export function ScheduledPaymentsScreen() {
   const { showConfirmation, confirmSheet } = useConfirmSheet();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const toast = useToast();
   const { hideBalance, confirmBiometricPayment } = useSettings();
 
   const [schedules, setSchedules] = useState<ScheduledPayment[]>([]);
   const [selectedSchedule, setSelectedSchedule] = useState<ScheduledPayment | null>(null);
   const [runs, setRuns] = useState<ScheduledPaymentRun[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [runsLoading, setRunsLoading] = useState(false);
+  const [runsError, setRunsError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
 
@@ -52,16 +67,23 @@ export function ScheduledPaymentsScreen() {
     try {
       const { data, error } = await supabase.rpc('list_my_scheduled_payments');
 
+      reportNetworkResult(error);
       if (!mountedRef.current) return;
       if (error) {
-        setLoadError(toUserMessage(error));
+        setLoadError(toUserMessage(error, 'load'));
         setSchedules([]);
       } else if (data) {
-        setSchedules(data as ScheduledPayment[]);
+        const sorted = [...(data as ScheduledPayment[])].sort((a, b) => {
+          const aActive = a.status === 'active' ? 0 : 1;
+          const bActive = b.status === 'active' ? 0 : 1;
+          return aActive - bActive;
+        });
+        setSchedules(sorted);
       }
     } catch (err: unknown) {
+      reportNetworkResult(err);
       if (mountedRef.current) {
-        setLoadError(toUserMessage(err));
+        setLoadError(toUserMessage(err, 'load'));
         setSchedules([]);
       }
     } finally {
@@ -72,6 +94,8 @@ export function ScheduledPaymentsScreen() {
   }, []);
 
   const loadRuns = async (scheduleId: string) => {
+    setRunsLoading(true);
+    setRunsError(null);
     try {
       const { data, error } = await supabase
         .from('scheduled_payment_runs')
@@ -79,12 +103,24 @@ export function ScheduledPaymentsScreen() {
         .eq('schedule_id', scheduleId)
         .order('created_at', { ascending: false });
 
+      reportNetworkResult(error);
       if (!mountedRef.current) return;
-      if (data && !error) {
+      if (error) {
+        setRunsError(toUserMessage(error));
+        setRuns([]);
+      } else if (data) {
         setRuns(data as ScheduledPaymentRun[]);
       }
-    } catch {
-      // Fallback
+    } catch (err: unknown) {
+      reportNetworkResult(err);
+      if (mountedRef.current) {
+        setRunsError(toUserMessage(err));
+        setRuns([]);
+      }
+    } finally {
+      if (mountedRef.current) {
+        setRunsLoading(false);
+      }
     }
   };
 
@@ -109,7 +145,7 @@ export function ScheduledPaymentsScreen() {
       destructive: true,
       onConfirm: async () => {
         const authRes = await confirmBiometricPayment({
-          title: 'Cancel Scheduled Payment',
+          title: 'Cancel scheduled payment',
           requireTotp: false,
           message: 'Confirm your identity to cancel this recurring payment schedule.',
         });
@@ -123,14 +159,15 @@ export function ScheduledPaymentsScreen() {
           });
 
           if (error) {
-            Alert.alert('Error', toUserMessage(error));
+            toast.show(toUserMessage(error), 'error');
           } else {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            toast.show('Scheduled payment cancelled');
             setSelectedSchedule(null);
             loadSchedules();
           }
         } catch (err: any) {
-          Alert.alert('Error', toUserMessage(err));
+          toast.show(toUserMessage(err), 'error');
         } finally {
           setActionLoading(false);
         }
@@ -139,29 +176,23 @@ export function ScheduledPaymentsScreen() {
   };
   return (
     <FeatureScreen
-      title={selectedSchedule ? 'Schedule Details' : 'Scheduled Payments'}
+      title={selectedSchedule ? 'Schedule details' : 'Scheduled payments'}
       isProcessing={actionLoading}
       step={selectedSchedule ? 2 : 1}
       onPrevStep={() => setSelectedSchedule(null)}
     >
       <View style={styles.content}>
         {loadError ? (
-          <View style={styles.loadErrorContainer}>
-            <AlertCircle size={24} color={colors.redText} />
-            <Text
-              variant="body"
-              color={colors.redText}
-              accessibilityRole="alert"
-              style={styles.loadErrorText}
-            >
-              {loadError}
-            </Text>
-            <Button
-              title="Try again"
-              variant="secondary"
-              onPress={() => void loadSchedules()}
-            />
-          </View>
+          <EmptyState
+            title="Scheduled payments unavailable"
+            description={loadError}
+            descriptionAccessibilityRole="alert"
+            illustration={MASCOT_ERROR}
+            illustrationTestID="schedules-error-mascot"
+            actionTitle="Try again"
+            onAction={() => void loadSchedules()}
+            scrollable={false}
+          />
         ) : selectedSchedule ? (
           // Detail View
           <View style={styles.detailContainer}>
@@ -192,7 +223,15 @@ export function ScheduledPaymentsScreen() {
                         ? 'neutral'
                         : 'danger'
                   }
-                  label={selectedSchedule.status.toUpperCase()}
+                  label={
+                    selectedSchedule.status === 'active'
+                      ? 'Active'
+                      : selectedSchedule.status === 'completed'
+                        ? 'Completed'
+                        : selectedSchedule.status === 'cancelled'
+                          ? 'Cancelled'
+                          : selectedSchedule.status
+                  }
                 />
               </View>
 
@@ -201,7 +240,7 @@ export function ScheduledPaymentsScreen() {
                   Type
                 </Text>
                 <Text variant="bodyStrong">
-                  {selectedSchedule.kind === 'bill' ? 'Bill Payment' : 'Funds Transfer'}
+                  {selectedSchedule.kind === 'bill' ? 'Bill payment' : 'Funds transfer'}
                 </Text>
               </View>
 
@@ -224,7 +263,7 @@ export function ScheduledPaymentsScreen() {
                       Biller
                     </Text>
                     <Text variant="bodyStrong">
-                      {selectedSchedule.biller_name || 'Bill Payment'}
+                      {selectedSchedule.biller_name || 'Bill payment'}
                     </Text>
                   </View>
                   {selectedSchedule.biller_reference ? (
@@ -251,14 +290,14 @@ export function ScheduledPaymentsScreen() {
 
               <View style={styles.row}>
                 <Text variant="body" color="textSecondary">
-                  Next Execution
+                  {selectedSchedule.status === 'completed' ? 'Paid' : 'Next execution'}
                 </Text>
                 <Text variant="bodyStrong">{selectedSchedule.next_run_date}</Text>
               </View>
 
               <View style={styles.row}>
                 <Text variant="body" color="textSecondary">
-                  Runs Completed
+                  Runs completed
                 </Text>
                 <Text variant="bodyStrong">
                   {selectedSchedule.runs_done}
@@ -269,7 +308,7 @@ export function ScheduledPaymentsScreen() {
               {selectedSchedule.end_date && (
                 <View style={styles.row}>
                   <Text variant="body" color="textSecondary">
-                    End Date
+                    End date
                   </Text>
                   <Text variant="bodyStrong">{selectedSchedule.end_date}</Text>
                 </View>
@@ -288,38 +327,60 @@ export function ScheduledPaymentsScreen() {
             {/* Run History List */}
             <View style={styles.runsSection}>
               <Text variant="label" style={styles.sectionTitle}>
-                Execution History
+                Execution history
               </Text>
 
-              {runs.map((run) => (
-                <View key={run.id} style={styles.runRow}>
-                  <View style={styles.runStatusIcon}>
-                    {run.status === 'completed' ? (
-                      <CheckCircle2 size={20} color={colors.primary} />
-                    ) : (
-                      <XCircle size={20} color={colors.redText} />
-                    )}
-                  </View>
-                  <View style={styles.runTextContainer}>
-                    <Text variant="bodyStrong">
-                      {run.run_date} ·{' '}
-                      {run.status === 'completed' ? 'Completed' : 'Failed'}
-                    </Text>
-                    {run.failure_reason && (
-                      <Text variant="caption" color="redText">
-                        {run.failure_reason}
-                      </Text>
-                    )}
-                    {run.transaction_id && (
-                      <Text variant="caption" color="textMuted">
-                        Ref: {run.transaction_id.slice(0, 8)}...
-                      </Text>
-                    )}
-                  </View>
+              {runsLoading ? (
+                <View style={styles.runsSkeleton} testID="schedule-runs-skeleton">
+                  <Skeleton width="100%" height={56} style={styles.runSkeletonCard} />
+                  <Skeleton width="100%" height={56} style={styles.runSkeletonCard} />
                 </View>
-              ))}
+              ) : runsError ? (
+                <View style={styles.runsErrorBox}>
+                  <Text
+                    variant="caption"
+                    color={colors.redText}
+                    accessibilityRole="alert"
+                  >
+                    {runsError}
+                  </Text>
+                  <Button
+                    title="Try again"
+                    variant="secondary"
+                    onPress={() => void loadRuns(selectedSchedule.id)}
+                  />
+                </View>
+              ) : (
+                runs.map((run) => (
+                  <View key={run.id} style={styles.runRow}>
+                    <View style={styles.runStatusIcon}>
+                      {run.status === 'completed' ? (
+                        <CheckCircle2 size={20} color={colors.primary} />
+                      ) : (
+                        <XCircle size={20} color={colors.redText} />
+                      )}
+                    </View>
+                    <View style={styles.runTextContainer}>
+                      <Text variant="bodyStrong">
+                        {run.run_date} ·{' '}
+                        {run.status === 'completed' ? 'Completed' : 'Failed'}
+                      </Text>
+                      {run.failure_reason && (
+                        <Text variant="caption" color="redText">
+                          {run.failure_reason}
+                        </Text>
+                      )}
+                      {run.transaction_id && (
+                        <Text variant="caption" color="textMuted">
+                          Reference no. {formatReferenceId(run.transaction_id)}
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+                ))
+              )}
 
-              {runs.length === 0 && (
+              {!runsLoading && !runsError && runs.length === 0 && (
                 <Text variant="caption" color="textMuted" style={styles.noRunsText}>
                   No executions recorded yet.
                 </Text>
@@ -328,7 +389,7 @@ export function ScheduledPaymentsScreen() {
 
             {selectedSchedule.status === 'active' && (
               <Button
-                title="Cancel Schedule"
+                title="Cancel schedule"
                 variant="destructive"
                 onPress={handleCancelSchedule}
                 loading={actionLoading}
@@ -339,63 +400,91 @@ export function ScheduledPaymentsScreen() {
         ) : (
           // List View
           <View style={styles.listContainer}>
-            {schedules.map((item) => (
-              <Pressable
-                key={item.id}
-                style={styles.scheduleCard}
-                onPress={() => handleSelectSchedule(item)}
-                feedbackType="scale"
-                accessibilityRole="button"
-                accessibilityLabel={`View schedule for ${formatCentavosToPHP(item.amount)}`}
+            {loading ? (
+              <View
+                style={styles.listContainer}
+                accessibilityRole="progressbar"
+                accessibilityLabel="Loading scheduled payments"
+                testID="schedules-skeleton"
               >
-                <View style={styles.cardHeader}>
-                  <View style={styles.iconCircle}>
-                    {item.kind === 'bill' ? (
-                      <Zap size={20} color={colors.yellow} />
-                    ) : (
-                      <Send size={20} color={colors.blue} />
-                    )}
-                  </View>
+                {Array.from({ length: SKELETON_CARDS }, (_, index) => (
+                  <Skeleton
+                    key={index}
+                    width="100%"
+                    height={SCHEDULE_CARD_SKELETON_HEIGHT}
+                    borderRadius={radius.md}
+                  />
+                ))}
+              </View>
+            ) : (
+              <>
+                {schedules.map((item) => (
+                  <Pressable
+                    key={item.id}
+                    style={styles.scheduleCard}
+                    onPress={() => handleSelectSchedule(item)}
+                    feedbackType="scale"
+                    accessibilityRole="button"
+                    accessibilityLabel={`View schedule for ${formatCentavosToPHP(item.amount)}`}
+                  >
+                    <View style={styles.cardHeader}>
+                      <View style={styles.iconCircle}>
+                        {item.kind === 'bill' ? (
+                          <Zap size={20} color={colors.yellow} />
+                        ) : (
+                          <Send size={20} color={colors.blue} />
+                        )}
+                      </View>
 
-                  <View style={styles.cardHeaderInfo}>
-                    <Text variant="bodyStrong">
-                      {item.kind === 'bill'
-                        ? item.biller_name || item.note || 'Bill Payment'
-                        : `Transfer · •••• ${item.to_account_last4 || item.to_account_number?.slice(-4) || item.to_account?.slice(-4) || '••••'}`}
-                    </Text>
-                    <Text variant="caption" color="textSecondary">
-                      Next: {item.next_run_date}
-                    </Text>
-                  </View>
+                      <View style={styles.cardHeaderInfo}>
+                        <Text variant="bodyStrong">
+                          {item.kind === 'bill'
+                            ? item.biller_name || item.note || 'Bill Payment'
+                            : `Transfer · •••• ${item.to_account_last4 || item.to_account_number?.slice(-4) || item.to_account?.slice(-4) || '••••'}`}
+                        </Text>
+                        <Text variant="caption" color="textSecondary">
+                          {item.status === 'completed'
+                            ? `Paid ${item.next_run_date}`
+                            : `Next: ${item.next_run_date}`}
+                        </Text>
+                      </View>
 
-                  <View style={styles.cardHeaderAmount}>
-                    <AmountText
-                      amountCentavos={item.amount}
-                      variant="bodyStrong"
-                      direction="outgoing"
-                      hidden={hideBalance}
-                    />
-                    <Badge
-                      variant={
-                        item.status === 'active'
-                          ? 'success'
-                          : item.status === 'completed'
-                            ? 'neutral'
-                            : 'danger'
-                      }
-                      label={item.frequency}
-                    />
-                  </View>
-                </View>
-              </Pressable>
-            ))}
+                      <View style={styles.cardHeaderAmount}>
+                        <AmountText
+                          amountCentavos={item.amount}
+                          variant="bodyStrong"
+                          direction="outgoing"
+                          hidden={hideBalance}
+                        />
+                        <Badge
+                          variant={
+                            item.status === 'active'
+                              ? 'success'
+                              : item.status === 'completed'
+                                ? 'neutral'
+                                : 'danger'
+                          }
+                          label={
+                            item.status === 'completed' ? 'Completed' : item.frequency
+                          }
+                        />
+                      </View>
+                    </View>
+                  </Pressable>
+                ))}
 
-            {schedules.length === 0 && !loading && (
-              <EmptyState
-                title="No scheduled payments"
-                description="Set up recurring transfers or bill payments to manage your finances automatically."
-                scrollable={false}
-              />
+                {schedules.length === 0 && (
+                  <EmptyState
+                    title="No scheduled payments"
+                    description="Set up recurring transfers or bill payments to manage your finances automatically."
+                    illustration={MASCOT_EMPTY}
+                    illustrationTestID="schedules-empty-mascot"
+                    actionTitle="Schedule a payment"
+                    onAction={() => navigation.navigate('Transfer')}
+                    scrollable={false}
+                  />
+                )}
+              </>
             )}
           </View>
         )}
@@ -472,6 +561,15 @@ const styles = StyleSheet.create({
   },
   runsSection: {
     marginTop: spacing.sm,
+    gap: spacing.sm,
+  },
+  runsSkeleton: {
+    gap: spacing.sm,
+  },
+  runSkeletonCard: {
+    borderRadius: radius.sm,
+  },
+  runsErrorBox: {
     gap: spacing.sm,
   },
   sectionTitle: {

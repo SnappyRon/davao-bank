@@ -14,6 +14,7 @@ import { Badge } from './Badge';
 import { Skeleton } from './Skeleton';
 import { Pressable } from './Pressable';
 import { supabase } from '../lib/supabase';
+import { reportNetworkResult } from '../lib/networkStatus';
 
 /** Spec 7B.1: one row, 64 pt tall. */
 const ROW_MIN_HEIGHT = 64;
@@ -94,11 +95,13 @@ export function CurrencyWatchCard({
           .order('rate_date', { ascending: false })
           .limit(5);
 
+        reportNetworkResult(error);
         if (!error && data && data.length > 0 && isMounted) {
           // Reverse so oldest is first for calculateFXSummary
           setRates((data as FXRate[]).reverse());
         }
       } catch (err) {
+        reportNetworkResult(err);
         console.warn('CurrencyWatchCard fetch error:', err);
       } finally {
         if (isMounted) setLoading(false);

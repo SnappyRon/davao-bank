@@ -59,10 +59,37 @@ describe('toUserMessage error sanitizer', () => {
     );
   });
 
+  it('omits money-sending copy when context is "load"', () => {
+    expect(toUserMessage('Network request failed', 'load')).toBe(
+      'You appear to be offline.'
+    );
+    expect(toUserMessage('Failed to fetch', 'load')).toBe('You appear to be offline.');
+    expect(toUserMessage('psql error: table not found', 'load')).toBe(
+      'Something went wrong. Try again.'
+    );
+  });
+
   it('maps unexpected backend exceptions to generic safe fallback', () => {
     expect(toUserMessage('psql error: foreign key constraint violation')).toBe(
       'Something went wrong. No money was sent. Try again.'
     );
+  });
+
+  it('omits money copy when context is "account"', () => {
+    expect(toUserMessage('Network request failed', 'account')).toBe(
+      'You appear to be offline. Check your connection and try again.'
+    );
+    expect(toUserMessage('Failed to fetch', 'account')).toBe(
+      'You appear to be offline. Check your connection and try again.'
+    );
+    expect(toUserMessage('psql error: table not found', 'account')).toBe(
+      'Something went wrong. Try again.'
+    );
+    expect(toUserMessage('psql error: foreign key constraint violation', 'account')).toBe(
+      'Something went wrong. Try again.'
+    );
+    expect(toUserMessage('random backend error', 'account')).not.toContain('money');
+    expect(toUserMessage('Network request failed', 'account')).not.toContain('money');
   });
 });
 

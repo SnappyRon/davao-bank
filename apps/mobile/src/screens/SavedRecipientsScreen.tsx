@@ -4,17 +4,8 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../App';
 import { maskAccountNumber } from '../utils/transactionDisplay';
-import { View, StyleSheet, Alert, ActivityIndicator } from 'react-native';
-import {
-  Users,
-  Plus,
-  Trash2,
-  Edit2,
-  Search,
-  X,
-  CreditCard,
-  AlertCircle,
-} from 'lucide-react-native';
+import { View, StyleSheet } from 'react-native';
+import { Users, Plus, Trash2, Edit2, Search, X, CreditCard } from 'lucide-react-native';
 import {
   colors,
   spacing,
@@ -24,6 +15,8 @@ import {
   type SavedRecipient,
 } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
+import { reportNetworkResult } from '../lib/networkStatus';
+import { MASCOT_ERROR } from '../assets/illustrations';
 import {
   FeatureScreen,
   Text,
@@ -31,15 +24,26 @@ import {
   TextField,
   Card,
   EmptyState,
+  Skeleton,
+  GroupedList,
   Pressable,
   ListHairline,
   groupedListStyles,
   LIST_ICON_SIZE,
+  LIST_ROW_MIN_HEIGHT,
+  useToast,
 } from '../components';
+
+const SKELETON_ROWS = 3;
+/* eslint-disable @typescript-eslint/no-require-imports */
+const kadaNotFoundIllustration = require('../../assets/illustrations/kada-not-found.png');
+const duriErrorIllustration = require('../../assets/illustrations/duri-error-state.png');
+/* eslint-enable @typescript-eslint/no-require-imports */
 
 export function SavedRecipientsScreen() {
   const { showConfirmation, confirmSheet } = useConfirmSheet();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const toast = useToast();
   const [recipients, setRecipients] = useState<SavedRecipient[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -78,6 +82,7 @@ export function SavedRecipientsScreen() {
         .select('*')
         .order('created_at', { ascending: false });
 
+      reportNetworkResult(error);
       if (!mountedRef.current) return;
       if (error) {
         setLoadError(toUserMessage(error));
@@ -86,6 +91,7 @@ export function SavedRecipientsScreen() {
         setRecipients(data || []);
       }
     } catch (err: unknown) {
+      reportNetworkResult(err);
       if (mountedRef.current) {
         setLoadError(toUserMessage(err));
         setRecipients([]);
@@ -128,7 +134,7 @@ export function SavedRecipientsScreen() {
       });
 
       if (error) {
-        setFormError(toUserMessage(error));
+        setFormError(toUserMessage(error, 'account'));
         return;
       }
 
@@ -136,10 +142,11 @@ export function SavedRecipientsScreen() {
         setNewAccountNumber('');
         setNewNickname('');
         setIsAdding(false);
+        toast.show('Recipient saved');
         loadRecipients();
       }
     } catch (err: unknown) {
-      setFormError(toUserMessage(err));
+      setFormError(toUserMessage(err, 'account'));
     } finally {
       setSubmitting(false);
     }
@@ -174,13 +181,14 @@ export function SavedRecipientsScreen() {
         .eq('id', id);
       if (!mountedRef.current) return;
       if (error) {
-        setEditError(toUserMessage(error));
+        setEditError(toUserMessage(error, 'account'));
       } else {
         setEditingId(null);
+        toast.show('Nickname updated');
         loadRecipients();
       }
     } catch (err: unknown) {
-      if (mountedRef.current) setEditError(toUserMessage(err));
+      if (mountedRef.current) setEditError(toUserMessage(err, 'account'));
     } finally {
       if (mountedRef.current) setSavingEdit(false);
     }
@@ -207,8 +215,9 @@ export function SavedRecipientsScreen() {
           .eq('id', recipient.id);
 
         if (error) {
-          Alert.alert('Error', toUserMessage(error));
+          toast.show(toUserMessage(error, 'account'), 'error');
         } else {
+          toast.show('Recipient removed');
           loadRecipients();
         }
       },
@@ -229,22 +238,16 @@ export function SavedRecipientsScreen() {
     >
       <View style={styles.container}>
         {loadError ? (
-          <View style={styles.loadErrorContainer}>
-            <AlertCircle size={24} color={colors.redText} />
-            <Text
-              variant="body"
-              color={colors.redText}
-              accessibilityRole="alert"
-              style={styles.loadErrorText}
-            >
-              {loadError}
-            </Text>
-            <Button
-              title="Try again"
-              variant="secondary"
-              onPress={() => void loadRecipients()}
-            />
-          </View>
+          <EmptyState
+            title="Recipients unavailable"
+            description={loadError}
+            descriptionAccessibilityRole="alert"
+            illustration={MASCOT_ERROR}
+            illustrationTestID="recipients-error-mascot"
+            actionTitle="Try again"
+            onAction={() => void loadRecipients()}
+            scrollable={false}
+          />
         ) : isAdding ? (
           <Card variant="elevated" style={styles.formCard}>
             <View style={styles.formHeader}>
@@ -331,11 +334,32 @@ export function SavedRecipientsScreen() {
             </View>
 
             {loading ? (
-              <View style={styles.loaderContainer}>
-                <ActivityIndicator size="small" color={colors.primary} />
+              <View
+                accessibilityRole="progressbar"
+                accessibilityLabel="Loading saved recipients"
+                testID="recipients-skeleton"
+              >
+                <GroupedList>
+                  {Array.from({ length: SKELETON_ROWS }, (_, index) => (
+                    <View key={index}>
+                      <Skeleton
+                        width="100%"
+                        height={LIST_ROW_MIN_HEIGHT}
+                        style={styles.rowSkeleton}
+                      />
+                      {index < SKELETON_ROWS - 1 ? <ListHairline /> : null}
+                    </View>
+                  ))}
+                </GroupedList>
               </View>
             ) : filteredRecipients.length === 0 ? (
               <EmptyState
+                illustration={
+                  searchQuery ? duriErrorIllustration : kadaNotFoundIllustration
+                }
+                illustrationTestID={
+                  searchQuery ? 'recipients-no-matches-mascot' : 'recipients-empty-mascot'
+                }
                 icon={<Users size={32} color={colors.primary} />}
                 title={searchQuery ? 'No matching recipients' : 'No saved recipients yet'}
                 description={
@@ -343,8 +367,10 @@ export function SavedRecipientsScreen() {
                     ? 'Try searching with a different name or number.'
                     : 'Save your frequent transfer recipients for 1-tap transfers.'
                 }
-                actionTitle={searchQuery ? undefined : 'Add recipient'}
-                onAction={searchQuery ? undefined : () => setIsAdding(true)}
+                actionTitle={searchQuery ? 'Clear search' : 'Add a recipient'}
+                onAction={
+                  searchQuery ? () => setSearchQuery('') : () => setIsAdding(true)
+                }
                 scrollable={false}
               />
             ) : (
@@ -508,9 +534,8 @@ const styles = StyleSheet.create({
     padding: spacing.base,
     gap: spacing.sm,
   },
-  loaderContainer: {
-    paddingVertical: spacing.xl,
-    alignItems: 'center',
+  rowSkeleton: {
+    borderRadius: 0,
   },
   formCard: {
     padding: spacing.md,

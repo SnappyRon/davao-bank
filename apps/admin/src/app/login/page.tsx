@@ -34,7 +34,7 @@ export default function AdminLoginPage() {
       });
 
       if (error) {
-        setErrorMessage(toUserMessage(error));
+        setErrorMessage(toUserMessage(error, 'account'));
         setLoading(false);
         return;
       }
@@ -66,7 +66,7 @@ export default function AdminLoginPage() {
         router.refresh();
       }
     } catch (err: unknown) {
-      setErrorMessage(toUserMessage(err));
+      setErrorMessage(toUserMessage(err, 'account'));
       setLoading(false);
     }
   };

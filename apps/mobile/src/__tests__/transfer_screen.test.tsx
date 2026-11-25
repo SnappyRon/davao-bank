@@ -16,6 +16,7 @@ import {
 import type { RootStackParamList } from '../../App';
 import type { AccountBalance } from '@davao-bank/shared';
 
+const mockToastShow = jest.fn();
 const mockGoBack = jest.fn();
 const mockReplace = jest.fn();
 let mockRouteParams: RootStackParamList['Transfer'] = {
@@ -28,6 +29,10 @@ jest.mock('@react-navigation/native', () => ({
   useRoute: () => ({ params: mockRouteParams }),
   useIsFocused: () => true,
   usePreventRemove: jest.fn(),
+}));
+jest.mock('../components/Toast', () => ({
+  ...jest.requireActual('../components/Toast'),
+  useToast: () => ({ show: mockToastShow, dismiss: jest.fn() }),
 }));
 jest.mock('expo-blur', () => ({ BlurView: () => null }));
 jest.mock('react-native-safe-area-context', () => ({
@@ -108,6 +113,21 @@ describe('TransferScreen - F1 State & Receipt Guarantees', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.mocked(executeTransfer).mockClear();
+    jest.mocked(executeTransfer).mockResolvedValue({
+      data: {
+        id: 'tx-mock-12345678',
+        transaction_id: 'tx-mock-12345678',
+        type: 'transfer',
+        status: 'completed',
+        amount: 50000,
+        reference: 'Mobile Transfer',
+        idempotency_key: 'tx-mock-12345678',
+        created_at: '2026-11-25T10:00:00Z',
+        idempotent_replay: false,
+      },
+      error: null,
+    });
     mockHideBalance = false;
     mockConfirmBiometricPayment.mockResolvedValue({ success: true });
     mockRouteParams = {
@@ -317,6 +337,92 @@ describe('TransferScreen - F1 State & Receipt Guarantees', () => {
     expect(screen.queryByText('Checking status…')).toBeNull();
   });
 
+  it('shows "Done" when transfer is uncertain and closes sheet with Activity toast', async () => {
+    jest.mocked(executeTransfer).mockClear();
+    mockGoBack.mockClear();
+    mockToastShow.mockClear();
+
+    const dropped = { data: null, error: 'TypeError: Network request failed' };
+    jest
+      .mocked(executeTransfer)
+      .mockResolvedValueOnce(dropped)
+      .mockResolvedValueOnce(dropped)
+      .mockResolvedValueOnce(dropped);
+
+    await render(<TransferScreen />);
+    await chooseSource();
+    await fireEvent.press(await screen.findByRole('button', { name: 'Send ₱500.00' }));
+
+    await waitFor(
+      () =>
+        expect(
+          screen.getByText(
+            'Status is not confirmed. Reconnect and authorize again to check the same transfer. Do not start a new transfer.'
+          )
+        ).toBeTruthy(),
+      { timeout: 5000 }
+    );
+
+    const doneBtn = screen.getByRole('button', { name: 'Done' });
+    expect(doneBtn).toBeTruthy();
+
+    await fireEvent.press(doneBtn);
+    expect(mockGoBack).toHaveBeenCalled();
+    expect(mockToastShow).toHaveBeenCalledWith(
+      'Check Activity to confirm your transfer status',
+      'info'
+    );
+  });
+
+  it('shows "Check status" when transfer is uncertain and reuses the same key', async () => {
+    jest.mocked(executeTransfer).mockClear();
+
+    const dropped = { data: null, error: 'TypeError: Network request failed' };
+    jest
+      .mocked(executeTransfer)
+      .mockResolvedValueOnce(dropped)
+      .mockResolvedValueOnce(dropped)
+      .mockResolvedValueOnce(dropped)
+      .mockResolvedValueOnce({
+        data: {
+          id: 'tx-recovered-1234',
+          transaction_id: 'tx-recovered-1234',
+          type: 'transfer',
+          status: 'completed',
+          amount: 50000,
+          reference: 'Mobile Transfer',
+          idempotency_key: 'tx-recovered-1234',
+          created_at: '2026-11-25T10:00:00Z',
+          idempotent_replay: false,
+        },
+        error: null,
+      });
+
+    await render(<TransferScreen />);
+    await chooseSource();
+    await fireEvent.press(await screen.findByRole('button', { name: 'Send ₱500.00' }));
+
+    await waitFor(
+      () =>
+        expect(
+          screen.getByText(
+            'Status is not confirmed. Reconnect and authorize again to check the same transfer. Do not start a new transfer.'
+          )
+        ).toBeTruthy(),
+      { timeout: 5000 }
+    );
+
+    const initialKey = jest.mocked(executeTransfer).mock.calls[0][1].idempotency_key;
+    const checkStatusBtn = screen.getByRole('button', { name: 'Check status' });
+    expect(checkStatusBtn).toBeTruthy();
+
+    await fireEvent.press(checkStatusBtn);
+    expect(await screen.findByText('Transfer sent')).toBeTruthy();
+
+    const calls = jest.mocked(executeTransfer).mock.calls;
+    expect(calls[calls.length - 1][1].idempotency_key).toBe(initialKey);
+  });
+
   // ---- Stage 7B.4: one sequence for every money flow ----
 
   it('shows the standard Review card: no sign, rows, fee and footnote', async () => {
@@ -352,10 +458,10 @@ describe('TransferScreen - F1 State & Receipt Guarantees', () => {
       fireEvent.press(screen.getByRole('button', { name: 'Send ₱500.00' }));
     });
     expect(screen.getByRole('button', { name: 'Sending…' })).toBeTruthy();
-    // Authorize before money moves, with the unchanged prompt.
+    // Authorize before money moves, with the sentence-case prompt and masked account.
     expect(mockConfirmBiometricPayment).toHaveBeenCalledWith({
-      title: 'Authorize Transfer',
-      message: 'Confirm transfer of ₱500.00 to account 1099999999',
+      title: 'Authorize transfer',
+      message: 'Confirm transfer of ₱500.00 to account •• 9999',
     });
     expect(mockConfirmBiometricPayment.mock.invocationCallOrder[0]).toBeLessThan(
       jest.mocked(executeTransfer).mock.invocationCallOrder[0]

@@ -15,7 +15,7 @@ export function AboutScreen() {
       <View style={styles.logoContainer}>
         <Logo variant="horizontal" size={44} />
         <Text variant="caption" color={colors.textMuted} style={styles.versionText}>
-          Version 1.0.0 · Phase 5 Build
+          Version 1.0.0
         </Text>
       </View>
 
@@ -23,7 +23,7 @@ export function AboutScreen() {
         <View style={styles.cardHeader}>
           <ShieldCheck size={20} color={colors.primary} />
           <Text variant="title" color={colors.ink}>
-            Simulated Prototype
+            Simulated prototype
           </Text>
         </View>
         <Text variant="body" color={colors.textSecondary}>
@@ -36,11 +36,12 @@ export function AboutScreen() {
         <View style={styles.cardHeader}>
           <Info size={20} color={colors.blueText} />
           <Text variant="title" color={colors.ink}>
-            Brand & License
+            Brand & license
           </Text>
         </View>
         <Text variant="body" color={colors.textSecondary}>
-          Kadayawan logo used with permission of the Davao City Tourism Operations Office.
+          Davao Bank emblem inspired by Mount Apo. Simulated prototype for academic
+          demonstration.
         </Text>
         <Text variant="caption" color={colors.textMuted} style={styles.subtext}>
           Colors inspired by Mount Apo deep green, Kadayawan flora, and Davao cultural

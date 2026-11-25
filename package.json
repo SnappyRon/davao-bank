@@ -29,7 +29,8 @@
     "test:bantay": "node --env-file=.env --import tsx scripts/test-bantay.mjs",
     "test:db": "node scripts/review/pglite-behavior.mjs",
     "test:unit": "jest",
-    "test:contrast": "node --import tsx scripts/check-contrast.ts"
+    "test:contrast": "node --import tsx scripts/check-contrast.ts",
+    "check:copy": "node scripts/check-copy.mjs"
   },
   "engines": {
     "node": ">=20.0.0"

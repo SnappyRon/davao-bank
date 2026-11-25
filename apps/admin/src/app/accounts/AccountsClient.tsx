@@ -8,6 +8,7 @@ import {
   formatCentavosToPHP,
   phpToCentavos,
   generateIdempotencyKey,
+  formatReferenceId,
   AccountStatus,
   LedgerDirection,
 } from '@davao-bank/shared';
@@ -159,7 +160,7 @@ export function AccountsClient({ initialAccounts, allUsers }: AccountsClientProp
               {owner?.full_name || 'System / Unnamed'}
             </div>
             <div className={styles.ownerEmail}>
-              {owner?.email || a.user_id.substring(0, 8)}
+              {owner?.email || formatReferenceId(a.user_id)}
             </div>
           </div>
         );
@@ -390,8 +391,7 @@ export function AccountsClient({ initialAccounts, allUsers }: AccountsClientProp
               <div className={styles.ledgerEffectBox}>
                 <div className={styles.ledgerEffectLabel}>EXACT LEDGER EFFECT</div>
                 <div className={`${styles.previewAmount} tabular-nums`}>
-                  {adjustDirection.toUpperCase()}{' '}
-                  {formatCentavosToPHP(adjustmentCentavos)} on{' '}
+                  {adjustDirection} {formatCentavosToPHP(adjustmentCentavos)} on{' '}
                   {adjustModalAccount.account_number} → New balance:{' '}
                   {formatCentavosToPHP(projectedBalance)}
                 </div>

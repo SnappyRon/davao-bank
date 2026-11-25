@@ -61,7 +61,7 @@ export function changePasswordErrorMessage(error: unknown): string {
   if (code === 'same_password') return PASSWORD_SAME;
   if (code === 'weak_password') return PASSWORD_WEAK;
   if (code && REAUTH_CODES.has(code)) return PASSWORD_REAUTH_FAILED;
-  if (code && RATE_LIMIT_CODES.has(code)) return toUserMessage('rate limit');
+  if (code && RATE_LIMIT_CODES.has(code)) return toUserMessage('rate limit', 'account');
   if (isOfflineError(error)) return PASSWORD_OFFLINE;
   return PASSWORD_CHANGE_FAILED;
 }

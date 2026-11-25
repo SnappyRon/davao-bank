@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, Alert } from 'react-native';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -15,6 +15,8 @@ import {
   type AccountStatement,
 } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
+import { reportNetworkResult } from '../lib/networkStatus';
+import { MASCOT_EMPTY, MASCOT_ERROR } from '../assets/illustrations';
 import { useSettings } from '../context/SettingsContext';
 import {
   FeatureScreen,
@@ -24,7 +26,10 @@ import {
   Chip,
   TextField,
   AmountText,
+  EmptyState,
+  Skeleton,
   useToast,
+  formatAccountLabel,
 } from '../components';
 
 type PeriodOption = 'this_month' | 'last_month' | 'last_3_months' | 'custom';
@@ -38,7 +43,7 @@ class StatementInputError extends Error {
 function errorMessage(err: unknown): string {
   return err instanceof Error && err.name === 'StatementInputError'
     ? err.message
-    : toUserMessage(err);
+    : toUserMessage(err, 'account');
 }
 
 export function ExportStatementScreen() {
@@ -72,9 +77,10 @@ export function ExportStatementScreen() {
         setAccountError(null);
       }
       const { data, error: accErr } = await fetchAccountBalances(supabase);
+      reportNetworkResult(accErr);
       if (!mountedRef.current) return;
       if (accErr) {
-        setAccountError(toUserMessage(accErr));
+        setAccountError(toUserMessage(accErr, 'load'));
       } else if (data && data.length > 0) {
         setAccounts(data);
         setSelectedAccountId(data[0].account_id);
@@ -82,8 +88,9 @@ export function ExportStatementScreen() {
         setAccounts([]);
       }
     } catch (err: unknown) {
+      reportNetworkResult(err);
       if (mountedRef.current) {
-        setAccountError(toUserMessage(err));
+        setAccountError(toUserMessage(err, 'load'));
       }
     } finally {
       if (mountedRef.current) {
@@ -350,7 +357,7 @@ export function ExportStatementScreen() {
 
   return (
     <FeatureScreen
-      title="Account Statement"
+      title="Account statement"
       isProcessing={loadingPdf || loadingCsv}
       contentContainerStyle={styles.container}
     >
@@ -359,50 +366,51 @@ export function ExportStatementScreen() {
       </Text>
 
       {loadingAccounts ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="small" color={colors.primary} />
+        <View
+          style={styles.skeletonStack}
+          accessibilityRole="progressbar"
+          accessibilityLabel="Loading statement options"
+          testID="statement-skeleton"
+        >
+          <Skeleton width="60%" height={20} />
+          <Skeleton width="100%" height={80} borderRadius={radius.md} />
+          <Skeleton width="100%" height={52} borderRadius={radius.pill} />
+          <Skeleton width="100%" height={52} borderRadius={radius.pill} />
         </View>
       ) : accountError ? (
-        <View style={styles.loadErrorContainer}>
-          <AlertCircle size={24} color={colors.redText} />
-          <Text
-            variant="body"
-            color={colors.redText}
-            accessibilityRole="alert"
-            style={styles.loadErrorText}
-          >
-            {accountError}
-          </Text>
-          <Button
-            title="Try again"
-            variant="secondary"
-            onPress={() => void loadAccounts()}
-          />
-        </View>
+        <EmptyState
+          title="Accounts unavailable"
+          description={accountError}
+          descriptionAccessibilityRole="alert"
+          illustration={MASCOT_ERROR}
+          illustrationTestID="statement-error-mascot"
+          actionTitle="Try again"
+          onAction={() => void loadAccounts()}
+          scrollable={false}
+        />
       ) : accounts.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Text variant="body" color={colors.textSecondary} align="center">
-            No accounts found.
-          </Text>
-        </View>
+        <EmptyState
+          title="No accounts yet"
+          description="Open an account to export statements."
+          illustration={MASCOT_EMPTY}
+          illustrationTestID="statement-empty-mascot"
+          scrollable={false}
+        />
       ) : (
         <>
           {/* Account Selector */}
           {accounts.length > 1 && (
             <View style={styles.section}>
               <Text variant="label" color={colors.ink} style={styles.sectionTitle}>
-                Select Account
+                Select account
               </Text>
               <View style={styles.accountRow}>
                 {accounts.map((acc) => {
                   const isSelected = acc.account_id === selectedAccount?.account_id;
-                  const capitalizedType = acc.type
-                    ? acc.type.charAt(0).toUpperCase() + acc.type.slice(1)
-                    : 'Account';
                   return (
                     <Chip
                       key={acc.account_id}
-                      label={`${capitalizedType} •• ${acc.account_number.slice(-4)}`}
+                      label={formatAccountLabel(acc)}
                       selected={isSelected}
                       onPress={() => setSelectedAccountId(acc.account_id)}
                     />
@@ -415,26 +423,26 @@ export function ExportStatementScreen() {
           {/* Period Selector */}
           <View style={styles.section}>
             <Text variant="label" color={colors.ink} style={styles.sectionTitle}>
-              Statement Period
+              Statement period
             </Text>
             <View style={styles.chipGrid}>
               <Chip
-                label="This Month"
+                label="This month"
                 selected={period === 'this_month'}
                 onPress={() => setPeriod('this_month')}
               />
               <Chip
-                label="Last Month"
+                label="Last month"
                 selected={period === 'last_month'}
                 onPress={() => setPeriod('last_month')}
               />
               <Chip
-                label="Last 3 Months"
+                label="Last 3 months"
                 selected={period === 'last_3_months'}
                 onPress={() => setPeriod('last_3_months')}
               />
               <Chip
-                label="Custom Range"
+                label="Custom range"
                 selected={period === 'custom'}
                 onPress={() => setPeriod('custom')}
               />
@@ -443,14 +451,14 @@ export function ExportStatementScreen() {
             {period === 'custom' && (
               <View style={styles.customDateContainer}>
                 <TextField
-                  label="Start Date (YYYY-MM-DD)"
+                  label="Start date (YYYY-MM-DD)"
                   placeholder="2026-01-01"
                   value={customFrom}
                   onChangeText={setCustomFrom}
                   containerStyle={styles.dateField}
                 />
                 <TextField
-                  label="End Date (YYYY-MM-DD)"
+                  label="End date (YYYY-MM-DD)"
                   placeholder="2026-03-31"
                   value={customTo}
                   onChangeText={setCustomTo}
@@ -473,7 +481,7 @@ export function ExportStatementScreen() {
               </View>
               <View style={styles.summaryRow}>
                 <Text variant="caption" color={colors.textSecondary}>
-                  Current Balance:
+                  Current balance:
                 </Text>
                 {selectedAccount.balance == null ? (
                   <Text variant="bodyStrong" color={colors.ink}>
@@ -504,7 +512,7 @@ export function ExportStatementScreen() {
           {/* Export Buttons */}
           <View style={styles.buttonGroup}>
             <Button
-              title="Download PDF Statement"
+              title="Download PDF statement"
               variant="primary"
               icon={<FileText size={18} color={colors.textInverse} />}
               onPress={handleExportPDF}
@@ -512,7 +520,7 @@ export function ExportStatementScreen() {
               disabled={loadingCsv || !selectedAccount}
             />
             <Button
-              title="Export CSV Spreadsheet"
+              title="Export CSV spreadsheet"
               variant="secondary"
               icon={<FileSpreadsheet size={18} color={colors.ink} />}
               onPress={handleExportCSV}
@@ -530,22 +538,8 @@ const styles = StyleSheet.create({
   container: {
     paddingBottom: spacing.xl,
   },
-  loadingContainer: {
-    paddingVertical: spacing.xl,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  loadErrorContainer: {
-    paddingVertical: spacing.xl,
-    alignItems: 'center',
+  skeletonStack: {
     gap: spacing.base,
-  },
-  loadErrorText: {
-    textAlign: 'center',
-  },
-  emptyContainer: {
-    paddingVertical: spacing.xl,
-    alignItems: 'center',
   },
   subtitle: {
     marginBottom: spacing.md,

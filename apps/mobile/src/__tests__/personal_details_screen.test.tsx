@@ -92,9 +92,7 @@ describe('PersonalDetailsScreen', () => {
 
     await render(<PersonalDetailsScreen />);
 
-    expect(
-      await screen.findByText('You appear to be offline. Nothing was sent.')
-    ).toBeTruthy();
+    expect(await screen.findByText('You appear to be offline.')).toBeTruthy();
 
     const tryAgainBtn = screen.getByRole('button', { name: 'Try again' });
     expect(tryAgainBtn).toBeTruthy();
@@ -116,7 +114,7 @@ describe('PersonalDetailsScreen', () => {
     const nameInput = await screen.findByDisplayValue('Maria Santos');
     await fireEvent.changeText(nameInput, '   ');
 
-    const saveBtn = screen.getByRole('button', { name: 'Save Changes' });
+    const saveBtn = screen.getByRole('button', { name: 'Save changes' });
     await fireEvent.press(saveBtn);
 
     expect(await screen.findByText('Full name cannot be empty')).toBeTruthy();
@@ -137,7 +135,7 @@ describe('PersonalDetailsScreen', () => {
       error: null,
     });
 
-    const saveBtn = screen.getByRole('button', { name: 'Save Changes' });
+    const saveBtn = screen.getByRole('button', { name: 'Save changes' });
     await fireEvent.press(saveBtn);
 
     expect(await screen.findByText('Profile updated successfully')).toBeTruthy();
@@ -165,11 +163,9 @@ describe('PersonalDetailsScreen', () => {
       error: 'Network request failed',
     });
 
-    const saveBtn = screen.getByRole('button', { name: 'Save Changes' });
+    const saveBtn = screen.getByRole('button', { name: 'Save changes' });
     await fireEvent.press(saveBtn);
 
-    expect(
-      await screen.findByText('You appear to be offline. Nothing was sent.')
-    ).toBeTruthy();
+    expect(await screen.findByText('You appear to be offline.')).toBeTruthy();
   });
 });

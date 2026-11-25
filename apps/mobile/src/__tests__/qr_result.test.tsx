@@ -46,10 +46,13 @@ it('shows the request result from the server response', async () => {
     error: null,
   });
   await render(<QRHubScreen />);
-  await fireEvent.changeText(screen.getByLabelText('Payer Account Number'), '1099997943');
+  await fireEvent.changeText(screen.getByLabelText('Payer account number'), '1099997943');
   await fireEvent.changeText(screen.getByPlaceholderText('0.00'), '500');
-  await fireEvent.press(screen.getByRole('button', { name: 'Send Payment Request' }));
+  await fireEvent.press(screen.getByRole('button', { name: 'Send payment request' }));
   expect(await screen.findByRole('header', { name: 'Request sent' })).toBeTruthy();
+  expect(
+    screen.getByText("We'll notify you in Inbox when •• 7943 pays or declines.")
+  ).toBeTruthy();
   expect(screen.getByText('₱123.45')).toBeTruthy();
   expect(screen.getByText('•• 7943')).toBeTruthy();
   expect(screen.getByText('DB-8F04-3910')).toBeTruthy();
@@ -65,9 +68,9 @@ it('shows Not sent for an explicit database rejection without exposing raw error
     error: { code: 'P0001', message: 'account number not found' },
   });
   await render(<QRHubScreen />);
-  await fireEvent.changeText(screen.getByLabelText('Payer Account Number'), '1099997943');
+  await fireEvent.changeText(screen.getByLabelText('Payer account number'), '1099997943');
   await fireEvent.changeText(screen.getByPlaceholderText('0.00'), '500');
-  await fireEvent.press(screen.getByRole('button', { name: 'Send Payment Request' }));
+  await fireEvent.press(screen.getByRole('button', { name: 'Send payment request' }));
   expect(await screen.findByRole('header', { name: 'Not sent' })).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Done' })).toBeTruthy();
   expect(screen.queryByText('account number not found')).toBeNull();

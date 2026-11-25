@@ -4,6 +4,8 @@ import { Button } from '../components/Button';
 import { AmountText } from '../components/AmountText';
 import { TransactionRow } from '../components/TransactionRow';
 import { EmptyState } from '../components/EmptyState';
+import { TextField } from '../components/TextField';
+import { GuidanceTip } from '../components/GuidanceTip';
 import type { TransactionHistoryItem } from '@davao-bank/shared';
 
 // TransactionRow reads hideBalance from SettingsContext itself (spec 7B.2).
@@ -152,6 +154,33 @@ describe('Mobile Core UI Components', () => {
 
       fireEvent.press(actionBtn);
       expect(onAction).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('TextField', () => {
+    it('renders error message with alert role and live region', async () => {
+      await render(<TextField label="Account" error="Account not found" />);
+      const err = screen.getByRole('alert');
+      expect(err).toBeTruthy();
+      expect(screen.getByText('Account not found')).toBeTruthy();
+    });
+
+    it('renders label and placeholder', async () => {
+      await render(<TextField label="Email" placeholder="user@example.com" />);
+      expect(screen.getByText('Email')).toBeTruthy();
+      expect(screen.getByPlaceholderText('user@example.com')).toBeTruthy();
+    });
+  });
+
+  describe('GuidanceTip', () => {
+    it('renders tip message when not seen and dismisses on press', async () => {
+      await render(<GuidanceTip storageKey="test_tip_key" tipText="First time tip" />);
+
+      await screen.findByText('First time tip');
+      const dismissBtn = screen.getByRole('button', { name: 'Dismiss tip' });
+      await fireEvent.press(dismissBtn);
+
+      expect(screen.queryByText('First time tip')).toBeNull();
     });
   });
 });

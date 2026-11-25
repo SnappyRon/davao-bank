@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   TextInput,
@@ -6,7 +6,14 @@ import {
   type TextInputProps,
   type ViewStyle,
 } from 'react-native';
-import { colors, radius, spacing, typography } from '@davao-bank/shared';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  useReducedMotion,
+} from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
+import { colors, radius, spacing, typography, motion } from '@davao-bank/shared';
 import { Text } from './Text';
 
 export interface TextFieldProps extends TextInputProps {
@@ -33,6 +40,32 @@ export function TextField({
   ...rest
 }: TextFieldProps) {
   const [isFocused, setIsFocused] = useState(false);
+  const reduceMotion = useReducedMotion();
+  const errorOpacity = useSharedValue(reduceMotion || !error ? 1 : 0);
+  const prevErrorRef = useRef(error);
+
+  useEffect(() => {
+    if (error && !prevErrorRef.current) {
+      try {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      } catch {
+        // Haptics optional
+      }
+      if (!reduceMotion) {
+        errorOpacity.value = 0;
+        errorOpacity.value = withTiming(1, { duration: motion.duration.short });
+      } else {
+        errorOpacity.value = 1;
+      }
+    } else if (!error) {
+      errorOpacity.value = 0;
+    }
+    prevErrorRef.current = error;
+  }, [error, reduceMotion, errorOpacity]);
+
+  const errorAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: errorOpacity.value,
+  }));
 
   return (
     <View style={[styles.wrapper, containerStyle]}>
@@ -69,15 +102,17 @@ export function TextField({
       </View>
 
       {error ? (
-        <Text
-          variant="caption"
-          color={colors.redText}
-          style={styles.errorText}
-          accessibilityRole="alert"
-          accessibilityLiveRegion="polite"
-        >
-          {error}
-        </Text>
+        <Animated.View style={errorAnimatedStyle}>
+          <Text
+            variant="caption"
+            color={colors.redText}
+            style={styles.errorText}
+            accessibilityRole="alert"
+            accessibilityLiveRegion="polite"
+          >
+            {error}
+          </Text>
+        </Animated.View>
       ) : helperText ? (
         <Text variant="caption" color={colors.textMuted} style={styles.helperText}>
           {helperText}

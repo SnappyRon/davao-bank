@@ -1,16 +1,51 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  View,
+  StyleSheet,
+} from 'react-native';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { colors, spacing } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
-import { Button, Text, TextField } from '../components';
+import { Button, Text, TextField, Logo } from '../components';
 
 export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
   const [passwordMode, setPasswordMode] = useState(false);
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [biometricTitle, setBiometricTitle] = useState('Unlock');
+  const [biometricAvailable, setBiometricAvailable] = useState(true);
   const inFlight = useRef(false);
+
+  useEffect(() => {
+    async function checkBiometrics() {
+      try {
+        const hasHardware = await LocalAuthentication.hasHardwareAsync();
+        const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+        if (!hasHardware || !isEnrolled) {
+          setBiometricAvailable(false);
+          setBiometricTitle('Unlock');
+          return;
+        }
+        const types = await LocalAuthentication.supportedAuthenticationTypesAsync();
+        if (types.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)) {
+          setBiometricTitle('Unlock with Face ID');
+        } else if (types.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)) {
+          setBiometricTitle('Unlock with Touch ID');
+        } else {
+          setBiometricTitle('Unlock');
+        }
+      } catch {
+        setBiometricAvailable(false);
+        setBiometricTitle('Unlock');
+      }
+    }
+    void checkBiometrics();
+  }, []);
+
   const unlock = useCallback(async () => {
     if (inFlight.current) return;
     inFlight.current = true;
@@ -41,6 +76,7 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
       setBusy(false);
     }
   }, [onUnlock]);
+
   const initial = useRef(false);
   useEffect(() => {
     if (!initial.current) {
@@ -48,6 +84,7 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
       void unlock();
     }
   }, [unlock]);
+
   const checkPassword = async () => {
     if (inFlight.current || !password) return;
     inFlight.current = true;
@@ -76,6 +113,7 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
       setBusy(false);
     }
   };
+
   return (
     <KeyboardAvoidingView
       testID="app-lock-screen"
@@ -84,20 +122,31 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
     >
       <ScrollView
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{
-          flexGrow: 1,
-          justifyContent: 'center',
-          padding: spacing.xl,
-        }}
+        contentContainerStyle={styles.scrollContent}
       >
-        <View style={{ gap: spacing.base }}>
-          <Text variant="h1">Davao Bank is locked</Text>
-          {!!error && <Text accessibilityRole="alert">{error}</Text>}
-          {passwordMode && (
-            <>
+        <View style={styles.content}>
+          <View style={styles.logoContainer}>
+            <Logo size={64} />
+          </View>
+          <Text variant="h1" style={styles.title}>
+            Davao Bank is locked
+          </Text>
+          {!!error && (
+            <Text
+              accessibilityRole="alert"
+              color={colors.redText}
+              style={styles.errorText}
+            >
+              {error}
+            </Text>
+          )}
+
+          {passwordMode ? (
+            <View style={styles.formContainer}>
               <TextField
                 label="Account password"
                 accessibilityLabel="Account password"
+                placeholder="Enter password"
                 secureTextEntry
                 autoCapitalize="none"
                 value={password}
@@ -107,21 +156,43 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
               <Button
                 title="Unlock with password"
                 disabled={busy || !password}
+                loading={busy}
                 onPress={() => void checkPassword()}
               />
-            </>
+              {biometricAvailable && (
+                <Button
+                  title={biometricTitle}
+                  variant="ghost"
+                  disabled={busy}
+                  onPress={() => {
+                    setPasswordMode(false);
+                    void unlock();
+                  }}
+                />
+              )}
+            </View>
+          ) : (
+            <View style={styles.actionContainer}>
+              <Button
+                title={biometricTitle}
+                disabled={busy}
+                loading={busy}
+                onPress={() => void unlock()}
+              />
+              <Button
+                title="Use password"
+                variant="ghost"
+                disabled={busy}
+                onPress={() => setPasswordMode(true)}
+              />
+            </View>
           )}
-          <Button title="Unlock" disabled={busy} onPress={() => void unlock()} />
-          <Button
-            title="Use password"
-            variant="ghost"
-            disabled={busy}
-            onPress={() => setPasswordMode(true)}
-          />
+
           <Button
             title="Sign out"
             variant="ghost"
             disabled={busy}
+            style={styles.signOutBtn}
             onPress={() => {
               void supabase.auth.signOut();
             }}
@@ -131,3 +202,40 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
     </KeyboardAvoidingView>
   );
 }
+
+const styles = StyleSheet.create({
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    padding: spacing.xl,
+  },
+  content: {
+    gap: spacing.base,
+    alignItems: 'center',
+    width: '100%',
+    maxWidth: 400,
+    alignSelf: 'center',
+  },
+  logoContainer: {
+    marginBottom: spacing.md,
+    alignItems: 'center',
+  },
+  title: {
+    textAlign: 'center',
+    marginBottom: spacing.sm,
+  },
+  errorText: {
+    textAlign: 'center',
+  },
+  formContainer: {
+    width: '100%',
+    gap: spacing.base,
+  },
+  actionContainer: {
+    width: '100%',
+    gap: spacing.base,
+  },
+  signOutBtn: {
+    marginTop: spacing.sm,
+  },
+});

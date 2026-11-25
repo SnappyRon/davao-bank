@@ -50,6 +50,7 @@ interface HomeBalanceCardProps {
   onOpenAccountPicker: () => void;
   onToggleHideBalance: () => void;
   onRetry: () => void;
+  onPressCard?: () => void;
 }
 
 export function HomeBalanceCard({
@@ -61,6 +62,7 @@ export function HomeBalanceCard({
   onOpenAccountPicker,
   onToggleHideBalance,
   onRetry,
+  onPressCard,
 }: HomeBalanceCardProps) {
   const { width } = useWindowDimensions();
   const amountVariant = width >= DISPLAY_AMOUNT_MIN_WIDTH ? 'display' : 'amount';
@@ -115,7 +117,12 @@ export function HomeBalanceCard({
   );
 
   return (
-    <View style={styles.card}>
+    <Pressable
+      style={styles.card}
+      onPress={onPressCard}
+      accessibilityRole="button"
+      accessibilityLabel="Available balance, see My accounts"
+    >
       <View style={styles.headerRow}>
         {hasMultipleAccounts ? (
           <Pressable
@@ -181,7 +188,7 @@ export function HomeBalanceCard({
           </Text>
         ) : null}
       </View>
-    </View>
+    </Pressable>
   );
 }
 

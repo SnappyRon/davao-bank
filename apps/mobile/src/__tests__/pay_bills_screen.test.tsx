@@ -111,7 +111,7 @@ describe('PayBillsScreen (spec 7B.4)', () => {
     expect(screen.getByRole('header', { name: 'Bill paid' })).toBeTruthy();
     expect(screen.getByText('DB-TX1')).toBeTruthy();
     expect(mockConfirmBiometricPayment).toHaveBeenCalledWith({
-      title: 'Authorize Bill Payment',
+      title: 'Authorize bill payment',
       message: 'Confirm payment of ₱1,250.00 to Apo Fiber Internet (demo)',
     });
     expect(mockRpc).toHaveBeenCalledWith('pay_bill', {

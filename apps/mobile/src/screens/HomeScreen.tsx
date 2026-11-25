@@ -35,6 +35,7 @@ import {
 } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
 import { fetchSecuritySettings } from '../hooks/usePhase8Contracts';
+import { reportNetworkResult } from '../lib/networkStatus';
 import { useSettings } from '../context/SettingsContext';
 import {
   useToast,
@@ -55,6 +56,8 @@ import { HomeBalanceCard } from './home/HomeBalanceCard';
 import { HomeUpcomingPayments } from './home/HomeUpcomingPayments';
 import { HomeRecentActivity } from './home/HomeRecentActivity';
 import { fetchBillReminders, type BillReminder } from '../hooks/usePhase8Contracts';
+import * as SecureStore from 'expo-secure-store';
+import { SHOW_ON_HOME_ACCOUNT_KEY } from './MyAccountsScreen';
 
 /** Spec 7B.1 header: 56 pt tall, avatar 40 inside a 44 pt hit area. */
 const HEADER_HEIGHT = 56;
@@ -128,21 +131,25 @@ export function HomeScreen({
       let userId: string;
       try {
         const { data, error } = await supabase.auth.getUser();
+        reportNetworkResult(error);
         if (error || !data?.user) {
-          if (isCurrent()) setAccountsError(toUserMessage(error ?? 'Not authenticated'));
+          if (isCurrent())
+            setAccountsError(toUserMessage(error ?? 'Not authenticated', 'load'));
           return;
         }
         userId = data.user.id;
       } catch (err) {
-        if (isCurrent()) setAccountsError(toUserMessage(err));
+        reportNetworkResult(err);
+        if (isCurrent()) setAccountsError(toUserMessage(err, 'load'));
         return;
       }
 
       try {
-        const [profileRes, accountsRes, txRes, secRes] = await Promise.all([
+        const [profileRes, accountsRes, txRes, savedHomeId, secRes] = await Promise.all([
           fetchUserProfile(supabase, userId),
           fetchAccountBalances(supabase),
           fetchTransactionHistory(supabase),
+          SecureStore.getItemAsync(SHOW_ON_HOME_ACCOUNT_KEY).catch(() => null),
           fetchSecuritySettings().catch(() => ({ data: null, error: null })),
         ]);
         if (secRes?.data?.locked) {
@@ -152,24 +159,30 @@ export function HomeScreen({
         }
         if (!isCurrent()) return;
 
+        reportNetworkResult(accountsRes.error || txRes.error || profileRes.error);
         if (profileRes.data) setProfile(profileRes.data);
         if (accountsRes.error || !accountsRes.data) {
-          setAccountsError(toUserMessage(accountsRes.error));
+          setAccountsError(toUserMessage(accountsRes.error, 'load'));
         } else {
-          setAccounts(sortAccounts(accountsRes.data));
+          const sorted = sortAccounts(accountsRes.data);
+          setAccounts(sorted);
           setAccountsError(null);
+          if (savedHomeId && sorted.some((a) => a.account_id === savedHomeId)) {
+            setSelectedAccountId((current) => current ?? savedHomeId);
+          }
         }
         if (txRes.error || !txRes.data) {
-          setTransactionsError(toUserMessage(txRes.error));
+          setTransactionsError(toUserMessage(txRes.error, 'load'));
         } else {
           setTransactions(txRes.data);
           setTransactionsError(null);
         }
       } catch (err) {
+        reportNetworkResult(err);
         if (!isCurrent()) return;
         console.warn('Error loading Home balances:', err);
-        setAccountsError(toUserMessage(err));
-        setTransactionsError(toUserMessage(err));
+        setAccountsError(toUserMessage(err, 'load'));
+        setTransactionsError(toUserMessage(err, 'load'));
         return;
       }
 
@@ -327,6 +340,7 @@ export function HomeScreen({
           onOpenAccountPicker={() => setAccountPickerVisible(true)}
           onToggleHideBalance={toggleHideBalance}
           onRetry={retryLoad}
+          onPressCard={() => navigation.navigate('MyAccounts')}
         />
 
         {/* Locked account banner */}
@@ -454,6 +468,7 @@ export function HomeScreen({
           onRetry={retryLoad}
           transactions={transactions}
           onNavigateToActivity={onNavigateToActivity}
+          onSendMoney={() => navigation.navigate('Transfer')}
           onSelectTransaction={(transaction) =>
             navigation.navigate('Receipt', {
               transactionId: transaction.transaction_id,

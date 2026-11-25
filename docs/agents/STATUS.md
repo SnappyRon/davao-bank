@@ -4,13 +4,13 @@
 
 ## Now
 
-- **Active phase:** Phase 7 — UI/UX Refinement & Motion.
-- **Branch:** `phase-7-ui-motion`; admin polish merged from `phase-7-admin-polish`.
-- **Active prompt:** `Phase-7-Prompt-UI-UX-and-Motion.md`.
-- **Assigned to:** Codex completed Stage 7B.5; captain review pending.
-- **Exact next step:** captain reviews the 7B.5 commit and exact handler diffs; verify results and receipt sharing on a device with owner sign-in.
-- **Last commit:** Stage 7B.5 (this commit; parent `9270631`).
-- **Blockers:** device and live money-flow verification NOT VERIFIED; admin Playwright needs owner sign-in.
+- **Active phase:** Phase 7 + Phase 8 full app (`phase-8-integration`).
+- **Branch:** `phase-8-integration`; Phase 7 integration merged from `phase-7-integration` (`728567a`) with both feature sets preserved.
+- **Active prompt:** this hand-back brief (backup agent finishes tool-copy-check's task, reports to captain).
+- **Assigned to:** Backup Development Agent; merge `phase-7-integration`, run local checks, then merge the pending 8F risk-challenge fix from `phase-8-bantay-ui`.
+- **Exact next step:** commit the Phase 7 merge, run `npm ci` then typecheck / lint / jest / `test:db` / `check:copy`; fix only merge mistakes.
+- **Last commit:** `Phase 8 · Merge — Phase 7 integration (7B–7D)` (this commit; parent `307affe` + `728567a`).
+- **Blockers:** waiting for `Phase 8 · Fix — 8F call prepare_risk_challenge before confirm` on `phase-8-bantay-ui` before the second merge. Device, Maestro, VoiceOver, hosted and Playwright checks NOT VERIFIED (owner/captain).
 
 ## Stage 7B.0 — remaining work plan (captain, 2026-11-10)
 
@@ -114,17 +114,18 @@ Deferred to their planned steps (not in the fix round): receipt reference/Share/
   - [x] Roles and labels on all touchables, busy announcement.
   - [x] VoiceOver audit pass notes.
   - Device layouts, actual VoiceOver traversal, announcement timing and 1.4× text: NOT VERIFIED — requires device.
-- [ ] **7B.7 Wording**:
-  - [ ] Apply all sentence-case and wording replacements from table.
-  - [ ] No exclamation marks, no IDs, no regexes, no raw status values in money flows.
+- [x] **7B.7 Wording**:
+  - [x] Apply all sentence-case and wording replacements from table.
+  - [x] No exclamation marks, no IDs, no regexes, no raw status values in money flows.
 - [ ] **7B.8 Copy audit script**:
   - [ ] Add `scripts/check-copy.mjs` checking for `.toUpperCase()`, `'PHP '`, `!`, unformatted UUIDs; run in CI.
 - [ ] **7B.9 Notification wording** (done pending captain review + hosted apply; branch `phase-7-notifications-migration`):
   - [x] DB migration changing notification text in functions (`20261111000000_phase7_notifications.sql`: 13 functions, only the notification insert changed; + `related_transaction_id`; + `biller_name` in `get_account_transactions`).
   - [x] Update live suites and `test:db` assertions (`test:db` +28 checks, 118 passing; no live-suite assertion checks notification text). Live suites on hosted NOT VERIFIED (migration not applied).
-- [ ] **7B.10 Carry-overs from device checks**:
-  - [ ] Phase 6 iOS check fixes: large text wrapping, raw regex, completed schedules status, overlay flash, uncertain state exit ("Check status" + "Done").
-  - [ ] Phase 6.5 iOS check fixes: TwoStepSetup FeatureScreen, clean lock screen, optimistic app lock switch, consistent code prompt, "Set up now" verification.
+- [x] **7B.10 Carry-overs from device checks**:
+  - [x] Phase 6 iOS check fixes: large text wrapping, raw regex, completed schedules status, overlay flash, uncertain state exit ("Check status" + "Done").
+  - [x] Phase 6.5 iOS check fixes: TwoStepSetup FeatureScreen, clean lock screen, optimistic app lock switch, consistent code prompt, "Set up now" verification.
+  - Note: large-text wrapping (`AmountText` fits at 0.7, 7B.6) and the raw biller regex hint ("e.g. 10 digits, on your bill", 7B.4) were fixed in earlier stages — verified present, not re-done. The remaining fixes are committed on `phase-7-carryovers`. Before/after device screenshots could not be taken — NOT VERIFIED, needs device/owner at the 7B gate.
 - [ ] **7B.11 Visible system status everywhere**:
   - [ ] Skeletons on loading, mascot empty states, descriptive error states + retry, offline banner, processing lock + 2s "Still working" warning, confirmed result via ResultView, background action toasts.
 - [ ] **7B.12 Admin console polish (owner report 2026-11-12, captain-observed from screenshots)**:
@@ -154,6 +155,18 @@ Deferred to their planned steps (not in the fix round): receipt reference/Share/
   - [ ] Regression: Maestro flows updated and pass.
   - [ ] Live suites: pass with live DB (customer1 pre-existing MFA noted).
   - [ ] Device proof: screenshots for item 10 in report.
+
+## Stage 7C Checklist (fe-cline, taking over from fe-motion; branch `phase-7-frontend`)
+
+- [x] **Motion tokens** — `packages/shared/src/theme/tokens.ts` `motion` table per the 7C spec (durations micro 100 / short 150 / medium 250 / long 320 / expressive 480; easing standard/enter/exit; springs sheet damping 26 stiffness 260 mass 1, pop damping 14 stiffness 180 mass 1); `counterDuration` removed earlier (7A).
+- [x] **12 motion patterns** — 1 press scale 1→0.97 + `primaryPressed` (Pressable, micro/short); 2 list-row highlight (Pressable `highlight`); 3 tab cross-fade + sliding pill (FloatingTabBar, `animation: 'fade'`, `none` under Reduce Motion); 3b feature-screen push/pop (native stack, `slide_from_right`, `fade` under Reduce Motion); 4 sheet open with scrim fade + slide up (Sheet); 5 sheet close/swipe with `spring.sheet` settle, guard-run swipe (Sheet); 6 commit tap → busy label/spinner (money-flow sticky footers, handler bodies untouched); 7 step-change body transition — NOT animated inside money flows (kept untouched to avoid money-flow risk; screen push/pop covers 3b — flagged for captain); 8 confirmed result icon disc `spring.pop`, check stroke draw, title/amount fade + rise 8 pt (ResultView); 9 validation fail → `redText` border, error fades in, warning haptic once (TextField); 10 skeleton pulse 0.5↔0.9 over 1.4 s, no pulse under Reduce Motion (Skeleton); 11 balance hide/show and amount change cross-fade, no counting (AmountText); 12 toast fade in + 12 pt drop, auto-dismiss 4 s, errors stay (Toast).
+- [x] **Reduce Motion everywhere** — Reanimated's `useReducedMotion` used in all animated components; old `apps/mobile/src/hooks/useReducedMotion.ts` deleted; project-wide imports switched to Reanimated's hook.
+- [x] **Mascots, onboarding and storytelling (D6)** — `OnboardingScreen` (3 slides, skippable, `expo-secure-store` seen flag, page dots, Back/Next/swipe, fade-in art on mount); `GuidanceTip` dismissible one-time tip (Pay bills).
+- [x] **Translucent surfaces (D7)** — floating tab bar blur + `Reduce Transparency`/Android solid fallback; `FeatureScreen` header blur once content scrolls under; Sheet scrim blur (`colors.scrim`) + solid fallback; never on cards/rows/balance/inputs/long text; max two blur views.
+- [x] **Illustrations (D1, D2, D6)** — `duri-empty-state` (Inbox empty, Activity empty, Home recent activity), `duri-error-state` (Activity/Inbox error, search no results), `kada-not-found` (Saved recipients empty, recipient search), biller category icons (Pay bills chips, 40 pt, Lucide fallback for Mobile); `accessible={false}`, fade in once on mount, never in money flows/tab bar/balance.
+- [x] **Gate checks** — typecheck exit 0 (admin, mobile, shared); lint 0 errors (64 pre-existing warnings); format:check clean; unit 39 suites / 339 tests passed.
+- [ ] **Device checks** — recordings, 60 fps, Reduce Motion vs off, Reduce Transparency vs off: NOT VERIFIED (device checks not run by this agent).
+- [ ] **Maestro regression / VoiceOver:** NOT VERIFIED (captain/owner).
 
 ## Stage 7A — reviewer findings (2026-11-08, Claude Code)
 
@@ -239,15 +252,27 @@ Fix these before 7B:
   - optional physical-phone QR check;
   - commit `docs/UAT_CHECKLIST.md` and `docs/uat-evidence/`;
   - push `phase-6-hardening` and open a PR.
-- **Phase 7 additions found during iOS UAT:**
-  - large-text layout fails (balance wraps mid-number, amounts clipped);
-  - the biller account field shows a raw regex hint;
-  - completed one-time schedules show "Next: <past date>" instead of "Completed";
-  - the privacy overlay flashes when the password prompt closes, unless Stage C fixed it;
-  - the Transfer "uncertain" state has no exit.
+- **Phase 7 additions found during iOS UAT (fixed in code, device proof NOT VERIFIED):**
+  - large-text layout fails (balance wraps mid-number, amounts clipped) — fixed earlier: `AmountText` shrinks with `adjustsFontSizeToFit` / `minimumFontScale 0.7` (7B.6);
+  - the biller account field shows a raw regex hint — fixed earlier: PayBills shows "e.g. 10 digits, on your bill" (7B.4);
+  - completed one-time schedules show "Next: <past date>" instead of "Completed" — now "Completed" badge (neutral) + "Paid <date>", "Next" hidden, completed sorts below active (7B.10 this commit);
+  - the privacy overlay flashes when the password prompt closes — `PrivacyOverlay` covers the prompts; device behaviour NOT VERIFIED (7B.10 this commit);
+  - the Transfer "uncertain" state has no exit — now "Check status" (reuses `recoverTransfer` with the same idempotency key, no new money) + "Done" (toast, closes sheet) (7B.10 this commit).
 - **Follow-up:** add dedicated test accounts so live tests don't conflict with the presenter's real authenticator.
 
 ## Log (newest first)
+
+- **2026-11-26, Backup Development Agent:** took over tool-copy-check's full-app task on `phase-8-integration` (clean `307affe`). Waited for `phase-7-integration` to receive `728567a` (`Phase 7 · Fix — Activity account filter from Account detail`), then merged it with `--no-ff`. Resolved 8 conflicts by preserving both branches: `App.tsx` (7D MyAccounts/AccountDetail routes plus Phase 8 BantaySecurity/MonthlySummary routes and both `BantaySessionTracker` and `OfflineBanner`), `HomeScreen.tsx` (7D tappable balance card and saved-home account plus Phase 8 lock banner, security settings and bill reminders), `ActivityScreen.tsx` (7D redesign with Phase 8 Monthly summary action retained), `BillerStep.tsx` (7D guidance tip plus Phase 8 saved billers), `Skeleton.tsx`, `components/index.ts`, `errors_and_labels.test.ts` (both test cases). `errors.ts`, `PHASE7_REPORT.md`, `package.json` / lockfile auto-merged with both Phase 7 copy-context and Phase 8 guard copy and Next 16.4.6. `git grep -nE '^(<<<<<<<|>>>>>>>|=======)$'` printed nothing. Checks after the merge are in the next log entry. No push, no hosted DB access, no money/step-up handler edits.
+
+- **2026-11-26, Backup Development Agent:** took over fe-device-fixes's uncommitted work on `phase-7-integration` (base `8720f9c`); kept Antigravity's ActivityScreen and activity_screen.test.tsx changes and the new activity_account_param.test.tsx, and added a test that the route-param filter can still be changed and cleared. `ActivityScreen` reads `accountId` from `BottomTabParamList['ActivityTab']` (typed in `App.tsx`), applies it once, consumes it with `setParams({ accountId: undefined })`, and waits for accounts to load before validating the requested account; existing Activity behaviour and tests are unchanged otherwise. Checks: `npm run typecheck` exit 0; `npm run lint` 0 errors (62 warnings); `npm run format:check` PASS; `npx jest` 47 suites / 401 tests PASS; `npm run check:copy` PASS. Committed `Phase 7 · Fix — Activity account filter from Account detail`. Staged by name; pre-existing `node_modules` deletions left untouched. No hosted database access, no push, no money or step-up handler changes. Device, Maestro and VoiceOver NOT VERIFIED — captain/owner to run.
+
+- **2026-11-26, Antigravity:** completed Track 7D-b Activity redesign, filters Sheet and TransactionRow on branch `phase-7d-activity` (base `fadbd95`). Implemented top search field, compact account selector opening existing `AccountPickerSheet`, Filters button with active count badge opening new `ActivityFilterSheet` (transaction types, presets + custom date range, direction, status, Clear/Apply), and removable filter chips. Redesigned `TransactionRow` with flexible layout, top-aligned icon disc, and preserved `AmountText` with minFontScale 0.7 for large amounts (₱100,000,000.00) at 360 pt and 1.4× scaling. Retained all 7B.11 states (skeleton loading, offline banner, error + retry, empty states). Checks: typecheck PASS (exit 0), lint PASS (0 errors, 62 warnings), format:check PASS, unit 44 suites / 372 tests PASS (including 14 new filter and row tests), check:copy PASS. No routes or balance card touched; no DB changes; staged by name.
+
+- **2026-11-25, fe-cline-2:** took over Stage 7B.10 from fe-device-fixes on worktree `phase-7-carryovers` (base `af8b3aa`); kept fe-device-fixes's uncommitted changes and finished the stage. Committed `Phase 7 · Stage 7B.10 — Carry-overs from device checks`. Changes: `ScheduledPaymentsScreen` shows "Completed" badge + "Paid <date>" and sorts completed below active; Transfer uncertain state exits via "Check status" (reuses `recoverTransfer`/`executeServerTransfer` with the same idempotency key — no new money) + "Done" (toast + back); `LockScreen` is biometrics-first with password only after "Use password"; `TwoStepSetupScreen` is a `FeatureScreen` titled "Two-step verification" with 200 pt QR, monospace setup-key box with Copy and "Open in authenticator app"; `TotpPromptOverlay` defaults to "Enter your authenticator code" and auto-submits on 6 digits; `StepUpSetupLink` navigates directly to `TwoStepSetup`. Large-text amount fitting and the PayBills biller hint were already fixed in 7B.6/7B.4; the optimistic App lock switch was already in `ProfileScreen`. Fixes: `transfer_screen.test.tsx` mocks now satisfy `MoneyOperationResult` (typecheck); `npx prettier --write` on the 6 task files prettier flagged. Checks: typecheck exit 0; lint 0 errors (63 warnings); format:check clean on task files; unit 41 suites / 344 tests pass. Device screenshots/behaviour NOT VERIFIED — no device available. `customer1`'s authenticator untouched; no hosted writes, no push, no merge.
+
+- **2026-11-25, Frontend Developer 2:** Stage 7B.7 Wording completed (`Phase 7 · Stage 7B.7 — Wording`). Applied sentence-case and wording replacements across screens in apps/mobile: screen titles, headers, labels, buttons, badges, placeholders, and error messages; eliminated exclamation marks, raw UUIDs, regexes, and uppercase status values in money flows. Money/step-up handler bodies (RPC payloads, idempotency keys, error mapping) remained byte-identical to base with captain-approved string replacements only (masked accounts '•• 1234', sentence-case prompt titles, cancel message 'Not authorized. Nothing was sent.'). Updated `toUserMessage` with 'load' context returning 'You appear to be offline.' on load-only screens. Checks: typecheck exit 0, lint 0 errors (63 warnings), format:check clean (untracked ONBOARDING.md excluded), unit 38 suites / 335 tests pass. Device, VoiceOver, and live money NOT VERIFIED — captain/owner to verify. Next: Stage 7B.8 (copy audit script) owned by next agent.
+
+- **2026-11-25, fe-cline (substitute):** took over Stage 7C from fe-motion in `davao-bank-frontend` on `phase-7-frontend` (fe-motion's uncommitted changes kept). Implemented motion tokens, all 12 motion patterns at component level, mascots/onboarding (3-slide onboarding, SecureStore flag), translucent surfaces (tab bar, FeatureScreen header, Sheet scrim), illustrations (duri-empty/duri-error/kada-not-found, biller category icons), deleted the old `useReducedMotion` hook project-wide. Checks: typecheck exit 0 (admin, mobile, shared); lint 0 errors (64 warnings); format:check clean; unit 39 suites / 339 tests passed. Committed as `Phase 7 · Stage 7C — Motion and illustrations`. Device checks, Maestro regression, 60 fps, VoiceOver NOT VERIFIED.
 
 - **2026-11-25, Codex:** resumed and completed 7B.5 after captain approved success-handler haptic removal and refreshed server account balance. ResultView now handles outcomes, server-derived rows, privacy-aware receipt share and contextual actions; money/request success flows wired, confirmed structured database rejections show Not sent, uncertain transfer remains unchanged. Updated UI-only assertions per captain direction; RPC/step-up/idempotency checks retained. Typecheck exit 0, lint 0 errors / 63 warnings, unit 38 suites / 334 tests; format check exit 1 only untracked `ONBOARDING.md`. Full handler diffs and limitations in PHASE7_REPORT.md. Device, VoiceOver, live money and sharing NOT VERIFIED — captain/owner to verify. Next: captain review this commit.
 

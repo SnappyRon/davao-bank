@@ -314,7 +314,7 @@ export function PayBillsScreen() {
 
     // Biometric / Password verification before moving money (§Fix 6)
     const authenticated = await confirmBiometricPayment({
-      title: timing === 'now' ? 'Authorize Bill Payment' : 'Authorize Scheduled Bill',
+      title: timing === 'now' ? 'Authorize bill payment' : 'Authorize scheduled bill',
       message:
         timing === 'now'
           ? `Confirm payment of ${formatCentavosToPHP(centavos)} to ${selectedBiller.name}`
@@ -324,9 +324,7 @@ export function PayBillsScreen() {
     if (!authenticated.success) {
       setLoading(false);
       if (authenticated.cancelled) {
-        setErrorMessage(
-          'Payment authorization was cancelled. You can retry whenever ready.'
-        );
+        setErrorMessage('Not authorized. Nothing was sent.');
       } else {
         setErrorMessage(authenticated.error || 'Payment authorization failed.');
       }

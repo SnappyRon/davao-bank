@@ -19,6 +19,9 @@ import {
   reversalOriginalFor,
 } from '../../utils/transactionDisplay';
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const duriEmptyIllustration = require('../../../assets/illustrations/duri-empty-state.png');
+
 /** Spec 7B.1: one grouped card with 5 rows; hairlines inset 72 (shared metrics). */
 const MAX_ROWS = 5;
 const SKELETON_ROWS = 3;
@@ -31,6 +34,7 @@ interface HomeRecentActivityProps {
   onRetry: () => void;
   transactions: TransactionHistoryItem[];
   onNavigateToActivity?: () => void;
+  onSendMoney?: () => void;
   onSelectTransaction: (tx: TransactionHistoryItem) => void;
 }
 
@@ -40,6 +44,7 @@ export function HomeRecentActivity({
   onRetry,
   transactions,
   onNavigateToActivity,
+  onSendMoney,
   onSelectTransaction,
 }: HomeRecentActivityProps) {
   const rows = transactions.slice(0, MAX_ROWS);
@@ -74,7 +79,7 @@ export function HomeRecentActivity({
           <Text variant="bodyStrong" color={colors.ink}>
             Activity unavailable
           </Text>
-          <Text variant="caption" color={colors.textSecondary}>
+          <Text variant="caption" color={colors.textSecondary} accessibilityRole="alert">
             {error}
           </Text>
           <Button title="Try again" variant="secondary" onPress={onRetry} />
@@ -94,6 +99,10 @@ export function HomeRecentActivity({
         <EmptyState
           title="No activity yet"
           description="Money you send, receive and pay will show here."
+          illustration={duriEmptyIllustration}
+          illustrationTestID="home-activity-empty-mascot"
+          actionTitle={onSendMoney ? 'Send money' : undefined}
+          onAction={onSendMoney}
           scrollable={false}
         />
       ) : (

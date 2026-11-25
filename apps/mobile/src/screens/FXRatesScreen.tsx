@@ -16,8 +16,11 @@ import {
 import { Text } from '../components/Text';
 import { Card } from '../components/Card';
 import { FeatureScreen } from '../components/FeatureScreen';
+import { EmptyState } from '../components/EmptyState';
 import { Button } from '../components/Button';
 import { supabase } from '../lib/supabase';
+import { reportNetworkResult } from '../lib/networkStatus';
+import { MASCOT_ERROR } from '../assets/illustrations';
 import {
   FXRatesChart,
   CHART_WIDTH,
@@ -55,13 +58,14 @@ export function FXRatesScreen() {
         .eq('quote', 'PHP')
         .order('rate_date', { ascending: true });
 
+      reportNetworkResult(error);
       if (requestIdRef.current !== currentRequestId) return;
 
       if (error) {
         console.warn('Failed to load fx rates from Supabase:', error.message);
         setAllRates([]);
         setIsCachedData(false);
-        setLoadError(toUserMessage(error));
+        setLoadError(toUserMessage(error, 'load'));
       } else if (data && data.length > 0) {
         setAllRates(data as FXRate[]);
         setIsCachedData(false);
@@ -72,11 +76,12 @@ export function FXRatesScreen() {
         setLoadError(null);
       }
     } catch (err: unknown) {
+      reportNetworkResult(err);
       if (requestIdRef.current !== currentRequestId) return;
       console.warn('Error fetching FX rates:', err);
       setAllRates([]);
       setIsCachedData(false);
-      setLoadError(toUserMessage(err));
+      setLoadError(toUserMessage(err, 'load'));
     } finally {
       if (requestIdRef.current === currentRequestId) {
         setLoading(false);
@@ -147,7 +152,7 @@ export function FXRatesScreen() {
 
   return (
     <FeatureScreen
-      title="FX Reference Rates"
+      title="FX reference rates"
       contentContainerStyle={styles.scrollContent}
     >
       {/* Disclaimer Banner (§E.2) */}
@@ -193,71 +198,86 @@ export function FXRatesScreen() {
       )}
 
       {/* Error state with Try again button */}
-      {loadError ? (
-        <View style={styles.errorContainer}>
-          <View style={styles.errorRow}>
-            <AlertCircle size={16} color={colors.redText} />
+      {loadError && !loading && allRates.length === 0 ? (
+        <EmptyState
+          title="Reference rates unavailable"
+          description={loadError}
+          descriptionAccessibilityRole="alert"
+          illustration={MASCOT_ERROR}
+          illustrationTestID="fx-error-mascot"
+          actionTitle="Try again"
+          onAction={() => void loadFXRates()}
+          scrollable={false}
+        />
+      ) : (
+        <>
+          {loadError ? (
+            <View style={styles.errorContainer}>
+              <View style={styles.errorRow}>
+                <AlertCircle size={16} color={colors.redText} />
+                <Text
+                  variant="caption"
+                  color={colors.redText}
+                  accessibilityRole="alert"
+                  style={styles.errorText}
+                >
+                  {loadError}
+                </Text>
+              </View>
+              <Button
+                title="Try again"
+                variant="secondary"
+                onPress={() => void loadFXRates()}
+              />
+            </View>
+          ) : null}
+
+          {/* Pair Selector, Hero Rate Display, Period Selector */}
+          <FXRatesHero
+            selectedPair={selectedPair}
+            selectedPeriod={selectedPeriod}
+            onSelectPair={(pair) => {
+              setSelectedPair(pair);
+              setScrubIndex(null);
+            }}
+            onSelectPeriod={(period) => {
+              setSelectedPeriod(period);
+              setScrubIndex(null);
+            }}
+            loading={loading}
+            summary={summary}
+            activePoint={activePoint}
+            baseCurrency={currentPairMeta.base}
+            pairLabel={currentPairMeta.label}
+          />
+
+          {/* SVG Line Chart Container */}
+          <FXRatesChart
+            loading={loading}
+            chartData={chartData}
+            activePoint={activePoint}
+            baseCurrency={currentPairMeta.base}
+            voiceOverSummary={voiceOverSummary}
+            onScrub={setScrubIndex}
+          />
+
+          {/* Holiday and weekend note (§E.2) */}
+          <View style={styles.calendarNoticeRow}>
+            <Info size={14} color={colors.textMuted} />
             <Text
               variant="caption"
-              color={colors.redText}
-              accessibilityRole="alert"
-              style={styles.errorText}
+              color={colors.textMuted}
+              style={styles.calendarNoticeText}
             >
-              {loadError}
+              Weekends and bank holidays are skipped by the ECB. Gaps between business
+              days are normal.
             </Text>
           </View>
-          <Button
-            title="Try again"
-            variant="secondary"
-            onPress={() => void loadFXRates()}
-          />
-        </View>
-      ) : null}
 
-      {/* Pair Selector, Hero Rate Display, Period Selector */}
-      <FXRatesHero
-        selectedPair={selectedPair}
-        selectedPeriod={selectedPeriod}
-        onSelectPair={(pair) => {
-          setSelectedPair(pair);
-          setScrubIndex(null);
-        }}
-        onSelectPeriod={(period) => {
-          setSelectedPeriod(period);
-          setScrubIndex(null);
-        }}
-        loading={loading}
-        summary={summary}
-        activePoint={activePoint}
-        baseCurrency={currentPairMeta.base}
-        pairLabel={currentPairMeta.label}
-      />
-
-      {/* SVG Line Chart Container */}
-      <FXRatesChart
-        loading={loading}
-        chartData={chartData}
-        activePoint={activePoint}
-        baseCurrency={currentPairMeta.base}
-        voiceOverSummary={voiceOverSummary}
-        onScrub={setScrubIndex}
-      />
-
-      {/* Holiday and weekend note (§E.2) */}
-      <View style={styles.calendarNoticeRow}>
-        <Info size={14} color={colors.textMuted} />
-        <Text
-          variant="caption"
-          color={colors.textMuted}
-          style={styles.calendarNoticeText}
-        >
-          Weekends and bank holidays are skipped by the ECB. Gaps between business days
-          are normal.
-        </Text>
-      </View>
-
-      {/* Recent Daily Rates Table */}
-      <FXRatesHistory rates={periodRates} baseCurrency={currentPairMeta.base} />
+          {/* Recent Daily Rates Table */}
+          <FXRatesHistory rates={periodRates} baseCurrency={currentPairMeta.base} />
+        </>
+      )}
     </FeatureScreen>
   );
 }

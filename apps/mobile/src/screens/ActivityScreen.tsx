@@ -1,18 +1,23 @@
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
+import type { RouteProp } from '@react-navigation/native';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { RootStackParamList } from '../../App';
+import type { RootStackParamList, BottomTabParamList } from '../../App';
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { View, StyleSheet, FlatList, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  AlertCircle,
   BarChart3,
   FileText,
   Search,
   SlidersHorizontal,
+  Wallet,
+  ChevronDown,
+  X,
 } from 'lucide-react-native';
 import {
   colors,
+  radius,
   size,
   spacing,
   typography,
@@ -23,11 +28,12 @@ import {
   type TransactionHistoryItem,
 } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
+import { reportNetworkResult } from '../lib/networkStatus';
+import { useSettings } from '../context/SettingsContext';
 import {
   Screen,
   Text,
   TextField,
-  FilterChips,
   TransactionRow,
   EmptyState,
   Skeleton,
@@ -36,7 +42,20 @@ import {
   ListHairline,
   LIST_ROW_MIN_HEIGHT,
   formatAccountLabel,
+  AccountPickerSheet,
+  ActivityFilterSheet,
+  DEFAULT_ACTIVITY_FILTERS,
+  countActiveFilters,
+  matchesDateRange,
+  type ActivityFilterState,
+  type DateRangePreset,
+  type ActivityDirection,
+  type ActivityStatus,
+  TYPE_OPTIONS,
+  DATE_PRESET_OPTIONS,
+  STATUS_OPTIONS,
   tabScreenBottomClearance,
+  CHIP_MIN_HEIGHT,
 } from '../components';
 import {
   buildReversalOriginals,
@@ -58,17 +77,6 @@ const ALL_ACCOUNTS = 'all';
 const SKELETON_ROWS = 4;
 const HEADER_ICON_SIZE = 18;
 const SEARCH_ICON_SIZE = 18;
-const EMPTY_ICON_SIZE = 36;
-
-const TYPE_FILTERS: { label: string; value: ActivityFilter }[] = [
-  { label: 'All', value: 'all' },
-  { label: 'Transfers', value: 'transfer' },
-  { label: 'Bills', value: 'bill_payment' },
-  { label: 'Add money', value: 'deposit' },
-  { label: 'Cash out', value: 'withdrawal' },
-  { label: 'Bank credits & debits', value: 'adjustment' },
-  { label: 'Reversals', value: 'reversal' },
-];
 
 /** Filtered empty copy (Wording table: "No bill payments yet."). */
 const FILTERED_EMPTY: Record<Exclude<ActivityFilter, 'all'>, string> = {
@@ -129,18 +137,54 @@ function sectionTitle(iso: string, today: Date, yesterday: Date): string {
   });
 }
 
+function getTypeLabel(typeVal: string): string {
+  const opt = TYPE_OPTIONS.find((o) => o.value === typeVal);
+  return opt ? opt.label : typeVal;
+}
+
+function getDatePresetLabel(preset: DateRangePreset): string {
+  const opt = DATE_PRESET_OPTIONS.find((o) => o.value === preset);
+  return opt ? opt.label : preset;
+}
+
+function getDirectionLabel(dir: ActivityDirection): string {
+  if (dir === 'in') return 'Money in';
+  if (dir === 'out') return 'Money out';
+  return 'All directions';
+}
+
+function getStatusLabel(st: ActivityStatus): string {
+  const opt = STATUS_OPTIONS.find((o) => o.value === st);
+  return opt ? opt.label : st;
+}
+
+/* eslint-disable @typescript-eslint/no-require-imports */
+const duriEmptyIllustration = require('../../assets/illustrations/duri-empty-state.png');
+const duriErrorIllustration = require('../../assets/illustrations/duri-error-state.png');
+/* eslint-enable @typescript-eslint/no-require-imports */
+
 export function ActivityScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const tabNavigation =
+    useNavigation<BottomTabNavigationProp<BottomTabParamList, 'ActivityTab'>>();
+  const route = useRoute<RouteProp<BottomTabParamList, 'ActivityTab'>>();
   const insets = useSafeAreaInsets();
+  const { hideBalance } = useSettings();
+
   const [transactions, setTransactions] = useState<TransactionHistoryItem[]>([]);
   const [accounts, setAccounts] = useState<AccountBalance[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [loaded, setLoaded] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedFilter, setSelectedFilter] = useState<ActivityFilter>('all');
+
   const [selectedAccount, setSelectedAccount] = useState<string>(ALL_ACCOUNTS);
+  const [filters, setFilters] = useState<ActivityFilterState>(DEFAULT_ACTIVITY_FILTERS);
   const [query, setQuery] = useState('');
+
+  const [accountPickerVisible, setAccountPickerVisible] = useState(false);
+  const [filterSheetVisible, setFilterSheetVisible] = useState(false);
+
   const loadIdRef = useRef(0);
 
   const loadHistory = useCallback(async () => {
@@ -151,19 +195,19 @@ export function ActivityScreen() {
         fetchAccountBalances(supabase),
       ]);
       if (loadId !== loadIdRef.current) return;
+      reportNetworkResult(txRes.error || accRes.error);
       if (txRes.error || !txRes.data) {
-        setError(toUserMessage(txRes.error ?? 'Activity could not be loaded.'));
+        setError(toUserMessage(txRes.error ?? 'Activity could not be loaded.', 'load'));
       } else {
         setError(null);
         setTransactions(txRes.data);
         setLoaded(true);
       }
-      // Accounts only add the prefix and the filter. A failed account load
-      // keeps the accounts we already had.
       if (!accRes.error && accRes.data) setAccounts(accRes.data);
     } catch (err) {
+      reportNetworkResult(err);
       if (loadId !== loadIdRef.current) return;
-      setError(toUserMessage(err));
+      setError(toUserMessage(err, 'load'));
     } finally {
       if (loadId === loadIdRef.current) {
         setLoading(false);
@@ -172,7 +216,6 @@ export function ActivityScreen() {
     }
   }, []);
 
-  // Loads on first focus and refreshes whenever the tab regains focus.
   useFocusEffect(
     useCallback(() => {
       void loadHistory();
@@ -189,10 +232,21 @@ export function ActivityScreen() {
     void loadHistory();
   };
 
-  // The account filter falls back to "All accounts" when the chosen account
-  // disappears or only one account remains (the chips are hidden then).
+  // "See all" from Account detail opens this tab with an account to filter by.
+  // Apply it once, then clear it so a later visit with the same account applies again.
+  const routeAccountId = route?.params?.accountId;
+  const tabNavigationRef = useRef(tabNavigation);
+  tabNavigationRef.current = tabNavigation;
+  useEffect(() => {
+    if (!routeAccountId) return;
+    setSelectedAccount(routeAccountId);
+    tabNavigationRef.current.setParams({ accountId: undefined });
+  }, [routeAccountId]);
+
   useEffect(() => {
     if (selectedAccount === ALL_ACCOUNTS) return;
+    // Accounts are still loading: keep a requested account until we can check it.
+    if (accounts.length === 0) return;
     if (
       accounts.length <= 1 ||
       !accounts.some((account) => account.account_id === selectedAccount)
@@ -208,16 +262,44 @@ export function ActivityScreen() {
     return map;
   }, [accounts]);
 
-  const accountOptions = useMemo(
-    () => [
-      { label: 'All accounts', value: ALL_ACCOUNTS },
-      ...accounts.map((account) => ({
-        label: formatAccountLabel(account),
-        value: account.account_id,
-      })),
-    ],
-    [accounts]
-  );
+  const currentAccountLabel = useMemo(() => {
+    if (selectedAccount === ALL_ACCOUNTS) return 'All accounts';
+    const acc = accounts.find((a) => a.account_id === selectedAccount);
+    return acc ? formatAccountLabel(acc) : 'Account';
+  }, [accounts, selectedAccount]);
+
+  const activeFilterCount = useMemo(() => countActiveFilters(filters), [filters]);
+  const hasActiveFilters = activeFilterCount > 0 || selectedAccount !== ALL_ACCOUNTS;
+
+  const clearAllFilters = useCallback(() => {
+    setFilters(DEFAULT_ACTIVITY_FILTERS);
+    setSelectedAccount(ALL_ACCOUNTS);
+    setQuery('');
+  }, []);
+
+  const removeTypeFilter = (typeVal: string) => {
+    setFilters((prev) => ({
+      ...prev,
+      types: prev.types.filter((t) => t !== typeVal),
+    }));
+  };
+
+  const removeDateFilter = () => {
+    setFilters((prev) => ({
+      ...prev,
+      datePreset: 'all',
+      customStartDate: null,
+      customEndDate: null,
+    }));
+  };
+
+  const removeDirectionFilter = () => {
+    setFilters((prev) => ({ ...prev, direction: 'all' }));
+  };
+
+  const removeStatusFilter = () => {
+    setFilters((prev) => ({ ...prev, status: 'all' }));
+  };
 
   const originals = useMemo(() => buildReversalOriginals(transactions), [transactions]);
 
@@ -225,14 +307,24 @@ export function ActivityScreen() {
     () =>
       transactions.filter(
         (t) =>
-          (selectedFilter === 'all' || t.type === selectedFilter) &&
           (selectedAccount === ALL_ACCOUNTS || t.account_id === selectedAccount) &&
+          (filters.types.length === 0 || filters.types.includes(t.type)) &&
+          matchesDateRange(
+            t.created_at,
+            filters.datePreset,
+            filters.customStartDate,
+            filters.customEndDate
+          ) &&
+          (filters.direction === 'all' ||
+            (filters.direction === 'in'
+              ? t.direction === 'credit'
+              : t.direction === 'debit')) &&
+          (filters.status === 'all' || t.status === filters.status) &&
           matchesActivitySearch(t, query)
       ),
-    [transactions, selectedFilter, selectedAccount, query]
+    [transactions, selectedAccount, filters, query]
   );
 
-  // Group by day: Today, Yesterday, or a date. One grouped card per section.
   const sections = useMemo<ActivitySection[]>(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -261,26 +353,54 @@ export function ActivityScreen() {
     />
   );
 
-  const emptyCopy = (() => {
+  const emptyState = (() => {
     if (query.trim()) {
-      return { title: 'No matches', description: 'Try another note or account number.' };
+      return {
+        title: 'No matches',
+        description: 'Try another note or account number.',
+        illustration: duriErrorIllustration,
+        illustrationTestID: 'activity-no-matches-mascot',
+        actionTitle: 'Clear search',
+        onAction: () => setQuery(''),
+      };
     }
-    if (selectedFilter !== 'all') {
-      return { title: 'Nothing here yet', description: FILTERED_EMPTY[selectedFilter] };
+    if (
+      filters.types.length === 1 &&
+      activeFilterCount === 1 &&
+      selectedAccount === ALL_ACCOUNTS
+    ) {
+      const singleType = filters.types[0];
+      return {
+        title: 'Nothing here yet',
+        description:
+          FILTERED_EMPTY[singleType as Exclude<ActivityFilter, 'all'>] ??
+          'No activity found for this filter.',
+        illustration: duriEmptyIllustration,
+        illustrationTestID: 'activity-empty-mascot',
+        actionTitle: 'Clear filters',
+        onAction: clearAllFilters,
+      };
     }
-    if (selectedAccount !== ALL_ACCOUNTS) {
-      const label =
-        accountOptions.find((o) => o.value === selectedAccount)?.label ?? 'this account';
-      return { title: 'No activity yet', description: `No activity on ${label} yet.` };
+    if (hasActiveFilters) {
+      return {
+        title: 'No results',
+        description: 'Try fewer or different filters.',
+        illustration: duriErrorIllustration,
+        illustrationTestID: 'activity-empty-mascot',
+        actionTitle: 'Clear filters',
+        onAction: clearAllFilters,
+      };
     }
     return {
       title: 'No activity yet',
       description: 'Money you send, receive and pay will show here.',
+      illustration: duriEmptyIllustration,
+      illustrationTestID: 'activity-empty-mascot',
+      actionTitle: 'Send money',
+      onAction: () => navigation.navigate('Transfer'),
     };
   })();
 
-  // Shown when a refresh fails after rows have loaded (above the rows, or
-  // above the empty state when the filtered list is empty).
   const inlineError = error ? (
     <View style={styles.inlineError}>
       <Text
@@ -322,14 +442,14 @@ export function ActivityScreen() {
       );
     }
 
-    // A failed load never looks like an empty list. Rows already loaded stay
-    // visible on a failed refresh, with the error above them.
     if (error && !loaded) {
       return (
         <EmptyState
           title="Activity unavailable"
           description={error}
-          icon={<AlertCircle size={EMPTY_ICON_SIZE} color={colors.redText} />}
+          descriptionAccessibilityRole="alert"
+          illustration={duriErrorIllustration}
+          illustrationTestID="activity-error-mascot"
           actionTitle="Try again"
           onAction={retry}
           refreshControl={refreshControl}
@@ -343,9 +463,12 @@ export function ActivityScreen() {
         <View style={styles.flex}>
           {inlineError ? <View style={styles.listPadding}>{inlineError}</View> : null}
           <EmptyState
-            title={emptyCopy.title}
-            description={emptyCopy.description}
-            icon={<SlidersHorizontal size={EMPTY_ICON_SIZE} color={colors.textMuted} />}
+            title={emptyState.title}
+            description={emptyState.description}
+            illustration={emptyState.illustration}
+            illustrationTestID={emptyState.illustrationTestID}
+            actionTitle={emptyState.actionTitle}
+            onAction={emptyState.onAction}
             refreshControl={refreshControl}
             style={{ paddingBottom: bottomClearance }}
           />
@@ -443,23 +566,199 @@ export function ActivityScreen() {
           leftElement={<Search size={SEARCH_ICON_SIZE} color={colors.textMuted} />}
         />
 
-        <View style={styles.filters}>
-          <FilterChips
-            options={TYPE_FILTERS}
-            selectedValue={selectedFilter}
-            onSelect={(val) => setSelectedFilter(val as ActivityFilter)}
-          />
-          {accounts.length > 1 ? (
-            <FilterChips
-              options={accountOptions}
-              selectedValue={selectedAccount}
-              onSelect={(val) => setSelectedAccount(val)}
+        <View style={styles.controlsRow}>
+          <Pressable
+            onPress={() => setAccountPickerVisible(true)}
+            accessibilityRole="button"
+            accessibilityLabel={
+              selectedAccount === ALL_ACCOUNTS ? 'All accounts' : currentAccountLabel
+            }
+            feedbackType="scale"
+            style={styles.accountSelector}
+          >
+            <View style={styles.accountSelectorContent}>
+              <Wallet size={16} color={colors.primary} />
+              <Text variant="label" color={colors.ink} numberOfLines={1}>
+                {currentAccountLabel}
+              </Text>
+            </View>
+            <ChevronDown size={16} color={colors.textSecondary} />
+          </Pressable>
+
+          <Pressable
+            onPress={() => setFilterSheetVisible(true)}
+            accessibilityRole="button"
+            accessibilityLabel={
+              activeFilterCount > 0 ? `Filters, ${activeFilterCount} active` : 'Filters'
+            }
+            feedbackType="scale"
+            style={[
+              styles.filtersButton,
+              activeFilterCount > 0 && styles.filtersButtonActive,
+            ]}
+          >
+            <SlidersHorizontal
+              size={16}
+              color={activeFilterCount > 0 ? colors.primary : colors.ink}
             />
-          ) : null}
+            <Text
+              variant="label"
+              color={activeFilterCount > 0 ? colors.primary : colors.ink}
+            >
+              Filters
+            </Text>
+            {activeFilterCount > 0 ? (
+              <View style={styles.badgeCount}>
+                <Text
+                  variant="caption"
+                  color={colors.textInverse}
+                  style={styles.badgeCountText}
+                >
+                  {activeFilterCount}
+                </Text>
+              </View>
+            ) : null}
+          </Pressable>
         </View>
+
+        {hasActiveFilters ? (
+          <View style={styles.activeFiltersRow}>
+            {selectedAccount !== ALL_ACCOUNTS ? (
+              <Pressable
+                onPress={() => setSelectedAccount(ALL_ACCOUNTS)}
+                accessibilityRole="button"
+                accessibilityLabel={`Remove ${currentAccountLabel} filter`}
+                style={styles.activeChip}
+                hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+              >
+                <Text
+                  variant="caption"
+                  color={colors.primary}
+                  style={styles.activeChipText}
+                >
+                  {currentAccountLabel}
+                </Text>
+                <X size={14} color={colors.primary} />
+              </Pressable>
+            ) : null}
+
+            {filters.types.map((typeVal) => (
+              <Pressable
+                key={typeVal}
+                onPress={() => removeTypeFilter(typeVal)}
+                accessibilityRole="button"
+                accessibilityLabel={`Remove ${getTypeLabel(typeVal)} filter`}
+                style={styles.activeChip}
+                hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+              >
+                <Text
+                  variant="caption"
+                  color={colors.primary}
+                  style={styles.activeChipText}
+                >
+                  {getTypeLabel(typeVal)}
+                </Text>
+                <X size={14} color={colors.primary} />
+              </Pressable>
+            ))}
+
+            {filters.datePreset !== 'all' ? (
+              <Pressable
+                onPress={removeDateFilter}
+                accessibilityRole="button"
+                accessibilityLabel={`Remove ${getDatePresetLabel(filters.datePreset)} filter`}
+                style={styles.activeChip}
+                hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+              >
+                <Text
+                  variant="caption"
+                  color={colors.primary}
+                  style={styles.activeChipText}
+                >
+                  {getDatePresetLabel(filters.datePreset)}
+                </Text>
+                <X size={14} color={colors.primary} />
+              </Pressable>
+            ) : null}
+
+            {filters.direction !== 'all' ? (
+              <Pressable
+                onPress={removeDirectionFilter}
+                accessibilityRole="button"
+                accessibilityLabel={`Remove ${getDirectionLabel(filters.direction)} filter`}
+                style={styles.activeChip}
+                hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+              >
+                <Text
+                  variant="caption"
+                  color={colors.primary}
+                  style={styles.activeChipText}
+                >
+                  {getDirectionLabel(filters.direction)}
+                </Text>
+                <X size={14} color={colors.primary} />
+              </Pressable>
+            ) : null}
+
+            {filters.status !== 'all' ? (
+              <Pressable
+                onPress={removeStatusFilter}
+                accessibilityRole="button"
+                accessibilityLabel={`Remove ${getStatusLabel(filters.status)} filter`}
+                style={styles.activeChip}
+                hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+              >
+                <Text
+                  variant="caption"
+                  color={colors.primary}
+                  style={styles.activeChipText}
+                >
+                  {getStatusLabel(filters.status)}
+                </Text>
+                <X size={14} color={colors.primary} />
+              </Pressable>
+            ) : null}
+
+            <Pressable
+              onPress={clearAllFilters}
+              accessibilityRole="button"
+              accessibilityLabel="Clear all filters"
+              style={styles.clearAllBtn}
+              hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+            >
+              <Text
+                variant="caption"
+                color={colors.textMuted}
+                style={styles.clearAllText}
+              >
+                Clear all
+              </Text>
+            </Pressable>
+          </View>
+        ) : null}
       </View>
 
       {renderBody()}
+
+      <AccountPickerSheet
+        visible={accountPickerVisible}
+        accounts={accounts}
+        selectedAccountId={selectedAccount === ALL_ACCOUNTS ? null : selectedAccount}
+        hideBalance={hideBalance}
+        onSelect={(accountId) => {
+          setSelectedAccount(accountId === selectedAccount ? ALL_ACCOUNTS : accountId);
+          setAccountPickerVisible(false);
+        }}
+        onClose={() => setAccountPickerVisible(false)}
+      />
+
+      <ActivityFilterSheet
+        visible={filterSheetVisible}
+        onClose={() => setFilterSheetVisible(false)}
+        filters={filters}
+        onApply={(newFilters) => setFilters(newFilters)}
+        onClear={() => setFilters(DEFAULT_ACTIVITY_FILTERS)}
+      />
     </Screen>
   );
 }
@@ -492,8 +791,86 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     paddingHorizontal: spacing.sm,
   },
-  filters: {
+  controlsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.sm,
+  },
+  accountSelector: {
+    flex: 1,
+    minHeight: size.touch,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.base,
+    backgroundColor: colors.surface,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  accountSelectorContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    flex: 1,
+  },
+  filtersButton: {
+    minHeight: size.touch,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.base,
+    backgroundColor: colors.surface,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  filtersButtonActive: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primaryTint,
+  },
+  badgeCount: {
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  badgeCountText: {
+    fontSize: 11,
+    fontWeight: '700',
+    lineHeight: 13,
+  },
+  activeFiltersRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingTop: spacing.xs,
+  },
+  activeChip: {
+    minHeight: CHIP_MIN_HEIGHT,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.primaryTint,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  activeChipText: {
+    fontWeight: '600',
+  },
+  clearAllBtn: {
+    minHeight: CHIP_MIN_HEIGHT,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.xs,
+  },
+  clearAllText: {
+    textDecorationLine: 'underline',
   },
   flex: {
     flex: 1,

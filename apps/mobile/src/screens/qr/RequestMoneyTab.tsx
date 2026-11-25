@@ -47,7 +47,7 @@ export function RequestMoneyTab({
       )}
 
       <TextField
-        label="Payer Account Number"
+        label="Payer account number"
         value={reqPayerAccount}
         onChangeText={onPayerAccountChange}
         placeholder="e.g. 1020441785"
@@ -55,14 +55,10 @@ export function RequestMoneyTab({
         maxLength={10}
       />
 
-      <AmountInput
-        label="Amount to Request"
-        value={reqAmountStr}
-        onChangeText={onAmountChange}
-      />
+      <AmountInput label="Amount" value={reqAmountStr} onChangeText={onAmountChange} />
 
       <TextField
-        label="Reason / Note (Optional, max 60 chars)"
+        label="Note (optional)"
         value={reqNote}
         onChangeText={onNoteChange}
         placeholder="e.g. Dinner bill share, Durian delivery"
@@ -77,7 +73,7 @@ export function RequestMoneyTab({
       </View>
 
       <Button
-        title="Send Payment Request"
+        title="Send payment request"
         variant="primary"
         loading={reqLoading}
         onPress={onSendRequest}

@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Eye } from 'lucide-react';
 import {
   formatCentavosToPHP,
+  formatReferenceId,
   type AdminUserItem,
   type AccountBalance,
   type ProfileStatus,
@@ -119,7 +120,7 @@ export function UsersClient({
       render: (u: AdminUserItem) => (
         <div>
           <div className={styles.userName}>{u.full_name || 'Unnamed User'}</div>
-          <div className={styles.userId}>{u.id.substring(0, 8)}...</div>
+          <div className={styles.userId}>{formatReferenceId(u.id)}...</div>
         </div>
       ),
     },

@@ -59,7 +59,7 @@ export function SignUpScreen({ onNavigateToLogin, onSignUpSuccess }: SignUpScree
       });
 
       if (error) {
-        setErrorMessage(toUserMessage(error));
+        setErrorMessage(toUserMessage(error, 'account'));
         return;
       }
 
@@ -67,7 +67,7 @@ export function SignUpScreen({ onNavigateToLogin, onSignUpSuccess }: SignUpScree
         onSignUpSuccess(email.trim());
       }
     } catch (err: any) {
-      setErrorMessage(toUserMessage(err));
+      setErrorMessage(toUserMessage(err, 'account'));
     } finally {
       setLoading(false);
     }
@@ -93,7 +93,7 @@ export function SignUpScreen({ onNavigateToLogin, onSignUpSuccess }: SignUpScree
               Create account
             </Text>
             <Text variant="body" color={colors.textSecondary}>
-              Join Davao Bank to receive a simulated PHP account.
+              Join Davao Bank to receive a simulated demo account.
             </Text>
           </View>
 
@@ -108,7 +108,7 @@ export function SignUpScreen({ onNavigateToLogin, onSignUpSuccess }: SignUpScree
 
           <View style={styles.form}>
             <TextField
-              label="Full Legal Name"
+              label="Full legal name"
               value={fullName}
               onChangeText={setFullName}
               placeholder="e.g. Maria Santos"
@@ -116,7 +116,7 @@ export function SignUpScreen({ onNavigateToLogin, onSignUpSuccess }: SignUpScree
             />
 
             <TextField
-              label="Mobile Number (Optional)"
+              label="Mobile number (optional)"
               value={phone}
               onChangeText={setPhone}
               placeholder="+63 917 123 4567"
@@ -124,7 +124,7 @@ export function SignUpScreen({ onNavigateToLogin, onSignUpSuccess }: SignUpScree
             />
 
             <TextField
-              label="Email Address"
+              label="Email"
               value={email}
               onChangeText={setEmail}
               placeholder="name@example.com"
@@ -143,7 +143,7 @@ export function SignUpScreen({ onNavigateToLogin, onSignUpSuccess }: SignUpScree
             />
 
             <TextField
-              label="Confirm Password"
+              label="Confirm password"
               value={confirmPassword}
               onChangeText={setConfirmPassword}
               placeholder="••••••••"
@@ -152,7 +152,7 @@ export function SignUpScreen({ onNavigateToLogin, onSignUpSuccess }: SignUpScree
             />
 
             <Button
-              title="Create Account"
+              title="Create account"
               onPress={handleSignUp}
               loading={loading}
               icon={<UserPlus size={18} color={colors.textInverse} />}
@@ -168,11 +168,11 @@ export function SignUpScreen({ onNavigateToLogin, onSignUpSuccess }: SignUpScree
               onPress={onNavigateToLogin}
               feedbackType="scale"
               accessibilityRole="button"
-              accessibilityLabel="Sign In"
+              accessibilityLabel="Sign in"
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
               <Text variant="bodyStrong" color={colors.primary}>
-                Sign In
+                Sign in
               </Text>
             </Pressable>
           </View>
@@ -183,7 +183,7 @@ export function SignUpScreen({ onNavigateToLogin, onSignUpSuccess }: SignUpScree
             align="center"
             style={styles.disclaimerText}
           >
-            Simulated Prototype · Academic Use Only
+            Simulated prototype · Academic use only
           </Text>
         </ScrollView>
       </KeyboardAvoidingView>

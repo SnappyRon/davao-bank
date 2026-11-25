@@ -1314,3 +1314,121 @@ npm run format:check: exit 1; [warn] ONBOARDING.md only (untracked, untouched)
 ```
 
 Unit tests cover four icons/titles/haptics, receipt sharing and masking, missing values, structured rejection versus transport/step-up errors, every listed success flow with returned values, pending/failed/successful balance reload and hide-balance. **NOT VERIFIED — requires device and owner:** live money and step-up flows, VoiceOver announcements, haptic output, sharing destination/cache cleanup on real devices, and Reduce Motion device behavior. No animation is used.
+
+## Stage 7B.10 — Carry-overs from device checks (2026-11-25)
+
+Worktree `phase-7-carryovers` (based on `af8b3aa`), taken over from `fe-device-fixes`; its uncommitted changes were kept and finished. Commit: `Phase 7 · Stage 7B.10 — Carry-overs from device checks`.
+
+### Per-item changes (spec `Phase-7-Prompt-UI-UX-and-Motion.md` §10)
+
+**Phase 6 iOS check**
+
+- **Completed schedules status.** `ScheduledPaymentsScreen` now sorts active schedules first, shows a neutral "Completed" badge and "Paid <date>" for completed one-time schedules, and hides "Next" for them. Covered by `scheduled_payments_screen.test.tsx`.
+- **Transfer uncertain-state exit.** The Transfer footer now shows "Check status" (re-runs `recoverTransfer` through `executeServerTransfer` with the **same** idempotency key — never a new key, no new money sent) and "Done" (toast "Check Activity to confirm your transfer status", then closes the sheet). Covered by two new tests in `transfer_screen.test.tsx`.
+- **Large text wrapping** — already fixed in 7B.6: `AmountText` renders one line with `adjustsFontSizeToFit` / `minimumFontScale {0.7}`, including the hidden state; verified present, not re-done.
+- **Raw regex hint** — already fixed in 7B.4: PayBills biller field shows "e.g. 10 digits, on your bill" instead of `^[0-9]{10}$`; verified present, not re-done.
+- **Privacy overlay flash.** `TotpPromptOverlay` and `PasswordPromptOverlay` both render `PrivacyOverlay`, so the app stays covered in the app switcher. Before/after device screenshots could not be taken — **NOT VERIFIED, needs device/owner at the 7B gate**.
+
+**Phase 6.5 iOS check**
+
+- **TwoStepSetup as FeatureScreen.** `TwoStepSetupScreen` is a full-screen `FeatureScreen` titled "Two-step verification": centred 200 pt QR on white, setup key in a monospace box with Copy, "Open in authenticator app" as a secondary button, then the 6-digit code field. Steps titled "Step 1 of 2: add to your app" and "Step 2 of 2: enter the code". The setup key is never logged or screenshot in tests or reports.
+- **Clean lock screen.** `LockScreen` shows the logo, "Davao Bank is locked" and one primary button ("Unlock with Face ID" or "Unlock" when biometrics are unavailable). The password field and "Unlock with password" appear only after "Use password". "Sign out" stays a quiet secondary action. Covered by `lock_screen.test.tsx`.
+- **Optimistic app lock switch** — already in `ProfileScreen` (switch moves immediately, saves in background, reverts with toast on failure); verified present, not re-done.
+- **Consistent code prompt.** `TotpPromptOverlay` defaults to title "Enter your authenticator code" and auto-submits on 6 digits, in the same card style as the password prompt. Covered by `totp_prompt.test.tsx`.
+- **"Set up now" verification.** `StepUpSetupLink` navigates directly to `TwoStepSetup` (not Profile) when the error requires step up. Covered by `step_up_setup_link.test.tsx`. Device verification **NOT VERIFIED — needs device/owner**.
+
+### Handler comparison
+
+Transfer money-handler bodies (`handleConfirmTransfer`, `executeServerTransfer`, `executeScheduledTransfer`, step-up calls, idempotency keys, error mapping) are byte-identical to base `af8b3aa`. "Check status" reuses the same captured idempotency key via `recoverTransfer` — no new key is ever generated, so no money is re-submitted. No `supabase/`, `packages/shared`, password prompt or settings logic changed.
+
+### Checks (worktree root)
+
+```text
+npm run typecheck — exit 0
+npm run lint — ✖ 63 problems (0 errors, 63 warnings) (pre-existing warnings only)
+npm run format:check — clean on all task files; 6 files fixed with `npx prettier --write` (task files only)
+npm run test:unit — Test Suites: 41 passed, 41 total; Tests: 344 passed, 344 total
+```
+
+`npm run format:check` on the whole repo still exits 1 solely due to the untracked `ONBOARDING.md` (not this task's file, left untouched).
+
+### Verification limits
+
+- Before/after device screenshots for every fixed screen (spec §10) and on-device behaviour (large text at accessibility XL, overlay flash in app switcher, lock → unlock flow): **NOT VERIFIED** — no device/simulator available to this agent; captain/owner to verify at the 7B gate.
+- `customer1`'s real authenticator was never touched or read. No hosted Supabase writes, no push, no merge.
+
+## Stage 7C — Motion and illustrations (fe-cline, taking over from fe-motion)
+
+Branch `phase-7-frontend` (worktree of `davao-bank`), commit `Phase 7 · Stage 7C — Motion and illustrations`. Taken over from fe-motion: all code changes were already in the working tree (kept, not redone); this agent verified, finished the report/STATUS/notes and committed.
+
+### What changed
+
+- `packages/shared/src/theme/tokens.ts` — `motion` token table per the 7C spec: `duration` micro 100 / short 150 / medium 250 / long 320 / expressive 480; `easing` standard/enter/exit as `cubic-bezier` strings; `spring.sheet` (damping 26, stiffness 260, mass 1) and `spring.pop` (damping 14, stiffness 180, mass 1). `counterDuration` was removed earlier (7A).
+- `apps/mobile/src/theme/easing.ts` — Reanimated `Easing.bezier` curves parsed from the shared `motion.easing` tokens (used by Sheet, Toast, FloatingTabBar).
+- `apps/mobile/src/components/Pressable.tsx` — pattern 1: press scale 1→0.97 (in micro / out short, standard easing); pattern 2: list-row highlight opacity on press. Durations from `motion` tokens; Reanimated `useReducedMotion`; optional haptics on commit-style presses.
+- `apps/mobile/src/components/FloatingTabBar.tsx` — pattern 3: active pill slides between tabs (short timing, `easing.standard`); Reduce Motion → instant. Blur on iOS, solid `surface` fallback under Reduce Transparency or Android.
+- `apps/mobile/src/components/Sheet.tsx` — patterns 4–5: scrim opacity 0→0.5 and slide up from translateY 100% (long enter), slide down / fade on close (medium exit), swipe closes past 25% height or >1000 pt/s else `spring.sheet` settle; guard-run swipe; Reduce Motion → fade only, short; Reduce Transparency → solid scrim; `BlurView` from `expo-blur` (iOS only).
+
+- `apps/mobile/src/components/ResultView.tsx` — pattern 8: icon disc scales 0.6→1 (`spring.pop`), check stroke draws 0→1 over 360 ms after 80 ms delay, title and amount fade and rise 8 pt (60 ms apart), haptics per the ResultView table.
+- `apps/mobile/src/components/TextField.tsx` — pattern 9: error border `redText`, error text fades in (short), warning haptic once per submit, first invalid field would focus via inline error under the field.
+- `apps/mobile/src/components/Skeleton.tsx` — pattern 10: skeleton pulses opacity 0.5↔0.9 on a 1.4 s cycle; no pulse under Reduce Motion.
+- `apps/mobile/src/components/AmountText.tsx` — pattern 11: cross-fade on amount/hide-show changes (short); no counting or rolling digits.
+- `apps/mobile/src/components/Toast.tsx` — pattern 12: fade in and drop 12 pt (medium enter), auto-dismiss after 4 s, errors stay until dismissed.
+- `apps/mobile/src/components/EmptyState.tsx` — `illustration` prop: image at 120 pt, `accessible={false}`, fades in once on mount (medium, `spring.pop` rise).
+- `apps/mobile/src/screens/ActivityScreen.tsx`, `InboxScreen.tsx`, `HomeRecentActivity.tsx` — `duri-empty-state` for empty states; `duri-error-state` for load errors and search-with-no-results.
+- `apps/mobile/src/screens/SavedRecipientsScreen.tsx` — `kada-not-found` for empty saved recipients, `duri-error-state` for search no results.
+- `apps/mobile/src/screens/pay-bills/BillerStep.tsx` — biller category images (electricity/water/internet, 40 pt; Lucide icon for Mobile and fallback), `GuidanceTip` first-time tip (`tip_pay_bills_seen`).
+- `apps/mobile/src/screens/OnboardingScreen.tsx` (new) — D6 onboarding: 3 slides ("Bank the Davao way", "Pay bills in a few taps", "Protected by Face ID and two-step codes"), skippable, "seen" flag in `expo-secure-store` (`davao_onboarding_seen`), page dots, Back/Next/swipe, last screen ends with "Simulated money — for learning only" and "Get started". Illustration fades in once on mount (`spring.pop`), never loops.
+- `apps/mobile/src/components/GuidanceTip.tsx` (new) — dismissible one-time tip stored in `expo-secure-store`.
+- `apps/mobile/App.tsx` — onboarding shown before sign-in when not seen; navigation animations respect Reduce Motion (tab `animation: 'none'`, feature stack `animation: 'fade'`).
+- `apps/mobile/src/hooks/useReducedMotion.ts` — deleted; all components now use Reanimated's `useReducedMotion`.
+- Tests — new `apps/mobile/src/__tests__/onboarding_screen.test.tsx` (slide sequence, Back/Next/Get started, Skip, SecureStore flag); added TextField and GuidanceTip cases to `components.test.tsx`.
+
+### Pattern coverage
+
+| #   | Pattern                                           | Status                                                                                                                                             |
+| --- | ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Press → button/tile scale 0.97 + `primaryPressed` | Done (Pressable)                                                                                                                                   |
+| 2   | Press → list row highlight                        | Done (Pressable `highlight`)                                                                                                                       |
+| 3   | Tab change cross-fade + pill slide                | Done (App.tsx `animation: 'fade'`, FloatingTabBar pill)                                                                                            |
+| 3b  | Feature-screen push/pop, swipe-back               | Done (native stack; `fade` under Reduce Motion)                                                                                                    |
+| 4   | Sheet open + scrim                                | Done (Sheet)                                                                                                                                       |
+| 5   | Sheet close/swipe with `spring.sheet`             | Done (Sheet)                                                                                                                                       |
+| 6   | Commit tap → busy label/spinner                   | Done (money-flow sticky footers; handler bodies untouched)                                                                                         |
+| 7   | Step change body transition (fade/shift 16 pt)    | **Not animated inside money flows** — flow step rendering left untouched to avoid money-flow risk; flagged for captain. Screen push/pop covers 3b. |
+| 8   | Confirmed result icon + text                      | Done (ResultView)                                                                                                                                  |
+| 9   | Validation fail → field + focus                   | Done (TextField)                                                                                                                                   |
+| 10  | Data arrives → skeleton pulse                     | Done (Skeleton)                                                                                                                                    |
+| 11  | Balance hide/show → amount cross-fade             | Done (AmountText)                                                                                                                                  |
+| 12  | Toast → banner fade + 12 pt drop                  | Done (Toast)                                                                                                                                       |
+
+### Money handler comparison
+
+No money-flow handler bodies were changed in this stage. Transfer / Pay bills / Add money / Cash out / Pay request commit handlers, step-up calls, idempotency keys and effects are byte-identical to the previous commit (none of those files appear in this stage's diff).
+
+### Illustrations
+
+All required assets exist in `apps/mobile/assets/`: `duri-empty-state.png`, `duri-error-state.png`, `kada-not-found.png`, `icons/billers/biller-category-{electricity,water,internet}.png`. No art requests; no new artwork created or edited.
+
+### Checks (worktree root, real output)
+
+```
+npm run typecheck   → exit 0 (admin, mobile, shared: tsc --noEmit)
+npm run lint        → ✖ 64 problems (0 errors, 64 warnings)
+npm run format:check→ All matched files use Prettier code style!
+npm run test:unit   → Test Suites: 39 passed, 39 total; Tests: 339 passed, 339 total
+```
+
+### NOT VERIFIED
+
+- Device recordings: feature screen push/pop with swipe-back (allowed on clean form, blocked while dirty/processing), step change, result, quick-action sheet open/dismiss, floating tab bar switching, onboarding, Reduce Motion vs off, Reduce Transparency vs off.
+- 60 fps during sheet open, step change and result (performance monitor).
+- Activity filter change under 100 ms with 100 rows.
+- Maestro regression flows (Phase 6 Maestro flows pass only with owner sign-in / device).
+- VoiceOver pass on Login, Home, Activity, Transfer (all steps) and Profile.
+
+### Decisions not covered by the brief
+
+- Pattern 7 implemented nowhere (see table): the simplest option consistent with the no-money-logic-change rule is to leave flow step rendering as-is and rely on native-stack transitions between screens. Recorded as a deviation for the captain.
+- Pattern 2 rows use Pressable highlight opacity (0.6) rather than a `surfaceSubtle` background repaint, consistent with the "only transform and opacity animate on the UI thread" rule.
+- Onboarding art uses Lucide icons in Kadayawan color discs (100 pt) since no mascot onboarding art exists in `apps/mobile/assets/`; mascot images appear only in empty/error states per the illustration table.
