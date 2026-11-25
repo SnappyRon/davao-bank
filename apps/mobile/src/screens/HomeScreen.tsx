@@ -52,6 +52,8 @@ import { SuspendedScreen } from './SuspendedScreen';
 import { HomeBalanceCard } from './home/HomeBalanceCard';
 import { HomeUpcomingPayments } from './home/HomeUpcomingPayments';
 import { HomeRecentActivity } from './home/HomeRecentActivity';
+import * as SecureStore from 'expo-secure-store';
+import { SHOW_ON_HOME_ACCOUNT_KEY } from './MyAccountsScreen';
 
 /** Spec 7B.1 header: 56 pt tall, avatar 40 inside a 44 pt hit area. */
 const HEADER_HEIGHT = 56;
@@ -128,10 +130,11 @@ export function HomeScreen({
       }
 
       try {
-        const [profileRes, accountsRes, txRes] = await Promise.all([
+        const [profileRes, accountsRes, txRes, savedHomeId] = await Promise.all([
           fetchUserProfile(supabase, userId),
           fetchAccountBalances(supabase),
           fetchTransactionHistory(supabase),
+          SecureStore.getItemAsync(SHOW_ON_HOME_ACCOUNT_KEY).catch(() => null),
         ]);
         if (!isCurrent()) return;
 
@@ -140,8 +143,12 @@ export function HomeScreen({
         if (accountsRes.error || !accountsRes.data) {
           setAccountsError(toUserMessage(accountsRes.error, 'load'));
         } else {
-          setAccounts(sortAccounts(accountsRes.data));
+          const sorted = sortAccounts(accountsRes.data);
+          setAccounts(sorted);
           setAccountsError(null);
+          if (savedHomeId && sorted.some((a) => a.account_id === savedHomeId)) {
+            setSelectedAccountId((current) => current ?? savedHomeId);
+          }
         }
         if (txRes.error || !txRes.data) {
           setTransactionsError(toUserMessage(txRes.error, 'load'));
@@ -303,6 +310,7 @@ export function HomeScreen({
           onOpenAccountPicker={() => setAccountPickerVisible(true)}
           onToggleHideBalance={toggleHideBalance}
           onRetry={retryLoad}
+          onPressCard={() => navigation.navigate('MyAccounts')}
         />
 
         {/* Pending payment requests */}

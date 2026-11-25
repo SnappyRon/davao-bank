@@ -6,7 +6,10 @@ import * as ScreenCapture from 'expo-screen-capture';
 import * as SecureStore from 'expo-secure-store';
 import { useReducedMotion } from 'react-native-reanimated';
 import { StatusBar } from 'expo-status-bar';
-import { NavigationContainer } from '@react-navigation/native';
+import {
+  NavigationContainer,
+  type NavigatorScreenParams,
+} from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import {
@@ -18,7 +21,13 @@ import {
 } from '@expo-google-fonts/plus-jakarta-sans';
 import { Home, Receipt, Bell, User } from 'lucide-react-native';
 import type { Session } from '@supabase/supabase-js';
-import { colors, spacing, fetchUserProfile, type Profile } from '@davao-bank/shared';
+import {
+  colors,
+  spacing,
+  fetchUserProfile,
+  type Profile,
+  type AccountBalance,
+} from '@davao-bank/shared';
 import { supabase } from './src/lib/supabase';
 import { AppLockProvider } from './src/context/AppLockContext';
 import { SettingsProvider } from './src/context/SettingsContext';
@@ -52,6 +61,8 @@ import { FXRatesScreen } from './src/screens/FXRatesScreen';
 import { ScheduledPaymentsScreen } from './src/screens/ScheduledPaymentsScreen';
 import { SavedRecipientsScreen } from './src/screens/SavedRecipientsScreen';
 import { ChangePasswordScreen } from './src/screens/ChangePasswordScreen';
+import { MyAccountsScreen } from './src/screens/MyAccountsScreen';
+import { AccountDetailScreen } from './src/screens/AccountDetailScreen';
 
 import { TransferScreen } from './src/screens/TransferScreen';
 import { PayBillsScreen } from './src/screens/PayBillsScreen';
@@ -59,7 +70,7 @@ import { QRHubScreen } from './src/screens/QRHubScreen';
 import { OnboardingScreen, ONBOARDING_SEEN_KEY } from './src/screens/OnboardingScreen';
 
 export type RootStackParamList = {
-  Tabs: undefined;
+  Tabs: NavigatorScreenParams<BottomTabParamList> | undefined;
   CashOut: undefined;
   Transfer:
     | {
@@ -82,11 +93,13 @@ export type RootStackParamList = {
   ScheduledPayments: undefined;
   SavedRecipients: undefined;
   ChangePassword: undefined;
+  MyAccounts: undefined;
+  AccountDetail: { accountId: string; account?: AccountBalance };
 };
 
 export type BottomTabParamList = {
   HomeTab: undefined;
-  ActivityTab: undefined;
+  ActivityTab: { accountId?: string } | undefined;
   InboxTab: undefined;
   ProfileTab: undefined;
 };
@@ -466,6 +479,16 @@ export default function App() {
               <RootStack.Screen
                 name="ChangePassword"
                 component={ChangePasswordScreen}
+                options={{ presentation: 'card', animation: 'slide_from_right' }}
+              />
+              <RootStack.Screen
+                name="MyAccounts"
+                component={MyAccountsScreen}
+                options={{ presentation: 'card', animation: 'slide_from_right' }}
+              />
+              <RootStack.Screen
+                name="AccountDetail"
+                component={AccountDetailScreen}
                 options={{ presentation: 'card', animation: 'slide_from_right' }}
               />
             </RootStack.Navigator>
