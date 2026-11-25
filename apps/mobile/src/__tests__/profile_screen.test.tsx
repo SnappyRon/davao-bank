@@ -158,8 +158,14 @@ describe('ProfileScreen (7B.3)', () => {
     expect(screen.getByRole('button', { name: 'Sign out' })).toBeTruthy();
   });
 
-  it('Statements opens Export statement and Change password opens its page', async () => {
+  it('Statements opens Export statement, Bantay opens BantaySecurity and Change password opens its page', async () => {
     await render(<ProfileScreen profile={null} userEmail={null} />);
+    await fireEvent.press(
+      screen.getByRole('button', {
+        name: 'Bantay security center, Daily transfer limit & protections',
+      })
+    );
+    expect(mockNavigate).toHaveBeenCalledWith('BantaySecurity');
     await fireEvent.press(screen.getByRole('button', { name: 'Statements' }));
     expect(mockNavigate).toHaveBeenCalledWith('ExportStatement');
     await fireEvent.press(screen.getByRole('button', { name: 'Change password' }));

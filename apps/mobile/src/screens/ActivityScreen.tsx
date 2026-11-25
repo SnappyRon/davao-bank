@@ -4,7 +4,13 @@ import type { RootStackParamList } from '../../App';
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { View, StyleSheet, FlatList, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { AlertCircle, FileText, Search, SlidersHorizontal } from 'lucide-react-native';
+import {
+  AlertCircle,
+  BarChart3,
+  FileText,
+  Search,
+  SlidersHorizontal,
+} from 'lucide-react-native';
 import {
   colors,
   size,
@@ -397,18 +403,32 @@ export function ActivityScreen() {
           <Text variant="h1" accessibilityRole="header">
             Activity
           </Text>
-          <Pressable
-            onPress={() => navigation.navigate('ExportStatement')}
-            style={styles.exportButton}
-            feedbackType="scale"
-            accessibilityRole="button"
-            accessibilityLabel="Export statement"
-          >
-            <FileText size={HEADER_ICON_SIZE} color={colors.primary} />
-            <Text variant="label" color={colors.primary}>
-              Statement
-            </Text>
-          </Pressable>
+          <View style={styles.headerActions}>
+            <Pressable
+              onPress={() => navigation.navigate('MonthlySummary')}
+              style={styles.exportButton}
+              feedbackType="scale"
+              accessibilityRole="button"
+              accessibilityLabel="Monthly summary"
+            >
+              <BarChart3 size={HEADER_ICON_SIZE} color={colors.primary} />
+              <Text variant="label" color={colors.primary}>
+                Summary
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => navigation.navigate('ExportStatement')}
+              style={styles.exportButton}
+              feedbackType="scale"
+              accessibilityRole="button"
+              accessibilityLabel="Export statement"
+            >
+              <FileText size={HEADER_ICON_SIZE} color={colors.primary} />
+              <Text variant="label" color={colors.primary}>
+                Statement
+              </Text>
+            </Pressable>
+          </View>
         </View>
 
         <TextField
@@ -458,13 +478,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: spacing.sm,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
   },
   exportButton: {
     minHeight: size.touch,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.sm,
   },
   filters: {
     gap: spacing.sm,

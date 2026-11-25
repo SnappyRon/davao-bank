@@ -49,6 +49,8 @@ import { FXRatesScreen } from './src/screens/FXRatesScreen';
 import { ScheduledPaymentsScreen } from './src/screens/ScheduledPaymentsScreen';
 import { SavedRecipientsScreen } from './src/screens/SavedRecipientsScreen';
 import { ChangePasswordScreen } from './src/screens/ChangePasswordScreen';
+import { BantaySecurityScreen } from './src/screens/BantaySecurityScreen';
+import { MonthlySummaryScreen } from './src/screens/MonthlySummaryScreen';
 
 import { TransferScreen } from './src/screens/TransferScreen';
 import { PayBillsScreen } from './src/screens/PayBillsScreen';
@@ -65,10 +67,12 @@ export type RootStackParamList = {
         recipientNickname?: string;
       }
     | undefined;
-  PayBills: undefined;
+  PayBills: { billerId?: string; reference?: string } | undefined;
   QRHub: { initialTab?: 'my' | 'scan' | 'request' } | undefined;
   AddMoney: undefined;
   TwoStepSetup: undefined;
+  BantaySecurity: undefined;
+  MonthlySummary: undefined;
   Receipt: { transactionId: string; accountId: string };
   PaymentRequests: { initialTab?: 'incoming' | 'outgoing' } | undefined;
   About: undefined;
@@ -440,6 +444,16 @@ export default function App() {
               <RootStack.Screen
                 name="ChangePassword"
                 component={ChangePasswordScreen}
+                options={{ presentation: 'card', animation: 'slide_from_right' }}
+              />
+              <RootStack.Screen
+                name="BantaySecurity"
+                component={BantaySecurityScreen}
+                options={{ presentation: 'card', animation: 'slide_from_right' }}
+              />
+              <RootStack.Screen
+                name="MonthlySummary"
+                component={MonthlySummaryScreen}
                 options={{ presentation: 'card', animation: 'slide_from_right' }}
               />
             </RootStack.Navigator>
