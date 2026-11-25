@@ -15,9 +15,11 @@ import { Button } from './Button';
 export interface EmptyStateProps {
   icon?: React.ReactNode;
   illustration?: ImageSourcePropType | React.ReactNode;
+  illustrationTestID?: string;
   title: string;
   subtitle?: string;
   description?: string; // alias for subtitle
+  descriptionAccessibilityRole?: 'alert' | 'text';
   actionTitle?: string;
   onAction?: () => void;
   style?: ViewStyle;
@@ -28,9 +30,11 @@ export interface EmptyStateProps {
 export function EmptyState({
   icon,
   illustration,
+  illustrationTestID,
   title,
   subtitle,
   description,
+  descriptionAccessibilityRole,
   actionTitle,
   onAction,
   style,
@@ -42,7 +46,7 @@ export function EmptyState({
   const content = (
     <View style={[styles.inner, !scrollable && style]}>
       {illustration ? (
-        <View style={styles.illustrationBox}>
+        <View style={styles.illustrationBox} testID={illustrationTestID}>
           {React.isValidElement(illustration) ? (
             illustration
           ) : (
@@ -67,6 +71,7 @@ export function EmptyState({
           variant="body"
           color={colors.textSecondary}
           align="center"
+          accessibilityRole={descriptionAccessibilityRole}
           style={styles.subtitle}
         >
           {message}

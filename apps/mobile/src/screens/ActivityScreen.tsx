@@ -4,7 +4,7 @@ import type { RootStackParamList } from '../../App';
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { View, StyleSheet, FlatList, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { AlertCircle, FileText, Search, SlidersHorizontal } from 'lucide-react-native';
+import { FileText, Search } from 'lucide-react-native';
 import {
   colors,
   size,
@@ -17,6 +17,8 @@ import {
   type TransactionHistoryItem,
 } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
+import { reportNetworkResult } from '../lib/networkStatus';
+import { MASCOT_EMPTY, MASCOT_ERROR } from '../assets/illustrations';
 import {
   Screen,
   Text,
@@ -52,7 +54,6 @@ const ALL_ACCOUNTS = 'all';
 const SKELETON_ROWS = 4;
 const HEADER_ICON_SIZE = 18;
 const SEARCH_ICON_SIZE = 18;
-const EMPTY_ICON_SIZE = 36;
 
 const TYPE_FILTERS: { label: string; value: ActivityFilter }[] = [
   { label: 'All', value: 'all' },
@@ -145,6 +146,7 @@ export function ActivityScreen() {
         fetchAccountBalances(supabase),
       ]);
       if (loadId !== loadIdRef.current) return;
+      reportNetworkResult(txRes.error || accRes.error);
       if (txRes.error || !txRes.data) {
         setError(toUserMessage(txRes.error ?? 'Activity could not be loaded.'));
       } else {
@@ -156,6 +158,7 @@ export function ActivityScreen() {
       // keeps the accounts we already had.
       if (!accRes.error && accRes.data) setAccounts(accRes.data);
     } catch (err) {
+      reportNetworkResult(err);
       if (loadId !== loadIdRef.current) return;
       setError(toUserMessage(err));
     } finally {
@@ -255,21 +258,46 @@ export function ActivityScreen() {
     />
   );
 
-  const emptyCopy = (() => {
+  const emptyState = (() => {
     if (query.trim()) {
-      return { title: 'No matches', description: 'Try another note or account number.' };
+      return {
+        title: 'No matches',
+        description: 'Try another note or account number.',
+        illustration: MASCOT_ERROR,
+        illustrationTestID: 'activity-no-matches-mascot',
+        actionTitle: 'Clear search',
+        onAction: () => setQuery(''),
+      };
     }
     if (selectedFilter !== 'all') {
-      return { title: 'Nothing here yet', description: FILTERED_EMPTY[selectedFilter] };
+      return {
+        title: 'Nothing here yet',
+        description: FILTERED_EMPTY[selectedFilter],
+        illustration: MASCOT_EMPTY,
+        illustrationTestID: 'activity-empty-mascot',
+        actionTitle: 'Show all activity',
+        onAction: () => setSelectedFilter('all'),
+      };
     }
     if (selectedAccount !== ALL_ACCOUNTS) {
       const label =
         accountOptions.find((o) => o.value === selectedAccount)?.label ?? 'this account';
-      return { title: 'No activity yet', description: `No activity on ${label} yet.` };
+      return {
+        title: 'No activity yet',
+        description: `No activity on ${label} yet.`,
+        illustration: MASCOT_EMPTY,
+        illustrationTestID: 'activity-empty-mascot',
+        actionTitle: 'Show all accounts',
+        onAction: () => setSelectedAccount(ALL_ACCOUNTS),
+      };
     }
     return {
       title: 'No activity yet',
       description: 'Money you send, receive and pay will show here.',
+      illustration: MASCOT_EMPTY,
+      illustrationTestID: 'activity-empty-mascot',
+      actionTitle: 'Send money',
+      onAction: () => navigation.navigate('Transfer'),
     };
   })();
 
@@ -323,7 +351,9 @@ export function ActivityScreen() {
         <EmptyState
           title="Activity unavailable"
           description={error}
-          icon={<AlertCircle size={EMPTY_ICON_SIZE} color={colors.redText} />}
+          descriptionAccessibilityRole="alert"
+          illustration={MASCOT_ERROR}
+          illustrationTestID="activity-error-mascot"
           actionTitle="Try again"
           onAction={retry}
           refreshControl={refreshControl}
@@ -337,9 +367,12 @@ export function ActivityScreen() {
         <View style={styles.flex}>
           {inlineError ? <View style={styles.listPadding}>{inlineError}</View> : null}
           <EmptyState
-            title={emptyCopy.title}
-            description={emptyCopy.description}
-            icon={<SlidersHorizontal size={EMPTY_ICON_SIZE} color={colors.textMuted} />}
+            title={emptyState.title}
+            description={emptyState.description}
+            illustration={emptyState.illustration}
+            illustrationTestID={emptyState.illustrationTestID}
+            actionTitle={emptyState.actionTitle}
+            onAction={emptyState.onAction}
             refreshControl={refreshControl}
             style={{ paddingBottom: bottomClearance }}
           />

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, Alert } from 'react-native';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -15,6 +15,8 @@ import {
   type AccountStatement,
 } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
+import { reportNetworkResult } from '../lib/networkStatus';
+import { MASCOT_EMPTY, MASCOT_ERROR } from '../assets/illustrations';
 import { useSettings } from '../context/SettingsContext';
 import {
   FeatureScreen,
@@ -24,6 +26,8 @@ import {
   Chip,
   TextField,
   AmountText,
+  EmptyState,
+  Skeleton,
   useToast,
 } from '../components';
 
@@ -72,6 +76,7 @@ export function ExportStatementScreen() {
         setAccountError(null);
       }
       const { data, error: accErr } = await fetchAccountBalances(supabase);
+      reportNetworkResult(accErr);
       if (!mountedRef.current) return;
       if (accErr) {
         setAccountError(toUserMessage(accErr));
@@ -82,6 +87,7 @@ export function ExportStatementScreen() {
         setAccounts([]);
       }
     } catch (err: unknown) {
+      reportNetworkResult(err);
       if (mountedRef.current) {
         setAccountError(toUserMessage(err));
       }
@@ -359,32 +365,36 @@ export function ExportStatementScreen() {
       </Text>
 
       {loadingAccounts ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="small" color={colors.primary} />
+        <View
+          style={styles.skeletonStack}
+          accessibilityRole="progressbar"
+          accessibilityLabel="Loading statement options"
+          testID="statement-skeleton"
+        >
+          <Skeleton width="60%" height={20} />
+          <Skeleton width="100%" height={80} borderRadius={radius.md} />
+          <Skeleton width="100%" height={52} borderRadius={radius.pill} />
+          <Skeleton width="100%" height={52} borderRadius={radius.pill} />
         </View>
       ) : accountError ? (
-        <View style={styles.loadErrorContainer}>
-          <AlertCircle size={24} color={colors.redText} />
-          <Text
-            variant="body"
-            color={colors.redText}
-            accessibilityRole="alert"
-            style={styles.loadErrorText}
-          >
-            {accountError}
-          </Text>
-          <Button
-            title="Try again"
-            variant="secondary"
-            onPress={() => void loadAccounts()}
-          />
-        </View>
+        <EmptyState
+          title="Accounts unavailable"
+          description={accountError}
+          descriptionAccessibilityRole="alert"
+          illustration={MASCOT_ERROR}
+          illustrationTestID="statement-error-mascot"
+          actionTitle="Try again"
+          onAction={() => void loadAccounts()}
+          scrollable={false}
+        />
       ) : accounts.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Text variant="body" color={colors.textSecondary} align="center">
-            No accounts found.
-          </Text>
-        </View>
+        <EmptyState
+          title="No accounts yet"
+          description="Open an account to export statements."
+          illustration={MASCOT_EMPTY}
+          illustrationTestID="statement-empty-mascot"
+          scrollable={false}
+        />
       ) : (
         <>
           {/* Account Selector */}
@@ -530,22 +540,8 @@ const styles = StyleSheet.create({
   container: {
     paddingBottom: spacing.xl,
   },
-  loadingContainer: {
-    paddingVertical: spacing.xl,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  loadErrorContainer: {
-    paddingVertical: spacing.xl,
-    alignItems: 'center',
+  skeletonStack: {
     gap: spacing.base,
-  },
-  loadErrorText: {
-    textAlign: 'center',
-  },
-  emptyContainer: {
-    paddingVertical: spacing.xl,
-    alignItems: 'center',
   },
   subtitle: {
     marginBottom: spacing.md,

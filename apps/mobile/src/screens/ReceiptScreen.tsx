@@ -8,6 +8,8 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { Copy } from 'lucide-react-native';
 import type { RootStackParamList } from '../../App';
 import { supabase } from '../lib/supabase';
+import { reportNetworkResult } from '../lib/networkStatus';
+import { MASCOT_ERROR, MASCOT_NOT_FOUND } from '../assets/illustrations';
 import { useSettings } from '../context/SettingsContext';
 import {
   colors,
@@ -24,6 +26,7 @@ import {
 import {
   FeatureScreen,
   Skeleton,
+  EmptyState,
   Text,
   AmountText,
   Badge,
@@ -157,6 +160,7 @@ export function ReceiptScreen() {
     setError(null);
     setNotFound(false);
     void fetchTransactionHistory(supabase, params.accountId).then(({ data, error }) => {
+      reportNetworkResult(error);
       if (!active) return;
       if (error) {
         setError(toUserMessage(error));
@@ -184,15 +188,18 @@ export function ReceiptScreen() {
         {loading ? (
           <Skeleton width="100%" height={SKELETON_HEIGHT} />
         ) : (
-          <>
-            <Text accessibilityRole="alert">{error}</Text>
-            {!notFound ? (
-              <Button
-                title="Try again"
-                onPress={() => setAttempt((value) => value + 1)}
-              />
-            ) : null}
-          </>
+          <EmptyState
+            title={notFound ? 'Receipt not found' : 'Receipt unavailable'}
+            description={error ?? undefined}
+            descriptionAccessibilityRole="alert"
+            illustration={notFound ? MASCOT_NOT_FOUND : MASCOT_ERROR}
+            illustrationTestID={
+              notFound ? 'receipt-not-found-mascot' : 'receipt-error-mascot'
+            }
+            actionTitle={!notFound ? 'Try again' : undefined}
+            onAction={!notFound ? () => setAttempt((value) => value + 1) : undefined}
+            scrollable={false}
+          />
         )}
       </FeatureScreen>
     );

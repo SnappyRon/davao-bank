@@ -17,6 +17,7 @@ import { Badge } from '../../components/Badge';
 import { Skeleton } from '../../components/Skeleton';
 import { EmptyState } from '../../components/EmptyState';
 import { Pressable } from '../../components/Pressable';
+import { MASCOT_EMPTY } from '../../assets/illustrations';
 import type { ChartPoint } from './FXRatesChart';
 
 export const PAIR_OPTIONS: { pair: FXPair; base: string; label: string }[] = [
@@ -137,7 +138,10 @@ export function FXRatesHero({
         <EmptyState
           title="No Rate Data Available"
           description="European Central Bank reference rates could not be retrieved at this time."
+          illustration={MASCOT_EMPTY}
+          illustrationTestID="fx-empty-mascot"
           icon={<Globe size={40} color={colors.textMuted} />}
+          scrollable={false}
         />
       )}
 

@@ -33,6 +33,7 @@ import {
   type ScheduledPayment,
 } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
+import { reportNetworkResult } from '../lib/networkStatus';
 import { useSettings } from '../context/SettingsContext';
 import {
   Screen,
@@ -113,12 +114,14 @@ export function HomeScreen({
       let userId: string;
       try {
         const { data, error } = await supabase.auth.getUser();
+        reportNetworkResult(error);
         if (error || !data?.user) {
           if (isCurrent()) setAccountsError(toUserMessage(error ?? 'Not authenticated'));
           return;
         }
         userId = data.user.id;
       } catch (err) {
+        reportNetworkResult(err);
         if (isCurrent()) setAccountsError(toUserMessage(err));
         return;
       }
@@ -131,6 +134,7 @@ export function HomeScreen({
         ]);
         if (!isCurrent()) return;
 
+        reportNetworkResult(accountsRes.error || txRes.error || profileRes.error);
         if (profileRes.data) setProfile(profileRes.data);
         if (accountsRes.error || !accountsRes.data) {
           setAccountsError(toUserMessage(accountsRes.error));
@@ -145,6 +149,7 @@ export function HomeScreen({
           setTransactionsError(null);
         }
       } catch (err) {
+        reportNetworkResult(err);
         if (!isCurrent()) return;
         console.warn('Error loading Home balances:', err);
         setAccountsError(toUserMessage(err));
@@ -393,6 +398,7 @@ export function HomeScreen({
           onRetry={retryLoad}
           transactions={transactions}
           onNavigateToActivity={onNavigateToActivity}
+          onSendMoney={() => navigation.navigate('Transfer')}
           onSelectTransaction={(transaction) =>
             navigation.navigate('Receipt', {
               transactionId: transaction.transaction_id,

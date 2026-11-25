@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../App';
-import { Mail, Check, AlertCircle } from 'lucide-react-native';
+import { Mail, Check } from 'lucide-react-native';
 import {
   colors,
   spacing,
@@ -13,10 +13,21 @@ import {
   type Profile,
 } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
-import { FeatureScreen, Text, TextField, Button } from '../components';
+import { reportNetworkResult } from '../lib/networkStatus';
+import { MASCOT_ERROR } from '../assets/illustrations';
+import {
+  FeatureScreen,
+  Text,
+  TextField,
+  Button,
+  EmptyState,
+  Skeleton,
+  useToast,
+} from '../components';
 
 export function PersonalDetailsScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const toast = useToast();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [initialFullName, setInitialFullName] = useState('');
@@ -48,6 +59,7 @@ export function PersonalDetailsScreen() {
         error: userErr,
       } = await supabase.auth.getUser();
 
+      reportNetworkResult(userErr);
       if (userErr) {
         setLoadError(toUserMessage(userErr));
         return;
@@ -59,6 +71,7 @@ export function PersonalDetailsScreen() {
 
       setUserEmail(user.email ?? null);
       const { data, error: profileErr } = await fetchUserProfile(supabase, user.id);
+      reportNetworkResult(profileErr);
 
       if (profileErr) {
         setLoadError(toUserMessage(profileErr));
@@ -75,6 +88,7 @@ export function PersonalDetailsScreen() {
         setInitialPhoneNumber(ph);
       }
     } catch (err: unknown) {
+      reportNetworkResult(err);
       setLoadError(toUserMessage(err));
     } finally {
       setLoading(false);
@@ -119,6 +133,7 @@ export function PersonalDetailsScreen() {
         const trimmedName = data.full_name ? data.full_name.trim() : '';
         const trimmedPhone = data.phone ? data.phone.trim() : '';
         setSuccessMsg('Profile updated successfully');
+        toast.show('Personal details saved');
         setFullName(trimmedName);
         setPhoneNumber(trimmedPhone);
         setInitialFullName(trimmedName);
@@ -143,27 +158,27 @@ export function PersonalDetailsScreen() {
       contentContainerStyle={styles.container}
     >
       {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="small" color={colors.primary} />
+        <View
+          style={styles.skeletonStack}
+          accessibilityRole="progressbar"
+          accessibilityLabel="Loading personal details"
+          testID="personal-details-skeleton"
+        >
+          <Skeleton width="100%" height={52} borderRadius={radius.md} />
+          <Skeleton width="100%" height={52} borderRadius={radius.md} />
+          <Skeleton width="100%" height={52} borderRadius={radius.md} />
         </View>
       ) : loadError ? (
-        <View style={styles.loadErrorContainer}>
-          <AlertCircle size={24} color={colors.redText} />
-          <Text
-            variant="body"
-            color={colors.redText}
-            accessibilityRole="alert"
-            style={styles.loadErrorText}
-          >
-            {loadError}
-          </Text>
-          <Button
-            title="Try again"
-            variant="secondary"
-            onPress={() => void load()}
-            style={styles.retryButton}
-          />
-        </View>
+        <EmptyState
+          title="Profile unavailable"
+          description={loadError}
+          descriptionAccessibilityRole="alert"
+          illustration={MASCOT_ERROR}
+          illustrationTestID="personal-details-error-mascot"
+          actionTitle="Try again"
+          onAction={() => void load()}
+          scrollable={false}
+        />
       ) : (
         <>
           <TextField
@@ -236,21 +251,8 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xl,
     gap: spacing.base,
   },
-  loadingContainer: {
-    paddingVertical: spacing.xl,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  loadErrorContainer: {
-    paddingVertical: spacing.xl,
-    alignItems: 'center',
+  skeletonStack: {
     gap: spacing.base,
-  },
-  loadErrorText: {
-    textAlign: 'center',
-  },
-  retryButton: {
-    minWidth: 140,
   },
   readOnlyContainer: {
     marginBottom: spacing.xs,

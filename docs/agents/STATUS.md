@@ -5,12 +5,12 @@
 ## Now
 
 - **Active phase:** Phase 7 — UI/UX Refinement & Motion.
-- **Branch:** `phase-7-ui-motion`; admin polish merged from `phase-7-admin-polish`.
+- **Branch:** `phase-7-system-status`.
 - **Active prompt:** `Phase-7-Prompt-UI-UX-and-Motion.md`.
-- **Assigned to:** Codex completed Stage 7B.5; captain review pending.
-- **Exact next step:** captain reviews the 7B.5 commit and exact handler diffs; verify results and receipt sharing on a device with owner sign-in.
-- **Last commit:** Stage 7B.5 (this commit; parent `9270631`).
-- **Blockers:** device and live money-flow verification NOT VERIFIED; admin Playwright needs owner sign-in.
+- **Assigned to:** Codex completed Stage 7B.11 (Visible system status everywhere).
+- **Exact next step:** captain verifies 7B.11 implementation; move to 7B.12 admin console polish.
+- **Last commit:** Phase 7 · Stage 7B.11 — Visible system status everywhere (this commit; parent `5e2aaf6`).
+- **Blockers:** None.
 
 ## Stage 7B.0 — remaining work plan (captain, 2026-11-10)
 
