@@ -1,6 +1,6 @@
 # Phase 8 · Bantay AI (Stages 8D–8H)
 
-> **State: plan approved (D11, 2026-11-25). Do not implement until D12 is approved (`docs/agents/ROADMAP.md` §3).**
+> **State: plan approved (D11, 2026-11-25). D12 approved 2026-11-25: 8D–8F may start; the Gemini call works only after D14 (template fallback until then).**
 > Read first: `AGENTS.md`, `docs/agents/ROADMAP.md`, `docs/agents/WORKFLOW.md`, and the 8A/8C notes in `docs/agents/notes/phase-8-bantay-backend.md` and `phase-8-frontend.md`.
 
 ## Goal
