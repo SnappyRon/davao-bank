@@ -458,6 +458,26 @@ const emptyMonth=await cust(U.A,`select category, total_centavos::bigint, count 
 ok('8B monthly summary empty month returns 5 zeroed rows', !emptyMonth.err && emptyMonth.rows.length===5 && emptyMonth.rows.every(x=>Number(x.total_centavos)===0 && Number(x.count)===0), emptyMonth.err||JSON.stringify(emptyMonth.rows));
 r=await as('anon',null,`select * from get_monthly_summary(null)`);
 ok('8B monthly summary rejects anon', /permission denied/.test(r.err||''), r.err);
+// ---- Phase 8 Stage E: hashed sign-in signal ledger (8D security_events not created here)
+const sEH='a'.repeat(64), sIH='b'.repeat(64), sOther='c'.repeat(64);
+r=await cust(U.A,`select * from signin_signal_attempts`);
+ok('8E signin ledger: customer cannot read attempts', !!r.err || (r.rows||[]).length===0, r.err);
+r=await cust(U.A,`insert into signin_signal_attempts(email_hash,ip_hash) values($1,$2)`,[sEH,sIH]);
+ok('8E signin ledger: customer cannot insert attempts', !!r.err, r.err);
+const sigCols=(await su(`select column_name from information_schema.columns where table_schema='public' and table_name='signin_signal_attempts' order by column_name`)).map(x=>x.column_name);
+ok('8E signin ledger has no raw email/IP columns', sigCols.includes('email_hash') && sigCols.includes('ip_hash') && !sigCols.some(c=>['email','ip','ip_address','email_address'].includes(c)), sigCols.join(','));
+r=await as('service_role',null,`select * from record_signin_failure_signal($1,$2,$3)`,[sEH,sIH,U.A]);
+ok('8E record_signin_failure_signal returns 15-minute counts', !r.err && Number(r.rows?.[0]?.email_attempts)===1 && Number(r.rows?.[0]?.ip_attempts)===1, r.err||JSON.stringify(r.rows));
+for(let i=0;i<4;i++) await as('service_role',null,`select * from record_signin_failure_signal($1,$2,$3)`,[sEH,sIH,U.A]);
+r=await as('service_role',null,`select * from record_signin_failure_signal($1,$2,$3)`,[sEH,sIH,U.A]);
+ok('8E fifth attempt reaches the 5/15-minute threshold', !r.err && Number(r.rows?.[0]?.email_attempts)===6 && Number(r.rows?.[0]?.ip_attempts)===6, r.err||JSON.stringify(r.rows));
+r=await as('service_role',null,`select * from record_signin_failure_signal($1,$2,null)`,['not-a-hash',sOther]);
+ok('8E malformed hash is rejected before any write', /Invalid sign-in signal/.test(r.err||''), r.err);
+r=await as('anon',null,`select * from record_signin_failure_signal($1,$2,null)`,[sOther,sOther]);
+ok('8E anon cannot call the signal recorder', /permission denied/.test(r.err||''), r.err);
+r=await as('anon',null,`select * from write_signin_failure_event($1,$2,5)`,[U.A,sEH]);
+ok('8E anon cannot call the event writer', /permission denied/.test(r.err||''), r.err);
+
 // ---- Reconciliation
 const rec=await reconcile();
 ok('Reconciliation: every transfer/reversal/bill nets to zero', Number(rec.unbalanced)===0, JSON.stringify(rec));
