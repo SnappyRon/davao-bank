@@ -1314,3 +1314,45 @@ npm run format:check: exit 1; [warn] ONBOARDING.md only (untracked, untouched)
 ```
 
 Unit tests cover four icons/titles/haptics, receipt sharing and masking, missing values, structured rejection versus transport/step-up errors, every listed success flow with returned values, pending/failed/successful balance reload and hide-balance. **NOT VERIFIED — requires device and owner:** live money and step-up flows, VoiceOver announcements, haptic output, sharing destination/cache cleanup on real devices, and Reduce Motion device behavior. No animation is used.
+
+## Stage 7B.10 — Carry-overs from device checks (2026-11-25)
+
+Worktree `phase-7-carryovers` (based on `af8b3aa`), taken over from `fe-device-fixes`; its uncommitted changes were kept and finished. Commit: `Phase 7 · Stage 7B.10 — Carry-overs from device checks`.
+
+### Per-item changes (spec `Phase-7-Prompt-UI-UX-and-Motion.md` §10)
+
+**Phase 6 iOS check**
+
+- **Completed schedules status.** `ScheduledPaymentsScreen` now sorts active schedules first, shows a neutral "Completed" badge and "Paid <date>" for completed one-time schedules, and hides "Next" for them. Covered by `scheduled_payments_screen.test.tsx`.
+- **Transfer uncertain-state exit.** The Transfer footer now shows "Check status" (re-runs `recoverTransfer` through `executeServerTransfer` with the **same** idempotency key — never a new key, no new money sent) and "Done" (toast "Check Activity to confirm your transfer status", then closes the sheet). Covered by two new tests in `transfer_screen.test.tsx`.
+- **Large text wrapping** — already fixed in 7B.6: `AmountText` renders one line with `adjustsFontSizeToFit` / `minimumFontScale {0.7}`, including the hidden state; verified present, not re-done.
+- **Raw regex hint** — already fixed in 7B.4: PayBills biller field shows "e.g. 10 digits, on your bill" instead of `^[0-9]{10}$`; verified present, not re-done.
+- **Privacy overlay flash.** `TotpPromptOverlay` and `PasswordPromptOverlay` both render `PrivacyOverlay`, so the app stays covered in the app switcher. Before/after device screenshots could not be taken — **NOT VERIFIED, needs device/owner at the 7B gate**.
+
+**Phase 6.5 iOS check**
+
+- **TwoStepSetup as FeatureScreen.** `TwoStepSetupScreen` is a full-screen `FeatureScreen` titled "Two-step verification": centred 200 pt QR on white, setup key in a monospace box with Copy, "Open in authenticator app" as a secondary button, then the 6-digit code field. Steps titled "Step 1 of 2: add to your app" and "Step 2 of 2: enter the code". The setup key is never logged or screenshot in tests or reports.
+- **Clean lock screen.** `LockScreen` shows the logo, "Davao Bank is locked" and one primary button ("Unlock with Face ID" or "Unlock" when biometrics are unavailable). The password field and "Unlock with password" appear only after "Use password". "Sign out" stays a quiet secondary action. Covered by `lock_screen.test.tsx`.
+- **Optimistic app lock switch** — already in `ProfileScreen` (switch moves immediately, saves in background, reverts with toast on failure); verified present, not re-done.
+- **Consistent code prompt.** `TotpPromptOverlay` defaults to title "Enter your authenticator code" and auto-submits on 6 digits, in the same card style as the password prompt. Covered by `totp_prompt.test.tsx`.
+- **"Set up now" verification.** `StepUpSetupLink` navigates directly to `TwoStepSetup` (not Profile) when the error requires step up. Covered by `step_up_setup_link.test.tsx`. Device verification **NOT VERIFIED — needs device/owner**.
+
+### Handler comparison
+
+Transfer money-handler bodies (`handleConfirmTransfer`, `executeServerTransfer`, `executeScheduledTransfer`, step-up calls, idempotency keys, error mapping) are byte-identical to base `af8b3aa`. "Check status" reuses the same captured idempotency key via `recoverTransfer` — no new key is ever generated, so no money is re-submitted. No `supabase/`, `packages/shared`, password prompt or settings logic changed.
+
+### Checks (worktree root)
+
+```text
+npm run typecheck — exit 0
+npm run lint — ✖ 63 problems (0 errors, 63 warnings) (pre-existing warnings only)
+npm run format:check — clean on all task files; 6 files fixed with `npx prettier --write` (task files only)
+npm run test:unit — Test Suites: 41 passed, 41 total; Tests: 344 passed, 344 total
+```
+
+`npm run format:check` on the whole repo still exits 1 solely due to the untracked `ONBOARDING.md` (not this task's file, left untouched).
+
+### Verification limits
+
+- Before/after device screenshots for every fixed screen (spec §10) and on-device behaviour (large text at accessibility XL, overlay flash in app switcher, lock → unlock flow): **NOT VERIFIED** — no device/simulator available to this agent; captain/owner to verify at the 7B gate.
+- `customer1`'s real authenticator was never touched or read. No hosted Supabase writes, no push, no merge.

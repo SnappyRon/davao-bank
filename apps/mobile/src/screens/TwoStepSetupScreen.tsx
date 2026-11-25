@@ -192,6 +192,7 @@ export function TwoStepSetupScreen() {
       {/* Enrollment Step 1 */}
       {isEnrolling && step === 1 && enrollment ? (
         <View style={styles.container}>
+          <Text variant="h2">Step 1 of 2: add to your app</Text>
           <Text variant="body" color={colors.textSecondary}>
             Scan this QR code with your authenticator app (such as Google Authenticator,
             1Password, or iCloud Keychain), or copy the key below.
@@ -236,6 +237,7 @@ export function TwoStepSetupScreen() {
       {/* Enrollment Step 2 */}
       {isEnrolling && step === 2 && enrollment ? (
         <View style={styles.container}>
+          <Text variant="h2">Step 2 of 2: enter the code</Text>
           <Text variant="body" color={colors.textSecondary}>
             Enter the 6-digit code shown in your authenticator app to verify setup.
           </Text>

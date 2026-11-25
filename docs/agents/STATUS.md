@@ -5,12 +5,12 @@
 ## Now
 
 - **Active phase:** Phase 7 — UI/UX Refinement & Motion.
-- **Branch:** `phase-7-ui-motion`; admin polish merged from `phase-7-admin-polish`.
+- **Branch:** `phase-7-carryovers` worktree of the main checkout (base `af8b3aa`); Stage 7B.10 done and committed, `phase-7-ui-motion` next for 7B.7.
 - **Active prompt:** `Phase-7-Prompt-UI-UX-and-Motion.md`.
-- **Assigned to:** Codex completed Stage 7B.5; captain review pending.
-- **Exact next step:** captain reviews the 7B.5 commit and exact handler diffs; verify results and receipt sharing on a device with owner sign-in.
-- **Last commit:** Stage 7B.5 (this commit; parent `9270631`).
-- **Blockers:** device and live money-flow verification NOT VERIFIED; admin Playwright needs owner sign-in.
+- **Assigned to:** fe-cline-2 took over Stage 7B.10 from fe-device-fixes; committed `Phase 7 · Stage 7B.10 — Carry-overs from device checks`.
+- **Exact next step:** captain reviews the 7B.10 commit; 7B.7 wording (main checkout, fe-wording's edits, uncommitted) is next in the queue.
+- **Last commit:** Stage 7B.10 on `phase-7-carryovers` (parent `af8b3aa`).
+- **Blockers:** device and live money-flow verification NOT VERIFIED; admin Playwright needs owner sign-in; 7B.10 before/after device screenshots NOT VERIFIED — no device available to this agent.
 
 ## Stage 7B.0 — remaining work plan (captain, 2026-11-10)
 
@@ -122,9 +122,10 @@ Deferred to their planned steps (not in the fix round): receipt reference/Share/
 - [ ] **7B.9 Notification wording** (done pending captain review + hosted apply; branch `phase-7-notifications-migration`):
   - [x] DB migration changing notification text in functions (`20261111000000_phase7_notifications.sql`: 13 functions, only the notification insert changed; + `related_transaction_id`; + `biller_name` in `get_account_transactions`).
   - [x] Update live suites and `test:db` assertions (`test:db` +28 checks, 118 passing; no live-suite assertion checks notification text). Live suites on hosted NOT VERIFIED (migration not applied).
-- [ ] **7B.10 Carry-overs from device checks**:
-  - [ ] Phase 6 iOS check fixes: large text wrapping, raw regex, completed schedules status, overlay flash, uncertain state exit ("Check status" + "Done").
-  - [ ] Phase 6.5 iOS check fixes: TwoStepSetup FeatureScreen, clean lock screen, optimistic app lock switch, consistent code prompt, "Set up now" verification.
+- [x] **7B.10 Carry-overs from device checks**:
+  - [x] Phase 6 iOS check fixes: large text wrapping, raw regex, completed schedules status, overlay flash, uncertain state exit ("Check status" + "Done").
+  - [x] Phase 6.5 iOS check fixes: TwoStepSetup FeatureScreen, clean lock screen, optimistic app lock switch, consistent code prompt, "Set up now" verification.
+  - Note: large-text wrapping (`AmountText` fits at 0.7, 7B.6) and the raw biller regex hint ("e.g. 10 digits, on your bill", 7B.4) were fixed in earlier stages — verified present, not re-done. The remaining fixes are committed on `phase-7-carryovers`. Before/after device screenshots could not be taken — NOT VERIFIED, needs device/owner at the 7B gate.
 - [ ] **7B.11 Visible system status everywhere**:
   - [ ] Skeletons on loading, mascot empty states, descriptive error states + retry, offline banner, processing lock + 2s "Still working" warning, confirmed result via ResultView, background action toasts.
 - [ ] **7B.12 Admin console polish (owner report 2026-11-12, captain-observed from screenshots)**:
@@ -239,15 +240,17 @@ Fix these before 7B:
   - optional physical-phone QR check;
   - commit `docs/UAT_CHECKLIST.md` and `docs/uat-evidence/`;
   - push `phase-6-hardening` and open a PR.
-- **Phase 7 additions found during iOS UAT:**
-  - large-text layout fails (balance wraps mid-number, amounts clipped);
-  - the biller account field shows a raw regex hint;
-  - completed one-time schedules show "Next: <past date>" instead of "Completed";
-  - the privacy overlay flashes when the password prompt closes, unless Stage C fixed it;
-  - the Transfer "uncertain" state has no exit.
+- **Phase 7 additions found during iOS UAT (fixed in code, device proof NOT VERIFIED):**
+  - large-text layout fails (balance wraps mid-number, amounts clipped) — fixed earlier: `AmountText` shrinks with `adjustsFontSizeToFit` / `minimumFontScale 0.7` (7B.6);
+  - the biller account field shows a raw regex hint — fixed earlier: PayBills shows "e.g. 10 digits, on your bill" (7B.4);
+  - completed one-time schedules show "Next: <past date>" instead of "Completed" — now "Completed" badge (neutral) + "Paid <date>", "Next" hidden, completed sorts below active (7B.10 this commit);
+  - the privacy overlay flashes when the password prompt closes — `PrivacyOverlay` covers the prompts; device behaviour NOT VERIFIED (7B.10 this commit);
+  - the Transfer "uncertain" state has no exit — now "Check status" (reuses `recoverTransfer` with the same idempotency key, no new money) + "Done" (toast, closes sheet) (7B.10 this commit).
 - **Follow-up:** add dedicated test accounts so live tests don't conflict with the presenter's real authenticator.
 
 ## Log (newest first)
+
+- **2026-11-25, fe-cline-2:** took over Stage 7B.10 from fe-device-fixes on worktree `phase-7-carryovers` (base `af8b3aa`); kept fe-device-fixes's uncommitted changes and finished the stage. Committed `Phase 7 · Stage 7B.10 — Carry-overs from device checks`. Changes: `ScheduledPaymentsScreen` shows "Completed" badge + "Paid <date>" and sorts completed below active; Transfer uncertain state exits via "Check status" (reuses `recoverTransfer`/`executeServerTransfer` with the same idempotency key — no new money) + "Done" (toast + back); `LockScreen` is biometrics-first with password only after "Use password"; `TwoStepSetupScreen` is a `FeatureScreen` titled "Two-step verification" with 200 pt QR, monospace setup-key box with Copy and "Open in authenticator app"; `TotpPromptOverlay` defaults to "Enter your authenticator code" and auto-submits on 6 digits; `StepUpSetupLink` navigates directly to `TwoStepSetup`. Large-text amount fitting and the PayBills biller hint were already fixed in 7B.6/7B.4; the optimistic App lock switch was already in `ProfileScreen`. Fixes: `transfer_screen.test.tsx` mocks now satisfy `MoneyOperationResult` (typecheck); `npx prettier --write` on the 6 task files prettier flagged. Checks: typecheck exit 0; lint 0 errors (63 warnings); format:check clean on task files; unit 41 suites / 344 tests pass. Device screenshots/behaviour NOT VERIFIED — no device available. `customer1`'s authenticator untouched; no hosted writes, no push, no merge.
 
 - **2026-11-25, Codex:** resumed and completed 7B.5 after captain approved success-handler haptic removal and refreshed server account balance. ResultView now handles outcomes, server-derived rows, privacy-aware receipt share and contextual actions; money/request success flows wired, confirmed structured database rejections show Not sent, uncertain transfer remains unchanged. Updated UI-only assertions per captain direction; RPC/step-up/idempotency checks retained. Typecheck exit 0, lint 0 errors / 63 warnings, unit 38 suites / 334 tests; format check exit 1 only untracked `ONBOARDING.md`. Full handler diffs and limitations in PHASE7_REPORT.md. Device, VoiceOver, live money and sharing NOT VERIFIED — captain/owner to verify. Next: captain review this commit.
 

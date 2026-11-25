@@ -93,3 +93,28 @@ it('does not retry when code entry is cancelled', async () => {
   expect(result.error).toContain('cancelled');
   expect(send).toHaveBeenCalledTimes(1);
 });
+
+it('renders "Enter your authenticator code" title and auto-submits on 6 digits', async () => {
+  const result = jest.fn();
+  await render(
+    <PasswordPromptProvider>
+      <Sheet visible onClose={jest.fn()}>
+        <Trigger result={result} />
+      </Sheet>
+    </PasswordPromptProvider>
+  );
+  const sheet = screen.getByTestId('bottom-sheet-modal');
+  await fireEvent(sheet, 'show');
+  await fireEvent.press(screen.getByText('Request code'));
+
+  expect(screen.getByText('Enter your authenticator code')).toBeTruthy();
+  const input = screen.getByPlaceholderText('000000');
+  expect(input).toBeTruthy();
+
+  // Entering 6 digits triggers automatic submission
+  await fireEvent.changeText(input, '123456');
+  expect(supabase.auth.mfa.challengeAndVerify).toHaveBeenCalledWith({
+    factorId: 'fixture',
+    code: '123456',
+  });
+});
