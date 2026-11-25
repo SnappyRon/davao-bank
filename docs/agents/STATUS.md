@@ -4,12 +4,12 @@
 
 ## Now
 
-- **Active phase:** Phase 8.5B operations dashboard screens (captain prompt).
+- **Active phase:** Phase 8.5B operations dashboard screens (implementation complete, awaiting captain review).
 - **Branch:** `phase-8.5-ops-ui` (worktree `davao-bank-ops-ui`); 8.5A backend merged as `54b1e11`.
 - **Active prompt:** Stage 8.5B — live operations dashboard backed only by real 8.5A RPCs/tables.
-- **Assigned to:** Codex; implement dashboard, Jest/RTL coverage, NOT VERIFIED Playwright coverage, then run all checks and commit.
-- **Exact next step:** commit the out-of-scope spec-format fix, then commit Stage 8.5B by file name and report real check output.
-- **Last commit:** `Phase 8 · Fix — Sentence-case fallback in security event titles` (`9deb533`); Stage 8.5B code and the spec-format fix are uncommitted here.
+- **Assigned to:** Captain/reviewers; Codex implementation committed.
+- **Exact next step:** captain routes this commit to reviewers and verifies Playwright with the owner's aal2 staff session.
+- **Last commit:** `Phase 8 · Stage 8.5B — Operations dashboard screens` (this commit; parent `06a3d6e`).
 - **Blockers:** Playwright, hosted Supabase and device checks NOT VERIFIED (owner sign-in/captain only). No `.env` read, no hosted writes.
 
 ## Stage 7B.0 — remaining work plan (captain, 2026-11-10)
@@ -261,6 +261,8 @@ Fix these before 7B:
 - **Follow-up:** add dedicated test accounts so live tests don't conflict with the presenter's real authenticator.
 
 ## Log (newest first)
+
+- **2026-11-26, Codex:** committed Stage 8.5B (this commit). Replaced the old admin home with a single-hero, four-metric operations dashboard: today/7d/30d/custom ranges, optional previous-period comparison, six Recharts cards (volume, in/out, category, status, balance bands, growth) each with an accessible title/desc and visible text table, shape-matching skeletons, empty/error/Try again states, reduced-motion handling, and colour-blind-safe labels/patterns. Added a sanitized `staff_activity_events` Realtime feed (10 rows, masked `•• 1234`, dedupe, reconnect/offline/Last updated, `aria-live="polite"`), a security panel backed by `admin_ops_summary` (failed sign-ins explicitly "Not available"), and audited staff actions from `audit_logs`. All widgets read real RPCs/tables; AAL2 denied is shown by live feed and security panel. Added Jest/RTL coverage (49 admin tests) and a Playwright spec whose checks are skipped and labelled NOT VERIFIED until the owner supplies an aal2 storage state. Added pinned `recharts@3.11.1` to `admin` only; no other manifest dependency changed. Final local checks all exit 0: typecheck all workspaces; lint `✖ 61 problems (0 errors, 61 warnings)`; format PASS; `npx jest` `61 suites / 500 tests`; `npm run build:admin` `✓ Compiled successfully`; `npm run check:copy` `PASS ... 167 files`. Tracked `node_modules` symlinks restored and not staged. No push, no `.env`, no hosted DB, no money/step-up changes. Device, Maestro, hosted and Playwright NOT VERIFIED — captain/owner.
 
 - **2026-11-26, Codex:** reviewed the uncommitted dashboard and found a real comparison bug: `aggregateTimeseries` looked up previous buckets by the current bucket's timestamp, so the previous series would always be empty. Previous buckets are now aligned by position in the sorted series; the Jest fixture uses a different previous-period timestamp and asserts the `₱700.00` previous cell. Hero/metric comparison notes now wait for the previous RPC and never show a fake percentage while it loads or after an error. Final local checks before commit all exit 0: typecheck 3/3 workspaces, lint `✖ 61 problems (0 errors, 61 warnings)`, format PASS, `npx jest` `61 suites / 500 tests`, `npm run build:admin` `✓ Compiled successfully`, `npm run check:copy` `PASS ... 167 files`. `npm ci` was rerun after restoring real `node_modules`; tracked `node_modules` symlinks restored again and not staged. Also formatted the pre-existing `docs/specs/phase-8.5-ops-backend-spec.md` table so `format:check` passes; that fix is committed separately. Stage 8.5B code remains uncommitted. Playwright/hosted/device NOT VERIFIED. No `.env`, hosted DB, push, money or step-up changes.
 
