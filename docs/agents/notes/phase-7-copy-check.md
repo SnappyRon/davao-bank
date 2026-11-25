@@ -87,3 +87,40 @@ The 12 lines above are the violations the wording pass must clear; none was adde
 - NOT VERIFIED — `npm run check:copy` cannot pass until Stage 7B.7 clears the 12 app-copy violations listed above; per the brief I did not edit app copy.
 - NOT VERIFIED — GitHub Actions was not run locally; the CI workflow edit was inspected only.
 - NOT VERIFIED — no hosted Supabase access was used or needed (local PGlite only).
+
+## Fix round — qa-reviewer Low finding on `343fc54`
+
+Taken over by be-bantay-security (OpenCode backup agent) for the accepted 7B.8 fix. The worktree had no tracked changes before the fix; the untracked `node_modules` symlinks were left alone.
+
+**Finding:** `scripts/check-copy.mjs` computed `unusedAllowlistEntries` (around lines 724–732) but `runCli` never reported it, so stale justifications were silent.
+
+**Fix:** `runCli` now prints one `WARN unused allowlist entry: <file> <rule> <match> — <reason>` line per unused entry and returns exit 1 when any stale entry exists (in addition to the existing violation exit). The failure summary now includes the unused-entry count. Added a Jest case in `packages/shared/src/__tests__/check_copy.test.ts` that builds a temporary clean workspace with one stale entry, asserts the warning and exit 1, then empties the allowlist and asserts a clean exit 0 with no warning. The 12 known app-copy violations were **not** allowlisted.
+
+Checks after the fix (real output):
+
+```
+$ npm run typecheck
+> admin@0.1.0 typecheck / > tsc --noEmit
+> mobile@1.0.0 typecheck / > tsc --noEmit
+> @davao-bank/shared@0.1.0 typecheck / > tsc --noEmit
+(exit 0)
+
+$ npm run lint
+✖ 63 problems (0 errors, 63 warnings)
+
+$ npm run format:check
+Checking formatting...
+All matched files use Prettier code style!
+
+$ npm run test:unit
+Test Suites: 39 passed, 39 total
+Tests:       342 passed, 342 total
+Snapshots:   0 total
+Time:        23.282 s, estimated 154 s
+Ran all test suites in 3 projects.
+
+$ npm run check:copy
+Copy audit failed: 12 violation(s), 0 unused allowlist entry(ies) across 141 files (15 justified allowlist match(es)).
+```
+
+A first parallel invocation of `test:unit` timed out in 9 suites (resource contention while four checks ran at once); the isolated rerun above is clean. No app copy, allowlist entries, reviewer files, `STATUS.md` or reports were changed.

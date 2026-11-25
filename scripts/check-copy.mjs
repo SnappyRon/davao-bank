@@ -760,9 +760,16 @@ export function runCli(argv = process.argv.slice(2)) {
       );
     }
 
-    if (result.violations.length > 0) {
+    for (const entry of result.unusedAllowlistEntries) {
       process.stdout.write(
-        `\nCopy audit failed: ${result.violations.length} violation(s) across ${result.filesScanned} files (${result.allowlistedCount} justified allowlist match(es)).\n`
+        `WARN unused allowlist entry: ${entry.file} ${entry.rule} ${entry.match} — ${entry.reason}\n`
+      );
+    }
+
+    const hasStaleEntries = result.unusedAllowlistEntries.length > 0;
+    if (result.violations.length > 0 || hasStaleEntries) {
+      process.stdout.write(
+        `\nCopy audit failed: ${result.violations.length} violation(s), ${result.unusedAllowlistEntries.length} unused allowlist entry(ies) across ${result.filesScanned} files (${result.allowlistedCount} justified allowlist match(es)).\n`
       );
       return 1;
     }

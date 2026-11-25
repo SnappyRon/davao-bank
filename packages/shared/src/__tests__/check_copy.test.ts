@@ -305,4 +305,59 @@ describe('check-copy scanner (Stage 7B.8)', () => {
       fs.rmSync(tmpRoot, { recursive: true, force: true });
     }
   });
+
+  it('warns about unused allowlist entries and exits non-zero for stale entries', () => {
+    const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'davao-copy-allow-'));
+    try {
+      const mobileDir = path.join(tmpRoot, 'apps/mobile/src');
+      const scriptsDir = path.join(tmpRoot, 'scripts');
+      fs.mkdirSync(mobileDir, { recursive: true });
+      fs.mkdirSync(scriptsDir, { recursive: true });
+
+      fs.writeFileSync(
+        path.join(mobileDir, 'CleanScreen.tsx'),
+        `export function S() { return <Text>Sent ₱200.00.</Text>; }\n`,
+        'utf8'
+      );
+      const allowPath = path.join(scriptsDir, 'check-copy.allow.json');
+      fs.writeFileSync(
+        allowPath,
+        JSON.stringify(
+          [
+            {
+              file: 'apps/mobile/src/CleanScreen.tsx',
+              rule: 'uppercase-copy',
+              match: 'status.toUpperCase()',
+              reason: 'Stale justification retained after the copy was fixed.',
+            },
+          ],
+          null,
+          2
+        ),
+        'utf8'
+      );
+
+      const staleRun = spawnSync(
+        process.execPath,
+        [SCRIPT_PATH, '--root', tmpRoot, '--allowlist', allowPath],
+        { encoding: 'utf8' }
+      );
+      expect(staleRun.status).toBe(1);
+      expect(staleRun.stdout).toContain(
+        'WARN unused allowlist entry: apps/mobile/src/CleanScreen.tsx uppercase-copy status.toUpperCase()'
+      );
+      expect(staleRun.stdout).toContain('1 unused allowlist entry(ies)');
+
+      fs.writeFileSync(allowPath, '[]\n', 'utf8');
+      const cleanRun = spawnSync(
+        process.execPath,
+        [SCRIPT_PATH, '--root', tmpRoot, '--allowlist', allowPath],
+        { encoding: 'utf8' }
+      );
+      expect(cleanRun.status).toBe(0);
+      expect(cleanRun.stdout).not.toContain('WARN unused allowlist entry');
+    } finally {
+      fs.rmSync(tmpRoot, { recursive: true, force: true });
+    }
+  });
 });
