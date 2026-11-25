@@ -6,6 +6,80 @@
 
 import type { FXRate, FXPeriod, FXSummary } from '../types';
 
+export type FXConversionDirection = 'PHP_TO_FX' | 'FX_TO_PHP';
+
+export interface FXConversion {
+  /** Rounded minor units of the target currency. */
+  resultMinor: number;
+  rate: number;
+  rateDate: string;
+  /** True when the rate is older than the staleness threshold. */
+  stale: boolean;
+}
+
+/** A reference rate older than this many days is treated as stale. */
+export const FX_STALE_AFTER_DAYS = 3;
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+/** "2026-10-26" → local midnight of that calendar day, or null if malformed. */
+export function parseFxDateOnly(isoDate: string): Date | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(isoDate);
+  if (!match) return null;
+  const [, y, m, d] = match;
+  return new Date(Number(y), Number(m) - 1, Number(d));
+}
+
+/**
+ * True when the rate date is more than `thresholdDays` calendar days before `now`.
+ * Default threshold: FX_STALE_AFTER_DAYS (3 days).
+ */
+export function isFxRateStale(
+  isoDate: string,
+  now: Date = new Date(),
+  thresholdDays: number = FX_STALE_AFTER_DAYS
+): boolean {
+  const date = parseFxDateOnly(isoDate);
+  if (!date) return false;
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const ageDays = Math.round((today.getTime() - date.getTime()) / MS_PER_DAY);
+  return ageDays > thresholdDays;
+}
+
+/**
+ * Converts a minor-unit amount between PHP and a quoted FX currency using a
+ * reference rate. Pair convention: rate is quote (PHP) per 1 base (USD/EUR/JPY).
+ * - PHP → FX: resultMinor = round(amountMinor / rate)
+ * - FX → PHP: resultMinor = round(amountMinor * rate)
+ * Pure: deterministic for the same inputs; never touches the network or state.
+ */
+export function convertFXAmount(
+  amountMinor: number,
+  rate: number,
+  direction: FXConversionDirection,
+  rateDate: string,
+  options?: { staleThresholdDays?: number; referenceDate?: Date | string }
+): FXConversion {
+  const { staleThresholdDays = FX_STALE_AFTER_DAYS, referenceDate = new Date() } =
+    options ?? {};
+  const ref = referenceDate instanceof Date ? referenceDate : new Date(referenceDate);
+  const stale = isFxRateStale(rateDate, ref, staleThresholdDays);
+
+  let resultMinor = 0;
+  if (
+    Number.isFinite(amountMinor) &&
+    amountMinor > 0 &&
+    Number.isFinite(rate) &&
+    rate > 0
+  ) {
+    resultMinor =
+      direction === 'FX_TO_PHP'
+        ? Math.round(amountMinor * rate)
+        : Math.round(amountMinor / rate);
+  }
+
+  return { resultMinor, rate, rateDate, stale };
+}
+
 /**
  * Formats an exchange rate with appropriate precision.
  * USD/PHP and EUR/PHP use 4 decimals (e.g. 58.9500).

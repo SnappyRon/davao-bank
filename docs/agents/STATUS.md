@@ -4,13 +4,13 @@
 
 ## Now
 
-- **Active phase:** Phase 7 — integration (`phase-7-integration` @ `8720f9c`).
-- **Branch:** `phase-7-integration` (backup agent took over Antigravity's uncommitted Activity account-param work).
-- **Active prompt:** `Phase-7-Prompt-UI-UX-and-Motion.md` / `ROADMAP.md` §9 Track 7D.
-- **Assigned to:** Backup Development Agent (hand-back from fe-device-fixes); task: Activity screen starts filtered to the account passed by Account detail's "See all".
-- **Exact next step:** captain reviews the Activity account-param fix commit; device/Maestro checks remain with the owner.
-- **Last commit:** `Phase 7 · Fix — Activity account filter from Account detail` (this commit; parent `8720f9c`).
-- **Blockers:** none. Device checks, Maestro regression, and VoiceOver NOT VERIFIED.
+- **Active phase:** Phase 9 — More services, stage 9B (FX converter).
+- **Branch:** `phase-9-fx-converter` (worktree at `../davao-bank-fx-converter`, based on `phase-7-integration`).
+- **Active prompt:** Phase 9 spec §4.1 — FX converter.
+- **Assigned to:** Backup Development Agent (kilo-1).
+- **Exact next step:** none — stage complete, awaiting captain review.
+- **Last commit:** `Phase 9 · Stage 9B — FX converter` (this commit).
+- **Blockers:** none. Device, VoiceOver and live checks NOT VERIFIED (no hosted access per task rules).
 
 ## Stage 7B.0 — remaining work plan (captain, 2026-11-10)
 
@@ -261,6 +261,8 @@ Fix these before 7B:
 - **Follow-up:** add dedicated test accounts so live tests don't conflict with the presenter's real authenticator.
 
 ## Log (newest first)
+
+- **2026-11-26, kilo-1:** Phase 9 · Stage 9B — FX converter. Added pure `convertFXAmount(amountMinor, rate, direction)` helper in `packages/shared/src/utils/fx.ts` with unit tests covering rounding (incl. IEEE-754 drift), half-up at the minor boundary, zero/negative amounts, invalid rates, and staleness (3-day default, custom threshold, malformed dates) in `packages/shared/src/__tests__/fx.test.ts` (15 tests). Added `FXConverter` component (`apps/mobile/src/screens/fx/FXConverter.tsx`): amount input, ₱ ↔ USD/EUR/JPY in both directions using the rates the screen already loads, 'Reference rate · <date>' line, 'Simulation — no money moves' badge, loading skeleton, rate-unavailable state, stale-rate notice, a11y labels, 44 pt touch targets and maxFontSizeMultiplier 1.4. Extended `FXRatesScreen` with a collapsible converter section and `FXRates: { mode?: 'convert' }` route param. No migration, no money movement. Checks: `npm run typecheck` exit 0; `npm run lint` 0 errors; `npm run format:check` clean; `npx jest` 48 suites / 416 tests PASS; `npm run check:copy` PASS. Staged by name; pre-existing tracked `node_modules` deletions left untouched. No hosted database access, no push, no `.env` reads.
 
 - **2026-11-26, Backup Development Agent:** took over fe-device-fixes's uncommitted work on `phase-7-integration` (base `8720f9c`); kept Antigravity's ActivityScreen and activity_screen.test.tsx changes and the new activity_account_param.test.tsx, and added a test that the route-param filter can still be changed and cleared. `ActivityScreen` reads `accountId` from `BottomTabParamList['ActivityTab']` (typed in `App.tsx`), applies it once, consumes it with `setParams({ accountId: undefined })`, and waits for accounts to load before validating the requested account; existing Activity behaviour and tests are unchanged otherwise. Checks: `npm run typecheck` exit 0; `npm run lint` 0 errors (62 warnings); `npm run format:check` PASS; `npx jest` 47 suites / 401 tests PASS; `npm run check:copy` PASS. Committed `Phase 7 · Fix — Activity account filter from Account detail`. Staged by name; pre-existing `node_modules` deletions left untouched. No hosted database access, no push, no money or step-up handler changes. Device, Maestro and VoiceOver NOT VERIFIED — captain/owner to run.
 

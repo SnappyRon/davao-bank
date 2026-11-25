@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Info, AlertCircle } from 'lucide-react-native';
+import { Info, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react-native';
+import { useRoute, type RouteProp } from '@react-navigation/native';
 import {
   colors,
   radius,
+  size,
   spacing,
   toUserMessage,
   type FXRate,
@@ -12,11 +14,14 @@ import {
   filterRatesByPeriod,
   calculateFXSummary,
   getVoiceOverSummary,
+  isFxRateStale,
 } from '@davao-bank/shared';
+import type { RootStackParamList } from '../../App';
 import { Text } from '../components/Text';
 import { Card } from '../components/Card';
 import { FeatureScreen } from '../components/FeatureScreen';
 import { EmptyState } from '../components/EmptyState';
+import { Pressable } from '../components/Pressable';
 import { Button } from '../components/Button';
 import { supabase } from '../lib/supabase';
 import { reportNetworkResult } from '../lib/networkStatus';
@@ -30,8 +35,10 @@ import {
 } from './fx/FXRatesChart';
 import { FXRatesHistory } from './fx/FXRatesHistory';
 import { FXRatesHero, PAIR_OPTIONS } from './fx/FXRatesHero';
+import { FXConverter } from './fx/FXConverter';
 
 export function FXRatesScreen() {
+  const route = useRoute<RouteProp<RootStackParamList, 'FXRates'>>();
   const [selectedPair, setSelectedPair] = useState<FXPair>('USD/PHP');
   const [selectedPeriod, setSelectedPeriod] = useState<FXPeriod>('1M');
   const [allRates, setAllRates] = useState<FXRate[]>([]);
@@ -39,6 +46,7 @@ export function FXRatesScreen() {
   const [isCachedData, setIsCachedData] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [scrubIndex, setScrubIndex] = useState<number | null>(null);
+  const [converterOpen, setConverterOpen] = useState(route.params?.mode === 'convert');
 
   const requestIdRef = useRef(0);
 
@@ -276,6 +284,40 @@ export function FXRatesScreen() {
 
           {/* Recent Daily Rates Table */}
           <FXRatesHistory rates={periodRates} baseCurrency={currentPairMeta.base} />
+
+          {/* FX Converter section (§4.1): ₱ ↔ the quoted currencies, view-only simulation */}
+          <Pressable
+            onPress={() => setConverterOpen((open) => !open)}
+            accessibilityRole="button"
+            accessibilityLabel={converterOpen ? 'Hide FX converter' : 'Show FX converter'}
+            style={styles.converterToggle}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <View style={styles.converterToggleRow}>
+              <Text
+                variant="bodyStrong"
+                color={colors.ink}
+                style={styles.converterToggleText}
+                maxFontSizeMultiplier={1.4}
+              >
+                {converterOpen ? 'Hide converter' : 'FX converter'}
+              </Text>
+              {converterOpen ? (
+                <ChevronUp size={18} color={colors.textMuted} />
+              ) : (
+                <ChevronDown size={18} color={colors.textMuted} />
+              )}
+            </View>
+          </Pressable>
+          {converterOpen && (
+            <FXConverter
+              pair={selectedPair}
+              rate={summary?.latestRate ?? null}
+              rateDate={summary?.rateDate ?? null}
+              stale={summary?.rateDate ? isFxRateStale(summary.rateDate) : false}
+              loading={loading}
+            />
+          )}
         </>
       )}
     </FeatureScreen>
@@ -344,5 +386,19 @@ const styles = StyleSheet.create({
   calendarNoticeText: {
     marginLeft: spacing.xs,
     flex: 1,
+  },
+  converterToggle: {
+    marginTop: spacing.lg,
+    marginBottom: spacing.sm,
+  },
+  converterToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: size.touch,
+    minWidth: size.touch,
+  },
+  converterToggleText: {
+    marginRight: spacing.sm,
   },
 });
