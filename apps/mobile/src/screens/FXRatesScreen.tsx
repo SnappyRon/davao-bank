@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, ScrollView, type ScrollViewInstance, StyleSheet } from 'react-native';
 import { Info, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react-native';
 import { useRoute, type RouteProp } from '@react-navigation/native';
 import {
@@ -35,7 +35,7 @@ import {
 } from './fx/FXRatesChart';
 import { FXRatesHistory } from './fx/FXRatesHistory';
 import { FXRatesHero, PAIR_OPTIONS } from './fx/FXRatesHero';
-import { FXConverter } from './fx/FXConverter';
+import { FXConverter, type FXConverterRef } from './fx/FXConverter';
 
 export function FXRatesScreen() {
   const route = useRoute<RouteProp<RootStackParamList, 'FXRates'>>();
@@ -47,6 +47,27 @@ export function FXRatesScreen() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [scrubIndex, setScrubIndex] = useState<number | null>(null);
   const [converterOpen, setConverterOpen] = useState(route.params?.mode === 'convert');
+
+  const converterRef = useRef<FXConverterRef>(null);
+  const scrollViewRef = useRef<any>(null);
+
+  /** Open the converter, scroll it into view and focus the amount input. */
+  const revealConverter = useCallback(() => {
+    setConverterOpen(true);
+    setTimeout(() => {
+      converterRef.current?.focus();
+      scrollViewRef.current?.scrollToOffset?.({
+        y: 1000000,
+        animated: true,
+      });
+    }, 0);
+  }, []);
+
+  useEffect(() => {
+    if (converterOpen) {
+      revealConverter();
+    }
+  }, [converterOpen, revealConverter]);
 
   const requestIdRef = useRef(0);
 
@@ -162,6 +183,7 @@ export function FXRatesScreen() {
     <FeatureScreen
       title="FX reference rates"
       contentContainerStyle={styles.scrollContent}
+      scrollViewRef={scrollViewRef}
     >
       {/* Disclaimer Banner (§E.2) */}
       <Card variant="default" style={styles.disclaimerCard}>
@@ -190,6 +212,19 @@ export function FXRatesScreen() {
           </View>
         </View>
       </Card>
+
+      {/* Convert action: scrolls to and focuses the converter */}
+      <Pressable
+        onPress={revealConverter}
+        accessibilityRole="button"
+        accessibilityLabel="Open FX converter"
+        style={styles.convertAction}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      >
+        <Text variant="bodyStrong" color={colors.primary} style={styles.convertLabel}>
+          Convert
+        </Text>
+      </Pressable>
 
       {/* Cached Data Warning if offline/error and cached data displayed */}
       {isCachedData && allRates.length > 0 && (
@@ -311,6 +346,7 @@ export function FXRatesScreen() {
           </Pressable>
           {converterOpen && (
             <FXConverter
+              ref={converterRef}
               pair={selectedPair}
               rate={summary?.latestRate ?? null}
               rateDate={summary?.rateDate ?? null}
@@ -400,5 +436,19 @@ const styles = StyleSheet.create({
   },
   converterToggleText: {
     marginRight: spacing.sm,
+  },
+  convertAction: {
+    alignSelf: 'flex-start',
+    marginTop: spacing.sm,
+    marginBottom: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
+  },
+  convertLabel: {
+    color: colors.primary,
   },
 });

@@ -1,4 +1,4 @@
-import { convertFXAmount, isFxRateStale } from '../utils/fx';
+import { convertFXAmount, formatFXAmount, isFxRateStale } from '../utils/fx';
 
 describe('convertFXAmount', () => {
   const rateDate = '2026-11-20';
@@ -140,5 +140,27 @@ describe('isFxRateStale', () => {
   it('returns false for malformed dates', () => {
     expect(isFxRateStale('', referenceDate)).toBe(false);
     expect(isFxRateStale('not-a-date', referenceDate)).toBe(false);
+  });
+});
+
+describe('formatFXAmount', () => {
+  it('formats PHP minor units with 2 decimals', () => {
+    expect(formatFXAmount(10000, 'PHP')).toBe('100.00');
+    expect(formatFXAmount(1999, 'PHP')).toBe('19.99');
+    expect(formatFXAmount(5, 'PHP')).toBe('0.05');
+  });
+
+  it('formats USD and EUR with 2 decimals', () => {
+    expect(formatFXAmount(170, 'USD')).toBe('1.70');
+    expect(formatFXAmount(16963, 'EUR')).toBe('169.63');
+  });
+
+  it('formats JPY with 0 decimals (no silent truncation to cents)', () => {
+    expect(formatFXAmount(15000, 'JPY')).toBe('150');
+    expect(formatFXAmount(15099, 'JPY')).toBe('151');
+  });
+
+  it('returns 0.00 for non-finite input', () => {
+    expect(formatFXAmount(NaN, 'PHP')).toBe('0.00');
   });
 });
