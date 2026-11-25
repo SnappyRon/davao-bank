@@ -10,6 +10,7 @@
 export const BANTAY_EVENT_KINDS = [
   'risky_payment_challenged',
   'risky_payment_confirmed',
+  'risky_payment_warning',
   'new_device',
   'signin_failures',
   'code_failures',

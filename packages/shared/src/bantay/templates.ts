@@ -9,6 +9,7 @@
 type TemplateKind =
   | 'risky_payment_challenged'
   | 'risky_payment_confirmed'
+  | 'risky_payment_warning'
   | 'new_device'
   | 'signin_failures'
   | 'code_failures'
@@ -58,6 +59,7 @@ export const BANTAY_TEMPLATES: Record<TemplateKind, (facts: TemplateFacts) => st
     const { amount, payee } = paymentPhrases(facts);
     return `You confirmed a payment${amount} to ${payee} after an extra check. No further action is needed.`;
   },
+  risky_payment_warning: () => 'A payment looked unusual and Bantay showed a warning.',
   new_device: () =>
     'A new device signed in to your account. If this wasn’t you, lock your account in Bantay.',
   signin_failures: () =>

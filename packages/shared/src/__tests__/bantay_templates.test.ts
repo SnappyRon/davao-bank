@@ -30,6 +30,12 @@ describe('Bantay templates', () => {
     );
   });
 
+  it('has a dedicated sentence-case template for risky_payment_warning', () => {
+    expect(bantayTemplate('risky_payment_warning', facts)).toBe(
+      'A payment looked unusual and Bantay showed a warning.'
+    );
+  });
+
   it('falls back safely for an unknown kind', () => {
     expect(bantayTemplate('mystery_event', facts)).toBe(
       'Bantay recorded a security event on your account. Review it in Bantay.'

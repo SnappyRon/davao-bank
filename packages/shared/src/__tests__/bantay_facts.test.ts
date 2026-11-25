@@ -91,7 +91,8 @@ describe('Bantay masked facts builder', () => {
       kind: 'unknown_event',
       severity: 'info',
     });
-    expect(BANTAY_EVENT_KINDS).toHaveLength(10);
+    expect(BANTAY_EVENT_KINDS).toContain('risky_payment_warning');
+    expect(BANTAY_EVENT_KINDS).toHaveLength(11);
   });
 
   it('bands amount, hour, device and score, and names only derived signals', () => {
