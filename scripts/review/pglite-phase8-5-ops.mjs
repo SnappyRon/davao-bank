@@ -5,6 +5,8 @@ export async function runPhase8_5OpsTests({ as, su, cust, ok, U, A, B, biller })
   const FROM = '2020-01-01T00:00:00Z';
   const TO = '2020-01-03T00:00:00Z';
   const admin = (sql, params = []) => as('authenticated', U.ADM, sql, params);
+  const adminAal1 = (sql, params = []) =>
+    as('authenticated', U.ADM, sql, params, { sub: U.ADM, aal: 'aal1' });
   const rows = (r) => (r.err ? [] : r.rows || []);
   const obj = (v) => (typeof v === 'string' ? JSON.parse(v) : v);
   const scalar = (r) => {
@@ -52,8 +54,14 @@ export async function runPhase8_5OpsTests({ as, su, cust, ok, U, A, B, biller })
       /permission denied/.test(anon.err || ''),
       anon.err
     );
+    const staffAal1 = await adminAal1(sql, params);
+    ok(
+      `8.5 admin at aal1 cannot call ${name}`,
+      /STEP_UP_REQUIRED/.test(staffAal1.err || ''),
+      staffAal1.err
+    );
     const staff = await admin(sql, params);
-    ok(`8.5 admin can call ${name}`, !staff.err, staff.err);
+    ok(`8.5 admin at aal2 can call ${name}`, !staff.err, staff.err);
   }
 
   // ---- 2. Range and bucket validation ------------------------------------------
@@ -568,10 +576,22 @@ export async function runPhase8_5OpsTests({ as, su, cust, ok, U, A, B, biller })
     /permission denied/.test(customerInsert.err || ''),
     customerInsert.err
   );
+  const adminAal1Feed = await adminAal1(
+    `select count(*)::int n from public.staff_activity_events`
+  );
+  ok(
+    '8.5 RLS: admin at aal1 sees zero feed rows',
+    scalar(adminAal1Feed) === 0,
+    adminAal1Feed.err || JSON.stringify(adminAal1Feed.rows)
+  );
   const adminFeed = await admin(
     `select count(*)::int n from public.staff_activity_events`
   );
-  ok('8.5 RLS: admin can read the feed', scalar(adminFeed) > 0, adminFeed.err);
+  ok(
+    '8.5 RLS: admin at aal2 can read the feed',
+    scalar(adminFeed) > 0,
+    adminFeed.err
+  );
   ok(
     '8.5 is_admin(): false for customer, true for staff',
     !(await cust(U.A, `select public.is_admin() a`)).rows?.[0]?.a &&

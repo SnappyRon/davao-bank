@@ -27,8 +27,9 @@ create index if not exists idx_security_limits_locked_at
 
 -- ------------------------------------------------------------------------------
 -- 2. Staff-only analytics functions
---    Every function re-checks auth + is_admin() inside the security definer so a
---    direct RPC cannot bypass it. No PII columns are ever selected.
+--    Every function requires an aal2 session via assert_admin_aal2() and
+--    re-checks auth + is_admin() inside the security definer so a direct RPC
+--    cannot bypass it. No PII columns are ever selected.
 -- ------------------------------------------------------------------------------
 create or replace function public.admin_ops_timeseries(
   p_from timestamptz,
@@ -48,6 +49,7 @@ security definer
 set search_path = ''
 as $$
 begin
+  perform public.assert_admin_aal2();
   if auth.uid() is null then raise exception 'Authentication required'; end if;
   if not public.is_admin() then raise exception 'Admin privilege required'; end if;
   if p_from is null or p_to is null or p_to <= p_from then
@@ -134,6 +136,7 @@ security definer
 set search_path = ''
 as $$
 begin
+  perform public.assert_admin_aal2();
   if auth.uid() is null then raise exception 'Authentication required'; end if;
   if not public.is_admin() then raise exception 'Admin privilege required'; end if;
 
@@ -172,6 +175,7 @@ as $$
 declare
   v_result jsonb;
 begin
+  perform public.assert_admin_aal2();
   if auth.uid() is null then raise exception 'Authentication required'; end if;
   if not public.is_admin() then raise exception 'Admin privilege required'; end if;
   if p_from is null or p_to is null or p_to <= p_from then
@@ -270,6 +274,7 @@ security definer
 set search_path = ''
 as $$
 begin
+  perform public.assert_admin_aal2();
   if auth.uid() is null then raise exception 'Authentication required'; end if;
   if not public.is_admin() then raise exception 'Admin privilege required'; end if;
   if p_after_id is null then p_after_id := 0; end if;
@@ -309,7 +314,7 @@ drop policy if exists "staff_activity_events_select_staff" on public.staff_activ
 create policy "staff_activity_events_select_staff"
   on public.staff_activity_events
   for select to authenticated
-  using (public.is_admin());
+  using (public.is_admin() and auth.jwt()->>'aal' = 'aal2');
 
 create or replace function public._emit_staff_activity_event()
 returns trigger

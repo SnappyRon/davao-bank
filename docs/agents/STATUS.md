@@ -4,13 +4,13 @@
 
 ## Now
 
-- **Active phase:** Phase 7 — UI/UX Refinement & Motion.
-- **Branch:** `phase-7-ui-motion`; admin polish merged from `phase-7-admin-polish`.
-- **Active prompt:** `Phase-7-Prompt-UI-UX-and-Motion.md`.
-- **Assigned to:** Codex completed Stage 7B.5; captain review pending.
-- **Exact next step:** captain reviews the 7B.5 commit and exact handler diffs; verify results and receipt sharing on a device with owner sign-in.
-- **Last commit:** Stage 7B.5 (this commit; parent `9270631`).
-- **Blockers:** device and live money-flow verification NOT VERIFIED; admin Playwright needs owner sign-in.
+- **Active phase:** Phase 8 — Stage 8.5A operations dashboard backend, captain HIGH security fix.
+- **Branch:** `phase-8.5-ops-backend` (head `6a93763` at take-over).
+- **Active prompt:** `docs/specs/phase-8.5-ops-backend-spec.md`; its decision D-A3.2 ("no step-up for read-only charts") is superseded by the captain's HIGH finding for this fix.
+- **Assigned to:** Backup Development Agent; require `assert_admin_aal2()` in all four analytics RPCs and `aal2` in the staff feed RLS policy, with PGlite coverage.
+- **Exact next step:** captain re-reviews this fix; hosted apply stays owner/reviewer-only and NOT done.
+- **Last commit:** `Phase 8 · Fix — 8.5A require aal2 for analytics and feed` (this commit; parent `6a93763`).
+- **Blockers:** `npm run test:db` has 9 pre-existing, time-of-day 8D risk-score failures (identical on untouched HEAD: 271 passed / 9 failed); this fix adds 5 passing 8.5 checks (276 passed / 9 failed). No hosted access or push.
 
 ## Stage 7B.0 — remaining work plan (captain, 2026-11-10)
 
@@ -248,6 +248,8 @@ Fix these before 7B:
 - **Follow-up:** add dedicated test accounts so live tests don't conflict with the presenter's real authenticator.
 
 ## Log (newest first)
+
+- **2026-11-26, Backup Development Agent:** took over the captain's HIGH security finding on `phase-8.5-ops-backend` (base `6a93763`); edited the unapplied migration in place: added `perform public.assert_admin_aal2();` as the first statement of `admin_ops_timeseries`, `admin_ops_balance_distribution`, `admin_ops_summary` and `admin_ops_live_feed`, and changed `staff_activity_events_select_staff` to `using (public.is_admin() and auth.jwt()->>'aal' = 'aal2')`. Updated `scripts/review/pglite-phase8-5-ops.mjs`: non-aal2 admin gets STEP_UP_REQUIRED on every RPC and sees zero feed rows, aal2 admin succeeds, customer rejected. Ran `npm ci` first (no symlink). Checks: typecheck exit 0; lint 0 errors (63 warnings); `npm run test:db` 276 passed / 9 failed — all 8.5 checks pass and the 9 failures are pre-existing 8D score tests that call `now()` and fail during Manila 00:00–05:00 (verified identical 271 passed / 9 failed on untouched HEAD via a temporary stash, then restored). Spec D-A3.2 conflicts with this fix (it said no step-up for read-only charts); the captain's security direction was followed. Committed `Phase 8 · Fix — 8.5A require aal2 for analytics and feed`. No hosted writes, no `.env` reads, no push, no money-engine changes. Hosted apply and device checks NOT VERIFIED.
 
 - **2026-11-25, Codex:** resumed and completed 7B.5 after captain approved success-handler haptic removal and refreshed server account balance. ResultView now handles outcomes, server-derived rows, privacy-aware receipt share and contextual actions; money/request success flows wired, confirmed structured database rejections show Not sent, uncertain transfer remains unchanged. Updated UI-only assertions per captain direction; RPC/step-up/idempotency checks retained. Typecheck exit 0, lint 0 errors / 63 warnings, unit 38 suites / 334 tests; format check exit 1 only untracked `ONBOARDING.md`. Full handler diffs and limitations in PHASE7_REPORT.md. Device, VoiceOver, live money and sharing NOT VERIFIED — captain/owner to verify. Next: captain review this commit.
 
