@@ -56,6 +56,8 @@ import {
   LIST_ROW_MIN_HEIGHT,
   FLOATING_TAB_BAR_HEIGHT,
   floatingTabBarBottomOffset,
+  FloatingKada,
+  KADA_SIZE,
 } from '../components';
 import { SuspendedScreen } from './SuspendedScreen';
 import { HomeBalanceCard } from './home/HomeBalanceCard';
@@ -295,7 +297,9 @@ export function HomeScreen({
   // bottom inset. Content ends 16 pt above the floating tab bar.
   const tabBarTopFromBottom =
     floatingTabBarBottomOffset(insets.bottom) + FLOATING_TAB_BAR_HEIGHT;
-  const bottomClearance = tabBarTopFromBottom + spacing.base - insets.bottom;
+  // Leave room for the floating Kada above the bar (spec 7c1d935 §4.1).
+  const bottomClearance =
+    tabBarTopFromBottom + spacing.base + KADA_SIZE + spacing.base - insets.bottom;
 
   if (profile?.status === 'suspended') {
     return <SuspendedScreen profile={profile} userEmail={null} onRefresh={loadData} />;
@@ -544,6 +548,12 @@ export function HomeScreen({
           </View>
         ) : null}
       </ScrollView>
+
+      {/* Home-only: no Kada on money flows, Bantay screen or other tabs. */}
+      <FloatingKada
+        locked={isLocked}
+        onOpenBantay={() => navigation.navigate('BantaySecurity')}
+      />
 
       <AccountPickerSheet
         visible={accountPickerVisible}
