@@ -20,6 +20,8 @@ export interface PressableProps {
   onPressIn?: (event: GestureResponderEvent) => void;
   onPressOut?: (event: GestureResponderEvent) => void;
   onLongPress?: (event: GestureResponderEvent) => void;
+  /** Long-press delay in ms (Phase 8 Kada uses 500 ms). */
+  delayLongPress?: number;
   disabled?: boolean;
   feedbackType?: PressFeedbackType;
   /** Scale while pressed for `feedbackType='scale'`. Default 0.97 (Button uses 0.98). */
@@ -52,6 +54,7 @@ export function Pressable({
   onPressIn,
   onPressOut,
   onLongPress,
+  delayLongPress,
   disabled = false,
   feedbackType = 'scale',
   pressedScale = 0.97,
@@ -109,6 +112,7 @@ export function Pressable({
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       onLongPress={onLongPress}
+      delayLongPress={delayLongPress}
       testID={testID}
       style={[
         resolvedStyle,

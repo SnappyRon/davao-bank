@@ -428,7 +428,11 @@ describe('HomeScreen (7B.1)', () => {
       const chip = await screen.findByRole('button', {
         name: 'Bantay is watching your account',
       });
-      expect(screen.getAllByRole('button', { name: /Bantay/ })).toHaveLength(1);
+      // One calm indicator row plus the Home-only floating Kada widget.
+      expect(
+        screen.getAllByRole('button', { name: 'Bantay is watching your account' })
+      ).toHaveLength(1);
+      expect(screen.getByTestId('floating-kada')).toBeTruthy();
       await fireEvent.press(chip);
       expect(mockNavigate).toHaveBeenCalledWith('BantaySecurity');
     });
