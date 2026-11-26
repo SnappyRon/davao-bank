@@ -2,7 +2,9 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../App';
 import { useFeatureAccounts } from '../hooks/useFeatureAccounts';
+import { useProtectiveFreeze } from '../hooks/useProtectiveFreeze';
 import { AccountLoadStatus } from '../components/AccountLoadStatus';
+import { FrozenMoneyGate } from '../components/FrozenMoneyGate';
 import { StepUpSetupLink } from '../components/StepUpSetupLink';
 import { retryStepUp } from '../utils/stepUpRetry';
 import { useTotpPrompt } from '../context/PasswordPromptContext';
@@ -61,7 +63,10 @@ export function PayBillsScreen() {
     routeParams = undefined;
   }
   const onClose = () => navigation.goBack();
-  const { accounts, accountsLoading, accountError, loadAccounts } = useFeatureAccounts();
+  const freeze = useProtectiveFreeze();
+  const { accounts, accountsLoading, accountError, loadAccounts } = useFeatureAccounts(
+    !freeze.loading && !freeze.protective
+  );
   const { showConfirmation, confirmSheet } = useConfirmSheet();
   const toast = useToast();
 
@@ -139,10 +144,11 @@ export function PayBillsScreen() {
   }, []);
 
   useEffect(() => {
+    if (freeze.protective) return;
     loadBillers();
     void loadSavedBillers();
     resetForm();
-  }, [loadSavedBillers]);
+  }, [freeze.protective, loadSavedBillers]);
 
   useEffect(() => {
     if (
@@ -434,6 +440,17 @@ export function PayBillsScreen() {
   const commitAction = timing === 'now' ? 'pay' : 'schedule';
   const accountsReady =
     firstStepDecided && !accountsLoading && !accountError && accounts.length > 0;
+
+  if (freeze.protective) {
+    return (
+      <FeatureScreen title="Pay bills">
+        <FrozenMoneyGate
+          freeze={freeze}
+          onConfirm={() => navigation.navigate('BantaySecurity')}
+        />
+      </FeatureScreen>
+    );
+  }
 
   const footer =
     step === 'reference' ? (

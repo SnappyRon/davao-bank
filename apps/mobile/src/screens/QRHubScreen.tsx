@@ -2,7 +2,9 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../App';
 import { useFeatureAccounts } from '../hooks/useFeatureAccounts';
+import { useProtectiveFreeze } from '../hooks/useProtectiveFreeze';
 import { AccountLoadStatus } from '../components/AccountLoadStatus';
+import { FrozenMoneyGate } from '../components/FrozenMoneyGate';
 import React, { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useCameraPermissions } from 'expo-camera';
@@ -34,7 +36,10 @@ type QRTab = 'my_qr' | 'scan' | 'request';
 export function QRHubScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const onClose = () => navigation.goBack();
-  const { accounts, accountsLoading, accountError, loadAccounts } = useFeatureAccounts();
+  const freeze = useProtectiveFreeze();
+  const { accounts, accountsLoading, accountError, loadAccounts } = useFeatureAccounts(
+    !freeze.loading && !freeze.protective
+  );
   const route = useRoute<RouteProp<RootStackParamList, 'QRHub'>>();
 
   const [tab, setTab] = useState<QRTab>(() =>
@@ -70,6 +75,17 @@ export function QRHubScreen() {
   const { hideBalance } = useSettings();
 
   const selectedAccount = accounts[selectedAccountIndex] || accounts[0];
+
+  if (freeze.protective) {
+    return (
+      <FeatureScreen title="Davao Bank QR & request">
+        <FrozenMoneyGate
+          freeze={freeze}
+          onConfirm={() => navigation.navigate('BantaySecurity')}
+        />
+      </FeatureScreen>
+    );
+  }
 
   const resetState = () => {
     setScanned(false);

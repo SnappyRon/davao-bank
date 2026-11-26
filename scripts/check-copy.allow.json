@@ -94,5 +94,11 @@
     "rule": "raw-uuid",
     "match": "user_id=eq.${userId}",
     "reason": "Supabase Realtime row filter is a protocol identifier, never user-facing copy; it restricts the stream to the signed-in caller."
+  },
+  {
+    "file": "apps/mobile/src/hooks/useBantayRealtime.ts",
+    "rule": "raw-uuid",
+    "match": "${table}:${userId}",
+    "reason": "Supabase Realtime channel name is a protocol identifier, never user-facing copy; the id is the signed-in caller's own id."
   }
 ]

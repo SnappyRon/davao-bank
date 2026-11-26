@@ -30,6 +30,10 @@ import { easing } from '../theme/easing';
 import { MASCOT_BANTAY } from '../assets/illustrations';
 import { useAppBackgrounded } from '../hooks/useAppBackgrounded';
 import { fetchSecurityTimeline } from '../hooks/usePhase8Contracts';
+import {
+  PROTECTIVE_FREEZE_KADA_BODY,
+  PROTECTIVE_FREEZE_KADA_SPEC_BODY,
+} from '../utils/protectiveFreeze';
 import { Button } from './Button';
 import { Pressable } from './Pressable';
 import { Text } from './Text';
@@ -127,6 +131,8 @@ export function clampKadaPosition(
 
 export interface FloatingKadaProps {
   locked?: boolean;
+  /** The Bantay protective freeze has its own mandated bubble copy. */
+  protective?: boolean;
   onOpenBantay: () => void;
 }
 
@@ -136,7 +142,11 @@ function isToday(isoDate: string): boolean {
   return date.toDateString() === new Date().toDateString();
 }
 
-export function FloatingKada({ locked = false, onOpenBantay }: FloatingKadaProps) {
+export function FloatingKada({
+  locked = false,
+  protective = false,
+  onOpenBantay,
+}: FloatingKadaProps) {
   const insets = useSafeAreaInsets();
   const windowSize = useWindowDimensions();
   const focused = useIsFocused();
@@ -365,6 +375,17 @@ export function FloatingKada({ locked = false, onOpenBantay }: FloatingKadaProps
   }, []);
 
   const handleTap = useCallback(async () => {
+    if (protective) {
+      if (!reduceMotion) {
+        tapScale.value = withSequence(
+          withSpring(1.06, motion.spring.pop),
+          withSpring(1, motion.spring.pop)
+        );
+      }
+      showBubble(PROTECTIVE_FREEZE_KADA_BODY);
+      return;
+    }
+
     if (!reduceMotion) {
       tapScale.value = withSequence(
         withSpring(1.06, motion.spring.pop),
@@ -386,7 +407,7 @@ export function FloatingKada({ locked = false, onOpenBantay }: FloatingKadaProps
     showBubble(
       locked ? `Your account is locked${suffix}` : `Watching your account${suffix}`
     );
-  }, [locked, reduceMotion, showBubble, tapScale]);
+  }, [locked, protective, reduceMotion, showBubble, tapScale]);
 
   const handleLongPress = useCallback(() => {
     try {
@@ -427,10 +448,11 @@ export function FloatingKada({ locked = false, onOpenBantay }: FloatingKadaProps
             variant="body"
             color={colors.ink}
             style={styles.bubbleText}
-            numberOfLines={3}
+            numberOfLines={protective ? 6 : 3}
             maxFontSizeMultiplier={1.4}
           >
             {bubbleCopy}
+            {protective ? `\n${PROTECTIVE_FREEZE_KADA_SPEC_BODY}` : ''}
           </Text>
           <Pressable
             accessibilityRole="button"
@@ -484,7 +506,11 @@ export function FloatingKada({ locked = false, onOpenBantay }: FloatingKadaProps
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={
-              locked ? 'Bantay, account locked' : 'Bantay, watching your account'
+              protective
+                ? 'Bantay, account frozen'
+                : locked
+                  ? 'Bantay, account locked'
+                  : 'Bantay, watching your account'
             }
             feedbackType="none"
             onPress={() => void handleTap()}

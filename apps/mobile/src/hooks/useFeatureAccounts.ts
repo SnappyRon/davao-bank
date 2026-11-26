@@ -7,12 +7,20 @@ import {
 import { supabase } from '../lib/supabase';
 import { reportNetworkResult } from '../lib/networkStatus';
 
-export function useFeatureAccounts() {
+export function useFeatureAccounts(enabled = true) {
   const [accounts, setAccounts] = useState<AccountBalance[]>([]);
   const [accountsLoading, setAccountsLoading] = useState(true);
   const [accountError, setAccountError] = useState<string | null>(null);
   const mounted = useRef(false);
+  const enabledRef = useRef(enabled);
+  enabledRef.current = enabled;
   const loadAccounts = useCallback(async () => {
+    // A protective freeze short-circuits the whole flow: no account read and
+    // no money RPCs are attempted while Bantay holds the account.
+    if (!enabledRef.current) {
+      if (mounted.current) setAccountsLoading(false);
+      return;
+    }
     setAccountsLoading(true);
     setAccountError(null);
     try {
@@ -30,10 +38,11 @@ export function useFeatureAccounts() {
   }, []);
   useEffect(() => {
     mounted.current = true;
-    void loadAccounts();
+    if (enabled) void loadAccounts();
+    else setAccountsLoading(false);
     return () => {
       mounted.current = false;
     };
-  }, [loadAccounts]);
+  }, [enabled, loadAccounts]);
   return { accounts, accountsLoading, accountError, loadAccounts };
 }

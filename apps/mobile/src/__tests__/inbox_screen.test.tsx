@@ -188,6 +188,30 @@ describe('InboxScreen (7B.2)', () => {
     });
   });
 
+  it('shows a protective-lock notice with a shield and opens Bantay', async () => {
+    const body =
+      "We froze your account to protect your money. No money can leave until you confirm it's you. Davao Bank will never ask you to move your money.";
+    (fetchNotifications as jest.Mock).mockResolvedValue({
+      data: [
+        note({
+          id: 'n-freeze',
+          type: 'bantay_protective_lock',
+          message: body,
+          read: false,
+        }),
+      ],
+      error: null,
+    });
+
+    await render(<InboxScreen />);
+    expect(await screen.findByText('Bantay froze your account')).toBeTruthy();
+    expect(screen.getByText(body)).toBeTruthy();
+
+    await fireEvent.press(screen.getByTestId('inbox-row-n-freeze'));
+    expect(mockNavigate).toHaveBeenLastCalledWith('BantaySecurity');
+    expect(fetchTransactionHistory).not.toHaveBeenCalled();
+  });
+
   describe('deep link to the receipt (7B.9)', () => {
     const historyRow = (
       overrides: Partial<TransactionHistoryItem>

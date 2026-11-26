@@ -135,6 +135,24 @@ describe('Phase 8 · Stage 8I — interactive floating Kada', () => {
     ).toBeTruthy();
   });
 
+  it('shows the protective-freeze bubble and skips the ordinary timeline read', async () => {
+    await render(<FloatingKada locked protective onOpenBantay={onOpenBantay} />);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Bantay, account frozen' }));
+    expect(
+      await screen.findByText(
+        /I froze your account to keep your money safe\. Tap to see what happened\. Davao Bank will never ask you to move your money\./
+      )
+    ).toBeTruthy();
+    expect(
+      screen.getByText(/Bantay froze your account to protect your money\. Check Bantay\./)
+    ).toBeTruthy();
+    expect(fetchSecurityTimeline).not.toHaveBeenCalled();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Open Bantay' }));
+    expect(onOpenBantay).toHaveBeenCalledTimes(1);
+  });
+
   it('long-press opens Bantay security center without a bubble', async () => {
     await render(<FloatingKada onOpenBantay={onOpenBantay} />);
 

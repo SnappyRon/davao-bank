@@ -19,13 +19,28 @@ import type { AccountBalance } from '@davao-bank/shared';
 const mockToastShow = jest.fn();
 const mockGoBack = jest.fn();
 const mockReplace = jest.fn();
+const mockNavigate = jest.fn();
+let mockFreeze = {
+  locked: false,
+  protective: false,
+  unlockAfter: null as string | null,
+  loading: false,
+  refresh: jest.fn(async () => undefined),
+};
+jest.mock('../hooks/useProtectiveFreeze', () => ({
+  useProtectiveFreeze: () => mockFreeze,
+}));
 let mockRouteParams: RootStackParamList['Transfer'] = {
   recipientAccount: '1099999999',
   amountCentavos: 50000,
   note: 'Lunch split',
 };
 jest.mock('@react-navigation/native', () => ({
-  useNavigation: () => ({ goBack: mockGoBack, replace: mockReplace }),
+  useNavigation: () => ({
+    goBack: mockGoBack,
+    replace: mockReplace,
+    navigate: mockNavigate,
+  }),
   useRoute: () => ({ params: mockRouteParams }),
   useIsFocused: () => true,
   usePreventRemove: jest.fn(),
@@ -113,6 +128,13 @@ describe('TransferScreen - F1 State & Receipt Guarantees', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockFreeze = {
+      locked: false,
+      protective: false,
+      unlockAfter: null,
+      loading: false,
+      refresh: jest.fn(async () => undefined),
+    };
     jest.mocked(executeTransfer).mockClear();
     jest.mocked(executeTransfer).mockResolvedValue({
       data: {
@@ -713,5 +735,19 @@ describe('TransferScreen - F1 State & Receipt Guarantees', () => {
     });
     expect(mockConfirmBiometricPayment).toHaveBeenCalledTimes(1);
     expect(executeTransfer).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the frozen gate before any account read or money RPC', async () => {
+    mockFreeze = { ...mockFreeze, locked: true, protective: true };
+
+    await render(<TransferScreen />);
+    expect(await screen.findByTestId('frozen-money-gate')).toBeTruthy();
+    expect(screen.getByText('Bantay froze your account')).toBeTruthy();
+    expect(screen.queryByText("You're sending")).toBeNull();
+    expect(fetchAccountBalances).not.toHaveBeenCalled();
+    expect(executeTransfer).not.toHaveBeenCalled();
+
+    await fireEvent.press(screen.getByRole('button', { name: "Confirm it's me" }));
+    expect(mockNavigate).toHaveBeenCalledWith('BantaySecurity');
   });
 });

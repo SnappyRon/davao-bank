@@ -58,6 +58,8 @@ import {
 } from '../utils/resultReceipt';
 import { ResultView } from '../components/ResultView';
 import { useInFlightGuard } from '../hooks/useInFlightGuard';
+import { useProtectiveFreeze } from '../hooks/useProtectiveFreeze';
+import { FrozenMoneyGate } from '../components/FrozenMoneyGate';
 
 type RequestTab = 'incoming' | 'outgoing';
 
@@ -66,6 +68,7 @@ export function PaymentRequestsScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'PaymentRequests'>>();
   const toast = useToast();
+  const freeze = useProtectiveFreeze();
   const onClose = () => navigation.goBack();
   const [accounts, setAccounts] = useState<AccountBalance[]>([]);
   const [accountsLoading, setAccountsLoading] = useState(true);
@@ -152,13 +155,15 @@ export function PaymentRequestsScreen() {
   }, []);
 
   useEffect(() => {
+    if (freeze.loading || freeze.protective) return;
     setLoading(true);
     setStatusMessage(null);
     void loadAccounts();
     void loadRequests();
-  }, [loadAccounts, loadRequests]);
+  }, [freeze.loading, freeze.protective, loadAccounts, loadRequests]);
 
   const onRefresh = () => {
+    if (freeze.protective) return;
     setRefreshing(true);
     void loadAccounts();
     void loadRequests();
@@ -369,6 +374,17 @@ export function PaymentRequestsScreen() {
         return <Badge label="Expired" variant="neutral" />;
     }
   };
+
+  if (freeze.protective) {
+    return (
+      <FeatureScreen title="Payment requests">
+        <FrozenMoneyGate
+          freeze={freeze}
+          onConfirm={() => navigation.navigate('BantaySecurity')}
+        />
+      </FeatureScreen>
+    );
+  }
 
   return (
     <FeatureScreen

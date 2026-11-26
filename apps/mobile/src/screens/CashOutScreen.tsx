@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useFeatureAccounts } from '../hooks/useFeatureAccounts';
+import { useProtectiveFreeze } from '../hooks/useProtectiveFreeze';
 import { useInFlightGuard } from '../hooks/useInFlightGuard';
 import { AccountLoadStatus } from '../components/AccountLoadStatus';
+import { FrozenMoneyGate } from '../components/FrozenMoneyGate';
 import { View, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { AlertCircle } from 'lucide-react-native';
@@ -43,7 +45,10 @@ export function CashOutScreen() {
   const promptTotp = useTotpPrompt();
   const { hideBalance, confirmBiometricPayment } = useSettings();
 
-  const { accounts, accountsLoading, accountError, loadAccounts } = useFeatureAccounts();
+  const freeze = useProtectiveFreeze();
+  const { accounts, accountsLoading, accountError, loadAccounts } = useFeatureAccounts(
+    !freeze.loading && !freeze.protective
+  );
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
   const [amountStr, setAmountStr] = useState('');
   const [reference, setReference] = useState('');
@@ -167,6 +172,17 @@ export function CashOutScreen() {
     ? (['source', 'input', 'review'] as const)
     : (['input', 'review'] as const);
   const stepIndex = (inputSteps as readonly string[]).indexOf(step);
+
+  if (freeze.protective) {
+    return (
+      <FeatureScreen title="Cash out">
+        <FrozenMoneyGate
+          freeze={freeze}
+          onConfirm={() => navigation.navigate('BantaySecurity')}
+        />
+      </FeatureScreen>
+    );
+  }
 
   return (
     <FeatureScreen

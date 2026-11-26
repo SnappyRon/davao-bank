@@ -1,4 +1,5 @@
 import { useConfirmSheet } from '../hooks/useConfirmSheet';
+import { useProtectiveFreeze } from '../hooks/useProtectiveFreeze';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -19,6 +20,7 @@ import {
 import { supabase } from '../lib/supabase';
 import { reportNetworkResult } from '../lib/networkStatus';
 import { MASCOT_EMPTY, MASCOT_ERROR } from '../assets/illustrations';
+import { FrozenMoneyGate } from '../components/FrozenMoneyGate';
 import { useSettings } from '../context/SettingsContext';
 import {
   FeatureScreen,
@@ -41,6 +43,7 @@ export function ScheduledPaymentsScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const toast = useToast();
   const { hideBalance, confirmBiometricPayment } = useSettings();
+  const freeze = useProtectiveFreeze();
 
   const [schedules, setSchedules] = useState<ScheduledPayment[]>([]);
   const [selectedSchedule, setSelectedSchedule] = useState<ScheduledPayment | null>(null);
@@ -125,8 +128,9 @@ export function ScheduledPaymentsScreen() {
   };
 
   useEffect(() => {
+    if (freeze.protective) return;
     void loadSchedules();
-  }, [loadSchedules]);
+  }, [freeze.protective, loadSchedules]);
 
   const handleSelectSchedule = (item: ScheduledPayment) => {
     setSelectedSchedule(item);
@@ -174,6 +178,18 @@ export function ScheduledPaymentsScreen() {
       },
     });
   };
+
+  if (freeze.protective) {
+    return (
+      <FeatureScreen title="Scheduled payments">
+        <FrozenMoneyGate
+          freeze={freeze}
+          onConfirm={() => navigation.navigate('BantaySecurity')}
+        />
+      </FeatureScreen>
+    );
+  }
+
   return (
     <FeatureScreen
       title={selectedSchedule ? 'Schedule details' : 'Scheduled payments'}

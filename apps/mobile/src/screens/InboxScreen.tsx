@@ -32,6 +32,10 @@ import {
 import { supabase } from '../lib/supabase';
 import { reportNetworkResult } from '../lib/networkStatus';
 import {
+  BANTAY_PROTECTIVE_LOCK_NOTIFICATION_TYPE,
+  PROTECTIVE_FREEZE_TITLE,
+} from '../utils/protectiveFreeze';
+import {
   Screen,
   Text,
   EmptyState,
@@ -70,6 +74,7 @@ const TYPE_TITLES: Record<string, string> = {
   payment_request_declined: 'Request declined',
   scheduled_payment_failed: 'Scheduled payment failed',
   scheduled_payment_cancelled: 'Scheduled payment cancelled',
+  [BANTAY_PROTECTIVE_LOCK_NOTIFICATION_TYPE]: PROTECTIVE_FREEZE_TITLE,
 };
 
 export function notificationTitle(type: string | null): string {
@@ -130,6 +135,12 @@ function notificationIcon(type: string | null): { icon: React.ReactNode; bg: str
     return {
       icon: <CalendarClock size={LIST_ICON_SIZE} color={colors.blueText} />,
       bg: colors.tintBlue,
+    };
+  }
+  if (t === BANTAY_PROTECTIVE_LOCK_NOTIFICATION_TYPE) {
+    return {
+      icon: <ShieldAlert size={LIST_ICON_SIZE} color={colors.redText} />,
+      bg: colors.tintRed,
     };
   }
   if (t.startsWith('account_')) {
@@ -318,6 +329,11 @@ export function InboxScreen({ onUnreadCountChange }: InboxScreenProps) {
 
   const openNotification = (item: Notification) => {
     if (!item.read) void markAsRead(item.id);
+    // A protective freeze opens the Bantay security center, never a money flow.
+    if (item.type === BANTAY_PROTECTIVE_LOCK_NOTIFICATION_TYPE) {
+      navigation.navigate('BantaySecurity');
+      return;
+    }
     // Request notices open Payment requests on the matching tab (unchanged).
     if (item.type?.startsWith('payment_request_')) {
       const initialTab =
