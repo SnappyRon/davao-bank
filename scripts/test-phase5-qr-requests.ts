@@ -3,6 +3,8 @@ import {
   withStepUpCleanup,
   requireStepUpMigration,
 } from './lib/step-up';
+
+import { TEST_CUSTOMER_A, TEST_CUSTOMER_B } from './lib/test-accounts';
 /**
  * Davao Bank — Phase 5 Stage D: QR Send & Request Money Test Suite
  * Validates QR encoding/parsing, payment requests lifecycle, run-once locks,
@@ -101,13 +103,13 @@ async function runStageDTests() {
   console.log('[Live Checks] Authenticating Customer 1 & Customer 2...');
   const cust1 = createClient(SUPABASE_URL, ANON_KEY);
   const { data: auth1, error: a1Err } = await signInWithStepUp(cust1, {
-    email: 'customer1@davaobank.ph',
+    email: TEST_CUSTOMER_A,
     password: TEST_PASSWORD,
   });
 
   const cust2 = createClient(SUPABASE_URL, ANON_KEY);
   const { data: auth2, error: a2Err } = await signInWithStepUp(cust2, {
-    email: 'customer2@davaobank.ph',
+    email: TEST_CUSTOMER_B,
     password: TEST_PASSWORD,
   });
 

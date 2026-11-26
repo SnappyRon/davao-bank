@@ -6,6 +6,8 @@ import {
   assertStaleStepUpRejected,
   testFactorForEmail,
 } from './lib/step-up';
+
+import { TEST_CUSTOMER_A, TEST_CUSTOMER_B } from './lib/test-accounts';
 /**
  * Davao Bank — Phase 3 Core Banking Test Suite
  *
@@ -144,13 +146,13 @@ async function runTestSuite() {
     console.log('[1/7] Authenticating Test Customer Sessions...');
     const customer1Client = createClient(SUPABASE_URL, ANON_KEY);
     const { data: c1Auth, error: c1Err } = await signInWithStepUp(customer1Client, {
-      email: 'customer1@davaobank.ph',
+      email: TEST_CUSTOMER_A,
       password: TEST_PASSWORD,
     });
 
     const customer2Client = createClient(SUPABASE_URL, ANON_KEY);
     const { data: c2Auth, error: c2Err } = await signInWithStepUp(customer2Client, {
-      email: 'customer2@davaobank.ph',
+      email: TEST_CUSTOMER_B,
       password: TEST_PASSWORD,
     });
 
@@ -436,7 +438,7 @@ async function runTestSuite() {
     );
     const aal1Client = createClient(SUPABASE_URL, ANON_KEY);
     await aal1Client.auth.signInWithPassword({
-      email: 'customer1@davaobank.ph',
+      email: TEST_CUSTOMER_A,
       password: TEST_PASSWORD,
     });
     try {
@@ -470,7 +472,7 @@ async function runTestSuite() {
 
     // 6. Concurrency Safety Test (§7)
     // The stale-window check above waited > 5 minutes, so customer2's step-up is stale too.
-    await testFactorForEmail('customer2@davaobank.ph')?.verify(customer2Client);
+    await testFactorForEmail(TEST_CUSTOMER_B)?.verify(customer2Client);
     console.log(
       '\n[6/7] Running Parallel Concurrency Test (Overdraft Prevention under Load)...'
     );

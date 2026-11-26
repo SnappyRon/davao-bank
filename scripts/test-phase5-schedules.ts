@@ -3,6 +3,8 @@ import {
   withStepUpCleanup,
   requireStepUpMigration,
 } from './lib/step-up';
+
+import { TEST_ADMIN, TEST_CUSTOMER_A, TEST_CUSTOMER_B } from './lib/test-accounts';
 /**
  * Davao Bank — Phase 5 Stage C: Scheduled & Recurring Payments + Simulated Bill Pay Test Suite
  *
@@ -134,19 +136,19 @@ async function runTestSuite() {
     console.log('[1/5] Authenticating Test Customers & Admins...');
     const cust1 = createClient(SUPABASE_URL, ANON_KEY);
     const { data: auth1 } = await signInWithStepUp(cust1, {
-      email: 'customer1@davaobank.ph',
+      email: TEST_CUSTOMER_A,
       password: TEST_PASSWORD,
     });
 
     const cust2 = createClient(SUPABASE_URL, ANON_KEY);
     const { data: auth2 } = await signInWithStepUp(cust2, {
-      email: 'customer2@davaobank.ph',
+      email: TEST_CUSTOMER_B,
       password: TEST_PASSWORD,
     });
 
     const adminUser = createClient(SUPABASE_URL, ANON_KEY);
     const { data: authAdmin } = await signInWithStepUp(adminUser, {
-      email: 'admin@davaobank.ph',
+      email: TEST_ADMIN,
       password: TEST_PASSWORD,
     });
 

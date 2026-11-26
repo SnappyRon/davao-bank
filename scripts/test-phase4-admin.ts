@@ -3,6 +3,8 @@ import {
   withStepUpCleanup,
   requireStepUpMigration,
 } from './lib/step-up';
+
+import { TEST_ADMIN, TEST_CUSTOMER_A } from './lib/test-accounts';
 /**
  * Davao Bank — Phase 4 Admin Management Test Suite (With Phase 4 Follow-Up Invariants)
  *
@@ -133,14 +135,14 @@ async function runTestSuite() {
     const { data: custAuth, error: custAuthErr } = await signInWithStepUp(
       customerClient,
       {
-        email: 'customer1@davaobank.ph',
+        email: TEST_CUSTOMER_A,
         password: TEST_PASSWORD,
       }
     );
 
     const staffClient = createClient(SUPABASE_URL, ANON_KEY);
     const { data: staffAuth, error: staffAuthErr } = await signInWithStepUp(staffClient, {
-      email: 'admin@davaobank.ph',
+      email: TEST_ADMIN,
       password: TEST_PASSWORD,
     });
 

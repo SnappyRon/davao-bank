@@ -8,6 +8,7 @@
 
 import { randomBytes } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
+import { TEST_ADMIN, TEST_CUSTOMER_A, TEST_CUSTOMER_B } from './lib/test-accounts';
 
 const SUPABASE_URL =
   process.env.SUPABASE_URL ||
@@ -70,6 +71,26 @@ const SEED_USERS: SeedUserConfig[] = [
     phone: '+639189876543',
     role: 'customer',
     initialBalanceCentavos: 2500000, // PHP 25,000.00
+  },
+  {
+    email: TEST_CUSTOMER_A,
+    password: SEED_PASSWORD,
+    fullName: 'Test Customer A',
+    role: 'customer',
+    initialBalanceCentavos: 5000000, // PHP 50,000.00 (same as customer1)
+  },
+  {
+    email: TEST_CUSTOMER_B,
+    password: SEED_PASSWORD,
+    fullName: 'Test Customer B',
+    role: 'customer',
+    initialBalanceCentavos: 2500000, // PHP 25,000.00 (same as customer2)
+  },
+  {
+    email: TEST_ADMIN,
+    password: SEED_PASSWORD,
+    fullName: 'Davao Bank Test Administrator',
+    role: 'admin',
   },
   {
     email: 'billers@system.davaobank.invalid',
