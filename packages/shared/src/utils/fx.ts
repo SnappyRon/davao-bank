@@ -92,6 +92,17 @@ export function formatFXRate(rate: number, base = 'USD'): string {
 }
 
 /**
+ * Formats a minor-unit converted amount with the target currency's decimal rules.
+ * PHP, USD and EUR use 2 decimals; JPY uses 0 decimals. Never silently truncates.
+ */
+export function formatFXAmount(minor: number, currency: string): string {
+  const value = minor / 100;
+  if (!Number.isFinite(value)) return '0.00';
+  const decimals = currency.toUpperCase() === 'JPY' ? 0 : 2;
+  return value.toFixed(decimals);
+}
+
+/**
  * Formats a signed rate change string (+0.1500 or -0.0820).
  * Always includes sign explicitly for accessibility and unambiguous reading.
  */

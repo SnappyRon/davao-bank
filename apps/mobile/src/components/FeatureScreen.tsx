@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import {
   View,
   ScrollView,
+  type ScrollViewInstance,
   StyleSheet,
   Platform,
   AccessibilityInfo,
@@ -40,6 +41,11 @@ export interface FeatureScreenProps {
   contentContainerStyle?: ViewStyle;
   refreshControl?: React.ReactElement;
   /**
+   * Optional ref forwarded to the inner body ScrollView so a host screen can
+   * programmatically scroll to a section (e.g. the FX converter).
+   */
+  scrollViewRef?: React.RefObject<ScrollViewInstance>;
+  /**
    * Receives this screen's back handler so a host `Modal` can route
    * `onRequestClose` (Android back) through the same single guard.
    */
@@ -69,6 +75,7 @@ export function FeatureScreen({
   contentContainerStyle,
   refreshControl,
   backHandlerRef,
+  scrollViewRef,
 }: FeatureScreenProps) {
   const { showConfirmation, confirmSheet } = useConfirmSheet();
   const confirmDiscard = (onDiscard: () => void) =>
@@ -251,6 +258,7 @@ export function FeatureScreen({
         style={styles.keyboardContainer}
       >
         <ScrollView
+          ref={scrollViewRef}
           style={styles.scrollView}
           contentContainerStyle={[
             styles.scrollContent,
