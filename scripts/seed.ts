@@ -6,7 +6,9 @@
  * Run with: npm run seed
  */
 
+import { randomBytes } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
+import { TEST_ADMIN, TEST_CUSTOMER_A, TEST_CUSTOMER_B } from './lib/test-accounts';
 
 const SUPABASE_URL =
   process.env.SUPABASE_URL ||
@@ -29,25 +31,34 @@ const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
   },
 });
 
+const SEED_PASSWORD = process.env.SEED_PASSWORD;
+
+if (!SEED_PASSWORD) {
+  console.error(
+    'Error: SEED_PASSWORD environment variable is required to run seed script. Set SEED_PASSWORD in your .env file.'
+  );
+  process.exit(1);
+}
+
 interface SeedUserConfig {
   email: string;
   password: string;
   fullName: string;
   phone?: string;
-  role: 'admin' | 'customer';
+  role: 'admin' | 'customer' | 'system';
   initialBalanceCentavos?: number;
 }
 
 const SEED_USERS: SeedUserConfig[] = [
   {
     email: 'admin@davaobank.ph',
-    password: 'Password123!',
+    password: SEED_PASSWORD,
     fullName: 'Davao Bank Administrator',
     role: 'admin',
   },
   {
     email: 'customer1@davaobank.ph',
-    password: 'Password123!',
+    password: SEED_PASSWORD,
     fullName: 'Juan dela Cruz',
     phone: '+639171234567',
     role: 'customer',
@@ -55,16 +66,43 @@ const SEED_USERS: SeedUserConfig[] = [
   },
   {
     email: 'customer2@davaobank.ph',
-    password: 'Password123!',
+    password: SEED_PASSWORD,
     fullName: 'Maria Santos',
     phone: '+639189876543',
     role: 'customer',
     initialBalanceCentavos: 2500000, // PHP 25,000.00
   },
+  {
+    email: TEST_CUSTOMER_A,
+    password: SEED_PASSWORD,
+    fullName: 'Test Customer A',
+    role: 'customer',
+    initialBalanceCentavos: 5000000, // PHP 50,000.00 (same as customer1)
+  },
+  {
+    email: TEST_CUSTOMER_B,
+    password: SEED_PASSWORD,
+    fullName: 'Test Customer B',
+    role: 'customer',
+    initialBalanceCentavos: 2500000, // PHP 25,000.00 (same as customer2)
+  },
+  {
+    email: TEST_ADMIN,
+    password: SEED_PASSWORD,
+    fullName: 'Davao Bank Test Administrator',
+    role: 'admin',
+  },
+  {
+    email: 'billers@system.davaobank.invalid',
+    password: randomBytes(32).toString('base64url'),
+    fullName: 'Davao Bank System Billers',
+    role: 'system',
+  },
 ];
 
 async function seed() {
   console.log('--- Starting Davao Bank Phase 2 Seeding ---');
+  const customerIds: Array<{ email: string; id: string }> = [];
 
   for (const userConfig of SEED_USERS) {
     console.log(`\nProcessing user: ${userConfig.email} (${userConfig.role})...`);
@@ -87,12 +125,40 @@ async function seed() {
 
       if (createError) {
         console.error(`Failed to create user ${userConfig.email}:`, createError.message);
-        continue;
+        process.exit(1);
       }
       userId = newUser.user.id;
       console.log(`Created auth user: ${userId}`);
     } else {
       console.log(`Existing auth user found: ${userId}`);
+      if (userConfig.password) {
+        const { error: updatePwError } = await supabaseAdmin.auth.admin.updateUserById(
+          userId,
+          {
+            password: userConfig.password,
+          }
+        );
+        if (updatePwError) {
+          console.error(
+            `Failed to update password for ${userConfig.email}:`,
+            updatePwError.message
+          );
+          process.exit(1);
+        }
+        console.log(`Updated password for existing auth user: ${userId}`);
+      }
+    }
+
+    // Fix 2: Ban the system user from signing in through Auth API (ban_duration: 876000h)
+    if (userConfig.role === 'system') {
+      const { error: banError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+        ban_duration: '876000h',
+      });
+      if (banError) {
+        console.error(`Failed to set ban duration for system user:`, banError.message);
+        process.exit(1);
+      }
+      console.log(`Banned system user from interactive login (ban_duration: 876000h)`);
     }
 
     // 2. Ensure profile exists and role is correct
@@ -106,6 +172,7 @@ async function seed() {
 
     if (profileError) {
       console.error(`Profile error for ${userConfig.email}:`, profileError.message);
+      process.exit(1);
     } else {
       console.log(`Profile updated with role: ${userConfig.role}`);
     }
@@ -134,12 +201,17 @@ async function seed() {
 
       if (accError) {
         console.error(`Account creation error:`, accError.message);
+        process.exit(1);
       } else {
         accountId = newAcc.id;
         console.log(`Created savings account: ${randomAcc}`);
       }
     } else {
       console.log(`Found account: ${existingAccount.account_number}`);
+    }
+
+    if (userConfig.role === 'customer') {
+      customerIds.push({ email: userConfig.email, id: userId });
     }
 
     // 4. Seed initial balance if specified
@@ -165,6 +237,7 @@ async function seed() {
 
         if (txError) {
           console.error(`Transaction insert error:`, txError.message);
+          process.exit(1);
         } else if (tx) {
           const { error: leError } = await supabaseAdmin.from('ledger_entries').insert({
             account_id: accountId,
@@ -175,6 +248,7 @@ async function seed() {
 
           if (leError) {
             console.error(`Ledger entry error:`, leError.message);
+            process.exit(1);
           } else {
             console.log(
               `Deposited initial balance of PHP ${(userConfig.initialBalanceCentavos / 100).toLocaleString()}`
@@ -183,6 +257,114 @@ async function seed() {
         }
       }
     }
+  }
+
+  // 5. Seed Demo Billers under the System profile
+  console.log('\n--- Seeding Simulated Demo Billers ---');
+  const { data: systemProfile } = await supabaseAdmin
+    .from('profiles')
+    .select('id')
+    .eq('role', 'system')
+    .maybeSingle();
+
+  if (!systemProfile) {
+    console.error('Fatal: System profile not found after user seeding.');
+    process.exit(1);
+  }
+
+  const DEMO_BILLERS = [
+    {
+      name: 'Mindanao Power Co. (demo)',
+      category: 'electricity',
+      referenceLabel: 'Customer Account No.',
+      referencePattern: '^[0-9]{10}$',
+    },
+    {
+      name: 'Bayanihan Water (demo)',
+      category: 'water',
+      referenceLabel: 'Meter Account No.',
+      referencePattern: '^[0-9]{8}$',
+    },
+    {
+      name: 'Apo Fiber Internet (demo)',
+      category: 'internet',
+      referenceLabel: 'Subscriber No.',
+      referencePattern: '^[0-9]{10}$',
+    },
+    {
+      name: 'Durian City Mobile (demo)',
+      category: 'mobile',
+      referenceLabel: 'Mobile Number',
+      referencePattern: '^09[0-9]{9}$',
+    },
+  ];
+
+  for (const biller of DEMO_BILLERS) {
+    const { data: existingBiller } = await supabaseAdmin
+      .from('billers')
+      .select('id, name')
+      .eq('name', biller.name)
+      .maybeSingle();
+
+    if (!existingBiller) {
+      // Create settlement account for biller
+      const randomAcc = '10' + Math.floor(10000000 + Math.random() * 90000000);
+      const { data: newAcc, error: accErr } = await supabaseAdmin
+        .from('accounts')
+        .insert({
+          user_id: systemProfile.id,
+          account_number: randomAcc,
+          type: 'checking',
+          currency: 'PHP',
+          status: 'active',
+        })
+        .select('id')
+        .single();
+
+      if (accErr || !newAcc) {
+        console.error(
+          `Failed to create settlement account for ${biller.name}:`,
+          accErr?.message
+        );
+        process.exit(1);
+      }
+
+      const { error: billerErr } = await supabaseAdmin.from('billers').insert({
+        name: biller.name,
+        category: biller.category,
+        account_id: newAcc.id,
+        reference_label: biller.referenceLabel,
+        reference_pattern: biller.referencePattern,
+        is_active: true,
+      });
+
+      if (billerErr) {
+        console.error(`Failed to insert biller ${biller.name}:`, billerErr.message);
+        process.exit(1);
+      } else {
+        console.log(
+          `✓ Seeded biller: ${biller.name} (${biller.category}) -> Acct: ${randomAcc}`
+        );
+      }
+    } else {
+      console.log(`Existing biller found: ${biller.name}`);
+    }
+  }
+
+  // 6. Seed Phase 9 demo cards through the service-role RPC. It creates the
+  // shared card biller/merchant accounts, then one fake debit and credit card
+  // per demo customer. All values are generated server-side; seed never sees
+  // a plaintext PAN or CVV.
+  console.log('\n--- Seeding Phase 9 Demo Cards ---');
+  for (const customer of customerIds) {
+    const { error: cardError } = await supabaseAdmin.rpc('phase9_seed_cards', {
+      p_user_id: customer.id,
+    });
+    if (cardError) {
+      console.error(`Failed to seed cards for ${customer.email}:`, cardError.message);
+      process.exit(1);
+    }
+    console.log(`✓ Seeded demo cards for ${customer.email}`);
   }
 
   console.log('\n--- Seeding Completed Successfully ---');

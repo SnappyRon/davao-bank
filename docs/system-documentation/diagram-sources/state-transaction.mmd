@@ -1,0 +1,9 @@
+stateDiagram-v2
+  [*] --> completed : money RPC commits (transfer, deposit, withdrawal, bill, adjustment)
+  completed --> reversed : admin_reverse_transaction (new reversal row created)
+  reversed --> [*]
+  completed --> [*]
+  note right of completed
+    'pending' and 'failed' are allowed by the CHECK constraint
+    but no function writes them; a failed RPC rolls back entirely.
+  end note

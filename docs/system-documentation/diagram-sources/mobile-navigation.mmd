@@ -1,0 +1,13 @@
+flowchart TB
+  START(["App launch"]) --> G1{"Signed in?"}
+  G1 -- No --> AUTH["Login · Sign up<br/>Forgot password"]
+  AUTH --> VERIFY["Verify email"]
+  G1 -- Yes --> G2{"Email<br/>verified?"}
+  G2 -- No --> VERIFY
+  G2 -- Yes --> G3{"Suspended?"}
+  G3 -- Yes --> SUSP["Suspended<br/>screen"]
+  G3 -- No --> HOME & ACT & INBOX & PROF
+  HOME["Home tab"] --> HS["Sheets: Transfer<br/>Pay Bills · QR hub<br/>Cash-in · Cash-out<br/>Scheduled · Requests<br/>FX rates"]
+  ACT["Activity tab"] --> AS["Filters<br/>Receipt<br/>Statement export"]
+  INBOX["Inbox tab"] --> IS["Notifications<br/>Mark read"]
+  PROF["Profile tab"] --> PS["Personal details<br/>Saved recipients<br/>Biometric switch<br/>About · Sign out"]

@@ -1,0 +1,17 @@
+erDiagram
+  AUTH_USERS ||--|| PROFILES : "same id"
+  PROFILES ||--o{ ACCOUNTS : owns
+  PROFILES ||--o{ NOTIFICATIONS : receives
+  PROFILES |o--o{ TRANSACTIONS : initiates
+  ACCOUNTS ||--o{ LEDGER_ENTRIES : "posted to"
+  TRANSACTIONS ||--|{ LEDGER_ENTRIES : "has lines"
+  TRANSACTIONS ||--o| TRANSFERS : "detail"
+  ACCOUNTS ||--o{ TRANSFERS : "from / to"
+  TRANSACTIONS |o--o| TRANSACTIONS : reverses
+  PROFILES { uuid id PK "FK auth.users" text full_name text phone text role "customer, admin, system" text status "active, suspended" timestamptz created_at }
+  ACCOUNTS { uuid id PK text account_number UK "10 + 8 digits" uuid user_id FK text type "savings, checking" text currency "PHP" text status "active, frozen, closed" }
+  TRANSACTIONS { uuid id PK text type "6 types" text status "4 statuses" uuid initiated_by FK text idempotency_key UK text reference uuid reverses_transaction_id FK }
+  LEDGER_ENTRIES { uuid id PK uuid account_id FK uuid transaction_id FK text direction "debit, credit" bigint amount "centavos > 0" }
+  TRANSFERS { uuid id PK uuid transaction_id FK uuid from_account FK uuid to_account FK bigint amount }
+  NOTIFICATIONS { uuid id PK uuid user_id FK text type text message boolean read }
+  AUDIT_LOGS { uuid id PK uuid actor_id "no FK" text actor_role text action text entity text entity_id jsonb metadata }

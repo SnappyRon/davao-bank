@@ -1,7 +1,8 @@
 import React from 'react';
-import { colors } from '@davao-bank/shared';
+import { Download } from 'lucide-react';
 import { createAdminCookieServerClient } from '@/lib/supabase-cookies';
-import { AdminNav } from '@/components/AdminNav';
+import { AdminShell } from '@/components/AdminShell';
+import { PageHeader, Button } from '@/components/ui';
 import { TransactionsClient, type AdminTransactionRow } from './TransactionsClient';
 
 export const dynamic = 'force-dynamic';
@@ -45,14 +46,12 @@ export default async function AdminTransactionsPage() {
   const txAccountsMap: Record<string, Set<string>> = {};
 
   (ledgerData || []).forEach((entry) => {
-    // Collect accounts involved
     if (!txAccountsMap[entry.transaction_id]) {
       txAccountsMap[entry.transaction_id] = new Set<string>();
     }
     const accNum = accNumberMap[entry.account_id] || entry.account_id;
     txAccountsMap[entry.transaction_id].add(accNum);
 
-    // Collect amount
     if (!txAmountMap[entry.transaction_id]) {
       txAmountMap[entry.transaction_id] = Number(entry.amount);
     }
@@ -70,64 +69,41 @@ export default async function AdminTransactionsPage() {
     accounts_involved: Array.from(txAccountsMap[tx.id] || []),
   }));
 
+  // Query all payment requests (§D.3)
+  const { data: requestsData } = await supabase
+    .from('payment_requests')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  const requests = (requestsData || []).map((r: any) => ({
+    id: r.id,
+    requester_id: r.requester_id,
+    requester_account: r.requester_account,
+    requester_account_number: accNumberMap[r.requester_account] || r.requester_account,
+    payer_account_number: r.payer_account_number,
+    payer_user_id: r.payer_user_id,
+    amount: Number(r.amount),
+    note: r.note,
+    status: r.status,
+    transaction_id: r.transaction_id,
+    expires_at: r.expires_at,
+    created_at: r.created_at,
+    responded_at: r.responded_at,
+  }));
+
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        backgroundColor: colors.background,
-        display: 'flex',
-        flexDirection: 'column',
-      }}
-    >
-      <AdminNav adminEmail={user?.email} adminName={profile?.full_name} />
-
-      <main
-        style={{
-          maxWidth: '1280px',
-          width: '100%',
-          margin: '0 auto',
-          padding: '2rem 1.5rem',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '1.5rem',
-        }}
+    <AdminShell adminEmail={user?.email} adminName={profile?.full_name}>
+      <PageHeader
+        title="Transaction oversight & reversals"
+        subtitle="Monitor ledger activity, inspect receipts, and oversee customer payment requests."
       >
-        <div>
-          <div
-            style={{
-              fontSize: '0.8rem',
-              fontWeight: 800,
-              color: colors.primary,
-              letterSpacing: '1px',
-              textTransform: 'uppercase',
-            }}
-          >
-            Financial Monitoring &amp; Reversals
-          </div>
-          <h1
-            style={{
-              fontSize: '1.75rem',
-              fontWeight: 800,
-              color: colors.textPrimary,
-              marginTop: '0.25rem',
-            }}
-          >
-            Transaction Oversight &amp; Audit
-          </h1>
-          <p
-            style={{
-              fontSize: '0.9rem',
-              color: colors.textSecondary,
-              marginTop: '0.25rem',
-            }}
-          >
-            Monitor real-time ledger activity, filter by status or transaction type,
-            export audit CSV reports, and execute atomic compensating reversals.
-          </p>
-        </div>
-
-        <TransactionsClient initialTransactions={rows} />
-      </main>
-    </div>
+        <a href="/api/export/transactions">
+          <Button variant="secondary" icon={<Download size={16} />}>
+            Export Ledger CSV
+          </Button>
+        </a>
+      </PageHeader>
+      <TransactionsClient initialTransactions={rows} initialRequests={requests} />
+    </AdminShell>
   );
 }

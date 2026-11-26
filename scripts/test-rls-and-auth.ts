@@ -1,3 +1,10 @@
+import {
+  signInWithStepUp,
+  withStepUpCleanup,
+  requireStepUpMigration,
+} from './lib/step-up';
+
+import { TEST_ADMIN, TEST_CUSTOMER_A, TEST_CUSTOMER_B } from './lib/test-accounts';
 /**
  * Davao Bank — Phase 2 Verification & RLS Test Suite
  *
@@ -14,6 +21,7 @@
  * Run with: npm run test:rls
  */
 
+import { randomBytes } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -37,6 +45,13 @@ const ANON_KEY =
   'placeholder-anon-key';
 
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const TEST_PASSWORD = process.env.SEED_PASSWORD || process.env.E2E_PASSWORD || '';
+if (!TEST_PASSWORD) {
+  console.error(
+    'NOT VERIFIED — set SEED_PASSWORD or E2E_PASSWORD for authenticated live checks.'
+  );
+  throw new Error('Live suite failed; see checks above.');
+}
 
 interface TestResult {
   title: string;
@@ -60,6 +75,9 @@ function assert(condition: boolean, title: string, details?: string) {
 }
 
 async function runTests() {
+  await requireStepUpMigration(
+    createClient(SUPABASE_URL, ANON_KEY, { auth: { persistSession: false } })
+  );
   console.log('========================================================');
   console.log('Davao Bank Phase 2 — Comprehensive RLS & Auth Test Suite');
   console.log('========================================================\n');
@@ -68,6 +86,7 @@ async function runTests() {
     auth: { persistSession: false },
   });
 
+  const host = new URL(SUPABASE_URL).host;
   let isConnected = false;
   try {
     const { data: hcData, error: hcError } = await anonClient
@@ -78,21 +97,16 @@ async function runTests() {
 
     if (!hcError && hcData?.status === 'ok') {
       isConnected = true;
-      console.log(`✓ Successfully connected to live Supabase backend: ${SUPABASE_URL}\n`);
+      console.log(`Database host: ${host}`);
+      console.log('✓ Connected to live database\n');
     }
   } catch {
     isConnected = false;
   }
 
   if (!isConnected) {
-    console.log('----------------------------------------------------------------');
-    console.log('NOTICE: Live Supabase database tables are not currently reachable at:');
-    console.log(`URL: ${SUPABASE_URL}`);
-    console.log('Running test suite in Self-Contained Verification / Contract Mode.');
-    console.log('----------------------------------------------------------------\n');
-    runContractValidations();
-    printSummary();
-    return;
+    console.error(`NOT VERIFIED — database unreachable (${host})`);
+    throw new Error('Live suite failed; see checks above.');
   }
 
   // 1. Anon Client Checks
@@ -137,6 +151,27 @@ async function runTests() {
     anonLedgerInsertError?.message
   );
 
+  // 1.5 Anon RPC to money function transfer is rejected with permission denied (Stage B)
+  const { error: anonRpcErr } = await anonClient.rpc('transfer', {
+    p_from_account: '11111111-1111-1111-1111-111111111111',
+    p_to_account: '22222222-2222-2222-2222-222222222222',
+    p_amount: 1000,
+    p_idempotency_key: 'anon-probe',
+    p_reference: 'anon hack',
+  } as any);
+  assert(
+    Boolean(anonRpcErr) && /permission denied/i.test(anonRpcErr?.message || ''),
+    'Anon RPC to transfer rejected with permission denied',
+    anonRpcErr?.message
+  );
+
+  // 1.6 Anon reading billers is blocked by RLS (Stage B)
+  const { data: anonBillers } = await anonClient.from('billers').select('*');
+  assert(
+    !anonBillers || anonBillers.length === 0,
+    'Anon cannot read billers table (returns 0 rows)'
+  );
+
   // 2. Customer A & Customer B Isolation Checks
   console.log('\n[2/4] Testing Customer A vs Customer B Data Isolation...');
   const customerAClient = createClient(SUPABASE_URL, ANON_KEY, {
@@ -146,23 +181,24 @@ async function runTests() {
     auth: { persistSession: false },
   });
 
-  const { data: authA, error: errA } = await customerAClient.auth.signInWithPassword({
-    email: 'customer1@davaobank.ph',
-    password: 'Password123!',
+  let userAId = '';
+  let userBId = '';
+
+  const { data: authA, error: errA } = await signInWithStepUp(customerAClient, {
+    email: TEST_CUSTOMER_A,
+    password: TEST_PASSWORD,
   });
 
-  const { data: authB, error: errB } = await customerBClient.auth.signInWithPassword({
-    email: 'customer2@davaobank.ph',
-    password: 'Password123!',
+  const { data: authB, error: errB } = await signInWithStepUp(customerBClient, {
+    email: TEST_CUSTOMER_B,
+    password: TEST_PASSWORD,
   });
 
   if (errA || !authA.user || errB || !authB.user) {
-    console.log(
-      'Note: Seed users not logged in directly. Proceeding with simulated JWT test or schema validation.'
-    );
+    assert(false, 'Customer authentication required; isolation checks NOT VERIFIED');
   } else {
-    const userAId = authA.user.id;
-    const userBId = authB.user.id;
+    userAId = authA.user.id;
+    userBId = authB.user.id;
 
     // Customer A reading own profile
     const { data: profA } = await customerAClient
@@ -250,15 +286,13 @@ async function runTests() {
     auth: { persistSession: false },
   });
 
-  const { data: authAdmin, error: errAdmin } = await adminClient.auth.signInWithPassword({
-    email: 'admin@davaobank.ph',
-    password: 'Password123!',
+  const { data: authAdmin, error: errAdmin } = await signInWithStepUp(adminClient, {
+    email: TEST_ADMIN,
+    password: TEST_PASSWORD,
   });
 
   if (errAdmin || !authAdmin.user) {
-    console.log(
-      'Note: Admin user not logged in directly. Verifying service role & helper.'
-    );
+    assert(false, 'Admin authentication required; privilege checks NOT VERIFIED');
   } else {
     // Admin reading all profiles
     const { data: allProfiles } = await adminClient.from('profiles').select('id, role');
@@ -283,16 +317,73 @@ async function runTests() {
 
     assert(!adminAuditError, 'Admin can view audit logs');
 
-    // Admin cannot delete audit logs (append-only enforcement)
-    const { error: adminAuditDeleteError } = await adminClient
+    // Admin cannot delete audit logs (append-only enforcement: RLS matches 0 rows)
+    const { count: countBefore } = await adminClient
+      .from('audit_logs')
+      .select('*', { count: 'exact', head: true });
+
+    await adminClient
       .from('audit_logs')
       .delete()
       .neq('id', '00000000-0000-0000-0000-000000000000');
 
+    const { count: countAfter } = await adminClient
+      .from('audit_logs')
+      .select('*', { count: 'exact', head: true });
+
     assert(
-      Boolean(adminAuditDeleteError),
+      countBefore !== null && countAfter !== null && countBefore === countAfter,
       'Admin client DELETE on audit_logs is rejected (Append-only invariant)'
     );
+
+    // Guard Trigger (0.6): verify caller restrictions on profiles (§0.6 / Fix F10)
+    console.log('\n[Guard Trigger 0.6] Testing profile self-update guard trigger...');
+
+    // 1. Anon attempt is rejected
+    const { data: anonUpData, error: anonUpErr } = await anonClient
+      .from('profiles')
+      .update({ role: 'admin' })
+      .eq('id', userAId)
+      .select();
+    assert(
+      Boolean(anonUpErr) || !anonUpData || anonUpData.length === 0,
+      'Guard trigger (0.6): anonymous attempt to update profile role is rejected'
+    );
+
+    // 2. Customer changing own role is rejected
+    const { data: custRoleData, error: custRoleErr } = await customerAClient
+      .from('profiles')
+      .update({ role: 'admin' })
+      .eq('id', userAId)
+      .select();
+    assert(
+      Boolean(custRoleErr) || !custRoleData || custRoleData.length === 0,
+      'Guard trigger (0.6): customer changing own role is rejected'
+    );
+
+    // 3. Customer changing own status is rejected
+    const { data: custStatData, error: custStatErr } = await customerAClient
+      .from('profiles')
+      .update({ status: 'suspended' })
+      .eq('id', userAId)
+      .select();
+    assert(
+      Boolean(custStatErr) || !custStatData || custStatData.length === 0,
+      'Guard trigger (0.6): customer changing own status is rejected'
+    );
+
+    // 4. Administrator suspending a customer is allowed
+    const { error: adminSuspendErr } = await adminClient
+      .from('profiles')
+      .update({ status: 'suspended' })
+      .eq('id', userBId);
+    assert(
+      !adminSuspendErr,
+      'Guard trigger (0.6): administrator suspending a customer is allowed'
+    );
+
+    // Revert customer B status back to active
+    await adminClient.from('profiles').update({ status: 'active' }).eq('id', userBId);
   }
 
   // 4. Signup Provisioning Trigger Verification (Service Role)
@@ -306,7 +397,7 @@ async function runTests() {
     const { data: newUser, error: createError } =
       await serviceClient.auth.admin.createUser({
         email: testEmail,
-        password: 'Password123!',
+        password: randomBytes(32).toString('hex') + 'Aa1!',
         email_confirm: true,
         user_metadata: {
           full_name: 'Test Trigger User',
@@ -315,35 +406,46 @@ async function runTests() {
       });
 
     if (createError) {
-      console.warn('Skipping trigger creation test:', createError.message);
+      assert(false, 'Throwaway trigger-test user created', createError.message);
     } else if (newUser.user) {
-      // Check that profile was created by trigger
-      const { data: newProfile } = await serviceClient
-        .from('profiles')
-        .select('*')
-        .eq('id', newUser.user.id)
-        .maybeSingle();
+      try {
+        // Check that profile was created by trigger
+        const { data: newProfile } = await serviceClient
+          .from('profiles')
+          .select('*')
+          .eq('id', newUser.user.id)
+          .maybeSingle();
 
-      assert(
-        newProfile?.role === 'customer' && newProfile?.full_name === 'Test Trigger User',
-        'Trigger on_auth_user_created automatically provisions customer profile'
-      );
+        assert(
+          newProfile?.role === 'customer' &&
+            newProfile?.full_name === 'Test Trigger User',
+          'Trigger on_auth_user_created automatically provisions customer profile'
+        );
 
-      // Check that default savings account was created by trigger
-      const { data: newAccount } = await serviceClient
-        .from('accounts')
-        .select('*')
-        .eq('user_id', newUser.user.id)
-        .maybeSingle();
+        // Check that default savings account was created by trigger
+        const { data: newAccount } = await serviceClient
+          .from('accounts')
+          .select('*')
+          .eq('user_id', newUser.user.id)
+          .maybeSingle();
 
-      assert(
-        Boolean(newAccount?.account_number?.startsWith('10')) &&
-          newAccount?.type === 'savings',
-        'Trigger on_auth_user_created automatically provisions default savings account (10XXXXXXXX)'
-      );
-
-      // Cleanup test user
-      await serviceClient.auth.admin.deleteUser(newUser.user.id);
+        assert(
+          Boolean(newAccount?.account_number?.startsWith('10')) &&
+            newAccount?.type === 'savings',
+          'Trigger on_auth_user_created automatically provisions default savings account (10XXXXXXXX)'
+        );
+      } finally {
+        const { error: deleteError } = await serviceClient.auth.admin.deleteUser(
+          newUser.user.id
+        );
+        assert(!deleteError, 'Throwaway trigger-test user deleted');
+        const { data: deletedUser, error: lookupError } =
+          await serviceClient.auth.admin.getUserById(newUser.user.id);
+        assert(
+          !deletedUser.user && lookupError?.status === 404,
+          'Deleted trigger-test user cannot be retrieved'
+        );
+      }
     }
   } else {
     console.log(
@@ -351,6 +453,8 @@ async function runTests() {
     );
   }
 
+  // Run source-file checks in addition to live tests
+  runContractValidations();
   printSummary();
 }
 
@@ -405,11 +509,11 @@ function printSummary() {
   }
   console.log('========================================================\n');
   if (failed > 0) {
-    process.exit(1);
+    throw new Error('Live suite failed; see checks above.');
   }
 }
 
-runTests().catch((err) => {
-  console.error('Fatal error in RLS test suite:', err);
-  process.exit(1);
+withStepUpCleanup(runTests).catch((error: Error) => {
+  console.error(error.message);
+  process.exitCode = 1;
 });

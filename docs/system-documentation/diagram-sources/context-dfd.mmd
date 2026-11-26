@@ -1,0 +1,12 @@
+flowchart LR
+  C(["Customer"])
+  A(["Administrator"])
+  F(["Frankfurter / ECB<br/>rate service"])
+  S(["pg_cron scheduler"])
+  P(("0<br/>Davao Bank<br/>System"))
+  C -->|"registration, login credentials,<br/>money requests, settings"| P
+  P -->|"balances, receipts, history,<br/>notifications, statements, QR codes"| C
+  A -->|"credentials, user/account actions,<br/>adjustments, reversals, biller setup"| P
+  P -->|"dashboard figures, lists,<br/>audit trail, CSV export"| A
+  F -->|"daily reference rates"| P
+  S -->|"time triggers"| P

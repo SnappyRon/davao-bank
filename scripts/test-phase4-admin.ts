@@ -1,3 +1,10 @@
+import {
+  signInWithStepUp,
+  withStepUpCleanup,
+  requireStepUpMigration,
+} from './lib/step-up';
+
+import { TEST_ADMIN, TEST_CUSTOMER_A } from './lib/test-accounts';
 /**
  * Davao Bank — Phase 4 Admin Management Test Suite (With Phase 4 Follow-Up Invariants)
  *
@@ -30,6 +37,14 @@ try {
   process.loadEnvFile?.('.env');
 } catch {
   // .env is optional
+}
+
+const TEST_PASSWORD = process.env.SEED_PASSWORD || process.env.E2E_PASSWORD;
+if (!TEST_PASSWORD) {
+  console.error(
+    'NOT VERIFIED — set SEED_PASSWORD or E2E_PASSWORD for authenticated live checks.'
+  );
+  throw new Error('Live suite failed; see checks above.');
 }
 
 const SUPABASE_URL =
@@ -68,6 +83,9 @@ function assert(category: string, condition: boolean, title: string, details?: s
 }
 
 async function runTestSuite() {
+  await requireStepUpMigration(
+    createClient(SUPABASE_URL, ANON_KEY, { auth: { persistSession: false } })
+  );
   console.log('================================================================');
   console.log('Davao Bank — Phase 4: Admin Management Verification Suite');
   console.log('Access Control, Status Transitions, Adjustments & Reversals');
@@ -83,6 +101,7 @@ async function runTestSuite() {
     auth: { persistSession: false },
   });
 
+  const host = new URL(SUPABASE_URL).host;
   let isConnected = false;
   try {
     const { data: hc, error: hcErr } = await anonClient
@@ -92,44 +111,40 @@ async function runTestSuite() {
       .maybeSingle();
     if (!hcErr && hc?.status === 'ok') {
       isConnected = true;
-      console.log(`✓ Successfully connected to live Supabase backend: ${SUPABASE_URL}\n`);
+      console.log(`Database host: ${host}`);
+      console.log('✓ Connected to live database\n');
     }
   } catch {
     isConnected = false;
   }
 
   if (!isConnected) {
-    console.log('----------------------------------------------------------------');
-    console.log('NOTICE: Live Supabase database is not currently reachable at:');
-    console.log(`URL: ${SUPABASE_URL}`);
-    console.log('Running test suite in Self-Contained Verification / Contract Mode.');
-    console.log('----------------------------------------------------------------\n');
-    runContractValidations();
-    printSummary();
-    return;
+    console.error(`NOT VERIFIED — database unreachable (${host})`);
+    throw new Error('Live suite failed; see checks above.');
   }
 
   if (!adminClient) {
     console.error('Cannot run live database test suite without SERVICE_ROLE_KEY.');
-    return;
+    throw new Error('Live suite failed; see checks above.');
   }
 
   try {
     // 1. Authenticate Identities
     console.log('[1/8] Authenticating Customer and Staff (Admin) Sessions...');
     const customerClient = createClient(SUPABASE_URL, ANON_KEY);
-    const { data: custAuth, error: custAuthErr } =
-      await customerClient.auth.signInWithPassword({
-        email: 'customer1@davaobank.ph',
-        password: 'Password123!',
-      });
+    const { data: custAuth, error: custAuthErr } = await signInWithStepUp(
+      customerClient,
+      {
+        email: TEST_CUSTOMER_A,
+        password: TEST_PASSWORD,
+      }
+    );
 
     const staffClient = createClient(SUPABASE_URL, ANON_KEY);
-    const { data: staffAuth, error: staffAuthErr } =
-      await staffClient.auth.signInWithPassword({
-        email: 'admin@davaobank.ph',
-        password: 'Password123!',
-      });
+    const { data: staffAuth, error: staffAuthErr } = await signInWithStepUp(staffClient, {
+      email: TEST_ADMIN,
+      password: TEST_PASSWORD,
+    });
 
     assert(
       'Auth',
@@ -148,8 +163,22 @@ async function runTestSuite() {
     const staffUser = staffAuth.user!;
 
     // Fetch accounts
-    const { data: custAccs } = await customerClient.from('account_balances').select('*');
-    const custAccount = custAccs?.[0];
+    const { data: custAccs } = await customerClient
+      .from('account_balances')
+      .select('*')
+      .eq('status', 'active');
+    const custAccount =
+      custAccs?.find((a) => Number(a.balance) >= 100000) || custAccs?.[0];
+
+    if (custAccount && Number(custAccount.balance) < 100000) {
+      await customerClient.rpc('deposit', {
+        p_account: custAccount.account_id,
+        p_amount: 500000,
+        p_idempotency_key: `seed_admin_test_${Date.now()}`,
+        p_reference: 'Seed for admin testing',
+      });
+      custAccount.balance = (Number(custAccount.balance) + 500000) as any;
+    }
 
     assert(
       'Accounts',
@@ -474,6 +503,12 @@ async function runTestSuite() {
     const adjAmount = 50000;
     const adjKey = `adj_credit_${Date.now()}`;
 
+    const { data: balBeforeRows } = await staffClient
+      .from('account_balances')
+      .select('balance')
+      .eq('account_id', newAccId);
+    const balBefore = Number(balBeforeRows?.[0]?.balance ?? 0);
+
     const { data: adjCreditRes, error: adjCreditErr } = await staffClient.rpc(
       'admin_adjust_balance',
       {
@@ -484,9 +519,34 @@ async function runTestSuite() {
         p_idempotency_key: adjKey,
       }
     );
+
+    const { data: balAfterRows } = await staffClient
+      .from('account_balances')
+      .select('balance')
+      .eq('account_id', newAccId);
+    const balAfter = Number(balAfterRows?.[0]?.balance ?? 0);
+
+    const { data: adjTx } = await staffClient
+      .from('transactions')
+      .select('id, type, status')
+      .eq('id', adjCreditRes?.id)
+      .maybeSingle();
+
+    const { data: adjLedger } = await staffClient
+      .from('ledger_entries')
+      .select('id, direction, amount')
+      .eq('transaction_id', adjCreditRes?.id)
+      .eq('direction', 'credit')
+      .maybeSingle();
+
     assert(
       'Adjustment',
-      !adjCreditErr && adjCreditRes?.new_balance === adjAmount,
+      !adjCreditErr &&
+        adjTx?.type === 'adjustment' &&
+        adjTx?.status === 'completed' &&
+        adjLedger?.direction === 'credit' &&
+        Number(adjLedger?.amount) === adjAmount &&
+        balAfter === balBefore + adjAmount,
       `Balance adjustment credit (₱${(adjAmount / 100).toFixed(2)}) applied successfully`,
       adjCreditErr?.message
     );
@@ -650,6 +710,77 @@ async function runTestSuite() {
       `All transfers and reversals remain strictly balanced: Credits (₱${(credits / 100).toFixed(2)}) == Debits (₱${(debits / 100).toFixed(2)})`
     );
 
+    // 8. Biller Status Management & RLS Visibility (F3)
+    console.log(
+      '\n[8/8] Testing Admin Biller Activation/Deactivation & RLS Visibility (F3)...'
+    );
+    const { data: billerList } = await staffClient
+      .from('billers')
+      .select('id, name, is_active')
+      .limit(1);
+    if (billerList && billerList.length > 0) {
+      const testBiller = billerList[0];
+      // 8.1 Deactivate biller
+      const { data: deactRes, error: deactErr } = await staffClient.rpc(
+        'admin_set_biller_active',
+        {
+          p_biller_id: testBiller.id,
+          p_is_active: false,
+        }
+      );
+      assert(
+        'BillerStatus',
+        !deactErr && deactRes?.is_active === false,
+        `Admin deactivates biller (${testBiller.name}) through RPC`,
+        deactErr?.message
+      );
+
+      // 8.2 Customer cannot see deactivated biller via RLS
+      const { data: custBillerView } = await customerClient
+        .from('billers')
+        .select('id')
+        .eq('id', testBiller.id)
+        .maybeSingle();
+      assert(
+        'BillerStatus',
+        custBillerView === null,
+        'Deactivated biller is hidden from customer via RLS'
+      );
+
+      // 8.3 Admin can still see deactivated biller via RLS
+      const { data: adminBillerView } = await staffClient
+        .from('billers')
+        .select('id, is_active')
+        .eq('id', testBiller.id)
+        .maybeSingle();
+      assert(
+        'BillerStatus',
+        adminBillerView !== null && adminBillerView.is_active === false,
+        'Deactivated biller remains visible to administrator via RLS'
+      );
+
+      // 8.4 Audit log entry exists
+      const { data: billerAudit } = await adminClient
+        .from('audit_logs')
+        .select('id, action')
+        .eq('action', 'biller_status_changed')
+        .eq('entity_id', String(testBiller.id))
+        .limit(1);
+      assert(
+        'BillerStatus',
+        Boolean(billerAudit && billerAudit.length > 0),
+        'Audit log has biller_status_changed entry'
+      );
+
+      // Reactivate biller
+      await staffClient.rpc('admin_set_biller_active', {
+        p_biller_id: testBiller.id,
+        p_is_active: true,
+      });
+    }
+
+    // Run source-file checks in addition to live tests
+    runContractValidations();
     printSummary();
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -799,8 +930,11 @@ function printSummary() {
   console.log('================================================================\n');
 
   if (failed > 0) {
-    process.exit(1);
+    throw new Error('Live suite failed; see checks above.');
   }
 }
 
-runTestSuite();
+withStepUpCleanup(runTestSuite).catch((error: Error) => {
+  console.error(error.message);
+  process.exitCode = 1;
+});

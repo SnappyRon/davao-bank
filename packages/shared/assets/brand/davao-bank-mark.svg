@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Davao Bank emblem: Mt. Apo standing on a woven Kadayawan band. -->
+  <defs>
+    <clipPath id="band"><path d="M68 334 H444 L478 410 Q256 452 34 410 Z"/></clipPath>
+  </defs>
+  <!-- mountain silhouette (stepped ridges, twin summit) -->
+  <path d="M68 336 L138 262 L152 266 L196 196 L212 200 L246 84 L262 100 L276 92 L318 196 L334 192 L372 262 L388 258 L444 336 Z" fill="#0C6D38"/>
+  <!-- sunlit left face -->
+  <path d="M246 84 L212 200 L196 196 L152 266 L138 262 L68 336 L210 336 L236 250 L250 170 Z" fill="#03AA56"/>
+  <!-- teal ridge light -->
+  <path d="M246 84 L236 160 L220 210 L196 246 L212 200 Z" fill="#33C3D1"/>
+  <!-- deep valley -->
+  <path d="M276 92 L262 100 L258 180 L278 250 L262 336 L318 336 L294 248 Z" fill="#095A2E"/>
+  <!-- gold ridge light (right) -->
+  <path d="M276 92 L318 196 L334 192 L302 150 Z" fill="#FEAD0B"/>
+  <path d="M334 192 L372 262 L388 258 L352 220 Z" fill="#FEAD0B"/>
+  <!-- woven band -->
+  <path d="M68 334 H444 L478 410 Q256 452 34 410 Z" fill="#E0342B"/>
+  <g clip-path="url(#band)" fill="none" stroke="#FEAD0B" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M20 352 H492" stroke-width="6"/>
+    <path d="M10 370 l16 18 l16 -18 l16 18 l16 -18 l16 18 l16 -18 l16 18 l16 -18 l16 18 l16 -18 l16 18 l16 -18 l16 18 l16 -18 l16 18 l16 -18 l16 18 l16 -18 l16 18 l16 -18 l16 18 l16 -18 l16 18 l16 -18 l16 18 l16 -18 l16 18 l16 -18 l16 18 l16 -18 l16 18 l16 -18" stroke-width="7"/>
+    <path d="M20 404 Q256 446 492 404" stroke-width="6"/>
+  </g>
+</svg>

@@ -1,0 +1,23 @@
+flowchart LR
+  CU(["Customer"])
+  subgraph M["Davao Bank mobile app"]
+    direction TB
+    U1(["Register, verify email, sign in"])
+    U2(["View balances, hide balance"])
+    U3(["Transfer money"])
+    U4(["Cash-in / cash-out (simulated)"])
+    U5(["Pay bills to demo billers"])
+    U6(["Schedule one-time or recurring payment"])
+    U7(["Show or scan Davao Bank QR"])
+    U8(["Request, pay or decline a money request"])
+    U9(["View activity and receipts"])
+    U10(["Export statement as PDF / CSV"])
+    U11(["Read notifications"])
+    U12(["Manage profile, saved recipients, biometrics"])
+    U13(["View FX reference rates"])
+  end
+  CU --- U1 & U2 & U3 & U4 & U5 & U6 & U7
+  CU --- U8 & U9 & U10 & U11 & U12 & U13
+  U3 -. "include" .-> U14(["Confirm with biometrics or password"])
+  U5 -. "include" .-> U14
+  U8 -. "include" .-> U14

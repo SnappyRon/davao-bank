@@ -36,3 +36,13 @@ yarn-error.log*
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# Local artifacts / POC results
+offline_currency_poc_results/
+
+# Local browser test artifacts
+test-results/
+playwright-report/
+
+# Agent git worktrees (Claude Code)
+.claude/worktrees/

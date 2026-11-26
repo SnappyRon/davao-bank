@@ -1,0 +1,111 @@
+import { toUserMessage } from '../utils/errors';
+import { typeLabel } from '../utils/transactions';
+
+describe('toUserMessage error sanitizer', () => {
+  it('maps insufficient funds errors with and without available balance', () => {
+    expect(toUserMessage('Insufficient funds')).toBe(
+      'Not enough balance. Please check your available funds.'
+    );
+    expect(toUserMessage('insufficient funds in account', 50000)).toBe(
+      'Not enough balance. You have ₱500.00 available.'
+    );
+  });
+
+  it('maps recipient not found error safely', () => {
+    expect(toUserMessage('Recipient account number not found')).toBe(
+      "We couldn't find that account. Check the 10 digits."
+    );
+  });
+
+  it('maps inactive account error safely', () => {
+    expect(toUserMessage('Source account is not active')).toBe(
+      "This account can't send or receive money right now."
+    );
+  });
+
+  it('maps invalid reference error safely', () => {
+    expect(toUserMessage('Invalid reference format for biller')).toBe(
+      "That reference doesn't look right. Check your bill and try again."
+    );
+  });
+
+  it('maps request no longer pending error safely', () => {
+    expect(toUserMessage('Payment request is no longer pending')).toBe(
+      'This request was already paid, declined or cancelled.'
+    );
+  });
+
+  it('maps invalid login credentials error safely', () => {
+    expect(toUserMessage('Invalid login credentials')).toBe(
+      "That email and password don't match. Try again."
+    );
+  });
+
+  it('maps offline and network failures safely', () => {
+    expect(toUserMessage('Network request failed')).toBe(
+      'You appear to be offline. Nothing was sent.'
+    );
+    expect(toUserMessage('Failed to fetch')).toBe(
+      'You appear to be offline. Nothing was sent.'
+    );
+  });
+
+  it('maps Phase 8 Bantay guard errors to safe copy', () => {
+    expect(toUserMessage('Account locked')).toBe(
+      'Your account is locked. Unlock it in Bantay to send money.'
+    );
+    expect(toUserMessage('Confirmation required')).toBe(
+      'Confirm this payment in Bantay to continue. Nothing has been sent.'
+    );
+  });
+
+  it('omits money-sending copy when context is "load"', () => {
+    expect(toUserMessage('Network request failed', 'load')).toBe(
+      'You appear to be offline.'
+    );
+    expect(toUserMessage('Failed to fetch', 'load')).toBe('You appear to be offline.');
+    expect(toUserMessage('psql error: table not found', 'load')).toBe(
+      'Something went wrong. Try again.'
+    );
+  });
+
+  it('maps unexpected backend exceptions to generic safe fallback', () => {
+    expect(toUserMessage('psql error: foreign key constraint violation')).toBe(
+      'Something went wrong. No money was sent. Try again.'
+    );
+  });
+
+  it('omits money copy when context is "account"', () => {
+    expect(toUserMessage('Network request failed', 'account')).toBe(
+      'You appear to be offline. Check your connection and try again.'
+    );
+    expect(toUserMessage('Failed to fetch', 'account')).toBe(
+      'You appear to be offline. Check your connection and try again.'
+    );
+    expect(toUserMessage('psql error: table not found', 'account')).toBe(
+      'Something went wrong. Try again.'
+    );
+    expect(toUserMessage('psql error: foreign key constraint violation', 'account')).toBe(
+      'Something went wrong. Try again.'
+    );
+    expect(toUserMessage('random backend error', 'account')).not.toContain('money');
+    expect(toUserMessage('Network request failed', 'account')).not.toContain('money');
+  });
+});
+
+describe('typeLabel formatter', () => {
+  it('maps all 7 transaction types correctly', () => {
+    expect(typeLabel('transfer')).toBe('Transfer');
+    expect(typeLabel('deposit')).toBe('Deposit');
+    expect(typeLabel('withdrawal')).toBe('Withdrawal');
+    expect(typeLabel('bill_payment')).toBe('Bill payment');
+    expect(typeLabel('adjustment')).toBe('Adjustment');
+    expect(typeLabel('reversal')).toBe('Reversal');
+    expect(typeLabel('payment_request')).toBe('Payment request');
+  });
+
+  it('handles unknown or empty types safely', () => {
+    expect(typeLabel('')).toBe('Transaction');
+    expect(typeLabel('custom_type')).toBe('Custom type');
+  });
+});

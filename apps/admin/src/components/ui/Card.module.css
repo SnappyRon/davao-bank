@@ -1,0 +1,21 @@
+.card {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-xl);
+  box-shadow: none;
+}
+
+.subtle {
+  background-color: var(--color-surface-subtle);
+}
+
+.interactive {
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.interactive:hover {
+  transform: translateY(-2px);
+  border-color: var(--color-ink);
+}

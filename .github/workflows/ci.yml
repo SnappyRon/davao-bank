@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: ['**']
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Lint, Test & Build (No Secrets)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Format Check
+        run: npm run format:check
+
+      - name: Copy Audit
+        run: npm run check:copy
+
+      - name: Unit Tests
+        run: npm run test:unit
+
+      # Stage 8E adds packages/shared/src/__tests__/bantay_*.test.ts. The Unit
+      # Tests step above already runs them; this named gate makes them visible
+      # in CI once that branch is merged. test:bantay stays manual (hosted +
+      # .env) and is deliberately not wired in here.
+      - name: Bantay shared Jest tests (Stage 8E)
+        if: hashFiles('packages/shared/src/__tests__/bantay_*.test.ts') != ''
+        run: npx jest --selectProjects shared --runInBand packages/shared/src/__tests__/bantay_
+
+      - name: Shared Color Contrast
+        run: npm run test:contrast
+
+      - name: Offline Database Tests (PGlite)
+        run: npm run test:db
+
+      - name: Build Admin App
+        run: npm run build:admin
+
+      - name: Export Mobile Bundle (Expo iOS)
+        run: cd apps/mobile && EXPO_NO_TELEMETRY=1 npx expo export --platform ios
+
+      - name: Secret Scan (Gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

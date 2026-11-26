@@ -1,0 +1,23 @@
+sequenceDiagram
+  autonumber
+  actor A as Administrator
+  participant UI as Transactions page
+  participant MW as Middleware
+  participant SA as Server action
+  participant FN as admin_reverse_transaction
+  participant DB as Tables
+  A->>UI: Reverse + reason
+  UI->>UI: Key created when<br/>dialog opens
+  UI->>MW: POST (session cookie)
+  MW->>MW: Refresh session,<br/>require admin role
+  MW->>SA: forward
+  SA->>FN: rpc with admin JWT
+  FN->>FN: is_admin(), reason,<br/>key replay check
+  FN->>DB: Lock original, then<br/>accounts in order
+  FN->>DB: No balance may<br/>go negative
+  FN->>DB: Insert reversal and<br/>mirrored entries
+  FN->>DB: Mark original reversed
+  FN->>DB: Audit + notify owners
+  FN-->>SA: result
+  SA-->>UI: refresh pages
+  UI-->>A: Shows Reversed

@@ -1,0 +1,128 @@
+.accountNum {
+  font-weight: 700;
+}
+
+.accountMeta {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  text-transform: capitalize;
+}
+
+.ownerName {
+  font-weight: 600;
+}
+
+.ownerEmail {
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+}
+
+.balanceCell {
+  text-align: right;
+}
+
+.balanceAmount {
+  font-weight: 800;
+  color: var(--color-primary);
+}
+
+.balanceLarge {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--color-primary);
+}
+
+.balanceMeta {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.actionsCell {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.filterSearch {
+  flex: 1;
+  min-width: 240px;
+}
+
+.filterSelect {
+  width: 160px;
+}
+
+.drawerStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.metaStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.metaLabel {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+}
+
+.statusWrapper {
+  margin-top: 4px;
+}
+
+.metaMono {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+}
+
+.metaText {
+  font-weight: 600;
+}
+
+.modalStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-base);
+}
+
+.modalCardRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modalRightCol {
+  text-align: right;
+}
+
+.modalSubtext {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+}
+
+.boldNum {
+  font-weight: 700;
+}
+
+.ledgerEffectBox {
+  background-color: var(--color-surface-subtle);
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  border-left: 4px solid var(--color-primary);
+  font-size: 0.875rem;
+}
+
+.ledgerEffectLabel {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+}
+
+.previewAmount {
+  font-weight: 700;
+  margin-top: 4px;
+}

@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 820" width="860" height="820" font-family="Arial, Helvetica, sans-serif" font-size="15">
+  <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#5C5A55"/></marker></defs>
+  <style>.band{fill:#F7F5F0;stroke:#B5AFA2}.box{fill:#E3F2E8;stroke:#0C6D38;stroke-width:1.5}.ext{fill:#E1F3FA;stroke:#006E94;stroke-width:1.5}.t{fill:#1A1A1A;text-anchor:middle}.b{font-weight:bold}.lbl{fill:#5C5A55;font-size:13px}.band-t{fill:#5C5A55;font-size:13px;font-weight:bold}.ln{stroke:#5C5A55;stroke-width:1.5;fill:none;marker-end:url(#ar)}</style>
+  <!-- client tier -->
+  <rect class="band" x="10" y="10" width="840" height="108" rx="8"/><text class="band-t" x="24" y="30">CLIENT TIER</text>
+  <rect class="box" x="60" y="40" width="330" height="64" rx="8"/><text class="t b" x="225" y="66">Customer Mobile App</text><text class="t" x="225" y="88">React Native 0.88 · Expo SDK 58 · TypeScript</text>
+  <rect class="box" x="470" y="40" width="330" height="64" rx="8"/><text class="t b" x="635" y="66">Staff Admin Console</text><text class="t" x="635" y="88">Next.js 16.4 · React 19 · server actions</text>
+  <!-- shared -->
+  <rect class="box" x="210" y="150" width="440" height="60" rx="8"/><text class="t b" x="430" y="175">@davao-bank/shared</text><text class="t" x="430" y="197">Supabase client wrappers · types · tokens · utilities</text>
+  <path class="ln" d="M225 104 V128 H360 V148"/><path class="ln" d="M635 104 V128 H500 V148"/>
+  <!-- supabase -->
+  <rect class="band" x="10" y="240" width="840" height="470" rx="8"/><text class="band-t" x="24" y="260">SUPABASE HOSTED PROJECT</text>
+  <rect class="box" x="60" y="276" width="300" height="60" rx="8"/><text class="t b" x="210" y="301">Supabase Auth</text><text class="t" x="210" y="323">email + password · JWT sessions</text>
+  <rect class="box" x="500" y="276" width="300" height="60" rx="8"/><text class="t b" x="650" y="301">PostgREST API</text><text class="t" x="650" y="323">table reads + RPC calls over HTTPS</text>
+  <path class="ln" d="M330 210 V230 H210 V274"/><text class="lbl" x="218" y="252">sign in, refresh</text>
+  <path class="ln" d="M530 210 V230 H650 V274"/><text class="lbl" x="660" y="252">select / rpc with user JWT</text>
+  <rect x="40" y="356" width="780" height="250" rx="8" fill="#FFFFFF" stroke="#B5AFA2"/><text class="band-t" x="54" y="376">POSTGRESQL DATABASE</text>
+  <rect class="box" x="60" y="390" width="230" height="60" rx="8"/><text class="t b" x="175" y="415">Row Level Security</text><text class="t" x="175" y="437">26 policies · 15 tables</text>
+  <rect class="box" x="315" y="390" width="260" height="60" rx="8"/><text class="t b" x="445" y="415">SECURITY DEFINER functions</text><text class="t" x="445" y="437">29 client RPCs · _transfer_core</text>
+  <rect class="box" x="600" y="390" width="200" height="60" rx="8"/><text class="t b" x="700" y="415">pg_cron jobs</text><text class="t" x="700" y="437">schedules · expiry · FX</text>
+  <path class="ln" d="M600 336 V360 H175 V388"/><path class="ln" d="M650 336 V360 H445 V388"/>
+  <path class="ln" d="M600 420 H577"/>
+  <ellipse cx="430" cy="500" rx="200" ry="14" fill="#E3F2E8" stroke="#0C6D38" stroke-width="1.5"/>
+  <path d="M230 500 V570 A200 14 0 0 0 630 570 V500" fill="#E3F2E8" stroke="#0C6D38" stroke-width="1.5"/>
+  <text class="t b" x="430" y="535">Tables (ledger is the source of truth)</text><text class="t" x="430" y="557">profiles · accounts · transactions · ledger_entries · audit_logs …</text>
+  <path class="ln" d="M175 450 V480 H228"/><path class="ln" d="M445 450 V484"/>
+  <!-- fx -->
+  <rect class="box" x="60" y="630" width="220" height="60" rx="8"/><text class="t b" x="170" y="655">Vault secret</text><text class="t" x="170" y="677">FX_SYNC_SECRET</text>
+  <rect class="box" x="330" y="630" width="230" height="60" rx="8"/><text class="t b" x="445" y="655">Edge Function fx-sync</text><text class="t" x="445" y="677">daily at 04:00 UTC</text>
+  <path class="ln" d="M700 450 V660 H562"/><text class="lbl" x="708" y="620">pg_net POST + secret header</text>
+  <path class="ln" d="M170 630 V615 H655 V452" stroke-dasharray="5 4"/><text class="lbl" x="180" y="610">secret read at run time</text>
+  <path class="ln" d="M400 630 V610 H445 V588"/><text class="lbl" x="340" y="602">upsert_fx_rates</text>
+  <rect class="ext" x="560" y="748" width="240" height="60" rx="8"/><text class="t b" x="680" y="773">Frankfurter API</text><text class="t" x="680" y="795">ECB reference rates</text>
+  <path class="ln" d="M445 690 V778 H558"/><text class="lbl" x="455" y="770">GET rates</text>
+</svg>

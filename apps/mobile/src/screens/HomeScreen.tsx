@@ -1,228 +1,345 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
+  AccessibilityInfo,
   View,
-  Text,
+  Image,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
-  ActivityIndicator,
-  SafeAreaView,
   RefreshControl,
-  Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '../../App';
+import {
+  Send,
+  PlusCircle,
+  MinusCircle,
+  ChevronRight,
+  ShieldCheck,
+  Zap,
+  CalendarClock,
+  QrCode,
+  Inbox,
+  User,
+  LayoutGrid,
+  ShieldAlert,
+} from 'lucide-react-native';
 import {
   colors,
-  coreColorSwatches,
-  fetchHealthCheck,
+  spacing,
+  radius,
+  size,
+  toUserMessage,
   fetchUserProfile,
   fetchAccountBalances,
   fetchTransactionHistory,
-  fetchNotifications,
-  formatCentavosToPHP,
-  type HealthCheck,
+  fetchHealthCheck,
   type Profile,
   type AccountBalance,
   type TransactionHistoryItem,
-  type Notification,
-  type MoneyOperationResult,
+  type HealthCheck,
+  type ScheduledPayment,
 } from '@davao-bank/shared';
 import { supabase } from '../lib/supabase';
-import { TransferModal } from './TransferModal';
-import { DepositModal } from './DepositModal';
-import { WithdrawModal } from './WithdrawModal';
-import { NotificationsModal } from './NotificationsModal';
-import { TransactionDetailModal } from './TransactionDetailModal';
+import {
+  fetchHasOpenHighSecurityEvent,
+  fetchSecuritySettings,
+} from '../hooks/usePhase8Contracts';
+import { useProtectiveFreeze } from '../hooks/useProtectiveFreeze';
+import {
+  PROTECTIVE_FREEZE_BODY,
+  PROTECTIVE_FREEZE_CONFIRM_LABEL,
+  PROTECTIVE_FREEZE_HOME_TITLE,
+  PROTECTIVE_FREEZE_TILE_LABEL,
+  PROTECTIVE_FREEZE_TITLE,
+} from '../utils/protectiveFreeze';
+import { MASCOT_BANTAY } from '../assets/illustrations';
+import { reportNetworkResult } from '../lib/networkStatus';
+import { useSettings } from '../context/SettingsContext';
+import {
+  useToast,
+  Screen,
+  Text,
+  Button,
+  ActionTile,
+  ActionTileGrid,
+  Logo,
+  CurrencyWatchCard,
+  Pressable,
+  AccountPickerSheet,
+  actionTileIconColor,
+  LIST_ROW_MIN_HEIGHT,
+  FLOATING_TAB_BAR_HEIGHT,
+  floatingTabBarBottomOffset,
+  FloatingKada,
+  KADA_SIZE,
+} from '../components';
 import { SuspendedScreen } from './SuspendedScreen';
+import { HomeBalanceCard } from './home/HomeBalanceCard';
+import { HomeUpcomingPayments } from './home/HomeUpcomingPayments';
+import { HomeRecentActivity } from './home/HomeRecentActivity';
+import { fetchBillReminders, type BillReminder } from '../hooks/usePhase8Contracts';
+import * as SecureStore from 'expo-secure-store';
+import { SHOW_ON_HOME_ACCOUNT_KEY } from './MyAccountsScreen';
 
-interface HomeScreenProps {
-  onSignOut?: () => void;
+/** Spec 7B.1 header: 56 pt tall, avatar 40 inside a 44 pt hit area. */
+const HEADER_HEIGHT = 56;
+const AVATAR_SIZE = 40;
+const TILE_ICON_SIZE = 20;
+/**
+ * The default account must not depend on the order the view returns rows in:
+ * savings first, then by account number.
+ */
+function sortAccounts(list: AccountBalance[]): AccountBalance[] {
+  return [...list].sort(
+    (a, b) =>
+      (a.type === 'savings' ? 0 : 1) - (b.type === 'savings' ? 0 : 1) ||
+      a.account_number.localeCompare(b.account_number)
+  );
 }
 
-type FilterType = 'all' | 'transfer' | 'deposit' | 'withdrawal';
+interface HomeScreenProps {
+  onNavigateToActivity?: () => void;
+  onNavigateToProfile?: () => void;
+}
 
-export function HomeScreen({ onSignOut }: HomeScreenProps) {
-  // User & Profile State
+export function HomeScreen({
+  onNavigateToActivity,
+  onNavigateToProfile,
+}: HomeScreenProps) {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [userEmail, setUserEmail] = useState<string | null>(null);
-  const [signingOut, setSigningOut] = useState<boolean>(false);
-
-  // Core Banking Data State
   const [accounts, setAccounts] = useState<AccountBalance[]>([]);
   const [transactions, setTransactions] = useState<TransactionHistoryItem[]>([]);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [loadingAccounts, setLoadingAccounts] = useState<boolean>(true);
-  const [loadingHistory, setLoadingHistory] = useState<boolean>(true);
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
+  const [accountPickerVisible, setAccountPickerVisible] = useState(false);
+  const { hideBalance, toggleHideBalance } = useSettings();
+  const insets = useSafeAreaInsets();
+  const toast = useToast();
+  const [isLocked, setIsLocked] = useState(false);
+  const [hasHighAlert, setHasHighAlert] = useState(false);
+  const protectiveFreeze = useProtectiveFreeze();
+  const isFrozen = protectiveFreeze.protective;
+
+  // Announce the freeze once when it appears; Realtime may set it while Home
+  // is already open. The banner itself is a polite live region as well.
+  useEffect(() => {
+    if (!isFrozen || typeof AccessibilityInfo.announceForAccessibility !== 'function') {
+      return;
+    }
+    AccessibilityInfo.announceForAccessibility(PROTECTIVE_FREEZE_BODY);
+  }, [isFrozen]);
+
+  const handleActionTilePress = (screen: keyof RootStackParamList) => {
+    if (isLocked || isFrozen) {
+      toast.show(
+        isFrozen ? PROTECTIVE_FREEZE_HOME_TITLE : 'Account locked — Unlock in Bantay',
+        'error'
+      );
+      return;
+    }
+    navigation.navigate(screen as never);
+  };
+
+  const [loading, setLoading] = useState<boolean>(true);
+  // Set when the balance load fails; the card then reads "Balance unavailable".
+  const [accountsError, setAccountsError] = useState<string | null>(null);
+  // Set when recent activity fails to load; the section then offers a retry.
+  const [transactionsError, setTransactionsError] = useState<string | null>(null);
+  // Bumped by every reload after the first so Currency Watch refetches too.
+  const [fxRefreshKey, setFxRefreshKey] = useState(0);
+  // Mount and focus can overlap; only the newest load may write state.
+  const loadIdRef = useRef(0);
   const [refreshing, setRefreshing] = useState<boolean>(false);
-  const [filterType, setFilterType] = useState<FilterType>('all');
 
-  // Backend Health State (preserved from Phase 1)
+  // Upcoming scheduled payments, bill reminders & Pending requests
+  const [upcomingSchedules, setUpcomingSchedules] = useState<ScheduledPayment[]>([]);
+  const [billReminders, setBillReminders] = useState<BillReminder[]>([]);
+  const [pendingRequestsCount, setPendingRequestsCount] = useState<number>(0);
+
+  // Dev health check
   const [health, setHealth] = useState<HealthCheck | null>(null);
-  const [healthError, setHealthError] = useState<string | null>(null);
-  const [healthLoading, setHealthLoading] = useState<boolean>(true);
-  const [lastChecked, setLastChecked] = useState<string | null>(null);
-  const [showSystemInfo, setShowSystemInfo] = useState<boolean>(false);
 
-  // Modal State
-  const [isTransferOpen, setIsTransferOpen] = useState(false);
-  const [isDepositOpen, setIsDepositOpen] = useState(false);
-  const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
-  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
-  const [selectedTxForDetail, setSelectedTxForDetail] =
-    useState<TransactionHistoryItem | null>(null);
+  const loadData = useCallback(async () => {
+    const loadId = ++loadIdRef.current;
+    const isCurrent = () => loadId === loadIdRef.current;
+    if (loadId > 1) setFxRefreshKey((key) => key + 1);
 
-  // Success Flash Banner
-  const [successBanner, setSuccessBanner] = useState<string | null>(null);
-
-  const loadUserData = async () => {
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      let userId: string;
+      try {
+        const { data, error } = await supabase.auth.getUser();
+        reportNetworkResult(error);
+        if (error || !data?.user) {
+          if (isCurrent())
+            setAccountsError(toUserMessage(error ?? 'Not authenticated', 'load'));
+          return;
+        }
+        userId = data.user.id;
+      } catch (err) {
+        reportNetworkResult(err);
+        if (isCurrent()) setAccountsError(toUserMessage(err, 'load'));
+        return;
+      }
 
-      if (user) {
-        setUserEmail(user.email || null);
-        const { data: profileData } = await fetchUserProfile(supabase, user.id);
-        if (profileData) {
-          setProfile(profileData);
+      try {
+        const [profileRes, accountsRes, txRes, savedHomeId, secRes, highAlert] =
+          await Promise.all([
+            fetchUserProfile(supabase, userId),
+            fetchAccountBalances(supabase),
+            fetchTransactionHistory(supabase),
+            SecureStore.getItemAsync(SHOW_ON_HOME_ACCOUNT_KEY).catch(() => null),
+            fetchSecuritySettings().catch(() => ({ data: null, error: null })),
+            fetchHasOpenHighSecurityEvent(),
+          ]);
+        if (secRes?.data?.locked) {
+          setIsLocked(true);
+        } else {
+          setIsLocked(false);
+        }
+        if (isCurrent()) setHasHighAlert(highAlert);
+        if (!isCurrent()) return;
+
+        reportNetworkResult(accountsRes.error || txRes.error || profileRes.error);
+        if (profileRes.data) setProfile(profileRes.data);
+        if (accountsRes.error || !accountsRes.data) {
+          setAccountsError(toUserMessage(accountsRes.error, 'load'));
+        } else {
+          const sorted = sortAccounts(accountsRes.data);
+          setAccounts(sorted);
+          setAccountsError(null);
+          if (savedHomeId && sorted.some((a) => a.account_id === savedHomeId)) {
+            setSelectedAccountId((current) => current ?? savedHomeId);
+          }
+        }
+        if (txRes.error || !txRes.data) {
+          setTransactionsError(toUserMessage(txRes.error, 'load'));
+        } else {
+          setTransactions(txRes.data);
+          setTransactionsError(null);
+        }
+      } catch (err) {
+        reportNetworkResult(err);
+        if (!isCurrent()) return;
+        console.warn('Error loading Home balances:', err);
+        setAccountsError(toUserMessage(err, 'load'));
+        setTransactionsError(toUserMessage(err, 'load'));
+        return;
+      }
+
+      try {
+        const { count } = await supabase
+          .from('payment_requests')
+          .select('*', { count: 'exact', head: true })
+          .eq('payer_user_id', userId)
+          .eq('status', 'pending');
+        if (isCurrent()) setPendingRequestsCount(count || 0);
+      } catch {
+        // Non-critical
+      }
+
+      try {
+        const { data: schedData } = await supabase
+          .from('scheduled_payments')
+          .select('*')
+          .eq('status', 'active')
+          .order('next_run_date', { ascending: true })
+          .limit(3);
+        if (schedData && isCurrent()) {
+          setUpcomingSchedules(schedData as ScheduledPayment[]);
+        }
+      } catch {
+        // Non-critical
+      }
+
+      try {
+        const remRes = await fetchBillReminders();
+        if (!remRes.error && isCurrent()) {
+          setBillReminders(remRes.data);
+        }
+      } catch {
+        // Non-critical
+      }
+
+      if (__DEV__) {
+        // Dev-only diagnostics: a failure here never affects the balance card.
+        try {
+          const { data: healthData } = await fetchHealthCheck(supabase);
+          if (healthData && isCurrent()) setHealth(healthData);
+        } catch (err) {
+          console.warn('Dev health check failed:', err);
         }
       }
-    } catch (err) {
-      console.warn('Failed to load user profile in HomeScreen:', err);
-    }
-  };
-
-  const loadAccounts = useCallback(async () => {
-    setLoadingAccounts(true);
-    const { data, error } = await fetchAccountBalances(supabase);
-    if (!error && data) {
-      setAccounts(data);
-    }
-    setLoadingAccounts(false);
-  }, []);
-
-  const loadHistory = useCallback(async () => {
-    setLoadingHistory(true);
-    const { data, error } = await fetchTransactionHistory(supabase);
-    if (!error && data) {
-      setTransactions(data);
-    }
-    setLoadingHistory(false);
-  }, []);
-
-  const loadNotificationsData = useCallback(async () => {
-    const { data, error } = await fetchNotifications(supabase);
-    if (!error && data) {
-      setNotifications(data);
-    }
-  }, []);
-
-  const checkBackendHealth = async () => {
-    setHealthLoading(true);
-    setHealthError(null);
-    const start = Date.now();
-    const result = await fetchHealthCheck(supabase);
-    const elapsed = Date.now() - start;
-
-    if (result.error) {
-      setHealthError(result.error);
-      setHealth(null);
-    } else {
-      setHealth(result.data);
-      setLastChecked(`${new Date().toLocaleTimeString()} (${elapsed}ms)`);
-    }
-    setHealthLoading(false);
-  };
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await Promise.all([
-      loadAccounts(),
-      loadHistory(),
-      loadNotificationsData(),
-      checkBackendHealth(),
-    ]);
-    setRefreshing(false);
-  };
-
-  const handleSignOut = async () => {
-    setSigningOut(true);
-    try {
-      await supabase.auth.signOut();
-      if (onSignOut) {
-        onSignOut();
-      }
-    } catch (err) {
-      console.error('Error signing out:', err);
     } finally {
-      setSigningOut(false);
+      if (isCurrent()) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
+  }, []);
+
+  // Focus also fires on first mount, so this is the only load trigger.
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData])
+  );
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadData();
+    void protectiveFreeze.refresh();
   };
 
-  // Handlers for successful money operations
-  const handleTransferSuccess = (result: MoneyOperationResult) => {
-    setSuccessBanner(
-      `Transfer completed: ${formatCentavosToPHP(result.amount)} sent successfully!`
-    );
-    loadAccounts();
-    loadHistory();
-    loadNotificationsData();
-    setTimeout(() => setSuccessBanner(null), 5000);
+  const retryLoad = () => {
+    setAccountsError(null);
+    setTransactionsError(null);
+    setLoading(true);
+    loadData();
   };
 
-  const handleDepositSuccess = (result: MoneyOperationResult) => {
-    setSuccessBanner(
-      `Deposit confirmed: ${formatCentavosToPHP(result.amount)} credited to your account!`
-    );
-    loadAccounts();
-    loadHistory();
-    loadNotificationsData();
-    setTimeout(() => setSuccessBanner(null), 5000);
+  const getInitials = (name?: string | null) => {
+    if (!name) return 'DB';
+    const parts = name.trim().split(/\s+/);
+    if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
   };
 
-  const handleWithdrawSuccess = (result: MoneyOperationResult) => {
-    setSuccessBanner(
-      `Cash-out processed: ${formatCentavosToPHP(result.amount)} debited successfully!`
-    );
-    loadAccounts();
-    loadHistory();
-    loadNotificationsData();
-    setTimeout(() => setSuccessBanner(null), 5000);
+  const selectedAccount =
+    accounts.find((account) => account.account_id === selectedAccountId) ??
+    accounts[0] ??
+    null;
+
+  const selectAccount = (accountId: string) => {
+    setSelectedAccountId(accountId);
+    setAccountPickerVisible(false);
   };
 
-  useEffect(() => {
-    loadUserData();
-    loadAccounts();
-    loadHistory();
-    loadNotificationsData();
-    checkBackendHealth();
-  }, [loadAccounts, loadHistory, loadNotificationsData]);
+  // One calm Bantay indicator: the locked state replaces the old red banner,
+  // so Home never shows two lock indicators at once.
+  const bantayLabel = isLocked
+    ? 'Account locked — Unlock in Bantay'
+    : hasHighAlert
+      ? 'Check Bantay: new alert'
+      : 'Bantay is watching your account';
 
-  // Compute total balance across accounts (authoritative from account_balances)
-  const totalBalance = accounts.reduce((acc, curr) => acc + curr.balance, 0);
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  // The ScrollView sits inside Screen's SafeAreaView, which already pads the
+  // bottom inset. Content ends 16 pt above the floating tab bar.
+  const tabBarTopFromBottom =
+    floatingTabBarBottomOffset(insets.bottom) + FLOATING_TAB_BAR_HEIGHT;
+  // Leave room for the floating Kada above the bar (spec 7c1d935 §4.1).
+  const bottomClearance =
+    tabBarTopFromBottom + spacing.base + KADA_SIZE + spacing.base - insets.bottom;
 
-  // Filter transactions
-  const filteredTransactions = transactions.filter((t) => {
-    if (filterType === 'all') return true;
-    return t.type === filterType;
-  });
-
-  // If customer profile is suspended, show dedicated suspended screen and block money actions
   if (profile?.status === 'suspended') {
-    return (
-      <SuspendedScreen
-        profile={profile}
-        userEmail={userEmail}
-        onRefresh={onRefresh}
-        onSignOut={handleSignOut}
-      />
-    );
+    return <SuspendedScreen profile={profile} userEmail={null} onRefresh={loadData} />;
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <Screen style={styles.screen}>
       <ScrollView
-        contentContainerStyle={styles.container}
+        contentContainerStyle={[styles.container, { paddingBottom: bottomClearance }]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -232,902 +349,440 @@ export function HomeScreen({ onSignOut }: HomeScreenProps) {
           />
         }
       >
-        {/* Top App Bar */}
-        <View style={styles.topBar}>
-          <View style={styles.topBarLeft}>
-            <View style={styles.logoBadge}>
-              <Text style={styles.logoBadgeText}>DB</Text>
-            </View>
-            <View>
-              <Text style={styles.brandTitle}>Davao Bank</Text>
-              <Text style={styles.customerName}>
-                {profile?.full_name || userEmail || 'Customer Portal'}
+        {/* Header: logo, greeting, profile */}
+        <View style={styles.header}>
+          <View style={styles.brandRow}>
+            <Logo variant="mark" size={32} />
+            <View style={styles.greetingText}>
+              <Text variant="caption" color={colors.textSecondary}>
+                Maayong adlaw,
+              </Text>
+              <Text variant="title" color={colors.ink} numberOfLines={1}>
+                {profile?.full_name?.split(' ')[0] || 'Customer'}
               </Text>
             </View>
           </View>
 
-          <View style={styles.topBarRight}>
-            {/* Notification Bell */}
-            <TouchableOpacity
-              style={styles.iconButton}
-              onPress={() => setIsNotificationsOpen(true)}
-              accessibilityLabel="View notifications"
-            >
-              <Text style={styles.bellIcon}>🔔</Text>
-              {unreadCount > 0 && (
-                <View style={styles.notificationBadge}>
-                  <Text style={styles.notificationBadgeText}>
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
-
-            {/* Sign Out */}
-            <TouchableOpacity
-              style={styles.signOutButton}
-              onPress={handleSignOut}
-              disabled={signingOut}
-              activeOpacity={0.8}
-            >
-              {signingOut ? (
-                <ActivityIndicator size="small" color={colors.primary} />
+          <Pressable
+            style={styles.avatarHitArea}
+            feedbackType="scale"
+            accessibilityRole="button"
+            accessibilityLabel="Open profile"
+            hitSlop={0}
+            onPress={onNavigateToProfile}
+          >
+            <View style={styles.avatar}>
+              {profile?.full_name ? (
+                <Text variant="bodyStrong" color={colors.primary}>
+                  {getInitials(profile.full_name)}
+                </Text>
               ) : (
-                <Text style={styles.signOutButtonText}>Sign Out</Text>
+                <User size={TILE_ICON_SIZE} color={colors.primary} />
               )}
-            </TouchableOpacity>
-          </View>
+            </View>
+          </Pressable>
         </View>
 
-        {/* Success Banner */}
-        {successBanner && (
-          <View style={styles.successBanner}>
-            <Text style={styles.successBannerText}>✓ {successBanner}</Text>
+        {/* Balance card: the one strong surface on Home */}
+        <HomeBalanceCard
+          loading={loading}
+          error={accountsError}
+          accounts={accounts}
+          selectedAccount={selectedAccount}
+          hideBalance={hideBalance}
+          onOpenAccountPicker={() => setAccountPickerVisible(true)}
+          onToggleHideBalance={toggleHideBalance}
+          onRetry={retryLoad}
+          onPressCard={() => navigation.navigate('MyAccounts')}
+        />
+
+        {/* A protective freeze replaces the calm row with one unmistakable banner. */}
+        {isFrozen ? (
+          <View
+            style={styles.freezeBanner}
+            accessible
+            accessibilityRole="alert"
+            accessibilityLiveRegion="polite"
+            accessibilityLabel={`${PROTECTIVE_FREEZE_HOME_TITLE}. ${PROTECTIVE_FREEZE_TITLE}`}
+          >
+            <View style={styles.freezeHeader}>
+              <ShieldAlert size={TILE_ICON_SIZE} color={colors.redText} />
+              <Text
+                variant="bodyStrong"
+                color={colors.redText}
+                accessibilityRole="header"
+              >
+                {PROTECTIVE_FREEZE_HOME_TITLE}
+              </Text>
+            </View>
+            <Text variant="caption" color={colors.ink}>
+              {PROTECTIVE_FREEZE_TITLE}. {PROTECTIVE_FREEZE_BODY}
+            </Text>
+            <Button
+              title={PROTECTIVE_FREEZE_CONFIRM_LABEL}
+              accessibilityLabel={PROTECTIVE_FREEZE_CONFIRM_LABEL}
+              onPress={() => navigation.navigate('BantaySecurity')}
+            />
           </View>
+        ) : (
+          /* One calm Bantay indicator, under the balance card. No balance info. */
+          <Pressable
+            style={[
+              styles.bantayRow,
+              isLocked ? styles.bantayRowLocked : null,
+              !isLocked && hasHighAlert ? styles.bantayRowAlert : null,
+            ]}
+            onPress={() => navigation.navigate('BantaySecurity')}
+            feedbackType="highlight"
+            accessibilityRole="button"
+            accessibilityLabel={bantayLabel}
+          >
+            <Image
+              source={MASCOT_BANTAY}
+              style={styles.bantayAvatar}
+              accessible={false}
+            />
+            <View style={styles.bantayText}>
+              <Text
+                variant="bodyStrong"
+                color={isLocked ? colors.redText : colors.ink}
+                accessibilityRole="text"
+              >
+                {bantayLabel}
+              </Text>
+            </View>
+            <ChevronRight size={TILE_ICON_SIZE} color={colors.textMuted} />
+          </Pressable>
         )}
 
-        {/* Primary Account Balances Card */}
-        <View style={styles.balanceHeroCard}>
-          <View style={styles.balanceHeroHeader}>
-            <Text style={styles.balanceHeroOverline}>TOTAL AVAILABLE BALANCE</Text>
-            <TouchableOpacity onPress={onRefresh}>
-              <Text style={styles.refreshIconText}>🔄</Text>
-            </TouchableOpacity>
-          </View>
-
-          {loadingAccounts && accounts.length === 0 ? (
-            <ActivityIndicator
-              size="large"
-              color={colors.textInverse}
-              style={{ marginVertical: 16 }}
-            />
-          ) : (
-            <>
-              <Text style={styles.totalBalanceAmount}>
-                {formatCentavosToPHP(totalBalance)}
-              </Text>
-
-              {/* Individual Accounts List */}
-              <View style={styles.accountsListContainer}>
-                {accounts.map((acc) => (
-                  <View key={acc.account_id} style={styles.accountRowItem}>
-                    <View>
-                      <View style={styles.accountTypeRow}>
-                        <Text style={styles.accountTypeText}>
-                          {acc.type.toUpperCase()} ACCOUNT
-                        </Text>
-                        <View
-                          style={[
-                            styles.accountStatusTag,
-                            {
-                              backgroundColor:
-                                acc.status === 'active'
-                                  ? colors.successLight
-                                  : colors.errorLight,
-                            },
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.accountStatusTagText,
-                              {
-                                color:
-                                  acc.status === 'active'
-                                    ? colors.successDark
-                                    : colors.errorDark,
-                              },
-                            ]}
-                          >
-                            {acc.status}
-                          </Text>
-                        </View>
-                      </View>
-                      <Text style={styles.accountNumberText}>{acc.account_number}</Text>
-                    </View>
-                    <Text style={styles.accountBalanceText}>
-                      {formatCentavosToPHP(acc.balance)}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            </>
-          )}
-
-          <Text style={styles.balanceDisclaimer}>
-            Authoritative ledger balance computed server-side in integer minor units
-            (centavos).
-          </Text>
-        </View>
-
-        {/* Quick Banking Actions Row */}
-        <View style={styles.actionsCard}>
-          <Text style={styles.sectionHeader}>Quick Actions</Text>
-          <View style={styles.actionsGrid}>
-            {/* Transfer / Send */}
-            <TouchableOpacity
-              style={styles.actionBtn}
-              onPress={() => setIsTransferOpen(true)}
-              activeOpacity={0.8}
-            >
-              <View
-                style={[styles.actionIconBox, { backgroundColor: colors.primaryLight }]}
-              >
-                <Text style={styles.actionIcon}>↗️</Text>
-              </View>
-              <Text style={styles.actionBtnLabel}>Transfer</Text>
-              <Text style={styles.actionBtnSub}>Send Money</Text>
-            </TouchableOpacity>
-
-            {/* Deposit / Cash In */}
-            <TouchableOpacity
-              style={styles.actionBtn}
-              onPress={() => setIsDepositOpen(true)}
-              activeOpacity={0.8}
-            >
-              <View
-                style={[styles.actionIconBox, { backgroundColor: colors.successLight }]}
-              >
-                <Text style={styles.actionIcon}>💳</Text>
-              </View>
-              <Text style={styles.actionBtnLabel}>Cash In</Text>
-              <Text style={styles.actionBtnSub}>Deposit</Text>
-            </TouchableOpacity>
-
-            {/* Withdraw / Cash Out */}
-            <TouchableOpacity
-              style={styles.actionBtn}
-              onPress={() => setIsWithdrawOpen(true)}
-              activeOpacity={0.8}
-            >
-              <View
-                style={[styles.actionIconBox, { backgroundColor: colors.warningLight }]}
-              >
-                <Text style={styles.actionIcon}>🏧</Text>
-              </View>
-              <Text style={styles.actionBtnLabel}>Cash Out</Text>
-              <Text style={styles.actionBtnSub}>Withdraw</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Transaction History Section */}
-        <View style={styles.card}>
-          <View style={styles.historyHeaderRow}>
-            <View>
-              <Text style={styles.sectionOverline}>Ledger Activity</Text>
-              <Text style={styles.cardTitle}>Transaction History</Text>
-            </View>
-            <TouchableOpacity onPress={loadHistory}>
-              <Text style={styles.viewAllText}>Refresh</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Filter Chips */}
-          <View style={styles.filterChipRow}>
-            {(
-              [
-                { key: 'all', label: 'All' },
-                { key: 'transfer', label: 'Transfers' },
-                { key: 'deposit', label: 'Deposits' },
-                { key: 'withdrawal', label: 'Cash Out' },
-              ] as const
-            ).map((chip) => (
-              <TouchableOpacity
-                key={chip.key}
-                style={[
-                  styles.filterChip,
-                  filterType === chip.key && styles.filterChipActive,
-                ]}
-                onPress={() => setFilterType(chip.key)}
-              >
-                <Text
-                  style={[
-                    styles.filterChipText,
-                    filterType === chip.key && styles.filterChipTextActive,
-                  ]}
-                >
-                  {chip.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {/* Transactions List */}
-          {loadingHistory && transactions.length === 0 ? (
-            <ActivityIndicator
-              size="small"
-              color={colors.primary}
-              style={{ marginVertical: 24 }}
-            />
-          ) : filteredTransactions.length === 0 ? (
-            <View style={styles.emptyHistoryBox}>
-              <Text style={styles.emptyHistoryIcon}>📝</Text>
-              <Text style={styles.emptyHistoryTitle}>No transactions recorded</Text>
-              <Text style={styles.emptyHistorySubtitle}>
-                {filterType === 'all'
-                  ? 'Your transfer, deposit, and cash-out activities will appear here.'
-                  : `No ${filterType} transactions found.`}
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.transactionsList}>
-              {filteredTransactions.map((tx) => {
-                const isCredit = tx.signed_amount > 0;
-                const formattedTime = new Date(tx.created_at).toLocaleDateString(
-                  'en-PH',
-                  {
-                    month: 'short',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  }
-                );
-
-                return (
-                  <TouchableOpacity
-                    key={tx.ledger_entry_id}
-                    style={styles.txItemRow}
-                    onPress={() => setSelectedTxForDetail(tx)}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.txLeftGroup}>
-                      <View
-                        style={[
-                          styles.txIconBox,
-                          {
-                            backgroundColor: isCredit
-                              ? colors.successLight
-                              : colors.surfaceHover,
-                          },
-                        ]}
-                      >
-                        <Text style={styles.txGlyph}>
-                          {tx.type === 'deposit'
-                            ? '💳'
-                            : tx.type === 'withdrawal'
-                              ? '🏧'
-                              : isCredit
-                                ? '↙️'
-                                : '↗️'}
-                        </Text>
-                      </View>
-                      <View style={styles.txMetaGroup}>
-                        <Text style={styles.txTitleText}>
-                          {tx.type === 'transfer'
-                            ? isCredit
-                              ? `Received from ${tx.counterparty_account_number || 'transfer'}`
-                              : `Sent to ${tx.counterparty_account_number || 'transfer'}`
-                            : tx.type === 'deposit'
-                              ? 'Cash-In / Deposit'
-                              : 'Cash-Out / Withdrawal'}
-                        </Text>
-                        <Text style={styles.txDateText}>
-                          {formattedTime} • Ref: {tx.reference || 'None'}
-                        </Text>
-                      </View>
-                    </View>
-
-                    <View style={styles.txRightGroup}>
-                      <Text
-                        style={[
-                          styles.txAmountText,
-                          {
-                            color: isCredit ? colors.success : colors.textPrimary,
-                          },
-                        ]}
-                      >
-                        {isCredit ? '+' : ''}
-                        {formatCentavosToPHP(tx.signed_amount)}
-                      </Text>
-                      <Text style={styles.txStatusText}>● {tx.status}</Text>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          )}
-        </View>
-
-        {/* Collapsible System Health & Design Tokens */}
-        <View style={styles.card}>
-          <TouchableOpacity
-            style={styles.systemToggleRow}
-            onPress={() => setShowSystemInfo(!showSystemInfo)}
-            activeOpacity={0.8}
+        {/* Pending payment requests */}
+        {pendingRequestsCount > 0 && (
+          <Pressable
+            style={styles.requestsBanner}
+            onPress={() => navigation.navigate('PaymentRequests')}
+            feedbackType="highlight"
+            accessibilityRole="button"
+            accessibilityLabel={`${pendingRequestsCount} pending payment request${pendingRequestsCount > 1 ? 's' : ''}. Review, pay or decline`}
           >
-            <View>
-              <Text style={styles.sectionOverline}>System Verification</Text>
-              <Text style={styles.cardTitle}>Backend Health &amp; Palette</Text>
+            <View style={styles.requestsIconBox}>
+              <Inbox size={TILE_ICON_SIZE} color={colors.primary} />
             </View>
-            <Text style={styles.toggleIcon}>{showSystemInfo ? '▲' : '▼'}</Text>
-          </TouchableOpacity>
+            <View style={styles.requestsText}>
+              <Text variant="bodyStrong" color={colors.ink}>
+                {pendingRequestsCount} pending payment request
+                {pendingRequestsCount > 1 ? 's' : ''}
+              </Text>
+              <Text variant="caption" color={colors.textSecondary}>
+                Review, pay or decline
+              </Text>
+            </View>
+            <ChevronRight size={TILE_ICON_SIZE} color={colors.textMuted} />
+          </Pressable>
+        )}
 
-          {showSystemInfo && (
-            <View style={styles.systemContent}>
-              {/* Backend status */}
-              <View
-                style={[
-                  styles.statusBanner,
-                  healthLoading
-                    ? styles.statusBannerNeutral
-                    : health?.status === 'ok'
-                      ? styles.statusBannerSuccess
-                      : styles.statusBannerError,
-                ]}
+        {/* Actions: 3×2 grid */}
+        <ActionTileGrid columns={3}>
+          <ActionTile
+            label={isFrozen ? PROTECTIVE_FREEZE_TILE_LABEL : 'Transfer'}
+            color="blue"
+            icon={<Send size={TILE_ICON_SIZE} color={actionTileIconColor('blue')} />}
+            disabled={isFrozen}
+            onPress={() => handleActionTilePress('Transfer')}
+          />
+          <ActionTile
+            label={isFrozen ? PROTECTIVE_FREEZE_TILE_LABEL : 'Pay bills'}
+            color="orange"
+            icon={<Zap size={TILE_ICON_SIZE} color={actionTileIconColor('orange')} />}
+            disabled={isFrozen}
+            onPress={() => handleActionTilePress('PayBills')}
+          />
+          <ActionTile
+            label={isFrozen ? PROTECTIVE_FREEZE_TILE_LABEL : 'QR'}
+            color="primary"
+            icon={<QrCode size={TILE_ICON_SIZE} color={actionTileIconColor('primary')} />}
+            disabled={isFrozen}
+            onPress={() => handleActionTilePress('QRHub')}
+          />
+          <ActionTile
+            label={isFrozen ? PROTECTIVE_FREEZE_TILE_LABEL : 'Add money'}
+            color="green"
+            icon={
+              <PlusCircle size={TILE_ICON_SIZE} color={actionTileIconColor('green')} />
+            }
+            disabled={isFrozen}
+            onPress={() => handleActionTilePress('AddMoney')}
+          />
+          <ActionTile
+            label={isFrozen ? PROTECTIVE_FREEZE_TILE_LABEL : 'Cash out'}
+            color="red"
+            icon={
+              <MinusCircle size={TILE_ICON_SIZE} color={actionTileIconColor('red')} />
+            }
+            disabled={isFrozen}
+            onPress={() => handleActionTilePress('CashOut')}
+          />
+          <ActionTile
+            label={isFrozen ? PROTECTIVE_FREEZE_TILE_LABEL : 'Schedule'}
+            color="yellow"
+            icon={
+              <CalendarClock
+                size={TILE_ICON_SIZE}
+                color={actionTileIconColor('yellow')}
+              />
+            }
+            disabled={isFrozen}
+            onPress={() => handleActionTilePress('ScheduledPayments')}
+          />
+        </ActionTileGrid>
+
+        {/* More services hub (Phase 9 · 9A) */}
+        <Pressable
+          style={styles.moreServicesRow}
+          onPress={() => navigation.navigate('MoreServices')}
+          feedbackType="highlight"
+          accessibilityRole="button"
+          accessibilityLabel="More services, FX converter, requests and calculators"
+          testID="home-more-services-row"
+        >
+          <View style={styles.moreServicesIconBox}>
+            <LayoutGrid size={TILE_ICON_SIZE} color={colors.primary} />
+          </View>
+          <View style={styles.moreServicesText}>
+            <View style={styles.moreServicesTitleRow}>
+              <Text
+                variant="bodyStrong"
+                color={colors.ink}
+                style={styles.moreServicesTitle}
+                maxFontSizeMultiplier={1.4}
               >
-                <View style={styles.statusIndicatorRow}>
-                  {healthLoading ? (
-                    <ActivityIndicator size="small" color={colors.primary} />
-                  ) : (
-                    <View
-                      style={[
-                        styles.statusDot,
-                        {
-                          backgroundColor:
-                            health?.status === 'ok' ? colors.success : colors.error,
-                        },
-                      ]}
-                    />
-                  )}
-                  <Text
-                    style={[
-                      styles.statusText,
-                      {
-                        color:
-                          health?.status === 'ok'
-                            ? colors.success
-                            : healthError
-                              ? colors.error
-                              : colors.textPrimary,
-                      },
-                    ]}
-                  >
-                    {healthLoading
-                      ? 'Connecting...'
-                      : health?.status === 'ok'
-                        ? 'Backend: ok (RLS & RPCs healthy)'
-                        : `Backend: ${healthError || 'Connection Failed'}`}
-                  </Text>
-                </View>
-                {health && (
-                  <Text style={styles.healthDetailSub}>
-                    Verified at: {lastChecked || 'just now'}
-                  </Text>
-                )}
-              </View>
-
-              {/* Palette tokens */}
-              <View style={styles.swatchRow}>
-                {coreColorSwatches.map((item) => (
-                  <View key={item.id} style={styles.swatchBlock}>
-                    <View style={[styles.colorBox, { backgroundColor: item.hex }]} />
-                    <Text style={styles.swatchName} numberOfLines={1}>
-                      {item.name}
-                    </Text>
-                    <Text style={styles.swatchHex}>{item.hex}</Text>
-                  </View>
-                ))}
-              </View>
+                More services
+              </Text>
             </View>
-          )}
-        </View>
+            <Text
+              variant="caption"
+              color={colors.textSecondary}
+              maxFontSizeMultiplier={1.4}
+            >
+              FX converter, requests and calculators
+            </Text>
+          </View>
+          <ChevronRight size={TILE_ICON_SIZE} color={colors.textMuted} />
+        </Pressable>
 
-        {/* Phase Scope Boundary Notice */}
-        <View style={styles.footerNotice}>
-          <Text style={styles.footerNoticeTitle}>Davao Bank • Phase 3 Core Banking</Text>
-          <Text style={styles.footerNoticeText}>
-            Simulated Prototype (§6.1). Server-authoritative double-entry ledger. All
-            transactions are atomic, idempotent, and protected with deterministic row
-            locks.
-          </Text>
-        </View>
+        {/* Currency Watch */}
+        <CurrencyWatchCard
+          refreshKey={fxRefreshKey}
+          onPress={() => navigation.navigate('FXRates')}
+        />
+
+        {/* Coming up (only when there are items) */}
+        <HomeUpcomingPayments
+          schedules={upcomingSchedules}
+          billReminders={billReminders}
+          hideBalance={hideBalance}
+          onOpenSchedules={() => navigation.navigate('ScheduledPayments')}
+          onOpenBillReminder={(reminder) =>
+            navigation.navigate('PayBills', {
+              billerId: reminder.biller_id,
+              reference: reminder.reference,
+            })
+          }
+        />
+
+        {/* Recent activity */}
+        <HomeRecentActivity
+          loading={loading}
+          error={transactionsError}
+          onRetry={retryLoad}
+          transactions={transactions}
+          onNavigateToActivity={onNavigateToActivity}
+          onSendMoney={() => navigation.navigate('Transfer')}
+          onSelectTransaction={(transaction) =>
+            navigation.navigate('Receipt', {
+              transactionId: transaction.transaction_id,
+              accountId: transaction.account_id,
+            })
+          }
+        />
+
+        {/* Dev Diagnostics */}
+        {__DEV__ && health ? (
+          <View style={styles.devCard}>
+            <View style={styles.devHeader}>
+              <ShieldCheck size={16} color={colors.textMuted} />
+              <Text variant="caption" color={colors.textMuted}>
+                DEV DIAGNOSTICS: {health.status} (
+                {new Date(health.checked_at).toLocaleTimeString()})
+              </Text>
+            </View>
+          </View>
+        ) : null}
       </ScrollView>
 
-      {/* Modals */}
-      <TransferModal
-        visible={isTransferOpen}
-        onClose={() => setIsTransferOpen(false)}
+      {/* Home-only: no Kada on money flows, Bantay screen or other tabs. */}
+      <FloatingKada
+        locked={isLocked || isFrozen}
+        protective={isFrozen}
+        onOpenBantay={() => navigation.navigate('BantaySecurity')}
+        onOpenChat={() => navigation.navigate('BantayChat')}
+      />
+
+      <AccountPickerSheet
+        visible={accountPickerVisible}
         accounts={accounts}
-        onTransferSuccess={handleTransferSuccess}
+        selectedAccountId={selectedAccount?.account_id ?? null}
+        hideBalance={hideBalance}
+        onSelect={selectAccount}
+        onClose={() => setAccountPickerVisible(false)}
       />
-
-      <DepositModal
-        visible={isDepositOpen}
-        onClose={() => setIsDepositOpen(false)}
-        accounts={accounts}
-        onDepositSuccess={handleDepositSuccess}
-      />
-
-      <WithdrawModal
-        visible={isWithdrawOpen}
-        onClose={() => setIsWithdrawOpen(false)}
-        accounts={accounts}
-        onWithdrawSuccess={handleWithdrawSuccess}
-      />
-
-      <NotificationsModal
-        visible={isNotificationsOpen}
-        onClose={() => setIsNotificationsOpen(false)}
-        notifications={notifications}
-        onRefresh={loadNotificationsData}
-      />
-
-      <TransactionDetailModal
-        visible={!!selectedTxForDetail}
-        onClose={() => setSelectedTxForDetail(null)}
-        transaction={selectedTxForDetail}
-      />
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
+  screen: {
     backgroundColor: colors.background,
   },
   container: {
-    padding: 16,
-    gap: 16,
-    paddingBottom: 40,
+    paddingHorizontal: spacing.screenSide,
+    gap: spacing.xl,
   },
-  topBar: {
+  header: {
+    minHeight: HEADER_HEIGHT,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 4,
+    gap: spacing.md,
   },
-  topBarLeft: {
+  brandRow: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: spacing.md,
   },
-  topBarRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
+  greetingText: {
+    flexShrink: 1,
   },
-  logoBadge: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    backgroundColor: colors.primary,
+  avatarHitArea: {
+    width: size.touch,
+    height: size.touch,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  logoBadgeText: {
-    color: colors.textInverse,
-    fontWeight: '900',
-    fontSize: 16,
-    letterSpacing: 1,
+  avatar: {
+    width: AVATAR_SIZE,
+    height: AVATAR_SIZE,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primaryTint,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  brandTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: colors.textPrimary,
+  freezeBanner: {
+    gap: spacing.sm,
+    padding: spacing.base,
+    backgroundColor: colors.tintRed,
+    borderWidth: 1,
+    borderColor: colors.redText,
+    borderRadius: radius.md,
   },
-  customerName: {
-    fontSize: 12,
-    color: colors.textMuted,
+  freezeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
-  iconButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
+  bantayRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    minHeight: size.touch,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.base,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
+    borderRadius: radius.md,
   },
-  bellIcon: {
-    fontSize: 18,
+  bantayRowLocked: {
+    backgroundColor: colors.tintRed,
+    borderColor: colors.redText,
   },
-  notificationBadge: {
-    position: 'absolute',
-    top: -4,
-    right: -4,
-    backgroundColor: colors.error,
-    borderRadius: 9,
-    minWidth: 18,
-    height: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 4,
+  bantayRowAlert: {
+    borderColor: colors.orangeText,
   },
-  notificationBadgeText: {
-    color: colors.textInverse,
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  signOutButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    backgroundColor: colors.surfaceHover,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  signOutButtonText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.textSecondary,
-  },
-  successBanner: {
-    backgroundColor: colors.successLight,
-    borderWidth: 1,
-    borderColor: colors.success,
-    borderRadius: 12,
-    padding: 12,
-  },
-  successBannerText: {
-    color: colors.successDark,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  balanceHeroCard: {
-    backgroundColor: colors.primary,
-    borderRadius: 20,
-    padding: 20,
-    gap: 12,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  balanceHeroHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  balanceHeroOverline: {
-    color: 'rgba(255, 255, 255, 0.75)',
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1,
-  },
-  refreshIconText: {
-    fontSize: 16,
-  },
-  totalBalanceAmount: {
-    color: colors.textInverse,
-    fontSize: 34,
-    fontWeight: '900',
-  },
-  accountsListContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 12,
-    padding: 12,
-    gap: 10,
-  },
-  accountRowItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  accountTypeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  accountTypeText: {
-    color: 'rgba(255, 255, 255, 0.85)',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  accountStatusTag: {
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 4,
-  },
-  accountStatusTagText: {
-    fontSize: 9,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-  },
-  accountNumberText: {
-    color: colors.textInverse,
-    fontSize: 13,
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-    fontWeight: '600',
-    marginTop: 2,
-  },
-  accountBalanceText: {
-    color: colors.textInverse,
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  balanceDisclaimer: {
-    color: 'rgba(255, 255, 255, 0.65)',
-    fontSize: 10,
-    lineHeight: 14,
-  },
-  actionsCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: 12,
-  },
-  sectionHeader: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  actionsGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 10,
-  },
-  actionBtn: {
-    flex: 1,
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-    gap: 4,
-  },
-  actionIconBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 4,
-  },
-  actionIcon: {
-    fontSize: 20,
-  },
-  actionBtnLabel: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: colors.textPrimary,
-  },
-  actionBtnSub: {
-    fontSize: 10,
-    color: colors.textMuted,
-  },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: 12,
-  },
-  historyHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  sectionOverline: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: colors.primary,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-  },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: colors.textPrimary,
-  },
-  viewAllText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.primary,
-  },
-  filterChipRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  filterChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    backgroundColor: colors.surfaceHover,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  filterChipActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  filterChipText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textSecondary,
-  },
-  filterChipTextActive: {
-    color: colors.textInverse,
-  },
-  emptyHistoryBox: {
-    paddingVertical: 32,
-    alignItems: 'center',
-    gap: 6,
-  },
-  emptyHistoryIcon: {
-    fontSize: 32,
-  },
-  emptyHistoryTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  emptyHistorySubtitle: {
-    fontSize: 12,
-    color: colors.textMuted,
-    textAlign: 'center',
-    maxWidth: 240,
-  },
-  transactionsList: {
-    gap: 8,
-  },
-  txItemRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  txLeftGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    flex: 1,
-  },
-  txIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  txGlyph: {
-    fontSize: 16,
-  },
-  txMetaGroup: {
-    flex: 1,
-  },
-  txTitleText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  txDateText: {
-    fontSize: 11,
-    color: colors.textMuted,
-    marginTop: 2,
-  },
-  txRightGroup: {
-    alignItems: 'flex-end',
-    gap: 2,
-  },
-  txAmountText: {
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  txStatusText: {
-    fontSize: 10,
-    color: colors.textMuted,
-    textTransform: 'capitalize',
-  },
-  systemToggleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  toggleIcon: {
-    fontSize: 14,
-    color: colors.textMuted,
-  },
-  systemContent: {
-    gap: 12,
-    marginTop: 6,
-  },
-  statusBanner: {
-    borderRadius: 10,
-    padding: 12,
-    borderWidth: 1,
-    gap: 4,
-  },
-  statusBannerNeutral: {
-    backgroundColor: colors.surfaceHover,
-    borderColor: colors.border,
-  },
-  statusBannerSuccess: {
-    backgroundColor: colors.successLight,
-    borderColor: colors.success,
-  },
-  statusBannerError: {
-    backgroundColor: colors.errorLight,
-    borderColor: colors.error,
-  },
-  statusIndicatorRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  statusText: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  healthDetailSub: {
-    fontSize: 11,
-    color: colors.textMuted,
-    marginLeft: 16,
-  },
-  swatchRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 6,
-  },
-  swatchBlock: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 4,
-  },
-  colorBox: {
-    width: '100%',
+  bantayAvatar: {
+    width: 28,
     height: 28,
-    borderRadius: 6,
+  },
+  bantayText: {
+    flex: 1,
+  },
+  requestsBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.base,
+  },
+  requestsIconBox: {
+    width: AVATAR_SIZE,
+    height: AVATAR_SIZE,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primaryTint,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  requestsText: {
+    flex: 1,
+  },
+  moreServicesRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    minHeight: LIST_ROW_MIN_HEIGHT,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingVertical: spacing.md,
+    paddingLeft: spacing.base,
+    // Reserve the Kada's resting lane so its frame and dismiss X never cover
+    // this row's tappable content (captain review, 2026-11-26).
+    paddingRight: KADA_SIZE + spacing.base,
+  },
+  moreServicesIconBox: {
+    width: AVATAR_SIZE,
+    height: AVATAR_SIZE,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primaryTint,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  moreServicesText: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  moreServicesTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  moreServicesTitle: {
+    flexShrink: 1,
+  },
+  devCard: {
+    padding: spacing.sm,
+    backgroundColor: colors.surfaceSubtle,
+    borderRadius: radius.sm,
     borderWidth: 1,
     borderColor: colors.border,
   },
-  swatchName: {
-    fontSize: 9,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  swatchHex: {
-    fontSize: 8,
-    color: colors.textMuted,
-  },
-  footerNotice: {
-    padding: 14,
-    backgroundColor: colors.surfaceHover,
-    borderRadius: 12,
-    gap: 4,
-  },
-  footerNoticeTitle: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: colors.textSecondary,
-  },
-  footerNoticeText: {
-    fontSize: 11,
-    color: colors.textMuted,
-    lineHeight: 16,
+  devHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
   },
 });

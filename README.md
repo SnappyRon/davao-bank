@@ -1,4 +1,4 @@
-# Davao Bank — Monorepo (Phase 4: Admin Management System)
+# Davao Bank — Monorepo (Phase 6: Testing & Security Hardening)
 
 > **Simulated mobile banking system rooted in Davao City culture.**  
 > Academic capstone prototype built with server-authoritative money principles, least-privilege security, and cultural design tokens.
@@ -34,7 +34,7 @@ davao-bank/
 │   └── mobile/               # Expo SDK 58 React Native + TypeScript — Customer Mobile App
 │       └── src/
 │           ├── lib/
-│           │   └── supabase.ts # Persistent session client with AsyncStorage
+│           │   └── supabase.ts # Encrypted session client (AES-256-CTR + expo-secure-store)
 │           └── screens/
 │               ├── LoginScreen.tsx            # Customer sign in
 │               ├── SignUpScreen.tsx           # Customer sign up + auto-provisioning
@@ -87,13 +87,22 @@ All colors are centralized in `packages/shared/src/theme/colors.ts` and consumed
 
 ## 3. Demo Credentials (Development Only)
 
+> [!WARNING]
+> **SECURITY NOTICE: ROTATE PASSWORDS BEFORE DEMOS**  
+> Demo accounts do not ship with hardcoded passwords in version control. Configure your private `SEED_PASSWORD` in `.env` and execute `npm run seed` to provision or rotate passwords across all demo accounts.
+
 All seed accounts are pre-configured with confirmed emails:
 
-| Role           | Email                    | Password       | Details / Starting Balance                              |
-| :------------- | :----------------------- | :------------- | :------------------------------------------------------ |
-| **Admin**      | `admin@davaobank.ph`     | `Password123!` | Staff Operations (`role: 'admin'`)                      |
-| **Customer 1** | `customer1@davaobank.ph` | `Password123!` | Juan dela Cruz — **PHP 50,000.00** (5,000,000 centavos) |
-| **Customer 2** | `customer2@davaobank.ph` | `Password123!` | Maria Santos — **PHP 25,000.00** (2,500,000 centavos)   |
+| Role           | Email                    | Details / Starting Balance                              |
+| :------------- | :----------------------- | :------------------------------------------------------ |
+| **Admin**      | `admin@davaobank.ph`     | Staff Operations (`role: 'admin'`)                      |
+| **Customer 1** | `customer1@davaobank.ph` | Juan dela Cruz — **PHP 50,000.00** (5,000,000 centavos) |
+| **Customer 2** | `customer2@davaobank.ph` | Maria Santos — **PHP 25,000.00** (2,500,000 centavos)   |
+
+For E2E test runs, supply credentials via environment variables:
+
+- **Playwright Admin Tests:** uses the dedicated `test-admin@davaobank.ph` / `test-customer-a@davaobank.ph` accounts (override with `TEST_ADMIN_EMAIL` / `TEST_CUSTOMER_A_EMAIL`) and reads `E2E_PASSWORD` (or `SEED_PASSWORD`). See `docs/agents/notes/phase-9-test-accounts.md`.
+- **Maestro Mobile Tests:** supply password via `-e E2E_PASSWORD="your-password"`.
 
 ---
 
@@ -198,23 +207,154 @@ Verifies:
 - Atomic transaction reversal, compensating ledger entries, status transition to `'reversed'`, and double-reversal rejection
 - Post-operation system-wide ledger reconciliation: for every account, balance equals ledger sum; all transfers and reversals remain strictly balanced
 
-### 6. Verify Production Builds & Secret Leaks
+### 6. Run Test Suites
 
 ```bash
-npm run build:admin    # Next.js admin production build
-cd apps/mobile && npx expo export --output-dir /tmp/export # Expo mobile build bundle
-grep -rn "SUPABASE_SERVICE_ROLE_KEY" apps/admin/.next/static/ apps/mobile/src/ # Secret-leak check
+# Offline integration suite (PGlite in-memory engine with Supabase stand-ins)
+npm run test:db         # 47 behavior checks: money engine, schedules, bills, requests, FX, RLS
+
+# Live database test suites (require reachable Supabase instance)
+npm run test:rls        # Identity & RLS security policy tests
+npm run test:money      # Phase 3 Money logic, concurrency, idempotency & reconciliation
+npm run test:admin      # Phase 4 Admin management, adjustments & reversals
+npm run test:extras     # Stage B: Saved recipients, statements, hide balance, biometrics
+npm run test:schedules  # Stage C: Scheduled & recurring payments, simulated bill pay
+npm run test:qr         # Stage D: QR Send & Request Money
+npm run test:fx         # Stage E: FX Reference Rates & Frankfurter Integration
 ```
 
 ---
 
-## 6. Scope Boundaries Maintained
+## 6. Scheduled Jobs & Background Automation
 
-- **In Scope (Phase 4 Complete):**
-  - Server-side admin functions (`admin_set_user_status`, `admin_open_account`, `admin_set_account_status`, `admin_adjust_balance`, `admin_reverse_transaction`).
-  - Next.js Admin portal (Dashboard, Users, Accounts, Transactions, Audit Log, CSV export).
-  - Attribution to admin cookie sessions; RLS deny-by-default preserved.
-- **Out of Scope (Reserved for Later Phases):**
-  - Phase 5: Integration & notifications polish beyond in-app alerts.
-  - Phase 6: System hardening, performance optimization, and pen-testing.
-  - Phase 7: Production deployment.
+Davao Bank relies on three automated background cron jobs:
+
+1. `davao-run-schedules`: Runs every 5 minutes (`*/5 * * * *`) executing due scheduled payments via `run_due_scheduled_payments()`.
+2. `davao-expire-requests`: Runs hourly (`15 * * * *`) expiring stale 7-day payment requests via `expire_due_payment_requests()`.
+3. `davao-fx-sync`: Runs daily at 04:00 UTC (`0 4 * * *`) syncing ECB reference rates via `pg_net` POST to the `fx-sync` Supabase Edge Function.
+
+### Setting Up pg_cron & Registering Jobs
+
+1. Enable the `pg_cron` and `pg_net` extensions in your Supabase project (Project Settings → Database → Extensions).
+2. Deploy the FX Sync Edge Function:
+   ```bash
+   supabase functions deploy fx-sync
+   ```
+3. Set the FX sync secret in Supabase Secrets / Vault:
+   ```bash
+   supabase secrets set FX_SYNC_SECRET=your-secure-shared-secret
+   ```
+4. Run the idempotent ops function `register_cron_jobs()` from the SQL Editor or via database administrator:
+   ```sql
+   select public.register_cron_jobs();
+   ```
+   This safely (re)registers all 3 cron schedules with error isolation and safe unscheduling.
+
+---
+
+## 7. FX Reference Rates & External Data Integration (§E.1)
+
+### External Source: Frankfurter (European Central Bank Reference Rates)
+
+- **Official Documentation:** [https://frankfurter.dev](https://frankfurter.dev)
+- **Base Endpoint:** `https://api.frankfurter.dev/v1/`
+  - Latest rate: `/v1/latest?base=USD&symbols=PHP`
+  - Historical time series: `/v1/{startDate}..{endDate}?base=USD&symbols=PHP`
+- **Response Format:**
+  ```json
+  {
+    "amount": 1.0,
+    "base": "USD",
+    "start_date": "2025-10-24",
+    "end_date": "2026-10-26",
+    "rates": {
+      "2026-10-26": { "PHP": 63.944 }
+    }
+  }
+  ```
+- **Currency Support:** PHP (Philippine Peso) is fully supported as quote currency for USD, EUR, and JPY.
+- **Required Attribution:** _"Source: ECB reference rates via Frankfurter · updated <date>"_ (published by European Central Bank, served via Frankfurter open API).
+- **Scheduled Sync:** Implemented via Supabase Edge Function `supabase/functions/fx-sync/index.ts` scheduled daily with `pg_cron` at 04:00 UTC (following ECB 16:00 CET daily fixing). The client apps strictly read from `public.fx_rates` and never contact third-party APIs directly.
+- **Single-Currency Principle:** Davao Bank remains strictly single-currency (PHP). No currency exchange, trading, or alerts are offered.
+
+---
+
+## 8. Phase 6 — Security Hardening & Controls
+
+Phase 6 implements comprehensive security hardening across backend, mobile, and web layers:
+
+- **Database Least Privilege:** All `anon` and `public` execute privileges revoked across stored procedures; `alter default privileges` locks future functions by default; RLS tightened on `fx_rates` and `billers`.
+- **Encrypted Mobile Storage:** Replaced plaintext AsyncStorage for Supabase sessions with `LargeSecureStore` (AES-256-CTR encryption with keys rotated per `setItem` in `expo-secure-store`).
+- **App-Switcher Privacy:** Obscures account balances and active transactions in the mobile OS task switcher via an overlay across the root viewport and all modals, alongside Android `FLAG_SECURE` (`expo-screen-capture`).
+- **Admin Security Headers & Inactivity:** Enforces CSP, HSTS, `X-Frame-Options: DENY`, `Referrer-Policy`, and automatic 15-minute idle sign-out with a 1-minute warning.
+- **Error Sanitizing:** Centralized `toUserMessage` prevents exposure of SQL constraints, internal identifiers, or raw stack traces.
+
+For complete threat modeling, security architecture, and regulatory boundaries (RA 8791 §64), see **[docs/SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**.
+
+---
+
+## 9. Automated Testing & End-to-End (E2E) Suites (Phase 6)
+
+### 9.1 Test Pyramid Overview
+
+| Suite                    | Runner / Tool                               | Scope                                                          | Network / Secret Requirements |
+| :----------------------- | :------------------------------------------ | :------------------------------------------------------------- | :---------------------------- |
+| **Unit Tests**           | Jest (`npm run test:unit`)                  | Currency math, QR encode/parse, decision logic, UI components  | **Offline / None**            |
+| **Database Tests**       | PGlite (`npm run test:db`)                  | Offline Postgres engine, triggers, RLS, single money engine    | **Offline / None**            |
+| **Live Database Suites** | tsx (`scripts/test-*.ts`)                   | Live hosted DB RPCs, concurrency, auth & security policies     | Hosted DB credentials         |
+| **Mobile E2E**           | Maestro (`e2e/mobile/*.yaml`)               | Expo Go mobile user flows, errors, dismissal & flow guarantees | Simulator / Expo Go           |
+| **Admin E2E**            | Playwright (`e2e/admin/*.spec.ts`)          | Staff portal flows, suspensions, adjustments, reversals        | Local dev server              |
+| **CI Automation**        | GitHub Actions (`.github/workflows/ci.yml`) | Monorepo lint, format, typecheck, unit, db, builds, gitleaks   | **Zero Secrets Needed**       |
+
+### 9.2 Running Unit & Offline Tests
+
+```bash
+# Run all unit tests across shared, mobile, and admin:
+npm run test:unit
+
+# Run the 56-check offline database integration suite:
+npm run test:db
+```
+
+### 9.3 Running Mobile E2E Tests (Maestro)
+
+Mobile end-to-end user flows are automated with [Maestro](https://maestro.mobile.dev) against Expo Go:
+
+```bash
+# 1. Install Maestro CLI (macOS):
+curl -fsSL "https://get.maestro.mobile.dev" | bash
+
+# 2. Start the mobile app on simulator:
+npm run ios:mobile
+
+# 3. Execute Maestro flows:
+maestro test -e E2E_PASSWORD="your-password" e2e/mobile/main-customer-flow.yaml
+maestro test -e E2E_PASSWORD="your-password" e2e/mobile/auth-and-error-flow.yaml
+maestro test -e E2E_PASSWORD="your-password" e2e/mobile/stage-0-9-flow-checks.yaml
+```
+
+### 9.4 Running Admin E2E Tests (Playwright)
+
+Admin operational flows are automated with Playwright against the local Next.js server:
+
+```bash
+# Run Playwright E2E tests:
+E2E_PASSWORD="your-password" npx playwright test
+
+# Or run with interactive UI mode:
+E2E_PASSWORD="your-password" npx playwright test --ui
+```
+
+### 9.5 Continuous Integration (CI)
+
+The GitHub Actions workflow (`.github/workflows/ci.yml`) runs on every push and pull request. It executes the entire safety net without requiring any secrets:
+
+1. `npm ci`
+2. `npm run typecheck`
+3. `npm run lint`
+4. `npm run format:check`
+5. `npm run test:unit`
+6. `npm run test:db`
+7. `npm run build:admin`
+8. `cd apps/mobile && EXPO_NO_TELEMETRY=1 npx expo export --platform ios`
+9. `gitleaks` (secret leak prevention)

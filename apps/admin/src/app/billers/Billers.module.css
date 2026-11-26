@@ -1,0 +1,127 @@
+.billerName {
+  font-weight: 700;
+}
+
+.billerAdded {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+}
+
+.categoryBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.iconElectricity {
+  color: var(--color-warning);
+}
+
+.iconWater {
+  color: var(--color-info);
+}
+
+.iconInternet {
+  color: var(--color-primary);
+}
+
+.iconMobile {
+  color: var(--color-success);
+}
+
+.iconDefault {
+  color: var(--color-text-muted);
+}
+
+.settlementAccount {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.settlementSub {
+  font-size: 0.72rem;
+  color: var(--color-text-secondary);
+}
+
+.refLabel {
+  font-weight: 600;
+  font-size: 0.8125rem;
+}
+
+.refCode {
+  font-size: 0.72rem;
+  background-color: var(--color-surface-subtle);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+}
+
+.actionsCell {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.headerBanner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.headerCount {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+}
+
+.filterSearch {
+  flex: 1;
+  min-width: 220px;
+}
+
+.drawerForm {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.drawerDesc {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+}
+
+.errorBox {
+  padding: 0.75rem;
+  border-radius: var(--radius-sm);
+  background-color: var(--color-tint-red);
+  border: 1px solid var(--color-red-text);
+  color: var(--color-red-text);
+  font-size: 0.85rem;
+}
+
+.fieldLabel {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  margin-bottom: 0.375rem;
+}
+
+.fieldHelp {
+  font-size: 0.72rem;
+  color: var(--color-text-secondary);
+  margin-top: 4px;
+  display: block;
+}
+
+.drawerActions {
+  margin-top: 1rem;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+}
+

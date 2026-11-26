@@ -1,3 +1,13 @@
+import {
+  signInWithStepUp,
+  withStepUpCleanup,
+  requireStepUpMigration,
+  assertAal1TransferRejected,
+  assertStaleStepUpRejected,
+  testFactorForEmail,
+} from './lib/step-up';
+
+import { TEST_CUSTOMER_A, TEST_CUSTOMER_B } from './lib/test-accounts';
 /**
  * Davao Bank — Phase 3 Core Banking Test Suite
  *
@@ -32,6 +42,14 @@ try {
   process.loadEnvFile?.('.env');
 } catch {
   // .env is optional
+}
+
+const TEST_PASSWORD = process.env.SEED_PASSWORD || process.env.E2E_PASSWORD;
+if (!TEST_PASSWORD) {
+  console.error(
+    'NOT VERIFIED — set SEED_PASSWORD or E2E_PASSWORD for authenticated live checks.'
+  );
+  throw new Error('Live suite failed; see checks above.');
 }
 
 const SUPABASE_URL =
@@ -70,6 +88,9 @@ function assert(category: string, condition: boolean, title: string, details?: s
 }
 
 async function runTestSuite() {
+  await requireStepUpMigration(
+    createClient(SUPABASE_URL, ANON_KEY, { auth: { persistSession: false } })
+  );
   console.log('================================================================');
   console.log('Davao Bank — Phase 3: Core Banking Verification & Test Suite');
   console.log('Server-Authoritative Money, Idempotency, Concurrency & Ledger');
@@ -93,6 +114,7 @@ async function runTestSuite() {
     auth: { persistSession: false },
   });
 
+  const host = new URL(SUPABASE_URL).host;
   let isConnected = false;
   try {
     const { data: hc, error: hcErr } = await anonClient
@@ -102,41 +124,36 @@ async function runTestSuite() {
       .maybeSingle();
     if (!hcErr && hc?.status === 'ok') {
       isConnected = true;
-      console.log('✓ Successfully connected to live Supabase backend.\n');
+      console.log(`Database host: ${host}`);
+      console.log('✓ Connected to live database\n');
     }
   } catch {
     isConnected = false;
   }
 
   if (!isConnected) {
-    console.log('----------------------------------------------------------------');
-    console.log('NOTICE: Live Supabase database is not currently reachable at:');
-    console.log(`URL: ${SUPABASE_URL}`);
-    console.log('Running test suite in Self-Contained Verification / Contract Mode.');
-    console.log('----------------------------------------------------------------\n');
-    runContractValidations();
-    printSummary();
-    return;
+    console.error(`NOT VERIFIED — database unreachable (${host})`);
+    throw new Error('Live suite failed; see checks above.');
   }
 
   if (!adminClient) {
     console.error('Cannot run live database test suite without SERVICE_ROLE_KEY.');
-    return;
+    throw new Error('Live suite failed; see checks above.');
   }
 
   try {
     // 1. Authenticate Demo Users
     console.log('[1/7] Authenticating Test Customer Sessions...');
     const customer1Client = createClient(SUPABASE_URL, ANON_KEY);
-    const { data: c1Auth, error: c1Err } = await customer1Client.auth.signInWithPassword({
-      email: 'customer1@davaobank.ph',
-      password: 'Password123!',
+    const { data: c1Auth, error: c1Err } = await signInWithStepUp(customer1Client, {
+      email: TEST_CUSTOMER_A,
+      password: TEST_PASSWORD,
     });
 
     const customer2Client = createClient(SUPABASE_URL, ANON_KEY);
-    const { data: c2Auth, error: c2Err } = await customer2Client.auth.signInWithPassword({
-      email: 'customer2@davaobank.ph',
-      password: 'Password123!',
+    const { data: c2Auth, error: c2Err } = await signInWithStepUp(customer2Client, {
+      email: TEST_CUSTOMER_B,
+      password: TEST_PASSWORD,
     });
 
     assert(
@@ -284,10 +301,18 @@ async function runTestSuite() {
       wdErr?.message
     );
 
-    // Withdraw Insufficient Funds
+    // Withdraw Insufficient Funds: amount above balance but below ₱5,000,000 cap
+    const { data: c1WdBal } = await customer1Client
+      .from('account_balances')
+      .select('balance')
+      .eq('account_id', c1Account.account_id)
+      .single();
+    const curBal = Number(c1WdBal?.balance ?? 0);
+    const overdraftAmount = Math.min(Math.max(curBal + 5000000, 10000000), 450000000);
+
     const { error: wdOverdraftErr } = await customer1Client.rpc('withdraw', {
       p_account: c1Account.account_id,
-      p_amount: 9999999999, // Impossible amount
+      p_amount: overdraftAmount,
       p_idempotency_key: `wd_overdraft_${Date.now()}`,
     });
 
@@ -407,7 +432,47 @@ async function runTestSuite() {
       'Transfer from non-owned account is rejected (auth.uid check)'
     );
 
+    // Step-up negative tests (Phase 6.5 Stage E)
+    console.log(
+      '\n[5.5/7] Testing Step-Up Negative Cases (aal1 rejection and stale window)...'
+    );
+    const aal1Client = createClient(SUPABASE_URL, ANON_KEY);
+    await aal1Client.auth.signInWithPassword({
+      email: TEST_CUSTOMER_A,
+      password: TEST_PASSWORD,
+    });
+    try {
+      await assertAal1TransferRejected(aal1Client);
+      assert(
+        'StepUp',
+        true,
+        'Plain password session (aal1) transfer is strictly rejected by step-up guard'
+      );
+    } catch (err: any) {
+      assert(
+        'StepUp',
+        false,
+        'Plain password session (aal1) transfer rejection failed',
+        err?.message
+      );
+    } finally {
+      await aal1Client.auth.signOut({ scope: 'local' }); // global sign-out would revoke customer1Client's session too
+    }
+
+    try {
+      await assertStaleStepUpRejected(customer1Client, SUPABASE_URL, ANON_KEY);
+      assert(
+        'StepUp',
+        true,
+        'Stale step-up session (>5 minutes) is strictly rejected with STEP_UP_EXPIRED'
+      );
+    } catch (err: any) {
+      assert('StepUp', false, 'Stale step-up session rejection failed', err?.message);
+    }
+
     // 6. Concurrency Safety Test (§7)
+    // The stale-window check above waited > 5 minutes, so customer2's step-up is stale too.
+    await testFactorForEmail(TEST_CUSTOMER_B)?.verify(customer2Client);
     console.log(
       '\n[6/7] Running Parallel Concurrency Test (Overdraft Prevention under Load)...'
     );
@@ -587,6 +652,8 @@ async function runTestSuite() {
       'Transfer records correctly surface counterparty account number to customer'
     );
 
+    // Run source-file checks in addition to live tests
+    runContractValidations();
     printSummary();
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -646,8 +713,11 @@ function printSummary() {
   console.log('================================================================\n');
 
   if (failed > 0) {
-    process.exit(1);
+    throw new Error('Live suite failed; see checks above.');
   }
 }
 
-runTestSuite();
+withStepUpCleanup(runTestSuite).catch((error: Error) => {
+  console.error(error.message);
+  process.exitCode = 1;
+});

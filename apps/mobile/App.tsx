@@ -1,60 +1,302 @@
-import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, ActivityIndicator, Text } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import { View, StyleSheet, ActivityIndicator, Platform } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import * as ScreenCapture from 'expo-screen-capture';
+import * as SecureStore from 'expo-secure-store';
+import { useReducedMotion } from 'react-native-reanimated';
 import { StatusBar } from 'expo-status-bar';
-import { NavigationContainer } from '@react-navigation/native';
+import {
+  NavigationContainer,
+  createNavigationContainerRef,
+  type NavigatorScreenParams,
+} from '@react-navigation/native';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import {
+  useFonts,
+  PlusJakartaSans_500Medium,
+  PlusJakartaSans_600SemiBold,
+  PlusJakartaSans_700Bold,
+  PlusJakartaSans_800ExtraBold,
+} from '@expo-google-fonts/plus-jakarta-sans';
+import { Home, Receipt, Bell, User } from 'lucide-react-native';
 import type { Session } from '@supabase/supabase-js';
-import { colors } from '@davao-bank/shared';
+import {
+  colors,
+  spacing,
+  fetchUserProfile,
+  type Profile,
+  type AccountBalance,
+  type CardStatement,
+  type CreditCardSummary,
+  type DigitalDebitCard,
+} from '@davao-bank/shared';
 import { supabase } from './src/lib/supabase';
+import { AppLockProvider } from './src/context/AppLockContext';
+import { SettingsProvider } from './src/context/SettingsContext';
+import { useUnreadNotificationCount } from './src/hooks/useUnreadNotificationCount';
+import {
+  Logo,
+  Text,
+  PrivacyOverlay,
+  ToastProvider,
+  BantayRealtimeBridge,
+  FloatingTabBar,
+  OfflineBanner,
+} from './src/components';
+import {
+  registerDeviceOncePerSession,
+  resetDeviceSessionFlag,
+} from './src/utils/deviceRegistration';
 import { HomeScreen } from './src/screens/HomeScreen';
+import { ActivityScreen } from './src/screens/ActivityScreen';
+import { InboxScreen } from './src/screens/InboxScreen';
+import { ProfileScreen } from './src/screens/ProfileScreen';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { SignUpScreen } from './src/screens/SignUpScreen';
 import { VerifyEmailScreen } from './src/screens/VerifyEmailScreen';
 import { ForgotPasswordScreen } from './src/screens/ForgotPasswordScreen';
+import { SuspendedScreen } from './src/screens/SuspendedScreen';
+import { CashOutScreen } from './src/screens/CashOutScreen';
+import { AddMoneyScreen } from './src/screens/AddMoneyScreen';
+import { ReceiptScreen } from './src/screens/ReceiptScreen';
+import { PaymentRequestsScreen } from './src/screens/PaymentRequestsScreen';
+import { TwoStepSetupScreen } from './src/screens/TwoStepSetupScreen';
+import { AboutScreen } from './src/screens/AboutScreen';
+import { PersonalDetailsScreen } from './src/screens/PersonalDetailsScreen';
+import { ExportStatementScreen } from './src/screens/ExportStatementScreen';
+import { FXRatesScreen } from './src/screens/FXRatesScreen';
+import { ScheduledPaymentsScreen } from './src/screens/ScheduledPaymentsScreen';
+import { SavedRecipientsScreen } from './src/screens/SavedRecipientsScreen';
+import { ChangePasswordScreen } from './src/screens/ChangePasswordScreen';
+import { BantaySecurityScreen } from './src/screens/BantaySecurityScreen';
+import { BantayChatScreen } from './src/screens/BantayChatScreen';
+import { MonthlySummaryScreen } from './src/screens/MonthlySummaryScreen';
+import { MyAccountsScreen } from './src/screens/MyAccountsScreen';
+import { AccountDetailScreen } from './src/screens/AccountDetailScreen';
+import {
+  MoreServicesScreen,
+  UnavailableServiceScreen,
+} from './src/screens/MoreServicesScreen';
+import { ServiceRequestsScreen } from './src/screens/ServiceRequestsScreen';
+import { NewServiceRequestScreen } from './src/screens/NewServiceRequestScreen';
+import { BranchAppointmentsScreen } from './src/screens/BranchAppointmentsScreen';
+import { BookAppointmentScreen } from './src/screens/BookAppointmentScreen';
+import { InstallmentCalculatorScreen } from './src/screens/InstallmentCalculatorScreen';
+import { CardsScreen } from './src/screens/CardsScreen';
+import { CardDetailScreen } from './src/screens/CardDetailScreen';
+import { CardStatementScreen } from './src/screens/CardStatementScreen';
+
+import { TransferScreen } from './src/screens/TransferScreen';
+import { PayBillsScreen } from './src/screens/PayBillsScreen';
+import { QRHubScreen } from './src/screens/QRHubScreen';
+import { OnboardingScreen, ONBOARDING_SEEN_KEY } from './src/screens/OnboardingScreen';
 
 export type RootStackParamList = {
-  Home: undefined;
+  Tabs: NavigatorScreenParams<BottomTabParamList> | undefined;
+  CashOut: undefined;
+  Transfer:
+    | {
+        recipientAccount?: string;
+        amountCentavos?: number;
+        note?: string;
+        recipientNickname?: string;
+      }
+    | undefined;
+  PayBills: { billerId?: string; reference?: string } | undefined;
+  QRHub: { initialTab?: 'my' | 'scan' | 'request' } | undefined;
+  AddMoney: undefined;
+  TwoStepSetup: undefined;
+  BantaySecurity: undefined;
+  BantayChat: undefined;
+  MonthlySummary: undefined;
+  Receipt: { transactionId: string; accountId: string };
+  PaymentRequests: { initialTab?: 'incoming' | 'outgoing' } | undefined;
+  About: undefined;
+  PersonalDetails: undefined;
+  ExportStatement: undefined;
+  FXRates: { mode?: 'convert' } | undefined;
+  ScheduledPayments: undefined;
+  SavedRecipients: undefined;
+  ChangePassword: undefined;
+  MyAccounts: undefined;
+  AccountDetail: { accountId: string; account?: AccountBalance };
+  MoreServices: undefined;
+  ServiceRequests: { initialRequestId?: string } | undefined;
+  NewServiceRequest:
+    | {
+        initialType?:
+          | 'statement'
+          | 'certificate'
+          | 'card_replacement'
+          | 'account_update'
+          | 'remit_status';
+      }
+    | undefined;
+  BranchAppointments: { initialAppointmentId?: string } | undefined;
+  BookAppointment: { branchId?: string; date?: string } | undefined;
+  SavingsGoals: { initialTab?: 'goals' | 'time_deposit' } | undefined;
+  TimeDepositPlanner: undefined;
+  InstallmentCalculator:
+    | {
+        initialAmountCentavos?: number;
+        initialTermMonths?: 3 | 6 | 12 | 24;
+      }
+    | undefined;
+  Cards: undefined;
+  CardDetail: { card: DigitalDebitCard };
+  CardStatement: { statement: CardStatement; creditCard: CreditCardSummary };
 };
 
-const Stack = createNativeStackNavigator<RootStackParamList>();
+export type BottomTabParamList = {
+  HomeTab: undefined;
+  ActivityTab: { accountId?: string } | undefined;
+  InboxTab: undefined;
+  ProfileTab: undefined;
+};
+
+const RootStack = createNativeStackNavigator<RootStackParamList>();
+const Tab = createBottomTabNavigator<BottomTabParamList>();
+/** Lets the Toast action open Bantay while ToastProvider sits above the navigator. */
+const navigationRef = createNavigationContainerRef<RootStackParamList>();
 
 type AuthScreenState = 'login' | 'signup' | 'verify' | 'forgot';
 
 export default function App() {
+  const [fontsLoaded] = useFonts({
+    PlusJakartaSans_500Medium,
+    PlusJakartaSans_600SemiBold,
+    PlusJakartaSans_700Bold,
+    PlusJakartaSans_800ExtraBold,
+  });
+
+  const [restoredSession, setRestoredSession] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [authScreen, setAuthScreen] = useState<AuthScreenState>('login');
   const [targetEmail, setTargetEmail] = useState<string>('');
+  // Verify email: true right after sign-up (an email was just sent), so the
+  // Resend cooldown starts on arrival.
+  const [verifyJustSent, setVerifyJustSent] = useState(false);
+  const reduceMotion = useReducedMotion();
+  const [onboardingSeen, setOnboardingSeen] = useState<boolean>(true);
 
   useEffect(() => {
-    // 1. Initial session check from persistent storage
+    SecureStore.getItemAsync(ONBOARDING_SEEN_KEY)
+      .then((val) => {
+        if (val !== 'true') {
+          setOnboardingSeen(false);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (Platform.OS === 'android') {
+      ScreenCapture.preventScreenCaptureAsync().catch((err) => {
+        console.warn('Failed to prevent screen capture on Android:', err);
+      });
+    }
+  }, []);
+
+  const loadProfile = useCallback(async (userId: string) => {
+    try {
+      let { data } = await fetchUserProfile(supabase, userId);
+      if (!data) {
+        // Self-heal: ensure profile exists (§0.7)
+        const healRes = await supabase.rpc('ensure_my_profile');
+        if (healRes.data && (healRes.data as any).profile) {
+          data = (healRes.data as any).profile as Profile;
+        } else {
+          const refetch = await fetchUserProfile(supabase, userId);
+          data = refetch.data;
+        }
+      }
+      if (data) {
+        setProfile(data);
+      }
+    } catch (err) {
+      console.warn('Failed to fetch profile in App:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    // 1. Initial session check
     supabase.auth.getSession().then(({ data: { session } }) => {
+      setRestoredSession(Boolean(session));
       setSession(session);
+      if (session?.user) {
+        loadProfile(session.user.id);
+      }
       setLoading(false);
     });
 
-    // 2. Real-time auth state listener
+    // 2. Real-time auth state changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      // Signed out: no email was just sent, so Resend must not start locked.
+      if (event === 'SIGNED_OUT') setVerifyJustSent(false);
       setSession(session);
+      if (session?.user) {
+        loadProfile(session.user.id);
+      } else {
+        setRestoredSession(false);
+        setProfile(null);
+      }
       setLoading(false);
     });
 
     return () => {
       subscription.unsubscribe();
     };
+  }, [loadProfile]);
+
+  // Inbox badge: loads at start / sign-in and on returning to the foreground,
+  // not only after Inbox is opened. Signing out resets it to 0.
+  const {
+    count: unreadCount,
+    setCount: setUnreadCount,
+    refresh: refreshUnreadCount,
+  } = useUnreadNotificationCount(session?.user?.id ?? null);
+
+  const signedInUserId = session?.user?.id ?? null;
+
+  // Device registration is once per signed-in session, independent of alerts.
+  useEffect(() => {
+    if (signedInUserId) {
+      void registerDeviceOncePerSession();
+    } else {
+      resetDeviceSessionFlag();
+    }
+  }, [signedInUserId]);
+
+  const handleBantayAlert = useCallback(() => {
+    // The server wrote the Inbox row; read the real unread count back.
+    void refreshUnreadCount();
+  }, [refreshUnreadCount]);
+
+  const handleOpenBantay = useCallback(() => {
+    if (navigationRef.isReady()) navigationRef.current?.navigate('BantaySecurity');
   }, []);
 
-  // Show splash while restoring session from AsyncStorage
-  if (loading) {
-    return (
+  const isAuthenticated = Boolean(session?.user);
+  const isEmailVerified = Boolean(session?.user?.email_confirmed_at);
+  const isSuspended = profile?.status === 'suspended';
+
+  let content: React.ReactNode = null;
+
+  // Loading / Splash Screen
+  if (loading || !fontsLoaded) {
+    content = (
       <View style={styles.loadingContainer}>
-        <StatusBar style="light" />
-        <View style={styles.splashBadge}>
-          <Text style={styles.splashBadgeText}>DB</Text>
-        </View>
-        <Text style={styles.splashTitle}>Davao Bank</Text>
+        <StatusBar style="dark" />
+        <Logo variant="mark" size={56} />
+        <Text variant="h1" color={colors.primary} style={styles.splashTitle}>
+          Davao Bank
+        </Text>
         <ActivityIndicator
           size="small"
           color={colors.primary}
@@ -62,116 +304,411 @@ export default function App() {
         />
       </View>
     );
-  }
-
-  // Navigation Gating: Check authenticated session & verified email
-  const isAuthenticated = Boolean(session?.user);
-  const isEmailVerified = Boolean(session?.user?.email_confirmed_at);
-
-  if (isAuthenticated && isEmailVerified) {
-    return (
-      <NavigationContainer>
-        <StatusBar style="light" />
-        <Stack.Navigator
-          initialRouteName="Home"
-          screenOptions={{
-            headerStyle: {
-              backgroundColor: colors.primary,
-            },
-            headerTintColor: colors.textInverse,
-            headerTitleStyle: {
-              fontWeight: '700',
-            },
-            contentStyle: {
-              backgroundColor: colors.background,
-            },
+  } else if (!isAuthenticated) {
+    if (!onboardingSeen) {
+      content = (
+        <NavigationContainer ref={navigationRef}>
+          <StatusBar style="dark" />
+          <OnboardingScreen onFinish={() => setOnboardingSeen(true)} />
+        </NavigationContainer>
+      );
+    } else {
+      content = (
+        <NavigationContainer ref={navigationRef}>
+          <StatusBar style="dark" />
+          {authScreen === 'login' && (
+            <LoginScreen
+              onNavigateToSignUp={() => setAuthScreen('signup')}
+              onNavigateToForgotPassword={() => setAuthScreen('forgot')}
+              onNavigateToVerifyEmail={(email) => {
+                setTargetEmail(email);
+                setVerifyJustSent(false);
+                setAuthScreen('verify');
+              }}
+            />
+          )}
+          {authScreen === 'signup' && (
+            <SignUpScreen
+              onNavigateToLogin={() => setAuthScreen('login')}
+              onSignUpSuccess={(email) => {
+                setTargetEmail(email);
+                setVerifyJustSent(true);
+                setAuthScreen('verify');
+              }}
+            />
+          )}
+          {authScreen === 'verify' && (
+            <VerifyEmailScreen
+              email={targetEmail || session?.user?.email || ''}
+              justSent={verifyJustSent}
+              onNavigateToLogin={() => {
+                setVerifyJustSent(false);
+                setAuthScreen('login');
+              }}
+            />
+          )}
+          {authScreen === 'forgot' && (
+            <ForgotPasswordScreen onNavigateToLogin={() => setAuthScreen('login')} />
+          )}
+        </NavigationContainer>
+      );
+    }
+  } else if (!isEmailVerified) {
+    content = (
+      <NavigationContainer ref={navigationRef}>
+        <StatusBar style="dark" />
+        <VerifyEmailScreen
+          email={session?.user?.email || targetEmail}
+          justSent={verifyJustSent}
+          onNavigateToLogin={async () => {
+            await supabase.auth.signOut();
+            setVerifyJustSent(false);
+            setAuthScreen('login');
           }}
-        >
-          <Stack.Screen
-            name="Home"
-            component={HomeScreen}
-            options={{
-              title: 'Davao Bank',
-              headerShown: false,
-            }}
-          />
-        </Stack.Navigator>
+        />
       </NavigationContainer>
+    );
+  } else if (isSuspended) {
+    content = (
+      <NavigationContainer ref={navigationRef}>
+        <StatusBar style="dark" />
+        <SuspendedScreen
+          profile={profile}
+          userEmail={session?.user?.email || null}
+          onRefresh={() => session?.user && loadProfile(session.user.id)}
+          onSignOut={() => {
+            setSession(null);
+            setProfile(null);
+            setAuthScreen('login');
+          }}
+        />
+      </NavigationContainer>
+    );
+  } else {
+    content = (
+      <AppLockProvider key={session?.user.id} restoredSession={restoredSession}>
+        <SettingsProvider>
+          <NavigationContainer ref={navigationRef}>
+            <StatusBar style="dark" />
+            <RootStack.Navigator
+              screenOptions={{
+                headerShown: false,
+                presentation: 'card',
+                animation: reduceMotion ? 'fade' : 'slide_from_right',
+              }}
+            >
+              <RootStack.Screen name="Tabs">
+                {() => (
+                  <Tab.Navigator
+                    tabBar={(props) => <FloatingTabBar {...props} />}
+                    screenOptions={{
+                      headerShown: false,
+                      animation: reduceMotion ? 'none' : 'fade',
+                    }}
+                  >
+                    <Tab.Screen
+                      name="HomeTab"
+                      options={{
+                        tabBarLabel: 'Home',
+                        tabBarIcon: ({ color, size }) => (
+                          <Home size={size} color={color} />
+                        ),
+                      }}
+                    >
+                      {({ navigation }) => (
+                        <HomeScreen
+                          onNavigateToActivity={() => navigation.navigate('ActivityTab')}
+                          onNavigateToProfile={() => navigation.navigate('ProfileTab')}
+                        />
+                      )}
+                    </Tab.Screen>
+
+                    <Tab.Screen
+                      name="ActivityTab"
+                      component={ActivityScreen}
+                      options={{
+                        tabBarLabel: 'Activity',
+                        tabBarIcon: ({ color, size }) => (
+                          <Receipt size={size} color={color} />
+                        ),
+                      }}
+                    />
+
+                    <Tab.Screen
+                      name="InboxTab"
+                      options={{
+                        tabBarLabel: 'Inbox',
+                        tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
+                        tabBarIcon: ({ color, size }) => (
+                          <Bell size={size} color={color} />
+                        ),
+                      }}
+                    >
+                      {() => <InboxScreen onUnreadCountChange={setUnreadCount} />}
+                    </Tab.Screen>
+
+                    <Tab.Screen
+                      name="ProfileTab"
+                      options={{
+                        tabBarLabel: 'Profile',
+                        tabBarIcon: ({ color, size }) => (
+                          <User size={size} color={color} />
+                        ),
+                      }}
+                    >
+                      {() => (
+                        <ProfileScreen
+                          profile={profile}
+                          userEmail={session?.user?.email || null}
+                          onProfileUpdated={(updated) => setProfile(updated)}
+                          onSignOut={() => {
+                            setSession(null);
+                            setProfile(null);
+                            setAuthScreen('login');
+                          }}
+                        />
+                      )}
+                    </Tab.Screen>
+                  </Tab.Navigator>
+                )}
+              </RootStack.Screen>
+
+              <RootStack.Screen
+                name="CashOut"
+                component={CashOutScreen}
+                options={{
+                  presentation: 'card',
+                  animation: 'slide_from_right',
+                }}
+              />
+              <RootStack.Screen
+                name="AddMoney"
+                component={AddMoneyScreen}
+                options={{
+                  presentation: 'card',
+                  animation: 'slide_from_right',
+                }}
+              />
+              <RootStack.Screen
+                name="TwoStepSetup"
+                component={TwoStepSetupScreen}
+                options={{
+                  presentation: 'card',
+                  animation: 'slide_from_right',
+                }}
+              />
+              <RootStack.Screen
+                name="Receipt"
+                component={ReceiptScreen}
+                options={{ presentation: 'card', animation: 'slide_from_right' }}
+              />
+              <RootStack.Screen
+                name="PaymentRequests"
+                component={PaymentRequestsScreen}
+                options={{ presentation: 'card', animation: 'slide_from_right' }}
+              />
+              <RootStack.Screen
+                name="About"
+                component={AboutScreen}
+                options={{ presentation: 'card', animation: 'slide_from_right' }}
+              />
+              <RootStack.Screen
+                name="PersonalDetails"
+                component={PersonalDetailsScreen}
+                options={{ presentation: 'card', animation: 'slide_from_right' }}
+              />
+              <RootStack.Screen
+                name="ExportStatement"
+                component={ExportStatementScreen}
+                options={{ presentation: 'card', animation: 'slide_from_right' }}
+              />
+              <RootStack.Screen
+                name="FXRates"
+                component={FXRatesScreen}
+                options={{ presentation: 'card', animation: 'slide_from_right' }}
+              />
+              <RootStack.Screen
+                name="Transfer"
+                component={TransferScreen}
+                options={{ presentation: 'card', animation: 'slide_from_right' }}
+              />
+              <RootStack.Screen
+                name="PayBills"
+                component={PayBillsScreen}
+                options={{ presentation: 'card', animation: 'slide_from_right' }}
+              />
+              <RootStack.Screen
+                name="QRHub"
+                component={QRHubScreen}
+                options={{ presentation: 'card', animation: 'slide_from_right' }}
+              />
+              <RootStack.Screen
+                name="ScheduledPayments"
+                component={ScheduledPaymentsScreen}
+                options={{ presentation: 'card', animation: 'slide_from_right' }}
+              />
+              <RootStack.Screen
+                name="SavedRecipients"
+                component={SavedRecipientsScreen}
+                options={{ presentation: 'card', animation: 'slide_from_right' }}
+              />
+              <RootStack.Screen
+                name="ChangePassword"
+                component={ChangePasswordScreen}
+                options={{ presentation: 'card', animation: 'slide_from_right' }}
+              />
+              <RootStack.Screen
+                name="BantaySecurity"
+                component={BantaySecurityScreen}
+                options={{ presentation: 'card', animation: 'slide_from_right' }}
+              />
+              <RootStack.Screen
+                name="BantayChat"
+                component={BantayChatScreen}
+                options={{ presentation: 'card', animation: 'slide_from_right' }}
+              />
+              <RootStack.Screen
+                name="MonthlySummary"
+                component={MonthlySummaryScreen}
+                options={{ presentation: 'card', animation: 'slide_from_right' }}
+              />
+              <RootStack.Screen
+                name="MyAccounts"
+                component={MyAccountsScreen}
+                options={{ presentation: 'card', animation: 'slide_from_right' }}
+              />
+              <RootStack.Screen
+                name="AccountDetail"
+                component={AccountDetailScreen}
+                options={{ presentation: 'card', animation: 'slide_from_right' }}
+              />
+              <RootStack.Screen
+                name="MoreServices"
+                component={MoreServicesScreen}
+                options={{ presentation: 'card', animation: 'slide_from_right' }}
+              />
+              <RootStack.Screen
+                name="ServiceRequests"
+                component={ServiceRequestsScreen}
+                options={{ presentation: 'card', animation: 'slide_from_right' }}
+              />
+              <RootStack.Screen
+                name="NewServiceRequest"
+                component={NewServiceRequestScreen}
+                options={{ presentation: 'card', animation: 'slide_from_right' }}
+              />
+              <RootStack.Screen
+                name="BranchAppointments"
+                component={BranchAppointmentsScreen}
+                options={{ presentation: 'card', animation: 'slide_from_right' }}
+              />
+              <RootStack.Screen
+                name="BookAppointment"
+                component={BookAppointmentScreen}
+                options={{ presentation: 'card', animation: 'slide_from_right' }}
+              />
+              <RootStack.Screen
+                name="SavingsGoals"
+                component={UnavailableServiceScreen}
+                options={{ presentation: 'card', animation: 'slide_from_right' }}
+              />
+              <RootStack.Screen
+                name="TimeDepositPlanner"
+                component={UnavailableServiceScreen}
+                options={{ presentation: 'card', animation: 'slide_from_right' }}
+              />
+              <RootStack.Screen
+                name="InstallmentCalculator"
+                component={InstallmentCalculatorScreen}
+                options={{ presentation: 'card', animation: 'slide_from_right' }}
+              />
+              <RootStack.Screen
+                name="Cards"
+                component={CardsScreen}
+                options={{ presentation: 'card', animation: 'slide_from_right' }}
+              />
+              <RootStack.Screen
+                name="CardDetail"
+                component={CardDetailScreen}
+                options={{ presentation: 'card', animation: 'slide_from_right' }}
+              />
+              <RootStack.Screen
+                name="CardStatement"
+                component={CardStatementScreen}
+                options={{ presentation: 'card', animation: 'slide_from_right' }}
+              />
+            </RootStack.Navigator>
+          </NavigationContainer>
+
+          <PrivacyOverlay />
+        </SettingsProvider>
+      </AppLockProvider>
     );
   }
 
-  // Unauthenticated / Unverified Auth Flow
   return (
-    <NavigationContainer>
-      <StatusBar style="dark" />
-      {authScreen === 'login' && (
-        <LoginScreen
-          onNavigateToSignUp={() => setAuthScreen('signup')}
-          onNavigateToForgotPassword={() => setAuthScreen('forgot')}
-          onNavigateToVerifyEmail={(email) => {
-            setTargetEmail(email);
-            setAuthScreen('verify');
-          }}
-        />
-      )}
-
-      {authScreen === 'signup' && (
-        <SignUpScreen
-          onNavigateToLogin={() => setAuthScreen('login')}
-          onSignUpSuccess={(email) => {
-            setTargetEmail(email);
-            setAuthScreen('verify');
-          }}
-        />
-      )}
-
-      {authScreen === 'verify' && (
-        <VerifyEmailScreen
-          email={targetEmail || session?.user?.email || ''}
-          onNavigateToLogin={() => setAuthScreen('login')}
-        />
-      )}
-
-      {authScreen === 'forgot' && (
-        <ForgotPasswordScreen onNavigateToLogin={() => setAuthScreen('login')} />
-      )}
-    </NavigationContainer>
+    <GestureHandlerRootView style={styles.root}>
+      <SafeAreaProvider>
+        <ToastProvider>
+          <BantayRealtimeBridge
+            userId={signedInUserId}
+            onAlert={handleBantayAlert}
+            onOpenBantay={handleOpenBantay}
+          />
+          <OfflineBanner />
+          {content}
+        </ToastProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
   loadingContainer: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.canvas,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  splashBadge: {
-    width: 64,
-    height: 64,
-    borderRadius: 18,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  splashBadgeText: {
-    color: colors.textInverse,
-    fontSize: 26,
-    fontWeight: '800',
   },
   splashTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: colors.primary,
-    letterSpacing: -0.5,
+    marginTop: spacing.md,
   },
   splashLoader: {
-    marginTop: 20,
+    marginTop: spacing.xl,
+  },
+  privacyOverlay: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: colors.canvas,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 999999,
+  },
+  privacyTitle: {
+    marginTop: spacing.md,
+    color: colors.primary,
+  },
+  privacySubtitle: {
+    marginTop: spacing.xs,
+    color: colors.textSecondary,
+  },
+  tabBar: {
+    backgroundColor: colors.surface,
+    borderTopColor: colors.border,
+    borderTopWidth: 1,
+    height: 64,
+    paddingBottom: spacing.sm,
+    paddingTop: spacing.xs,
+  },
+  tabBarLabel: {
+    fontSize: 12,
+    fontFamily: 'PlusJakartaSans_600SemiBold',
+  },
+  badgeStyle: {
+    backgroundColor: colors.red,
+    fontSize: 10,
+    fontWeight: '700',
   },
 });

@@ -7,12 +7,34 @@ import {
   executeAdminSetAccountStatus,
   executeAdminAdjustBalance,
   executeAdminReverseTransaction,
+  formatReferenceId,
+  toUserMessage,
   type ProfileStatus,
   type AccountStatus,
   type AccountType,
   type LedgerDirection,
 } from '@davao-bank/shared';
 import { createAdminCookieServerClient } from '@/lib/supabase-cookies';
+import { caseSlug, isCaseStatus, type SecurityCaseStatus } from '@/lib/securityCases';
+
+async function requireAdminAal2() {
+  const client = await createAdminCookieServerClient();
+  const {
+    data: { user },
+    error,
+  } = await client.auth.getUser();
+  if (error || !user) throw new Error('Authentication required');
+  const { data: profile } = await client
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .maybeSingle();
+  if (profile?.role !== 'admin') throw new Error('Admin privilege required');
+  const { data: assurance, error: aalError } =
+    await client.auth.mfa.getAuthenticatorAssuranceLevel();
+  if (aalError || assurance?.currentLevel !== 'aal2') throw new Error('STEP_UP_REQUIRED');
+  return client;
+}
 
 export interface ActionResult<T = unknown> {
   success: boolean;
@@ -30,7 +52,7 @@ export async function setUserStatusAction(
   reason: string
 ): Promise<ActionResult> {
   try {
-    const supabase = await createAdminCookieServerClient();
+    const supabase = await requireAdminAal2();
     const { data, error } = await executeAdminSetUserStatus(supabase, {
       userId,
       status,
@@ -38,15 +60,14 @@ export async function setUserStatusAction(
     });
 
     if (error) {
-      return { success: false, error };
+      return { success: false, error: toUserMessage(error) };
     }
 
     revalidatePath('/users');
     revalidatePath('/');
     return { success: true, data };
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    return { success: false, error: message };
+    return { success: false, error: toUserMessage(err) };
   }
 }
 
@@ -59,7 +80,7 @@ export async function openAccountAction(
   currency: string = 'PHP'
 ): Promise<ActionResult> {
   try {
-    const supabase = await createAdminCookieServerClient();
+    const supabase = await requireAdminAal2();
     const { data, error } = await executeAdminOpenAccount(supabase, {
       userId,
       type,
@@ -67,7 +88,7 @@ export async function openAccountAction(
     });
 
     if (error) {
-      return { success: false, error };
+      return { success: false, error: toUserMessage(error) };
     }
 
     revalidatePath('/accounts');
@@ -75,8 +96,7 @@ export async function openAccountAction(
     revalidatePath('/');
     return { success: true, data };
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    return { success: false, error: message };
+    return { success: false, error: toUserMessage(err) };
   }
 }
 
@@ -89,7 +109,7 @@ export async function setAccountStatusAction(
   reason: string
 ): Promise<ActionResult> {
   try {
-    const supabase = await createAdminCookieServerClient();
+    const supabase = await requireAdminAal2();
     const { data, error } = await executeAdminSetAccountStatus(supabase, {
       accountId,
       status,
@@ -97,15 +117,14 @@ export async function setAccountStatusAction(
     });
 
     if (error) {
-      return { success: false, error };
+      return { success: false, error: toUserMessage(error) };
     }
 
     revalidatePath('/accounts');
     revalidatePath('/');
     return { success: true, data };
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    return { success: false, error: message };
+    return { success: false, error: toUserMessage(err) };
   }
 }
 
@@ -120,7 +139,7 @@ export async function adjustBalanceAction(
   idempotencyKey: string
 ): Promise<ActionResult> {
   try {
-    const supabase = await createAdminCookieServerClient();
+    const supabase = await requireAdminAal2();
     const { data, error } = await executeAdminAdjustBalance(supabase, {
       accountId,
       amount: amountCentavos,
@@ -130,7 +149,7 @@ export async function adjustBalanceAction(
     });
 
     if (error) {
-      return { success: false, error };
+      return { success: false, error: toUserMessage(error) };
     }
 
     revalidatePath('/accounts');
@@ -138,8 +157,7 @@ export async function adjustBalanceAction(
     revalidatePath('/');
     return { success: true, data };
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    return { success: false, error: message };
+    return { success: false, error: toUserMessage(err) };
   }
 }
 
@@ -152,7 +170,7 @@ export async function reverseTransactionAction(
   idempotencyKey: string
 ): Promise<ActionResult> {
   try {
-    const supabase = await createAdminCookieServerClient();
+    const supabase = await requireAdminAal2();
     const { data, error } = await executeAdminReverseTransaction(supabase, {
       transactionId,
       reason,
@@ -160,7 +178,7 @@ export async function reverseTransactionAction(
     });
 
     if (error) {
-      return { success: false, error };
+      return { success: false, error: toUserMessage(error) };
     }
 
     revalidatePath('/transactions');
@@ -168,7 +186,220 @@ export async function reverseTransactionAction(
     revalidatePath('/');
     return { success: true, data };
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    return { success: false, error: message };
+    return { success: false, error: toUserMessage(err) };
+  }
+}
+
+/**
+ * Server Action: Trigger due scheduled payments immediately.
+ */
+export async function adminRunDueSchedulesAction(): Promise<ActionResult> {
+  try {
+    const supabase = await requireAdminAal2();
+    const { data, error } = await supabase.rpc('admin_run_due_schedules_now');
+
+    if (error) {
+      return { success: false, error: toUserMessage(error) };
+    }
+
+    revalidatePath('/schedules');
+    revalidatePath('/transactions');
+    revalidatePath('/accounts');
+    revalidatePath('/');
+    return { success: true, data };
+  } catch (err: unknown) {
+    return { success: false, error: toUserMessage(err) };
+  }
+}
+
+/**
+ * Server Action: Cancel a scheduled payment with mandatory reason.
+ */
+export async function adminCancelScheduleAction(
+  scheduleId: string,
+  reason: string
+): Promise<ActionResult> {
+  try {
+    const supabase = await requireAdminAal2();
+    const { data, error } = await supabase.rpc('cancel_scheduled_payment', {
+      p_id: scheduleId,
+      p_reason: reason,
+    });
+
+    if (error) {
+      return { success: false, error: toUserMessage(error) };
+    }
+
+    revalidatePath('/schedules');
+    revalidatePath('/');
+    return { success: true, data };
+  } catch (err: unknown) {
+    return { success: false, error: toUserMessage(err) };
+  }
+}
+
+/**
+ * Server Action: Create a new biller settlement account and biller definition.
+ */
+export async function adminCreateBillerAction(
+  name: string,
+  category: string,
+  referenceLabel: string,
+  referencePattern: string
+): Promise<ActionResult> {
+  try {
+    const supabase = await requireAdminAal2();
+    const { data, error } = await supabase.rpc('admin_create_biller', {
+      p_name: name,
+      p_category: category,
+      p_reference_label: referenceLabel,
+      p_reference_pattern: referencePattern,
+    });
+
+    if (error) {
+      return { success: false, error: toUserMessage(error) };
+    }
+
+    revalidatePath('/billers');
+    revalidatePath('/accounts');
+    revalidatePath('/');
+    return { success: true, data };
+  } catch (err: unknown) {
+    return { success: false, error: toUserMessage(err) };
+  }
+}
+
+/**
+ * Server Action: Activate or deactivate a biller.
+ */
+export async function adminSetBillerActiveAction(
+  billerId: string,
+  isActive: boolean
+): Promise<ActionResult> {
+  try {
+    const supabase = await requireAdminAal2();
+    const { data, error } = await supabase.rpc('admin_set_biller_active', {
+      p_biller_id: billerId,
+      p_is_active: isActive,
+    });
+
+    if (error) {
+      return { success: false, error: toUserMessage(error) };
+    }
+
+    revalidatePath('/billers');
+    revalidatePath('/');
+    return { success: true, data };
+  } catch (err: unknown) {
+    return { success: false, error: toUserMessage(err) };
+  }
+}
+
+export async function resetUserMfaAction(
+  userId: string,
+  reason: string
+): Promise<ActionResult> {
+  try {
+    const client = await requireAdminAal2();
+    if (reason.trim().length < 10)
+      return { success: false, error: 'Enter a reason of at least 10 characters.' };
+    const { error } = await client.rpc('admin_reset_user_mfa', {
+      target_user: userId,
+      reason: reason.trim(),
+    });
+    if (error) return { success: false, error: toUserMessage(error) };
+    revalidatePath('/users');
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: toUserMessage(error) };
+  }
+}
+
+/**
+ * Bantay (8G): set a security case status and/or add an audited staff note.
+ * The RPC enforces admin role plus aal2; this action reuses the same guard.
+ */
+export async function updateSecurityCaseAction(
+  caseId: string,
+  status: SecurityCaseStatus,
+  note: string
+): Promise<ActionResult> {
+  try {
+    if (!isCaseStatus(status)) {
+      return { success: false, error: 'Choose a valid case status.' };
+    }
+    const supabase = await requireAdminAal2();
+    const { data, error } = await supabase.rpc('admin_update_security_case', {
+      p_id: caseId,
+      p_status: status,
+      p_note: note.trim() || null,
+    });
+    if (error) return { success: false, error: toUserMessage(error) };
+
+    revalidatePath('/cases');
+    revalidatePath(`/cases/${caseSlug(caseId)}`);
+    revalidatePath('/');
+    return { success: true, data };
+  } catch (err: unknown) {
+    return { success: false, error: toUserMessage(err) };
+  }
+}
+
+/** Bantay (8G): release a customer lock through the staff-only RPC. */
+export async function unlockSecurityCaseUserAction(
+  userId: string,
+  caseId: string,
+  reason: string
+): Promise<ActionResult> {
+  try {
+    if (reason.trim().length < 10) {
+      return { success: false, error: 'Enter a reason of at least 10 characters.' };
+    }
+    const supabase = await requireAdminAal2();
+    const { data, error } = await supabase.rpc('admin_unlock_user', {
+      p_user_id: userId,
+      p_note: `Case ${formatReferenceId(caseId)}: ${reason.trim()}`,
+    });
+    if (error) return { success: false, error: toUserMessage(error) };
+
+    revalidatePath('/cases');
+    revalidatePath(`/cases/${caseSlug(caseId)}`);
+    revalidatePath('/');
+    return { success: true, data };
+  } catch (err: unknown) {
+    return { success: false, error: toUserMessage(err) };
+  }
+}
+
+/**
+ * Bantay (8G): freeze/unfreeze the receiving account. The case reference is
+ * written into the existing RPC's mandatory reason, which is stored in audit
+ * metadata; no test-only bypass or new RPC is used.
+ */
+export async function setCaseAccountStatusAction(
+  accountId: string,
+  status: 'frozen' | 'active',
+  reason: string,
+  caseId: string
+): Promise<ActionResult> {
+  try {
+    if (reason.trim().length < 10) {
+      return { success: false, error: 'Enter a reason of at least 10 characters.' };
+    }
+    const supabase = await requireAdminAal2();
+    const { data, error } = await executeAdminSetAccountStatus(supabase, {
+      accountId,
+      status,
+      reason: `Case ${formatReferenceId(caseId)}: ${reason.trim()}`,
+    });
+    if (error) return { success: false, error: toUserMessage(error) };
+
+    revalidatePath('/cases');
+    revalidatePath(`/cases/${caseSlug(caseId)}`);
+    revalidatePath('/accounts');
+    revalidatePath('/');
+    return { success: true, data };
+  } catch (err: unknown) {
+    return { success: false, error: toUserMessage(err) };
   }
 }

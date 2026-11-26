@@ -1,0 +1,93 @@
+.txType {
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.monoText {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+}
+
+.monoSemibold {
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+
+.secondaryText {
+  color: var(--color-text-secondary);
+}
+
+.secondarySmall {
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+}
+
+.secondaryNote {
+  color: var(--color-text-secondary);
+  font-size: 0.85rem;
+}
+
+.amountBold {
+  font-weight: 800;
+}
+
+.amountBold700 {
+  font-weight: 700;
+}
+
+.mutedTabular {
+  color: var(--color-text-muted);
+}
+
+.actionsCell {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.tabGroup {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.filterSearch {
+  flex: 1;
+  min-width: 240px;
+}
+
+.filterSelect {
+  width: 160px;
+}
+
+.drawerStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.metaStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.metaLabel {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+}
+
+.statusWrapper {
+  margin-top: 4px;
+}
+
+.amountHeader {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: var(--color-primary);
+}
+
+.accountList {
+  font-weight: 600;
+}

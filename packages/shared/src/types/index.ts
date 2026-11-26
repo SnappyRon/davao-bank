@@ -19,7 +19,7 @@ export interface HealthCheckState {
 }
 
 // --- User Roles & Profile ---
-export type UserRole = 'customer' | 'admin';
+export type UserRole = 'customer' | 'admin' | 'system';
 export type ProfileStatus = 'active' | 'suspended';
 
 export interface Profile {
@@ -47,7 +47,7 @@ export interface Account {
 
 // --- Transactions & Ledger ---
 export type TransactionType =
-  'transfer' | 'deposit' | 'withdrawal' | 'adjustment' | 'reversal';
+  'transfer' | 'deposit' | 'withdrawal' | 'adjustment' | 'reversal' | 'bill_payment';
 
 export type TransactionStatus = 'pending' | 'completed' | 'failed' | 'reversed';
 
@@ -99,6 +99,8 @@ export interface Notification {
   message: string;
   read: boolean;
   created_at: string;
+  /** The transaction this notice is about (set by the server; null for account notices). */
+  related_transaction_id?: string | null;
 }
 
 // --- Balance Read-Model ---
@@ -129,6 +131,8 @@ export interface TransactionHistoryItem {
   reference: string | null;
   counterparty_account_number: string | null;
   created_at: string;
+  /** Biller display name, bill_payment rows only (null otherwise). */
+  biller_name?: string | null;
 }
 
 export interface TransferParams {
@@ -166,6 +170,9 @@ export interface MoneyOperationResult {
   idempotency_key: string;
   created_at: string;
   idempotent_replay: boolean;
+  new_balance?: number;
+  from_new_balance?: number;
+  transaction_id?: string;
 }
 
 // --- Currency & Idempotency Utilities ---
@@ -201,7 +208,7 @@ export function phpToCentavos(amount: number | string): number {
 /**
  * Generates a unique client idempotency key for money operations.
  */
-export function generateIdempotencyKey(operation: string): string {
+export function generateIdempotencyKey(operation: string = 'tx'): string {
   const timestamp = Date.now();
   const random = Math.random().toString(36).substring(2, 10);
   return `${operation}_${timestamp}_${random}`;
@@ -272,4 +279,246 @@ export interface AdminOperationResult {
   id?: string;
   message?: string;
   [key: string]: unknown;
+}
+
+// --- Phase 5 Stage B: Everyday Extras Types ---
+
+export interface SavedRecipient {
+  id: string;
+  owner_id: string;
+  account_number: string;
+  nickname: string;
+  created_at: string;
+}
+
+export interface StatementTransactionItem {
+  id: string;
+  transaction_id: string;
+  account_id: string;
+  account_number: string;
+  type: TransactionType;
+  direction: LedgerDirection;
+  amount: number;
+  signed_amount: number;
+  status: TransactionStatus;
+  reference: string | null;
+  counterparty_account_number: string | null;
+  created_at: string;
+}
+
+export interface AccountStatement {
+  account_id: string;
+  account_number: string;
+  period_from: string;
+  period_to: string;
+  opening_balance: number;
+  closing_balance: number;
+  transactions: StatementTransactionItem[];
+}
+
+// --- Phase 5 Stage C: Scheduled Payments & Bill Pay Types ---
+
+export type BillerCategory = 'electricity' | 'water' | 'internet' | 'mobile' | 'other';
+
+export interface Biller {
+  id: string;
+  name: string;
+  category: BillerCategory;
+  account_id: string;
+  reference_label: string;
+  reference_pattern: string;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface BillPayment {
+  id: string;
+  transaction_id: string;
+  biller_id: string;
+  payer_account: string;
+  biller_reference: string;
+  created_at: string;
+}
+
+export type ScheduledPaymentKind = 'transfer' | 'bill';
+export type ScheduledPaymentFrequency = 'once' | 'weekly' | 'monthly';
+export type ScheduledPaymentStatus = 'active' | 'completed' | 'cancelled';
+
+export interface ScheduledPayment {
+  id: string;
+  owner_id: string;
+  from_account: string;
+  from_account_number?: string | null;
+  kind: ScheduledPaymentKind;
+  to_account: string | null;
+  to_account_number?: string | null;
+  to_account_last4?: string | null;
+  biller_id: string | null;
+  biller_name?: string | null;
+  biller_reference: string | null;
+  amount: number; // centavos
+  note: string | null;
+  frequency: ScheduledPaymentFrequency;
+  start_date: string;
+  end_date: string | null;
+  max_runs: number | null;
+  runs_done: number;
+  next_run_date: string;
+  status: ScheduledPaymentStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export type ScheduledPaymentRunStatus = 'completed' | 'failed';
+
+export interface ScheduledPaymentRun {
+  id: string;
+  schedule_id: string;
+  run_date: string;
+  status: ScheduledPaymentRunStatus;
+  transaction_id: string | null;
+  failure_reason: string | null;
+  created_at: string;
+}
+
+export interface PayBillParams {
+  from_account: string;
+  biller_id: string;
+  biller_reference: string;
+  amount: number; // centavos
+  idempotency_key: string;
+}
+
+export interface CreateScheduledPaymentParams {
+  from_account: string;
+  kind: ScheduledPaymentKind;
+  to_account?: string | null;
+  biller_id?: string | null;
+  biller_reference?: string | null;
+  amount: number;
+  frequency: ScheduledPaymentFrequency;
+  start_date: string;
+  end_date?: string | null;
+  max_runs?: number | null;
+  note?: string | null;
+}
+
+// --- Phase 5 Stage D: QR Send & Request Money Types ---
+
+export type PaymentRequestStatus =
+  'pending' | 'paid' | 'declined' | 'cancelled' | 'expired';
+
+export interface PaymentRequest {
+  id: string;
+  requester_id: string;
+  requester_account: string;
+  payer_account_number: string;
+  payer_user_id: string;
+  amount: number; // centavos
+  note: string | null;
+  status: PaymentRequestStatus;
+  transaction_id: string | null;
+  expires_at: string;
+  created_at: string;
+  responded_at: string | null;
+}
+
+export interface CreatePaymentRequestParams {
+  requester_account: string;
+  payer_account_number: string;
+  amount: number; // centavos
+  note?: string | null;
+}
+
+export interface PayPaymentRequestParams {
+  request_id: string;
+  from_account: string;
+  idempotency_key: string;
+}
+
+export interface QRPayloadResult {
+  valid: boolean;
+  accountNumber?: string;
+  amountCentavos?: number;
+  note?: string;
+  error?: string;
+}
+
+// --- Phase 5 Stage E: FX Reference Rates Types ---
+
+export type FXPair = 'USD/PHP' | 'EUR/PHP' | 'JPY/PHP';
+export type FXPeriod = '1W' | '1M' | '3M' | '1Y';
+
+export interface FXRate {
+  base: string;
+  quote: string;
+  rate_date: string; // 'YYYY-MM-DD'
+  rate: number;
+  source: string;
+  fetched_at: string;
+}
+
+export interface FXSummary {
+  base: string;
+  quote: string;
+  latestRate: number;
+  previousRate: number | null;
+  rateDate: string;
+  previousDate: string | null;
+  changeValue: number;
+  changePercent: number;
+  direction: 'up' | 'down' | 'flat';
+}
+
+// --- Phase 8 Stage B: Saved Billers, Reminders, Monthly Summary & Push Tokens ---
+
+export interface SavedBiller {
+  id: string;
+  user_id: string;
+  biller_id: string;
+  reference: string;
+  nickname: string;
+  due_day: number | null;
+  remind: boolean;
+  created_at: string;
+}
+
+export interface SaveBillerParams {
+  id?: string;
+  biller_id: string;
+  reference: string;
+  nickname: string;
+  due_day?: number | null;
+  remind?: boolean;
+}
+
+export interface BillReminder {
+  id: string;
+  user_id: string;
+  biller_id: string;
+  biller_name: string;
+  reference: string;
+  nickname: string;
+  due_day: number;
+  remind: boolean;
+  days_until_due: number;
+  created_at: string;
+}
+
+export type MonthlySummaryCategory =
+  'money_in' | 'transfers_out' | 'bills' | 'cash_out' | 'adjustments';
+
+export interface MonthlySummaryItem {
+  category: MonthlySummaryCategory;
+  total_centavos: number;
+  count: number;
+}
+
+export type PushPlatform = 'ios' | 'android';
+
+export interface PushToken {
+  user_id: string;
+  token: string;
+  platform: PushPlatform;
+  created_at: string;
 }

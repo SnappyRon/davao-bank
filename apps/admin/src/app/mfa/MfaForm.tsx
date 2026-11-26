@@ -1,0 +1,233 @@
+'use client';
+import React, { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { createAdminBrowserClient } from '@/lib/supabase-browser';
+import { Button, Input } from '@/components/ui';
+import styles from './MfaForm.module.css';
+
+type Enrollment = { id: string; secret: string; qr_code: string; uri: string };
+const VERIFY_TIMEOUT_MS = 20000;
+export function MfaForm({ setup = false }: { setup?: boolean }) {
+  const router = useRouter();
+  const [client] = useState(createAdminBrowserClient);
+  const [enrollment, setEnrollment] = useState<Enrollment | null>(null);
+  const [factorId, setFactorId] = useState('');
+  const pending = useRef<string | null>(null);
+  const [code, setCode] = useState('');
+  const [error, setError] = useState('');
+  const [showKey, setShowKey] = useState(false);
+  const [copyStatus, setCopyStatus] = useState('');
+  const [busy, setBusy] = useState(false);
+  const inFlight = useRef(false);
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      const { data, error: loadError } = await client.auth.mfa.listFactors();
+      if (!alive) return;
+      if (loadError) {
+        setError('Could not load your authenticator. Please sign in again.');
+        return;
+      }
+      const factor = data.totp.find((f) => f.status === 'verified');
+      if (factor) setFactorId(factor.id);
+      else if (!setup) router.replace('/mfa/setup');
+    })();
+    return () => {
+      alive = false;
+      const id = pending.current;
+      pending.current = null;
+      if (id) void client.auth.mfa.unenroll({ factorId: id });
+    };
+  }, [client, router, setup]);
+  const start = async () => {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    setBusy(true);
+    setError('');
+    try {
+      // A setup that was abandoned leaves an unverified factor with the same
+      // name, and enroll then fails. Remove leftovers before starting again.
+      const { data: existing } = await client.auth.mfa.listFactors();
+      for (const factor of existing?.all ?? []) {
+        if (factor.factor_type === 'totp' && factor.status === 'unverified') {
+          await client.auth.mfa.unenroll({ factorId: factor.id });
+        }
+      }
+      const { data, error: enrollError } = await client.auth.mfa.enroll({
+        factorType: 'totp',
+        friendlyName: 'Davao Bank Admin',
+      });
+      if (enrollError || !data) {
+        setError('Could not begin setup. Please try again.');
+        return;
+      }
+      pending.current = data.id;
+      setFactorId(data.id);
+      setEnrollment({ id: data.id, ...data.totp });
+    } finally {
+      setBusy(false);
+      inFlight.current = false;
+    }
+  };
+  const verify = async (value: string) => {
+    if (inFlight.current || !factorId || !/^\d{6}$/.test(value)) return;
+    inFlight.current = true;
+    setBusy(true);
+    setError('');
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      // challengeAndVerify stores the upgraded (aal2) session itself, so no
+      // separate refreshSession call is needed; the timeout keeps the form
+      // from staying locked if the request never settles.
+      const timeout = new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error('timeout')), VERIFY_TIMEOUT_MS);
+      });
+      const { error: verifyError } = await Promise.race([
+        client.auth.mfa.challengeAndVerify({ factorId, code: value }),
+        timeout,
+      ]);
+      if (verifyError) {
+        setError('Code not accepted. Try the latest code from your authenticator app.');
+        return;
+      }
+      pending.current = null;
+      setEnrollment(null);
+      // Full navigation so the middleware reads the new session cookies.
+      window.location.assign('/');
+    } catch {
+      setError('Could not verify the code. Please try again.');
+    } finally {
+      clearTimeout(timer);
+      setCode('');
+      setBusy(false);
+      inFlight.current = false;
+    }
+  };
+  const cancel = async () => {
+    const id = pending.current;
+    if (id) {
+      const { error: removeError } = await client.auth.mfa.unenroll({ factorId: id });
+      if (removeError) {
+        setError('Could not cancel setup. Please try again.');
+        return;
+      }
+      pending.current = null;
+    }
+    setEnrollment(null);
+    await client.auth.signOut();
+    router.replace('/login');
+    router.refresh();
+  };
+  return (
+    <main className={styles.container}>
+      <section className={styles.card}>
+        <h1>{setup ? 'Set up two-step verification' : 'Verify your sign-in'}</h1>
+        <p className={styles.subtitle}>
+          Use an authenticator app to secure access to the staff console.
+        </p>
+        {error && (
+          <p className={styles.error} role="alert">
+            {error}
+          </p>
+        )}
+        {setup && !factorId && (
+          <Button onClick={() => void start()} disabled={busy}>
+            {busy ? 'Setting up…' : 'Set up authenticator'}
+          </Button>
+        )}
+        {enrollment && (
+          <div className={styles.enrollment}>
+            <img
+              className={styles.qr}
+              src={enrollment.qr_code}
+              alt="Authenticator setup QR code"
+              width={200}
+              height={200}
+            />
+            <Button
+              variant="secondary"
+              aria-expanded={showKey}
+              aria-controls="setup-key"
+              onClick={() => setShowKey(!showKey)}
+            >
+              {showKey ? 'Hide setup key' : 'Show setup key'}
+            </Button>
+            <code id="setup-key" className={styles.setupKey} hidden={!showKey}>
+              {enrollment.secret.match(/.{1,4}/g)?.map((block, index) => (
+                <span key={index}>{block}</span>
+              ))}
+            </code>
+            <div className={styles.actions}>
+              <Button
+                variant="secondary"
+                onClick={async () => {
+                  setCopyStatus('');
+                  try {
+                    await navigator.clipboard.writeText(enrollment.secret);
+                    setCopyStatus('Copied');
+                  } catch {
+                    setCopyStatus(
+                      'Could not copy. Show the setup key to enter it manually.'
+                    );
+                  }
+                }}
+              >
+                Copy setup key
+              </Button>
+              <a className={styles.openLink} href={enrollment.uri}>
+                Open in authenticator app
+              </a>
+            </div>
+            <p role="status" aria-live="polite" className={styles.copyStatus}>
+              {copyStatus}
+            </p>
+          </div>
+        )}
+        {!!factorId && (
+          <form
+            className={styles.form}
+            aria-busy={busy}
+            onSubmit={(event) => {
+              event.preventDefault();
+              void verify(code);
+            }}
+          >
+            <Input
+              className={styles.codeInput}
+              label="Authenticator code"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={6}
+              value={code}
+              disabled={busy}
+              onChange={(event) => {
+                const value = event.target.value.replace(/\D/g, '').slice(0, 6);
+                setCode(value);
+                if (value.length === 6) void verify(value);
+              }}
+            />
+            <Button
+              className={styles.verify}
+              data-busy={busy}
+              type="submit"
+              disabled={busy || code.length !== 6}
+            >
+              {busy ? 'Verifying…' : 'Verify code'}
+            </Button>
+          </form>
+        )}
+        <p className={styles.busyStatus} role="status" aria-live="polite">
+          {busy && !factorId ? 'Setting up…' : ''}
+        </p>
+        <Button
+          className={styles.secondary}
+          variant="secondary"
+          disabled={busy}
+          onClick={() => void cancel()}
+        >
+          Cancel and sign out
+        </Button>
+      </section>
+    </main>
+  );
+}

@@ -1,0 +1,100 @@
+appId: host.exp.Exponent
+---
+# Davao Bank Mobile E2E — Bantay lock + risk challenge (manual, device only).
+#
+# Prerequisites (NOT VERIFIED by CI):
+#   - Metro is running in Expo Go and the 8D migration is deployed.
+#   - customer1 has a fresh authenticator (the owner enters the live code).
+#   - The recipient account has not been paid by customer1 before, so the
+#     new-payee signal raises the score to 70 or more with a fresh device.
+#
+# Selectors target the accessibility labels rendered by the app, not raw ids.
+# The final unlock is a manual checkpoint: the one-hour wait is never shortened.
+
+- launchApp
+
+- runFlow:
+    when:
+      visible: 'Sign In'
+    commands:
+      - tapOn:
+          text: 'Email'
+      - inputText: 'customer1@davaobank.ph'
+      - tapOn:
+          text: 'Password'
+      - inputText: '${E2E_PASSWORD}'
+      - tapOn:
+          text: 'Sign In'
+
+- assertVisible:
+    text: 'Available Balance'
+
+# --- CHECK A: high-risk transfer raises the labelled challenge sheet ---
+- tapOn:
+    text: 'Transfer'
+- assertVisible:
+    text: 'Transfer · Recipient'
+- tapOn:
+    text: 'Account Number'
+- inputText: '1020000002'
+- tapOn:
+    text: 'Continue'
+- assertVisible:
+    text: 'Transfer · Amount'
+- tapOn:
+    text: '0.00'
+- inputText: '12000'
+- tapOn:
+    text: 'Continue'
+- assertVisible:
+    text: "You're sending"
+- tapOn:
+    text: 'Send ₱12,000.00'
+- assertVisible:
+    text: "Confirm it's me"
+# Cancelling must send nothing.
+- tapOn:
+    text: 'Cancel'
+- assertNotVisible:
+    text: 'Money Sent'
+
+# --- CHECK B: lock in one tap, then money entry shows the locked label ---
+- tapOn:
+    text: 'Profile'
+- assertVisible:
+    text: 'Juan dela Cruz'
+- tapOn:
+    text: 'Bantay security center'
+- assertVisible:
+    text: 'Protected'
+- tapOn:
+    text: 'Lock my account'
+- assertVisible:
+    text: 'Locked since.*'
+    regex: true
+- back
+- tapOn:
+    text: 'Transfer'
+- assertVisible:
+    text: 'Account locked — Unlock in Bantay'
+- assertNotVisible:
+    text: 'Send ₱.*'
+    regex: true
+- back
+
+# --- CHECK C: unlock request needs a password and a code ---
+- tapOn:
+    text: 'Profile'
+- tapOn:
+    text: 'Bantay security center'
+- tapOn:
+    text: 'Request unlock'
+- assertVisible:
+    text: 'Account Password'
+- inputText: '${E2E_PASSWORD}'
+- tapOn:
+    text: 'Authorize'
+- assertVisible:
+    text: 'Authenticator code'
+# Manual checkpoint: the owner enters the current code, then waits one hour
+# (or asks staff to use admin_unlock_user). This flow never bypasses the wait.

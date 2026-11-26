@@ -1,0 +1,6 @@
+# Project-scoped Codex settings for Davao Bank.
+# Custom reviewer agents live in .codex/agents/*.toml; their instructions are in docs/agents/roles/.
+# See docs/agents/WORKFLOW.md for the captain workflow.
+
+[agents]
+max_concurrent_threads_per_session = 4

@@ -1,7 +1,8 @@
 -- ==============================================================================
 -- Davao Bank — Phase 2 Seed Data
 -- 1 Admin and 2 Demo Customers with Confirmed Emails & Starting Balances
--- Dev/Demo Only — Passwords default to: Password123!
+-- Local database only — each new user gets a random, undisclosed password.
+-- For usable private demo credentials, run scripts/seed.ts with SEED_PASSWORD set.
 -- ==============================================================================
 
 do $$
@@ -27,7 +28,7 @@ begin
       'authenticated',
       'authenticated',
       'admin@davaobank.ph',
-      crypt('Password123!', gen_salt('bf')),
+      crypt(encode(gen_random_bytes(32), 'hex'), gen_salt('bf')),
       now(),
       '{"provider":"email","providers":["email"]}'::jsonb,
       '{"full_name":"Davao Bank Admin Staff"}'::jsonb,
@@ -53,7 +54,7 @@ begin
       'authenticated',
       'authenticated',
       'customer1@davaobank.ph',
-      crypt('Password123!', gen_salt('bf')),
+      crypt(encode(gen_random_bytes(32), 'hex'), gen_salt('bf')),
       now(),
       '{"provider":"email","providers":["email"]}'::jsonb,
       '{"full_name":"Juan dela Cruz","phone":"+639171234567"}'::jsonb,
@@ -74,7 +75,7 @@ begin
       'authenticated',
       'authenticated',
       'customer2@davaobank.ph',
-      crypt('Password123!', gen_salt('bf')),
+      crypt(encode(gen_random_bytes(32), 'hex'), gen_salt('bf')),
       now(),
       '{"provider":"email","providers":["email"]}'::jsonb,
       '{"full_name":"Maria Santos","phone":"+639189876543"}'::jsonb,

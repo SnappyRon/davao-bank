@@ -8,3 +8,4 @@ web-build/
 supabase/.temp/
 package-lock.json
 **/next-env.d.ts
+.claude/

@@ -1,0 +1,210 @@
+.topBanner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.bannerCount {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+}
+
+.noticeBox {
+  padding: 0.75rem 1rem;
+  margin-bottom: 1.25rem;
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--color-ink);
+}
+
+.noticeSuccess {
+  background-color: var(--color-tint-green);
+  border: 1px solid var(--color-green-text);
+}
+
+.noticeError {
+  background-color: var(--color-tint-red);
+  border: 1px solid var(--color-red-text);
+}
+
+.noticeClose {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-weight: 700;
+  margin-left: 1rem;
+  color: inherit;
+}
+
+.filterSearch {
+  flex: 1;
+  min-width: 220px;
+}
+
+.kindCell {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ownerName {
+  font-weight: 600;
+}
+
+.ownerAccount {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+}
+
+.destTitle {
+  font-weight: 600;
+}
+
+.destSub {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+}
+
+.destMono {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+}
+
+.amountText {
+  font-weight: 700;
+}
+
+.freqTitle {
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.freqSub {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+}
+
+.actionsCell {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.drawerStack {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.paramGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  font-size: 0.85rem;
+}
+
+.paramLabel {
+  color: var(--color-text-secondary);
+  display: block;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+}
+
+.paramAmount {
+  font-size: 1rem;
+  color: var(--color-primary);
+  font-weight: 800;
+}
+
+.paramMono {
+  font-family: var(--font-mono);
+}
+
+.paramCapitalize {
+  text-transform: capitalize;
+  font-weight: 600;
+}
+
+.paramBold {
+  font-weight: 700;
+}
+
+.noteSection {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--color-border);
+  font-size: 0.85rem;
+}
+
+.runsList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.runItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.625rem 0.75rem;
+  border-radius: var(--radius-sm);
+}
+
+.runCompleted {
+  background-color: var(--color-tint-green);
+  border: 1px solid var(--color-green-text);
+}
+
+.runFailed {
+  background-color: var(--color-tint-red);
+  border: 1px solid var(--color-red-text);
+}
+
+.runLeft {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.iconSuccess {
+  color: var(--color-success);
+}
+
+.iconError {
+  color: var(--color-red);
+}
+
+.runDate {
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.runTx {
+  font-size: 0.72rem;
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+}
+
+.runFailReason {
+  font-size: 0.75rem;
+  color: var(--color-red-text);
+}
+
+.runRight {
+  text-align: right;
+}
+
+.runTime {
+  font-size: 0.7rem;
+  color: var(--color-text-secondary);
+  margin-top: 2px;
+}
+

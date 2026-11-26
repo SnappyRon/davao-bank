@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "mobile",
+    "name": "Davao Bank",
     "slug": "mobile",
     "scheme": "davaobank",
     "version": "1.0.0",
@@ -14,7 +14,7 @@
     "android": {
       "package": "com.davaobank.mobile",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#FFFFFF",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
