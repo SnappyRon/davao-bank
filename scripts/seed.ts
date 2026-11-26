@@ -102,6 +102,7 @@ const SEED_USERS: SeedUserConfig[] = [
 
 async function seed() {
   console.log('--- Starting Davao Bank Phase 2 Seeding ---');
+  const customerIds: Array<{ email: string; id: string }> = [];
 
   for (const userConfig of SEED_USERS) {
     console.log(`\nProcessing user: ${userConfig.email} (${userConfig.role})...`);
@@ -207,6 +208,10 @@ async function seed() {
       }
     } else {
       console.log(`Found account: ${existingAccount.account_number}`);
+    }
+
+    if (userConfig.role === 'customer') {
+      customerIds.push({ email: userConfig.email, id: userId });
     }
 
     // 4. Seed initial balance if specified
@@ -344,6 +349,22 @@ async function seed() {
     } else {
       console.log(`Existing biller found: ${biller.name}`);
     }
+  }
+
+  // 6. Seed Phase 9 demo cards through the service-role RPC. It creates the
+  // shared card biller/merchant accounts, then one fake debit and credit card
+  // per demo customer. All values are generated server-side; seed never sees
+  // a plaintext PAN or CVV.
+  console.log('\n--- Seeding Phase 9 Demo Cards ---');
+  for (const customer of customerIds) {
+    const { error: cardError } = await supabaseAdmin.rpc('phase9_seed_cards', {
+      p_user_id: customer.id,
+    });
+    if (cardError) {
+      console.error(`Failed to seed cards for ${customer.email}:`, cardError.message);
+      process.exit(1);
+    }
+    console.log(`✓ Seeded demo cards for ${customer.email}`);
   }
 
   console.log('\n--- Seeding Completed Successfully ---');
