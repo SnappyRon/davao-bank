@@ -9,9 +9,12 @@ import {
   stepUpApiClient,
 } from './mfa-helper';
 import { temporaryStepUp, withStepUpCleanup } from '../../scripts/lib/step-up';
+import {
+  TEST_ADMIN,
+  TEST_CUSTOMER_A,
+  TEST_CUSTOMER_B,
+} from '../../scripts/lib/test-accounts';
 
-const E2E_ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL || 'admin@davaobank.ph';
-const E2E_CUSTOMER_EMAIL = process.env.E2E_CUSTOMER_EMAIL || 'customer1@davaobank.ph';
 const E2E_PASSWORD = process.env.E2E_PASSWORD || process.env.SEED_PASSWORD || '';
 
 test.describe('Admin Console E2E Flow', () => {
@@ -32,7 +35,7 @@ test.describe('Admin Console E2E Flow', () => {
   }) => {
     // 1. Visit Login page as customer
     await page.goto('/login');
-    await page.fill('input[type="email"]', E2E_CUSTOMER_EMAIL);
+    await page.fill('input[type="email"]', TEST_CUSTOMER_A);
     await page.fill('input[type="password"]', E2E_PASSWORD || 'WrongOrPlaceholderPw!');
     await page.click('button[type="submit"]');
 
@@ -55,7 +58,7 @@ test.describe('Admin Console E2E Flow', () => {
 
     // 1. Sign in as Admin
     await page.goto('/login');
-    await page.fill('input[type="email"]', E2E_ADMIN_EMAIL);
+    await page.fill('input[type="email"]', TEST_ADMIN);
     await page.fill('input[type="password"]', E2E_PASSWORD);
     await page.click('button[type="submit"]');
 
@@ -104,20 +107,20 @@ test.describe('Admin Console E2E Flow', () => {
     expect(
       (
         await admin.auth.signInWithPassword({
-          email: E2E_ADMIN_EMAIL,
+          email: TEST_ADMIN,
           password: E2E_PASSWORD,
         })
       ).error
     ).toBeNull();
     const customerAuth = await customer.auth.signInWithPassword({
-      email: E2E_CUSTOMER_EMAIL,
+      email: TEST_CUSTOMER_A,
       password: E2E_PASSWORD,
     });
     expect(customerAuth.error).toBeNull();
     const users = await admin.rpc('admin_get_users');
     expect(users.error).toBeNull();
     const target = (users.data as { id: string; email: string; status: string }[]).find(
-      (user) => user.email === 'customer2@davaobank.ph'
+      (user) => user.email === TEST_CUSTOMER_B
     )!;
     expect(target).toBeTruthy();
     expect(target.status).toBe('active');
@@ -160,7 +163,7 @@ test.describe('Admin Console E2E Flow', () => {
     };
     try {
       await page.goto('/login');
-      await page.getByLabel('Staff Email Address').fill(E2E_ADMIN_EMAIL);
+      await page.getByLabel('Staff Email Address').fill(TEST_ADMIN);
       await page.getByLabel('Security Password').fill(E2E_PASSWORD);
       await page.getByRole('button', { name: 'Sign In to Staff Console' }).click();
 
@@ -241,7 +244,7 @@ test.describe('Admin Console E2E Flow', () => {
       await test.step('Reverse this run’s own PHP 1 transfer', async () => {
         // Phase 6.5: transfers need a fresh authenticator code (temporary test factor, removed in finally).
         await temporaryStepUp(customer, {
-          email: E2E_CUSTOMER_EMAIL,
+          email: TEST_CUSTOMER_A,
           password: E2E_PASSWORD,
         });
         const transfer = await customer.rpc('transfer_by_account_number', {
@@ -292,7 +295,7 @@ test.describe('Admin Console E2E Flow', () => {
         expect(
           (
             await admin.auth.signInWithPassword({
-              email: E2E_ADMIN_EMAIL,
+              email: TEST_ADMIN,
               password: E2E_PASSWORD,
             })
           ).error
@@ -366,7 +369,7 @@ test.describe('Admin Console E2E Flow', () => {
     // Install before navigation so the application registers its idle interval on this clock.
     await page.clock.install();
     await page.goto('/login');
-    await page.fill('input[type="email"]', E2E_ADMIN_EMAIL);
+    await page.fill('input[type="email"]', TEST_ADMIN);
     await page.fill('input[type="password"]', E2E_PASSWORD);
     await page.click('button[type="submit"]');
 
@@ -395,7 +398,7 @@ test.describe('Admin Console E2E Flow', () => {
 
     // Sign in with password only
     await page.goto('/login');
-    await page.fill('input[type="email"]', E2E_ADMIN_EMAIL);
+    await page.fill('input[type="email"]', TEST_ADMIN);
     await page.fill('input[type="password"]', E2E_PASSWORD);
     await page.click('button[type="submit"]');
 

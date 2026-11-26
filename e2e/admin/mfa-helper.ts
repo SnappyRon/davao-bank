@@ -2,6 +2,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { Page } from '@playwright/test';
 import { TOTP } from 'otpauth';
 import { requireStepUpMigration } from '../../scripts/lib/step-up';
+import { TEST_ADMIN } from '../../scripts/lib/test-accounts';
 
 try {
   // @ts-expect-error Node.js 20+ built-in
@@ -21,7 +22,6 @@ const ANON_KEY =
   'placeholder-anon-key';
 
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const E2E_ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL || 'admin@davaobank.ph';
 const E2E_PASSWORD = process.env.E2E_PASSWORD || process.env.SEED_PASSWORD || '';
 
 let activeTotp: TOTP | null = null;
@@ -68,7 +68,7 @@ async function adminFactorIds(): Promise<{ userId: string; ids: string[] }> {
   const { data: usersData, error } = await svc.auth.admin.listUsers();
   if (error) throw new Error('Could not list users for MFA cleanup');
   const user = usersData.users.find(
-    (u) => u.email?.toLowerCase() === E2E_ADMIN_EMAIL.toLowerCase()
+    (u) => u.email?.toLowerCase() === TEST_ADMIN.toLowerCase()
   );
   if (!user) throw new Error('Admin test user not found');
   const { data: factors, error: listErr } = await svc.auth.admin.mfa.listFactors({
@@ -91,7 +91,7 @@ export async function checkPlaywrightPrerequisites() {
     });
     const { data: authData, error: authErr } =
       await adminAuthClient.auth.signInWithPassword({
-        email: E2E_ADMIN_EMAIL,
+        email: TEST_ADMIN,
         password: E2E_PASSWORD,
       });
 

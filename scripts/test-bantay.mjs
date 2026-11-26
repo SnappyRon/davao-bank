@@ -22,15 +22,16 @@ import {
   temporaryStepUp,
   withStepUpCleanup,
 } from './lib/step-up.ts';
+import { TEST_ADMIN, TEST_CUSTOMER_A, TEST_CUSTOMER_B } from './lib/test-accounts.ts';
 
 const SUPABASE_URL =
   process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const ANON_KEY =
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
 const TEST_PASSWORD = process.env.SEED_PASSWORD || process.env.E2E_PASSWORD || '';
-const CUSTOMER1 = 'customer1@davaobank.ph';
-const CUSTOMER2 = 'customer2@davaobank.ph';
-const ADMIN = 'admin@davaobank.ph';
+const CUSTOMER1 = TEST_CUSTOMER_A;
+const CUSTOMER2 = TEST_CUSTOMER_B;
+const ADMIN = TEST_ADMIN;
 const ZERO_UUID = '00000000-0000-0000-0000-000000000000';
 // > ₱10,000 so the "no 5-payment baseline" branch of the score still adds 30.
 const HIGH_RISK_AMOUNT = 1_200_000;

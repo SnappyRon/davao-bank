@@ -3,6 +3,8 @@ import {
   withStepUpCleanup,
   requireStepUpMigration,
 } from './lib/step-up';
+
+import { TEST_CUSTOMER_A, TEST_CUSTOMER_B } from './lib/test-accounts';
 /**
  * Davao Bank — Phase 5 Stage B: Everyday Extras Verification Suite
  *
@@ -129,13 +131,13 @@ async function runTestSuite() {
     console.log('[1/4] Authenticating Test Users (Customer 1 & Customer 2)...');
     const cust1 = createClient(SUPABASE_URL, ANON_KEY);
     const { data: auth1 } = await signInWithStepUp(cust1, {
-      email: 'customer1@davaobank.ph',
+      email: TEST_CUSTOMER_A,
       password: TEST_PASSWORD,
     });
 
     const cust2 = createClient(SUPABASE_URL, ANON_KEY);
     const { data: auth2 } = await signInWithStepUp(cust2, {
-      email: 'customer2@davaobank.ph',
+      email: TEST_CUSTOMER_B,
       password: TEST_PASSWORD,
     });
 

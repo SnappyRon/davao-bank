@@ -4,13 +4,19 @@
 
 ## Now
 
-- **Active phase:** Phase 9 integration into `phase-8-integration` — More-services realism copy pass complete.
-- **Branch:** `phase-8-integration`; this change is a writer-only fix on top of `0c68853`. No rebase, no push.
-- **Active prompt:** captain writer brief — remove simulation/demo/fictional wording from the More-services hub, FX converter, service requests, branch appointments, installment calculator, savings-goals copy and shared copy constants; report to captain only.
-- **Assigned to:** Backup Development Agent (OpenCode); copy cleanup complete, handed back for captain review.
-- **Exact next step:** captain reviews `Phase 9 · Fix — remove simulation wording from More services`, then continues hosted migration, device/Maestro/VoiceOver and Playwright checks.
-- **Last commit:** `Phase 9 · Fix — remove simulation wording from More services` (this commit).
-- **Blockers:** none locally. Hosted migrations, device/Maestro/VoiceOver, Playwright and aal2 staff-session checks NOT VERIFIED (owner/captain). Out-of-scope wording left untouched: sign-up/forgot-password/onboarding footers, `moneyFlow` `REVIEW_FOOTNOTE`, transfer helper text, Apple Wallet disclaimer, admin console.
+- **Active phase:** Phase 9 — dedicated test accounts so automated live suites and Playwright admin flows never use the presenter's demo accounts.
+- **Branch:** `phase-9-test-accounts`, worktree `/Users/ronalbert/Personal Projects/davao-bank-test-accounts`, created from `phase-8-integration` (`a33a2d7`) and `npm ci` run. No push, no hosted access, no `.env` read by this agent.
+- **Active prompt:** captain brief (owner approved option 1: dedicated test accounts); report to captain only.
+- **Assigned to:** Backup Development Agent (OpenCode); implementation complete, handed back for captain review.
+- **Exact next step:** captain reviews the dedicated-accounts commit, then runs `npm run seed` to provision the three accounts, followed by the live suites and Playwright admin flow. Device/Maestro/VoiceOver remain with captain/owner.
+- **Last commit:** `Phase 9 · Fix — dedicated test accounts for live suites` (this commit).
+- **Blockers:** none locally. Seed, live suites, Playwright, device/Maestro/VoiceOver and hosted checks NOT VERIFIED — intentionally not run (captain/owner). `AGENTS.md` "Demo accounts" line intentionally unchanged; details in `docs/agents/notes/phase-9-test-accounts.md`.
+
+### Handoff note (2026-11-26, Backup Development Agent)
+
+- `scripts/lib/test-accounts.ts` exports `TEST_CUSTOMER_A` / `TEST_CUSTOMER_B` / `TEST_ADMIN` (optional overrides `TEST_CUSTOMER_A_EMAIL` / `TEST_CUSTOMER_B_EMAIL` / `TEST_ADMIN_EMAIL`). `scripts/seed.ts` adds the three accounts idempotently using `SEED_PASSWORD`; existing seed users unchanged.
+- All eight live suites plus `e2e/admin/mfa-helper.ts` and `e2e/admin/admin-flow.spec.ts` now use those constants; the MFA-reset target is `TEST_CUSTOMER_B`. Pre-existing-authenticator `NOT VERIFIED` guards are byte-identical. Maestro YAML untouched.
+- Checks: `npm run typecheck` exit 0; `npm run lint` `✖ 62 problems (0 errors, 62 warnings)`; `npm run format:check` clean; `npx jest` `Test Suites: 72 passed, 72 total` / `Tests: 609 passed, 609 total` (one pre-existing worker-exit warning); `npm run check:copy` `PASS Copy audit clean across 184 files (17 justified allowlist match(es)).`
 
 ## Stage 7B.0 — remaining work plan (captain, 2026-11-10)
 
@@ -261,6 +267,8 @@ Fix these before 7B:
 - **Follow-up:** add dedicated test accounts so live tests don't conflict with the presenter's real authenticator.
 
 ## Log (newest first)
+
+- **2026-11-26, Backup Development Agent (OpenCode):** owner-approved option 1 — dedicated test accounts. Created worktree `../davao-bank-test-accounts` on new branch `phase-9-test-accounts` from `phase-8-integration` (`a33a2d7`), ran `npm ci` (`added 1500 packages, and audited 1504 packages in 41s`, 29 moderate vulnerabilities; no `npm audit fix`). Added `scripts/lib/test-accounts.ts` (`TEST_CUSTOMER_A`, `TEST_CUSTOMER_B`, `TEST_ADMIN`, optional `TEST_*_EMAIL` overrides) and three idempotent seed accounts (`test-customer-a`, `test-customer-b` with customer1/customer2 balances, `test-admin`) using the existing `SEED_PASSWORD`; no existing seed user changed. Switched all eight live suites, `e2e/admin/mfa-helper.ts` and `e2e/admin/admin-flow.spec.ts` (including its `customer2` MFA-reset target) to the shared constants. Pre-existing-authenticator `NOT VERIFIED` guards untouched; Maestro YAML unchanged; `AGENTS.md` demo-accounts line unchanged — note in `docs/agents/notes/phase-9-test-accounts.md` and README E2E line updated. Checks: `npm run typecheck` exit 0; `npm run lint` `✖ 62 problems (0 errors, 62 warnings)`; `npm run format:check` clean; `npx jest` `Test Suites: 72 passed, 72 total` / `Tests: 609 passed, 609 total` (one pre-existing worker-exit warning); `npm run check:copy` `PASS Copy audit clean across 184 files (17 justified allowlist match(es)).` Seed, live suites, Playwright and hosted checks NOT VERIFIED — intentionally not run (captain/owner). No push, no hosted DB access, no `.env` read, no reviewer files touched.
 
 - **2026-11-26, Backup Development Agent (OpenCode):** integrated all eight Phase 9 branches into `phase-8-integration` with `--no-ff` in captain's exact order (service requests, appointments, savings goals, hub, service-requests UI, appointments UI, installments, admin services). Merge conflicts were limited to `docs/agents/STATUS.md` (six merges) and were resolved by keeping both sides' entries; the two applied hosted migrations were preserved from `0769be2` / `f379634` and verified byte-identical with `git diff` (empty output). Wired `ServiceRequests`, `NewServiceRequest`, `BranchAppointments`, `BookAppointment` and `InstallmentCalculator` to their real screens in `App.tsx` and enabled their More-services hub IDs plus `remittance_tracker`; savings goals, time deposit planner and credit card stay "Not available in this demo yet" because no screens exist; FX converter already opens the real `FXRates` screen. Lockfile unchanged so `npm ci` was not run. Checks: `npm run typecheck` exit 0; `npm run lint` 0 errors / 62 warnings; `npm run format:check` clean; `npx jest` 72 suites / 609 tests passed; `npm run check:copy` PASS across 184 files (17 allowlist matches); `npm run test:db` 469 passed / 0 failed. No push, no hosted writes, no `.env` read, no money/step-up handler changes.
 

@@ -3,6 +3,8 @@ import {
   withStepUpCleanup,
   requireStepUpMigration,
 } from './lib/step-up';
+
+import { TEST_CUSTOMER_A } from './lib/test-accounts';
 /**
  * Davao Bank — Phase 5 Stage E: FX Reference Rates Test Suite
  *
@@ -111,7 +113,7 @@ async function runStageETests() {
   console.log('[Live Checks] Authenticating Customer & Querying Live Rates...');
   const customerClient = createClient(SUPABASE_URL, ANON_KEY);
   const { data: authData, error: authErr } = await signInWithStepUp(customerClient, {
-    email: 'customer1@davaobank.ph',
+    email: TEST_CUSTOMER_A,
     password: TEST_PASSWORD,
   });
 

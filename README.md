@@ -101,7 +101,7 @@ All seed accounts are pre-configured with confirmed emails:
 
 For E2E test runs, supply credentials via environment variables:
 
-- **Playwright Admin Tests:** reads `E2E_ADMIN_EMAIL` (default: `admin@davaobank.ph`) and `E2E_PASSWORD` (or `SEED_PASSWORD`).
+- **Playwright Admin Tests:** uses the dedicated `test-admin@davaobank.ph` / `test-customer-a@davaobank.ph` accounts (override with `TEST_ADMIN_EMAIL` / `TEST_CUSTOMER_A_EMAIL`) and reads `E2E_PASSWORD` (or `SEED_PASSWORD`). See `docs/agents/notes/phase-9-test-accounts.md`.
 - **Maestro Mobile Tests:** supply password via `-e E2E_PASSWORD="your-password"`.
 
 ---

@@ -3,6 +3,8 @@ import {
   withStepUpCleanup,
   requireStepUpMigration,
 } from './lib/step-up';
+
+import { TEST_ADMIN, TEST_CUSTOMER_A, TEST_CUSTOMER_B } from './lib/test-accounts';
 /**
  * Davao Bank — Phase 2 Verification & RLS Test Suite
  *
@@ -183,12 +185,12 @@ async function runTests() {
   let userBId = '';
 
   const { data: authA, error: errA } = await signInWithStepUp(customerAClient, {
-    email: 'customer1@davaobank.ph',
+    email: TEST_CUSTOMER_A,
     password: TEST_PASSWORD,
   });
 
   const { data: authB, error: errB } = await signInWithStepUp(customerBClient, {
-    email: 'customer2@davaobank.ph',
+    email: TEST_CUSTOMER_B,
     password: TEST_PASSWORD,
   });
 
@@ -285,7 +287,7 @@ async function runTests() {
   });
 
   const { data: authAdmin, error: errAdmin } = await signInWithStepUp(adminClient, {
-    email: 'admin@davaobank.ph',
+    email: TEST_ADMIN,
     password: TEST_PASSWORD,
   });
 
