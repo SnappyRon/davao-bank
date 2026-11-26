@@ -45,7 +45,6 @@ import {
   useToast,
   Screen,
   Text,
-  Badge,
   ActionTile,
   ActionTileGrid,
   Logo,
@@ -470,7 +469,7 @@ export function HomeScreen({
           onPress={() => navigation.navigate('MoreServices')}
           feedbackType="highlight"
           accessibilityRole="button"
-          accessibilityLabel="More services, Simulation, FX converter, requests and calculators"
+          accessibilityLabel="More services, FX converter, requests and calculators"
           testID="home-more-services-row"
         >
           <View style={styles.moreServicesIconBox}>
@@ -486,7 +485,6 @@ export function HomeScreen({
               >
                 More services
               </Text>
-              <Badge label="Simulation" variant="warning" />
             </View>
             <Text
               variant="caption"
@@ -662,7 +660,10 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: radius.md,
     paddingVertical: spacing.md,
-    paddingHorizontal: spacing.base,
+    paddingLeft: spacing.base,
+    // Reserve the Kada's resting lane so its frame and dismiss X never cover
+    // this row's tappable content (captain review, 2026-11-26).
+    paddingRight: KADA_SIZE + spacing.base,
   },
   moreServicesIconBox: {
     width: AVATAR_SIZE,

@@ -41,7 +41,34 @@ export const KADA_COLLAPSED_SIZE = 32;
 export const KADA_Z_INDEX = 90;
 export const KADA_COLLAPSED_KEY = 'davao_bank_floating_kada_collapsed';
 
-const BUBBLE_MAX_WIDTH = 260;
+/** Review fix: a horizontal bubble card, capped at 280 pt and the screen gutters. */
+export const KADA_BUBBLE_MAX_WIDTH = 280;
+
+export function kadaBubbleWidth(windowWidth: number): number {
+  return Math.min(
+    KADA_BUBBLE_MAX_WIDTH,
+    Math.max(0, windowWidth - spacing.screenSide * 2)
+  );
+}
+
+/** Left edge of the bubble when it is right-aligned inside the screen gutters. */
+export function kadaBubbleLeft(
+  windowWidth: number,
+  width = kadaBubbleWidth(windowWidth)
+): number {
+  return windowWidth - spacing.screenSide - width;
+}
+
+/** The tab bar is window-anchored; Kada is inside Screen's SafeAreaView. */
+export function kadaBottomOffset(safeAreaBottom: number): number {
+  return (
+    floatingTabBarBottomOffset(safeAreaBottom) +
+    FLOATING_TAB_BAR_HEIGHT +
+    spacing.base -
+    safeAreaBottom
+  );
+}
+
 const BUBBLE_VISIBLE_MS = 5000;
 const DRAG_THRESHOLD = 4;
 const LONG_PRESS_MS = 500;
@@ -122,8 +149,11 @@ export function FloatingKada({ locked = false, onOpenBantay }: FloatingKadaProps
   const [bubbleCopy, setBubbleCopy] = useState('');
   const announcedOnce = useRef(false);
 
-  const bottomOffset =
-    floatingTabBarBottomOffset(insets.bottom) + FLOATING_TAB_BAR_HEIGHT + spacing.base;
+  // Subtract the inset because Screen's SafeAreaView already applies it; the
+  // tab bar's offset is window-relative. Otherwise the Kada floats 34 pt too
+  // high on iPhones and lands on the More services card.
+  const bottomOffset = kadaBottomOffset(insets.bottom);
+  const bubbleWidth = kadaBubbleWidth(windowSize.width);
   const bounds = useMemo<KadaDragBounds>(
     () => ({
       windowWidth: windowSize.width,
@@ -381,7 +411,15 @@ export function FloatingKada({ locked = false, onOpenBantay }: FloatingKadaProps
     >
       {bubbleVisible ? (
         <ReAnimated.View
-          style={[styles.bubble, bubbleStyle]}
+          style={[
+            styles.bubble,
+            {
+              width: bubbleWidth,
+              bottom: KADA_SIZE + spacing.sm,
+              right: 0,
+            },
+            bubbleStyle,
+          ]}
           testID="floating-kada-bubble"
           accessibilityLiveRegion="polite"
         >
@@ -389,6 +427,7 @@ export function FloatingKada({ locked = false, onOpenBantay }: FloatingKadaProps
             variant="body"
             color={colors.ink}
             style={styles.bubbleText}
+            numberOfLines={3}
             maxFontSizeMultiplier={1.4}
           >
             {bubbleCopy}
@@ -407,6 +446,11 @@ export function FloatingKada({ locked = false, onOpenBantay }: FloatingKadaProps
           <Button
             title="Open Bantay"
             accessibilityLabel="Open Bantay"
+            icon={
+              <View testID="floating-kada-action-icon">
+                <ShieldCheck size={18} color={colors.textInverse} />
+              </View>
+            }
             onPress={() => {
               hideBubble();
               onOpenBantay();
@@ -508,8 +552,10 @@ const styles = StyleSheet.create({
   },
   hide: {
     position: 'absolute',
-    top: -6,
-    right: -6,
+    // Keep the dismiss control inside the 64 pt frame so it never overlaps a
+    // neighbouring tappable card.
+    top: 0,
+    right: 0,
     width: 24,
     height: 24,
     alignItems: 'center',
@@ -531,9 +577,6 @@ const styles = StyleSheet.create({
   },
   bubble: {
     position: 'absolute',
-    bottom: KADA_SIZE + spacing.sm,
-    right: 0,
-    maxWidth: BUBBLE_MAX_WIDTH,
     padding: spacing.base,
     backgroundColor: colors.surface,
     borderWidth: 1,
@@ -547,7 +590,7 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   bubbleText: {
-    maxWidth: BUBBLE_MAX_WIDTH - spacing.base * 2,
+    flexShrink: 1,
   },
   bubbleAction: {
     minHeight: size.touch,
