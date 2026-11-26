@@ -27,13 +27,15 @@ import {
   transition,
 } from './lib/drill-core.ts';
 import { PAGE_HTML } from './lib/drill-page.ts';
-import { temporaryStepUp } from './lib/step-up.ts';
-import { TEST_CUSTOMER_A, TEST_CUSTOMER_B } from './lib/test-accounts.ts';
+import { temporaryStepUp, withStepUpCleanup } from './lib/step-up.ts';
+import { TEST_ADMIN, TEST_CUSTOMER_A, TEST_CUSTOMER_B } from './lib/test-accounts.ts';
 
 const PORT = 4400;
 const HOST = '127.0.0.1';
 const MAX_TOTAL_REQUESTS = 25;
-const MAX_REQUESTS_PER_STEP = 10;
+// Spec §3.2: 4 + 1 + 3 + 1 + 4 = 13 attacker requests over five steps.
+const MAX_REQUESTS_PER_STEP = 4;
+const MAX_STEP_SECONDS = 45;
 const MAX_TIMELINE_ROWS = 200;
 const WRONG_TOTP_CODE = '000000';
 
@@ -46,12 +48,11 @@ const PASSWORD = process.env.SEED_PASSWORD || process.env.E2E_PASSWORD || '';
 
 // Refuse before creating any client or making any request. Env overrides of
 // the test addresses cannot widen the allow-list.
-const startupGuard = guardDrillTarget(
-  ALLOWED_TARGETS[0],
-  TEST_CUSTOMER_A,
-  TEST_CUSTOMER_B
-);
-if (!startupGuard.ok) {
+const startupGuard = [
+  guardDrillTarget(ALLOWED_TARGETS[0], TEST_CUSTOMER_A, TEST_CUSTOMER_B),
+  guardDrillTarget(ALLOWED_TARGETS[1], TEST_CUSTOMER_A, TEST_CUSTOMER_B),
+].find((result) => !result.ok);
+if (startupGuard) {
   console.log(startupGuard.reason);
   process.exit(2);
 }
@@ -80,7 +81,7 @@ const sseClients = new Set();
 let controller = new AbortController();
 let resumeWaiters = [];
 let observationTimer = null;
-let observing = false;
+let observationPromise = null;
 let deps = null;
 let seenEventIds = new Set();
 
@@ -153,9 +154,10 @@ function waitForResume() {
 }
 
 function withAbort(promise, signal) {
-  if (signal.aborted) return Promise.reject(new DOMException('Aborted', 'AbortError'));
+  const aborted = () => signal.reason ?? new DOMException('Aborted', 'AbortError');
+  if (signal.aborted) return Promise.reject(aborted());
   return new Promise((resolve, reject) => {
-    const onAbort = () => reject(new DOMException('Aborted', 'AbortError'));
+    const onAbort = () => reject(aborted());
     signal.addEventListener('abort', onAbort, { once: true });
     Promise.resolve(promise).then(
       (value) => {
@@ -168,6 +170,17 @@ function withAbort(promise, signal) {
       }
     );
   });
+}
+
+function manilaHour() {
+  const hour = Number(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Manila',
+      hour: 'numeric',
+      hourCycle: 'h23',
+    }).format(new Date())
+  );
+  return Number.isFinite(hour) ? hour : -1;
 }
 
 async function findUserId(client, email) {
@@ -188,10 +201,53 @@ async function findUserId(client, email) {
 
 async function requireDeployment(signal) {
   const probes = [
-    ['get_security_timeline', () => deps.anon.rpc('get_security_timeline', { p_limit: 1 })],
+    [
+      'get_security_timeline',
+      () => deps.anon.rpc('get_security_timeline', { p_limit: 1 }),
+    ],
     ['get_security_settings', () => deps.anon.rpc('get_security_settings')],
-    ['prepare_risk_challenge', () => deps.anon.rpc('prepare_risk_challenge', { p_to_account: null, p_amount: 1, p_idempotency_key: 'deployment-probe' })],
-    ['admin_unlock_user', () => deps.anon.rpc('admin_unlock_user', { p_user_id: null, p_note: 'deployment-probe' })],
+    [
+      // Guard-first RPC: a null account rejects before any write. A random key
+      // avoids colliding with a real drill idempotency key.
+      'prepare_risk_challenge',
+      () =>
+        deps.anon.rpc('prepare_risk_challenge', {
+          p_to_account: null,
+          p_amount: 1,
+          p_idempotency_key: `bantay-probe-${randomUUID()}`,
+        }),
+    ],
+    [
+      'admin_unlock_user',
+      () =>
+        deps.anon.rpc('admin_unlock_user', {
+          p_user_id: null,
+          p_note: 'deployment-probe',
+        }),
+    ],
+    [
+      'admin_update_security_case',
+      () =>
+        deps.anon.rpc('admin_update_security_case', { p_id: null, p_status: 'resolved' }),
+    ],
+    [
+      '_bantay_maybe_protective_lock',
+      () => deps.anon.rpc('_bantay_maybe_protective_lock', { p_user_id: null }),
+    ],
+    [
+      '_bantay_event',
+      () =>
+        deps.anon.rpc('_bantay_event', {
+          p_user_id: null,
+          p_kind: 'code_failures',
+          p_severity: 'high',
+        }),
+    ],
+    ['record_step_up_failure', () => deps.anon.rpc('record_step_up_failure')],
+    [
+      'admin_list_security_cases',
+      () => deps.anon.rpc('admin_list_security_cases', { p_status: null }),
+    ],
   ];
   for (const [name, call] of probes) {
     const { error } = await withAbort(call(), signal);
@@ -204,18 +260,45 @@ async function requireDeployment(signal) {
     signal
   );
   if (tableError && ['42P01', 'PGRST205'].includes(tableError.code)) {
-    throw new Error('NOT VERIFIED — Phase 8 deployment absent (security_events is missing).');
+    throw new Error(
+      'NOT VERIFIED — Phase 8 deployment absent (security_events is missing).'
+    );
   }
 }
 
 async function ensureObserverSession() {
   const { data } = await deps.observer.auth.getUser();
-  if (data?.user) return true;
-  const { error } = await deps.observer.auth.signInWithPassword({
+  if (data?.user) {
+    deps.targetUserId = deps.targetUserId || data.user.id;
+    return true;
+  }
+  const signed = await deps.observer.auth.signInWithPassword({
     email: state.target,
     password: PASSWORD,
   });
-  return !error && !observationHalted();
+  if (signed.error || observationHalted()) return false;
+  deps.targetUserId = deps.targetUserId || signed.data?.user?.id || null;
+  return true;
+}
+
+/** Admin case list is read server-side through the aal2-gated RPC, never via a direct table read. */
+async function ensureAdminCaseObserver() {
+  if (!PASSWORD || !ANON_KEY || observationHalted()) return null;
+  if (!deps.admin) deps.admin = makeClient(ANON_KEY);
+  const { data } = await deps.admin.auth.getUser();
+  if (!data?.user) {
+    const { error } = await deps.admin.auth.signInWithPassword({
+      email: TEST_ADMIN,
+      password: PASSWORD,
+    });
+    if (error) return null;
+  }
+  try {
+    await temporaryStepUp(deps.admin, { email: TEST_ADMIN, password: PASSWORD });
+  } catch {
+    return null;
+  }
+  return observationHalted() ? null : deps.admin;
 }
 
 function summariseEvents(rows) {
@@ -230,13 +313,22 @@ function summariseEvents(rows) {
   return { fresh, labels };
 }
 
-async function observe() {
-  if (observationHalted()) return;
-  if (observing) return;
-  observing = true;
+function observe() {
+  if (observationHalted()) return Promise.resolve();
+  if (observationPromise) return observationPromise;
+  observationPromise = runObservation().finally(() => {
+    observationPromise = null;
+  });
+  return observationPromise;
+}
+
+async function runObservation() {
   try {
     if (!(await ensureObserverSession())) {
-      state.observation = { updated: manilaTime(), note: 'Observer session unavailable.' };
+      state.observation = {
+        updated: manilaTime(),
+        note: 'Observer session unavailable.',
+      };
       broadcast();
       return;
     }
@@ -252,7 +344,9 @@ async function observe() {
       updated: manilaTime(),
       locked: settings.locked === true,
       unlock_after: settings.unlock_after || null,
-      events: events.slice(0, 6).map((event) => `${event.kind} (${event.severity || 'unknown'})`),
+      events: events
+        .slice(0, 6)
+        .map((event) => `${event.kind} (${event.severity || 'unknown'})`),
       notifications: [],
       cases: [],
     };
@@ -265,18 +359,16 @@ async function observe() {
     if (observationHalted()) return;
     observations.notifications = (notifications.data || []).map((row) => row.message);
 
-    if (deps.service && deps.targetUserId) {
-      const cases = await deps.service
-        .from('security_cases')
-        .select('id, status, opened_by')
-        .eq('user_id', deps.targetUserId)
-        .eq('opened_by', 'system')
-        .order('created_at', { ascending: false })
-        .limit(4);
+    const admin = await ensureAdminCaseObserver();
+    if (admin && deps.targetUserId) {
+      const cases = await admin.rpc('admin_list_security_cases', { p_status: null });
       if (observationHalted()) return;
-      observations.cases = (cases.data || []).map(
-        (row) => `${String(row.id).slice(0, 8)} ${row.status}`
-      );
+      observations.cases = (Array.isArray(cases.data) ? cases.data : [])
+        .filter((row) => row.user_id === deps.targetUserId && row.opened_by === 'system')
+        .slice(0, 4)
+        .map((row) => `${String(row.id).slice(0, 8)} ${row.status}`);
+    } else {
+      observations.casesNote = 'Admin case list unavailable.';
     }
 
     state.observation = observations;
@@ -289,10 +381,13 @@ async function observe() {
     );
     if (settings.locked === true && protective && state.status !== 'frozen') {
       state.status = 'frozen';
-      state.message = 'Frozen by Bantay. Attacker loop stopped; Reset to unlock the test account.';
+      state.message =
+        'Frozen by Bantay. Attacker loop stopped; Reset to unlock the test account.';
       controller.abort();
     } else if (state.message === 'Ready. Start a drill when the owner is watching.') {
-      state.message = labels.length ? `Bantay recorded: ${labels.join(', ')}.` : state.message;
+      state.message = labels.length
+        ? `Bantay recorded: ${labels.join(', ')}.`
+        : state.message;
     }
     broadcast();
   } catch (error) {
@@ -300,8 +395,6 @@ async function observe() {
       state.observation = { updated: manilaTime(), note: safeError(error) };
       broadcast();
     }
-  } finally {
-    observing = false;
   }
 }
 
@@ -327,7 +420,7 @@ function otherTarget() {
   return state.target === ALLOWED_TARGETS[0] ? ALLOWED_TARGETS[1] : ALLOWED_TARGETS[0];
 }
 
-function buildSteps(profile, signal) {
+function buildSteps(profile) {
   const minimal = profile === 'minimal';
   const target = state.target;
   const other = otherTarget();
@@ -340,11 +433,11 @@ function buildSteps(profile, signal) {
     {
       id: 1,
       name: STEP_NAMES[1],
-      requests: minimal ? 1 : 5,
-      run: async () => {
-        const count = minimal ? 1 : 5;
+      requests: minimal ? 1 : 4,
+      run: async ({ signal, waitIfPaused }) => {
+        const count = minimal ? 1 : 4;
         for (let index = 0; index < count; index += 1) {
-          if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
+          await waitIfPaused();
           const result = await withAbort(
             deps.anon.functions.invoke('signin-signal', { body: { email: target } }),
             signal
@@ -360,16 +453,15 @@ function buildSteps(profile, signal) {
     {
       id: 2,
       name: STEP_NAMES[2],
-      requests: minimal ? 1 : 2,
-      run: async () => {
-        if (!minimal) {
-          const auth = await withAbort(
-            observer.auth.signInWithPassword({ email: target, password }),
-            signal
-          );
-          if (auth.error) throw auth.error;
-          deps.targetUserId = auth.data?.user?.id || deps.targetUserId;
+      requests: 1,
+      // The observer's own sign-in is session setup, not an attacker request;
+      // the single budgeted request is register_device.
+      run: async ({ signal, waitIfPaused }) => {
+        await waitIfPaused();
+        if (!(await ensureObserverSession())) {
+          throw new Error('Target observer session could not be established.');
         }
+        await waitIfPaused();
         const device = await withAbort(
           observer.rpc('register_device', {
             p_install_id: `bantay-drill-${randomUUID()}`,
@@ -389,12 +481,18 @@ function buildSteps(profile, signal) {
     {
       id: 3,
       name: STEP_NAMES[3],
-      requests: minimal ? 1 : 6,
-      run: async () => {
+      requests: minimal ? 1 : 3,
+      // Budget counts attacker record_step_up_failure RPCs; the MFA challenge
+      // calls are Auth setup and never change money state.
+      run: async ({ signal, waitIfPaused }) => {
+        await waitIfPaused();
+        if (!(await ensureObserverSession())) {
+          throw new Error('Target observer session could not be established.');
+        }
         deps.fixture = await temporaryStepUp(observer, { email: target, password });
         const rounds = minimal ? 1 : 3;
         for (let index = 0; index < rounds; index += 1) {
-          if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
+          await waitIfPaused();
           const verify = await withAbort(
             observer.auth.mfa.challengeAndVerify({
               factorId: deps.fixture.factorId,
@@ -408,7 +506,10 @@ function buildSteps(profile, signal) {
               detail: 'Wrong TOTP code was unexpectedly accepted; drill stopped.',
             };
           }
-          const recorded = await withAbort(observer.rpc('record_step_up_failure'), signal);
+          const recorded = await withAbort(
+            observer.rpc('record_step_up_failure'),
+            signal
+          );
           if (recorded.error) throw recorded.error;
         }
         return {
@@ -420,8 +521,22 @@ function buildSteps(profile, signal) {
     {
       id: 4,
       name: STEP_NAMES[4],
-      requests: minimal ? 1 : 2,
-      run: async () => {
+      requests: 1,
+      // The single budgeted attacker request is transfer; the challenge
+      // preparation is setup and is never confirmed by this drill.
+      run: async ({ signal, waitIfPaused }) => {
+        await waitIfPaused();
+        if (!(await ensureObserverSession())) {
+          throw new Error('Target observer session could not be established.');
+        }
+        if (!deps.fixture) {
+          deps.fixture = await temporaryStepUp(observer, { email: target, password });
+        }
+        const hour = manilaHour();
+        const oddHourNote =
+          hour >= 0 && hour <= 5
+            ? ''
+            : ' Odd-hour signal not active outside 00:00–05:00 Asia/Manila.';
         const amount = 1_200_000; // PHP 12,000.00 in centavos
         const key = `bantay-drill-${randomUUID()}`;
         const from = await deps.service
@@ -450,92 +565,120 @@ function buildSteps(profile, signal) {
           p_idempotency_key: key,
           p_reference: 'Bantay drill',
         };
-        const prepared = await withAbort(observer.rpc('prepare_risk_challenge', {
-          p_to_account: args.p_to_account,
-          p_amount: args.p_amount,
-          p_idempotency_key: key,
-        }), signal);
-        if (prepared.error) throw prepared.error;
+        await waitIfPaused();
+        const prepared = await withAbort(
+          observer.rpc('prepare_risk_challenge', {
+            p_to_account: args.p_to_account,
+            p_amount: args.p_amount,
+            p_idempotency_key: key,
+          }),
+          signal
+        );
+        if (prepared.error) {
+          // Already frozen: the existing account lock refuses before any write.
+          if (/locked/i.test(prepared.error.message || '')) {
+            return {
+              status: 'blocked',
+              detail: `Large transfer to a new payee was refused while locked. No money moved.${oddHourNote}`,
+            };
+          }
+          throw prepared.error;
+        }
         if (prepared.data?.challenge_required !== true) {
           return {
             status: 'error',
             detail: 'Risk challenge was not raised; transfer was not attempted.',
           };
         }
+        await waitIfPaused();
         const transfer = await withAbort(observer.rpc('transfer', args), signal);
         if (!transfer.error) {
           return {
             status: 'error',
-            detail: 'Transfer was accepted unexpectedly; drill stopped.',
+            detail: `Transfer was accepted unexpectedly; drill stopped.${oddHourNote}`,
           };
         }
         return {
           status: 'blocked',
-          detail: 'Large transfer to a new payee was refused. No money moved.',
+          detail: `Large transfer to a new payee was refused. No money moved.${oddHourNote}`,
         };
       },
     },
     {
       id: 5,
       name: STEP_NAMES[5],
-      requests: minimal ? 1 : 5,
-      run: async () => {
+      requests: minimal ? 1 : 4,
+      // Four budgeted attacker probes. EXECUTE denial for _bantay_event and
+      // admin_unlock_user is confirmed read-only by requireDeployment().
+      run: async ({ signal, waitIfPaused }) => {
+        await waitIfPaused();
         if (!deps.otherUserId) deps.otherUserId = await findUserId(deps.service, other);
         const empty = (result) => !result.error && (result.data || []).length === 0;
+        const denied = (result) => Boolean(result.error);
         const deniedProbes = [
           empty(
             await withAbort(
-              observer.from('security_events').select('id').eq('user_id', deps.otherUserId).limit(1),
+              observer
+                .from('security_events')
+                .select('id')
+                .eq('user_id', deps.otherUserId)
+                .limit(1),
               signal
             )
           ),
         ];
         if (!minimal) {
+          await waitIfPaused();
           deniedProbes.push(
             empty(
               await withAbort(
-                observer.from('notifications').select('id').eq('user_id', deps.otherUserId).limit(1),
+                observer
+                  .from('notifications')
+                  .select('id')
+                  .eq('user_id', deps.otherUserId)
+                  .limit(1),
                 signal
               )
             )
           );
+          await waitIfPaused();
           deniedProbes.push(
-            expectedDenied(
+            denied(
               await withAbort(
-                observer.rpc('_bantay_maybe_protective_lock', { p_user_id: deps.targetUserId }),
-                signal
-              )
-            )
-          );
-          deniedProbes.push(
-            expectedDenied(
-              await withAbort(
-                observer.rpc('_bantay_event', {
-                  p_user_id: deps.targetUserId,
-                  p_kind: 'code_failures',
-                  p_severity: 'high',
+                observer.from('security_events').insert({
+                  user_id: deps.targetUserId,
+                  kind: 'code_failures',
+                  severity: 'high',
                 }),
                 signal
               )
             )
           );
+          await waitIfPaused();
           deniedProbes.push(
             expectedDenied(
               await withAbort(
-                observer.rpc('admin_unlock_user', {
+                observer.rpc('_bantay_maybe_protective_lock', {
                   p_user_id: deps.targetUserId,
-                  p_note: 'Bantay drill RLS probe',
                 }),
                 signal
               )
             )
           );
         }
-        const denied = deniedProbes.filter(Boolean).length;
+        const passed = deniedProbes.filter(Boolean).length;
         const total = deniedProbes.length;
-        return denied === total
-          ? { status: 'blocked', detail: `${denied}/${total} RLS probes denied as expected.` }
-          : { status: 'error', detail: `${denied}/${total} probes denied; review access rules.` };
+        return passed === total
+          ? {
+              status: 'blocked',
+              detail:
+                `${passed}/${total} RLS probes denied as expected. ` +
+                'RPC EXECUTE denials confirmed by the read-only deployment probe.',
+            }
+          : {
+              status: 'error',
+              detail: `${passed}/${total} probes denied; review access rules.`,
+            };
       },
     },
   ];
@@ -552,23 +695,18 @@ async function runDrill() {
     deps = {
       anon: makeClient(ANON_KEY),
       observer: makeClient(ANON_KEY),
+      admin: null,
       service: SERVICE_KEY ? makeClient(SERVICE_KEY) : null,
       fixture: null,
       targetUserId: null,
       otherUserId: null,
     };
+    startObservation();
     await requireDeployment(signal);
     if (stopped()) return;
-    if (state.intensity === 'minimal') {
-      const auth = await withAbort(
-        deps.observer.auth.signInWithPassword({ email: state.target, password: PASSWORD }),
-        signal
-      );
-      if (auth.error) throw auth.error;
-      deps.targetUserId = auth.data?.user?.id || null;
-    }
-    const outcome = await runDrillSteps(buildSteps(state.intensity, signal), {
+    const outcome = await runDrillSteps(buildSteps(state.intensity), {
       signal,
+      maxStepMs: MAX_STEP_SECONDS * 1000,
       isStopped: () => stopped(),
       isPaused: () => state.status === 'paused',
       waitForResume,
@@ -579,14 +717,16 @@ async function runDrill() {
         state.activeStep = step.id;
         broadcast();
       },
-      onResult: (result) => {
+      onResult: async (result) => {
         appendTimeline(result, state.lastEvents.join(', ') || null);
         state.requests += result.requests;
         console.log(
           `[${result.id}/5] ${result.name} — ${result.status} · ${result.detail}`
         );
         broadcast();
-        if (!stopped()) void observe();
+        // Await the read-only observer so a protective lock stops the attacker
+        // loop before it issues another request.
+        if (!stopped()) await observe();
       },
     });
     state.requests = outcome.requests;
@@ -611,49 +751,95 @@ async function runDrill() {
 async function cleanup() {
   const notes = [];
   try {
-    if (deps?.fixture) {
-      try {
-        await deps.fixture.cleanup();
-      } catch {
-        notes.push('Temporary factor cleanup needs review.');
-      }
-      deps.fixture = null;
-    }
-    if (!SERVICE_KEY) {
-      notes.push('NOT VERIFIED — service role key absent; unlock was not performed.');
-    } else {
-      const service = makeClient(SERVICE_KEY);
-      const id = deps?.targetUserId || (await findUserId(service, state.target));
-      if (!id) {
-        notes.push('NOT VERIFIED — target account was not resolved; unlock was not performed.');
+    // withStepUpCleanup removes every temporary factor and clears the helper's
+    // fixture registry even when a staff step fails, so a later Reset is safe.
+    await withStepUpCleanup(async () => {
+      // Cleanup uses the staff paths from the shared contract only:
+      // admin_unlock_user with aal2, and admin_update_security_case. No direct
+      // lock-row write, no shortened customer wait, no authenticator bypass.
+      if (!SERVICE_KEY) {
+        notes.push('NOT VERIFIED — service role key absent; unlock was not performed.');
       } else {
-        const unlock = await service
-          .from('security_limits')
-          .update({
-            locked_at: null,
-            unlock_after: null,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('user_id', id);
-        if (unlock.error) notes.push('Unlock needs review.');
-        const cases = await service
-          .from('security_cases')
-          .update({
-            status: 'resolved',
-            staff_note: 'Bantay drill cleanup',
-            updated_at: new Date().toISOString(),
-          })
-          .eq('user_id', id)
-          .eq('opened_by', 'system')
-          .in('status', ['open', 'investigating']);
-        if (cases.error) notes.push('Case closure needs review.');
+        const service = makeClient(SERVICE_KEY);
+        const id = deps?.targetUserId || (await findUserId(service, state.target));
+        if (!id) {
+          notes.push(
+            'NOT VERIFIED — target account was not resolved; unlock was not performed.'
+          );
+        } else {
+          const lock = await service
+            .from('security_limits')
+            .select('locked_at')
+            .eq('user_id', id)
+            .maybeSingle();
+          const cases = await service
+            .from('security_cases')
+            .select('id, status')
+            .eq('user_id', id)
+            .eq('opened_by', 'system')
+            .in('status', ['open', 'investigating'])
+            .limit(5);
+          if (lock.error || cases.error) {
+            notes.push('Cleanup state could not be read.');
+          } else {
+            const needsUnlock = Boolean(lock.data?.locked_at);
+            const caseIds = (cases.data || []).map((row) => row.id).filter(Boolean);
+            if (needsUnlock || caseIds.length) {
+              if (!PASSWORD) {
+                notes.push(
+                  'NOT VERIFIED — cleanup password absent; unlock was not performed.'
+                );
+              } else {
+                const admin = makeClient(ANON_KEY);
+                const auth = await admin.auth.signInWithPassword({
+                  email: TEST_ADMIN,
+                  password: PASSWORD,
+                });
+                if (auth.error) {
+                  notes.push(
+                    'NOT VERIFIED — staff cleanup sign-in failed; unlock was not performed.'
+                  );
+                } else {
+                  try {
+                    await temporaryStepUp(admin, {
+                      email: TEST_ADMIN,
+                      password: PASSWORD,
+                    });
+                    if (needsUnlock) {
+                      const unlock = await admin.rpc('admin_unlock_user', {
+                        p_user_id: id,
+                        p_note: 'Bantay drill cleanup',
+                      });
+                      if (unlock.error) notes.push('Unlock needs review.');
+                    }
+                    for (const caseId of caseIds) {
+                      const closed = await admin.rpc('admin_update_security_case', {
+                        p_id: caseId,
+                        p_status: 'resolved',
+                        p_note: 'Bantay drill cleanup',
+                      });
+                      if (closed.error) notes.push('Case closure needs review.');
+                    }
+                  } catch {
+                    notes.push(
+                      'NOT VERIFIED — staff step-up unavailable; unlock was not performed.'
+                    );
+                  }
+                  await admin.auth.signOut({ scope: 'local' });
+                }
+              }
+            }
+          }
+        }
       }
-    }
-    if (deps?.observer) await deps.observer.auth.signOut({ scope: 'local' });
-    if (deps?.anon) await deps.anon.auth.signOut({ scope: 'local' });
+      if (deps?.admin) await deps.admin.auth.signOut({ scope: 'local' });
+      if (deps?.observer) await deps.observer.auth.signOut({ scope: 'local' });
+      if (deps?.anon) await deps.anon.auth.signOut({ scope: 'local' });
+    });
   } catch {
-    notes.push('Cleanup needs review.');
+    notes.push('Temporary factor cleanup needs review.');
   }
+  if (deps) deps.fixture = null;
   deps = null;
   seenEventIds = new Set();
   state.timeline = [];
@@ -664,14 +850,15 @@ async function cleanup() {
   state.status = notes.length ? 'not verified' : 'idle';
   state.message = notes.length
     ? notes.join(' ')
-    : 'Reset complete. The selected test account is unlocked and ready.';
+    : 'Reset complete. The selected test account is ready.';
   console.log(state.message);
   broadcast();
 }
 
 async function handleCommand(body) {
   const parsed = parseCommand(body?.command);
-  if (!parsed.ok) return { httpStatus: 400, payload: { ok: false, reason: parsed.reason } };
+  if (!parsed.ok)
+    return { httpStatus: 400, payload: { ok: false, reason: parsed.reason } };
 
   if (parsed.value === 'start') {
     const guard = guardDrillTarget(body.target, TEST_CUSTOMER_A, TEST_CUSTOMER_B);
@@ -736,7 +923,8 @@ async function handleCommand(body) {
   if (parsed.value === 'stop') {
     if (state.status !== 'stopped') {
       const next = transition(state.status, 'stop');
-      if (!next.ok) return { httpStatus: 409, payload: { ok: false, reason: next.reason } };
+      if (!next.ok)
+        return { httpStatus: 409, payload: { ok: false, reason: next.reason } };
       state.status = next.value;
     }
     controller.abort();
@@ -825,7 +1013,15 @@ const server = http.createServer(async (req, res) => {
     });
     res.write(`event: snapshot\ndata: ${JSON.stringify(snapshot())}\n\n`);
     sseClients.add(res);
-    req.on('close', () => sseClients.delete(res));
+    req.on('close', () => {
+      sseClients.delete(res);
+      if (
+        sseClients.size === 0 &&
+        ['running', 'paused', 'frozen'].includes(state.status)
+      ) {
+        stopObservation();
+      }
+    });
     return;
   }
   if (req.method === 'POST' && url.pathname === '/api/command') {

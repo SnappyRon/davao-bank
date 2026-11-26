@@ -72,7 +72,12 @@ describe('Bantay drill input and state validation', () => {
     expect(transition('paused', 'stop')).toEqual({ ok: true, value: 'stopped' });
     expect(transition('frozen', 'reset')).toEqual({ ok: true, value: 'resetting' });
     expect(statusLabel('running', 3)).toBe('Attacking step 3 of 5');
-    expect(statusLabel('frozen')).toBe('frozen');
+    expect(statusLabel('frozen')).toBe('Frozen by Bantay');
+    expect(statusLabel('paused')).toBe('Paused');
+    expect(statusLabel('stopped')).toBe('Stopped');
+    expect(statusLabel('idle')).toBe('Idle');
+    expect(statusLabel('resetting')).toBe('Resetting');
+    expect(statusLabel('not verified')).toBe('Not verified');
     expect(manilaTime(new Date('2026-11-26T05:00:00Z'))).toContain('PM');
   });
 
@@ -83,7 +88,12 @@ describe('Bantay drill input and state validation', () => {
     expect(safeError('SECRET=abc123 Stack trace at /srv/key')).toBe(
       'Request failed. Details withheld.'
     );
-    expect(safeError('NOT VERIFIED — deployment absent')).toContain('NOT VERIFIED');
+    expect(safeError('NOT VERIFIED — deployment absent')).toBe(
+      'NOT VERIFIED — deployment absent.'
+    );
+    expect(safeError(new Error('Step timed out after 45 seconds'))).toBe(
+      'Step timed out. No further action taken.'
+    );
   });
 });
 
@@ -242,5 +252,52 @@ describe('Bantay drill step runner', () => {
     expect(later).not.toHaveBeenCalled();
     expect(summary.status).toBe('error');
     expect(summary.results[0].detail).toBe('Request failed. Details withheld.');
+  });
+
+  it('gives each step a pause gate that is checked before every request', async () => {
+    let paused = false;
+    const waitForResume = jest.fn(async () => {});
+    const step: DrillStep = {
+      id: 1,
+      name: 'Step 1',
+      requests: 2,
+      run: async ({ waitIfPaused }) => {
+        paused = true;
+        await waitIfPaused();
+        await waitIfPaused();
+        return { status: 'attempted', detail: 'ok' };
+      },
+    };
+    const summary = await runDrillSteps(
+      [step],
+      control({ isPaused: () => paused, waitForResume })
+    );
+    expect(summary.status).toBe('completed');
+    expect(waitForResume).toHaveBeenCalledTimes(2);
+  });
+
+  it('ends a step at the 45-second budget without starting the next step', async () => {
+    const later = jest.fn(async () => ({
+      status: 'attempted' as const,
+      detail: 'never',
+    }));
+    const summary = await runDrillSteps(
+      [
+        {
+          id: 1,
+          name: 'Slow step',
+          requests: 1,
+          run: () =>
+            new Promise<{ status: 'attempted'; detail: string }>((resolve) =>
+              setTimeout(() => resolve({ status: 'attempted', detail: 'late' }), 80)
+            ),
+        },
+        makeStep(2, later),
+      ],
+      control({ maxStepMs: 5 })
+    );
+    expect(later).not.toHaveBeenCalled();
+    expect(summary.status).toBe('error');
+    expect(summary.results[0].detail).toBe('Step timed out. No further action taken.');
   });
 });

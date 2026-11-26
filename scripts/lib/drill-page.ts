@@ -21,7 +21,7 @@ export const PAGE_HTML = `<!doctype html>
   button { cursor: pointer; margin: .35rem .35rem 0 0; }
   button:disabled { opacity: .45; cursor: not-allowed; }
   .controls { display: flex; flex-wrap: wrap; gap: .25rem; margin-top: .9rem; }
-  #status { display: inline-block; padding: .3rem .75rem; border-radius: 999px; background: #e8edf5; font-weight: 650; }
+  #status { display: inline-block; padding: .3rem .75rem; border-radius: 999px; background: #e8edf5; font-weight: 650; font-variant: small-caps; letter-spacing: .04em; }
   #status[data-tone="bad"] { background: #fde8e6; color: #8c1d18; }
   #status[data-tone="warn"] { background: #fff3d6; color: #6b4b00; }
   #status[data-tone="good"] { background: #e4f6ea; color: #14532d; }

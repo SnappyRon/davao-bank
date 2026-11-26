@@ -95,9 +95,18 @@ export function parseCommand(input: unknown): ParseResult<DrillCommand> {
 export type DrillStatus =
   'idle' | 'running' | 'paused' | 'stopped' | 'frozen' | 'resetting' | 'not verified';
 
+export const STATUS_LABELS: Record<Exclude<DrillStatus, 'running'>, string> = {
+  idle: 'Idle',
+  paused: 'Paused',
+  stopped: 'Stopped',
+  frozen: 'Frozen by Bantay',
+  resetting: 'Resetting',
+  'not verified': 'Not verified',
+};
+
 export function statusLabel(status: DrillStatus, activeStep?: number | null): string {
   if (status === 'running') return `Attacking step ${activeStep ?? 1} of 5`;
-  return status;
+  return STATUS_LABELS[status];
 }
 
 export function canStart(status: DrillStatus): boolean {
@@ -140,6 +149,8 @@ export type StepOutcome = {
 
 export type StepContext = {
   signal: AbortSignal;
+  /** Steps call this before each request so Pause is honoured inside a step. */
+  waitIfPaused: () => Promise<void>;
 };
 
 export type DrillStep = {
@@ -157,8 +168,10 @@ export type RunnerControl = {
   maxTotalRequests: number;
   maxRequestsPerStep: number;
   onStepStart?: (step: DrillStep) => void;
-  onResult?: (result: StepResult, requestsUsed: number) => void;
+  /** Awaited so read-only observation can detect a freeze before the next step. */
+  onResult?: (result: StepResult, requestsUsed: number) => void | Promise<void>;
   now?: () => string;
+  maxStepMs?: number;
 };
 
 export type RunSummary = {
@@ -177,6 +190,12 @@ export function safeError(error: unknown): string {
         : '';
   const lower = raw.toLowerCase();
   if (lower.includes('abort')) return 'Stopped by owner.';
+  if (lower.includes('timed out') || lower.includes('timeout')) {
+    return 'Step timed out. No further action taken.';
+  }
+  if (lower.includes('not verified') && lower.includes('deployment absent')) {
+    return 'NOT VERIFIED — deployment absent.';
+  }
   if (lower.includes('not verified')) return 'NOT VERIFIED — precondition not met.';
   if (lower.includes('locked')) return 'Blocked by Bantay account lock.';
   if (lower.includes('confirmation required')) {
@@ -250,23 +269,35 @@ export async function runDrillSteps(
     }
 
     control.onStepStart?.(step);
+    const stepController = new AbortController();
+    const onGlobalAbort = () => stepController.abort(control.signal.reason);
+    control.signal.addEventListener('abort', onGlobalAbort, { once: true });
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      stepController.abort(new Error('Step timed out after 45 seconds'));
+    }, control.maxStepMs ?? 45_000);
+    const waitIfPaused = async () => {
+      if (stepController.signal.aborted || stopped()) {
+        throw stepController.signal.reason ?? new DOMException('Aborted', 'AbortError');
+      }
+      if (control.isPaused?.() && control.waitForResume) {
+        await control.waitForResume();
+        if (stopped()) throw new DOMException('Aborted', 'AbortError');
+      }
+    };
+
     let outcome: StepOutcome;
     try {
-      outcome = await step.run({ signal: control.signal });
+      outcome = await step.run({ signal: stepController.signal, waitIfPaused });
     } catch (error) {
       outcome = { status: 'error', detail: safeError(error) };
-      requests += step.requests;
-      results.push({
-        id: step.id,
-        name: step.name,
-        status: outcome.status,
-        detail: outcome.detail,
-        requests: step.requests,
-        at: (control.now ?? manilaTime)(),
-      });
-      control.onResult?.(results[results.length - 1], requests);
-      if (stopped()) return { status: 'stopped', results, requests };
-      return { status: 'error', results, requests };
+    } finally {
+      clearTimeout(timer);
+      control.signal.removeEventListener('abort', onGlobalAbort);
+    }
+    if (timedOut) {
+      outcome = { status: 'error', detail: safeError(new Error('Step timed out')) };
     }
 
     requests += step.requests;
@@ -279,8 +310,9 @@ export async function runDrillSteps(
       at: (control.now ?? manilaTime)(),
     };
     results.push(result);
-    control.onResult?.(result, requests);
+    await control.onResult?.(result, requests);
     if (stopped()) return { status: 'stopped', results, requests };
+    if (outcome.status === 'error') return { status: 'error', results, requests };
   }
   return { status: 'completed', results, requests };
 }
