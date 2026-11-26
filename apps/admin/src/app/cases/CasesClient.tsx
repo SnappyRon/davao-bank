@@ -18,6 +18,8 @@ import {
   caseSlug,
   caseStatusVariant,
   formatEventTime,
+  PROTECTIVE_LOCK_BADGE,
+  protectiveLockBadgeVariant,
   type CaseFilter,
   type SecurityCaseListItem,
 } from '@/lib/securityCases';
@@ -36,6 +38,10 @@ const STATUS_OPTIONS = [
   { value: 'resolved', label: 'Resolved' },
 ];
 
+function isProtectiveLock(item: SecurityCaseListItem): boolean {
+  return item.opened_by === 'system';
+}
+
 export function CasesClient({ initialCases, status, loadError }: CasesClientProps) {
   const router = useRouter();
   const cases = useMemo(() => initialCases, [initialCases]);
@@ -50,6 +56,13 @@ export function CasesClient({ initialCases, status, loadError }: CasesClientProp
             {formatReferenceId(item.id)}
           </Link>
           <div className={styles.cellMeta}>Opened {sentenceCase(item.opened_by)}</div>
+          {isProtectiveLock(item) && (
+            <Badge
+              label={PROTECTIVE_LOCK_BADGE}
+              variant={protectiveLockBadgeVariant()}
+              className={styles.protectiveBadge}
+            />
+          )}
         </>
       ),
     },

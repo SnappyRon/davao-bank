@@ -128,10 +128,23 @@ const EVENT_LABELS: Record<string, string> = {
   limit_changed: 'Daily limit changed',
   account_locked: 'Account locked',
   account_unlocked: 'Account unlocked',
+  protective_lock: 'Protective lock',
 };
 
 export function eventTitle(kind: string): string {
   return EVENT_LABELS[kind] || sentenceCase(kind);
+}
+
+/** Returns true if the case was opened by Bantay's protective lock system. */
+export function isProtectiveLockCase(detail: SecurityCaseDetail): boolean {
+  return detail.events.some((event) => event.kind === 'protective_lock');
+}
+
+/** Badge label for protective lock cases shown in the list and detail views. */
+export const PROTECTIVE_LOCK_BADGE = 'Frozen by Bantay';
+
+export function protectiveLockBadgeVariant(): 'danger' | 'warning' | 'info' | 'neutral' {
+  return 'danger';
 }
 
 const SIGNAL_LABELS: Record<string, string> = {

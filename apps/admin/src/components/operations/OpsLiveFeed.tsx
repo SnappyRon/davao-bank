@@ -287,6 +287,14 @@ export function OpsLiveFeed({ onActivity }: OpsLiveFeedProps) {
                     ? formatMoney(amount)
                     : '—'}
                 </span>
+                {event.kind === 'protective_lock' && (
+                  <span
+                    className={styles.protectiveIndicator}
+                    title="Bantay protective lock"
+                  >
+                    Frozen by Bantay
+                  </span>
+                )}
               </li>
             );
           })}

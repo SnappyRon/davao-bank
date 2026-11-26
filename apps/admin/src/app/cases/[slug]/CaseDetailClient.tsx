@@ -26,9 +26,12 @@ import {
   eventTitle,
   formatEventTime,
   isCaseStatus,
+  isProtectiveLockCase,
   maskAccountNumber,
   maskCustomerName,
   maskEmail,
+  PROTECTIVE_LOCK_BADGE,
+  protectiveLockBadgeVariant,
   type CaseAccount,
   type CaseCustomer,
   type SecurityCaseDetail,
@@ -54,6 +57,9 @@ const STATUS_OPTIONS = CASE_STATUSES.map((status) => ({
   label: sentenceCase(status),
 }));
 
+const protectiveLockEvent = (detail: SecurityCaseDetail) =>
+  detail.events.find((event) => event.kind === 'protective_lock');
+
 export function CaseDetailClient({
   detail,
   customer,
@@ -66,6 +72,9 @@ export function CaseDetailClient({
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [unlockOpen, setUnlockOpen] = useState(false);
   const [accountAction, setAccountAction] = useState<'frozen' | 'active' | null>(null);
+
+  const isProtectiveLock = isProtectiveLockCase(detail);
+  const protectiveEvent = protectiveLockEvent(detail);
 
   const applyResult = (result: ActionResult, successMessage: string) => {
     if (!result.success) {
@@ -134,6 +143,13 @@ export function CaseDetailClient({
                 <dt className={styles.summaryTerm}>Opened by</dt>
                 <dd className={styles.summaryValue}>
                   {sentenceCase(detail.case.opened_by)}
+                  {isProtectiveLock && (
+                    <Badge
+                      label={PROTECTIVE_LOCK_BADGE}
+                      variant={protectiveLockBadgeVariant()}
+                      className={styles.protectiveBadge}
+                    />
+                  )}
                 </dd>
               </div>
               <div className={styles.summaryRow}>
@@ -233,11 +249,20 @@ export function CaseDetailClient({
             <ul className={styles.timeline}>
               {detail.events.map((event) => {
                 const signals = eventSignals(event.facts);
+                const isProtectiveEvent = event.kind === 'protective_lock';
                 return (
-                  <li key={event.id} className={styles.timelineItem}>
+                  <li
+                    key={event.id}
+                    className={`${styles.timelineItem} ${
+                      isProtectiveEvent ? styles.protectiveItem : ''
+                    }`}
+                  >
                     <div className={styles.timelineTop}>
                       <div className={styles.timelineBadges}>
-                        <Badge label={eventTitle(event.kind)} variant="neutral" />
+                        <Badge
+                          label={eventTitle(event.kind)}
+                          variant={isProtectiveEvent ? 'danger' : 'neutral'}
+                        />
                         <Badge
                           label={sentenceCase(event.severity)}
                           variant={eventSeverityVariant(event.severity)}
@@ -254,6 +279,17 @@ export function CaseDetailClient({
                     <p className={styles.timelineSignals}>
                       {signals.length ? signals.join(' · ') : 'No additional signals.'}
                     </p>
+                    {isProtectiveEvent && protectiveEvent && (
+                      <div className={styles.protectiveDetail}>
+                        <h4 className={styles.protectiveDetailTitle}>
+                          Signals that triggered the protective lock
+                        </h4>
+                        <p className={styles.protectiveDetailText}>
+                          {getProtectiveLockSignals(protectiveEvent.facts).join(' · ') ||
+                            'Multiple high-severity signals within 15 minutes'}
+                        </p>
+                      </div>
+                    )}
                   </li>
                 );
               })}
@@ -307,4 +343,21 @@ export function CaseDetailClient({
       />
     </>
   );
+}
+
+function getProtectiveLockSignals(facts: Record<string, unknown>): string[] {
+  const signals = Array.isArray(facts?.signals) ? facts.signals : [];
+  return signals
+    .filter((signal): signal is string => typeof signal === 'string')
+    .map((signal) => {
+      const SIGNAL_LABELS: Record<string, string> = {
+        code_failures: 'Failed verification codes',
+        new_device: 'New device',
+        signin_failures: 'Failed sign-ins',
+        risky_payment_challenged: 'High-risk payment challenge',
+        account_locked: 'Account locked',
+      };
+      return SIGNAL_LABELS[signal] || signal;
+    })
+    .filter((label): label is string => Boolean(label));
 }
