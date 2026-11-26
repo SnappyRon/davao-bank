@@ -9,7 +9,7 @@ import {
   View,
 } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
-import { ShieldCheck, X } from 'lucide-react-native';
+import { MessageCircle, ShieldCheck, X } from 'lucide-react-native';
 import ReAnimated, {
   cancelAnimation,
   runOnJS,
@@ -74,15 +74,6 @@ const DRAG_THRESHOLD = 4;
 const LONG_PRESS_MS = 500;
 const ACCENT_GAP_MS = 9000;
 
-/**
- * Stage 8I deliberately leaves the Kada → chat entry unwired. The Bantay chat
- * spec assigns chat to a separate button (§7.1), not to a Kada gesture; this
- * no-op is the disabled hook that a later stage replaces.
- */
-export function openBantayChat(): void {
-  // No chat screen in this stage. Tap stays a status bubble; long-press stays Bantay.
-}
-
 export interface KadaDragBounds {
   windowWidth: number;
   windowHeight: number;
@@ -128,6 +119,8 @@ export function clampKadaPosition(
 export interface FloatingKadaProps {
   locked?: boolean;
   onOpenBantay: () => void;
+  /** Stage 8O: the bubble's button, never a tap or long-press gesture. */
+  onOpenChat: () => void;
 }
 
 function isToday(isoDate: string): boolean {
@@ -136,7 +129,11 @@ function isToday(isoDate: string): boolean {
   return date.toDateString() === new Date().toDateString();
 }
 
-export function FloatingKada({ locked = false, onOpenBantay }: FloatingKadaProps) {
+export function FloatingKada({
+  locked = false,
+  onOpenBantay,
+  onOpenChat,
+}: FloatingKadaProps) {
   const insets = useSafeAreaInsets();
   const windowSize = useWindowDimensions();
   const focused = useIsFocused();
@@ -454,6 +451,17 @@ export function FloatingKada({ locked = false, onOpenBantay }: FloatingKadaProps
             onPress={() => {
               hideBubble();
               onOpenBantay();
+            }}
+            style={styles.bubbleAction}
+          />
+          <Button
+            title="Ask Bantay"
+            accessibilityLabel="Ask Bantay"
+            variant="secondary"
+            icon={<MessageCircle size={18} color={colors.primary} />}
+            onPress={() => {
+              hideBubble();
+              onOpenChat();
             }}
             style={styles.bubbleAction}
           />

@@ -551,6 +551,7 @@ export function HomeScreen({
       <FloatingKada
         locked={isLocked}
         onOpenBantay={() => navigation.navigate('BantaySecurity')}
+        onOpenChat={() => navigation.navigate('BantayChat')}
       />
 
       <AccountPickerSheet

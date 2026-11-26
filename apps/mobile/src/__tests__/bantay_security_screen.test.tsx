@@ -158,6 +158,16 @@ describe('BantaySecurityScreen', () => {
     expect(mockGoBack).toHaveBeenCalled();
   });
 
+  it('offers Ask Bantay in the hero and under the timeline', async () => {
+    await render(<BantaySecurityScreen />);
+    await screen.findByText('₱50,000.00');
+
+    expect(screen.getByRole('button', { name: 'Ask Bantay' })).toBeTruthy();
+    expect(screen.getByText('Have a question? Ask Bantay.')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Ask Bantay' }));
+    expect(mockNavigate).toHaveBeenCalledWith('BantayChat');
+  });
+
   it('validates limit range and enforces step-up order before calling set_daily_limit', async () => {
     const callOrder: string[] = [];
     mockConfirmBiometricPayment.mockImplementation(async () => {

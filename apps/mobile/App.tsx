@@ -68,6 +68,7 @@ import { ScheduledPaymentsScreen } from './src/screens/ScheduledPaymentsScreen';
 import { SavedRecipientsScreen } from './src/screens/SavedRecipientsScreen';
 import { ChangePasswordScreen } from './src/screens/ChangePasswordScreen';
 import { BantaySecurityScreen } from './src/screens/BantaySecurityScreen';
+import { BantayChatScreen } from './src/screens/BantayChatScreen';
 import { MonthlySummaryScreen } from './src/screens/MonthlySummaryScreen';
 import { MyAccountsScreen } from './src/screens/MyAccountsScreen';
 import { AccountDetailScreen } from './src/screens/AccountDetailScreen';
@@ -102,6 +103,7 @@ export type RootStackParamList = {
   AddMoney: undefined;
   TwoStepSetup: undefined;
   BantaySecurity: undefined;
+  BantayChat: undefined;
   MonthlySummary: undefined;
   Receipt: { transactionId: string; accountId: string };
   PaymentRequests: { initialTab?: 'incoming' | 'outgoing' } | undefined;
@@ -550,6 +552,11 @@ export default function App() {
               <RootStack.Screen
                 name="BantaySecurity"
                 component={BantaySecurityScreen}
+                options={{ presentation: 'card', animation: 'slide_from_right' }}
+              />
+              <RootStack.Screen
+                name="BantayChat"
+                component={BantayChatScreen}
                 options={{ presentation: 'card', animation: 'slide_from_right' }}
               />
               <RootStack.Screen

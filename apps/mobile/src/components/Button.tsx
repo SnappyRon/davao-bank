@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   StyleSheet,
   View,
+  type AccessibilityState,
   type ViewStyle,
   type TextStyle,
 } from 'react-native';
@@ -23,6 +24,8 @@ export interface ButtonProps {
   textStyle?: TextStyle;
   icon?: React.ReactNode;
   accessibilityLabel?: string;
+  /** Overrides the derived state, e.g. the Bantay chat Send button. */
+  accessibilityState?: AccessibilityState;
 }
 
 export function Button({
@@ -35,6 +38,7 @@ export function Button({
   textStyle,
   icon,
   accessibilityLabel,
+  accessibilityState,
 }: ButtonProps) {
   const isInteractive = !disabled && !loading;
 
@@ -103,7 +107,9 @@ export function Button({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel || title}
-      accessibilityState={{ disabled: !isInteractive, busy: loading }}
+      accessibilityState={
+        accessibilityState ?? { disabled: !isInteractive, busy: loading }
+      }
       disabled={!isInteractive}
       onPress={onPress}
       feedbackType={variant === 'primary' ? 'scale' : 'none'}

@@ -549,6 +549,13 @@ export function BantaySecurityScreen() {
               <Text variant="caption" color={colors.textSecondary}>
                 {heroSubline}
               </Text>
+              <Button
+                title="Ask Bantay"
+                accessibilityLabel="Ask Bantay"
+                variant="secondary"
+                onPress={() => navigation.navigate('BantayChat')}
+                style={styles.askButton}
+              />
             </View>
           </View>
 
@@ -855,6 +862,9 @@ export function BantaySecurityScreen() {
                 })}
               </GroupedList>
             )}
+            <Text variant="caption" color={colors.textMuted}>
+              Have a question? Ask Bantay.
+            </Text>
           </View>
 
           {/* Protections Status Links */}
@@ -956,6 +966,10 @@ const styles = StyleSheet.create({
   heroText: {
     flex: 1,
     gap: spacing.xs,
+  },
+  askButton: {
+    minHeight: 44,
+    marginTop: spacing.xs,
   },
   section: {
     gap: spacing.md,
