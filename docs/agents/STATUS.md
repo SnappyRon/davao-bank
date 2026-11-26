@@ -8,7 +8,7 @@
 - **Active prompt:** captain brief + spec `phase-8-bantay-drill-and-freeze-spec.md` — local-only owner-controlled drill console with hard test-account guard, five bounded steps, SSE status, read-only Bantay panel and unit tests; report to captain only.
 - **Assigned to:** Backup Development Agent (OpenCode); Stage 8K contract fixes complete, handed back for captain review.
 - **Exact next step:** captain reviews the stage commit and this follow-up fix, applies any pending protective-lock migration, then runs `npm run drill` against hosted with owner-controlled test accounts and three windows (simulator, admin cases, console).
-- **Last commit:** `Phase 8 · Fix — Bantay drill console contract gaps` (this commit), on top of `Phase 8 · Stage 8K — Bantay drill console` (`80214f5`).
+- **Last commit:** `Phase 8 · Close-out — Stage 8K drill console report` (this commit), on top of `Phase 8 · Fix — Bantay drill console contract gaps` (`e0e96d2`) and `Phase 8 · Stage 8K — Bantay drill console` (`80214f5`).
 - **Blockers:** none locally. Live drill, hosted deployment, Stop-abort timing under real network, Reset unlock, simulator/admin/console side-by-side and screen-reader checks NOT VERIFIED — intentionally not run (captain/owner). `.env` symlinked from the main checkout and never read; `npm ci` run; no hosted writes, no push, no money-engine or migration changes. Cleanup now uses `TEST_ADMIN` + aal2 `admin_unlock_user` / `admin_update_security_case`, not a direct lock-row write.
 
 - **Active phase:** Phase 9 integration into `phase-8-integration` — More-services realism copy pass complete.
