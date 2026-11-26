@@ -35,4 +35,5 @@ export * from './OfflineBanner';
 export * from './GuidanceTip';
 export * from './ActivityFilterSheet';
 export * from './ServiceResult';
+export * from './StepUpSetupLink';
 export * from './FloatingKada';
