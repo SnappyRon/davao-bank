@@ -112,3 +112,88 @@ PASS Copy audit clean across 167 files (15 justified allowlist match(es)).
 - Hosted Supabase: captain reports the fixed migration is applied to hosted. Codex used no hosted query or write; RPC/table shapes were verified against `supabase/migrations/20261128000000_phase8_5_ops_backend.sql` and mocked in Jest.
 - Device, Maestro, VoiceOver and live browser rendering: NOT VERIFIED — captain/owner to run.
 - No push and no PR were made.
+
+---
+
+# Stage 8N — Bantay AI chat backend
+
+## Scope and commits
+
+Worktree: `/Users/ronalbert/Personal Projects/davao-bank-chat-db`
+Branch: `phase-8-bantay-chat-db`
+Base: `6b6aab5 Phase 9 · Merge — phase-8-kada-float`
+Commit title: `Phase 8 · Stage 8N — Bantay AI chat backend`
+
+The pre-existing untracked migration `supabase/migrations/20261130100000_phase8_bantay_chat.sql` was kept, not replaced. Only the missing 24 h message prune was added to its lazy-cleanup path.
+
+## What was implemented
+
+- Six tables (`bantay_chat_config`, `sessions`, `messages`, `requests`, `usage`, `global_usage`) with RLS, `revoke all` and narrow service-role/caller grants, plus seven `security definer set search_path = ''` RPCs: quota, atomic global reservation, session open/history/save, caller-scoped clear and clear-all.
+- `supabase/functions/bantay-chat/index.ts`: POST-only Deno function, `Authorization: Bearer` check, `caller.auth.getUser(jwt)`, caller JWT client for own timeline/settings/device reads, service-role client only for function-owned chat writes. No tools, function calling, money/settings RPCs, JWT, user id, key or raw error in the provider payload or logs.
+- Pure Deno-loadable helpers in `packages/shared/src/bantay/chat{Config,Context,Help,Redact,Validator,Service}.ts`, re-exported by `supabase/functions/_shared/bantay.ts` with explicit `.ts` specifiers.
+- Provider pinning in one module: `gemini-3.5-flash-lite`, `store: false`, `seed: 0`, `thinking_level: 'minimal'`, `max_output_tokens: 300`, `timeout: 4000`, `response_format` JSON schema with a seven-id action enum; no unsupported `temperature` field. At most one retry on 429/5xx/timeout, 150–300 ms jitter, ≤6 s total.
+- Quota and global reservation happen before every provider attempt, including the retry; disabled/missing config, missing quota or failed reservation returns the fixed fallback with no fetch. Article and obvious pre-refusal paths answer with zero model calls.
+- Input clamp/redaction, allow-listed masked facts with exact centavos/labels/notes/ids dropped, server-stored last-8 chronological history, strict JSON parse, 8E validators plus chat amount-band/PII/action/claimed-action/refusal checks, fixed fallback strings and one-action allow-list.
+- Nine approved curated articles compiled from `docs/specs/bantay-help/` with approved Taglish variants and a deterministic alias matcher/cache; `06-freeze-card.md` and `09-contact-support.md` remain skipped because their statuses are not approved.
+- Tests: 37 Jest cases across `bantay_chat_helpers.test.ts`, `bantay_chat_service.test.ts` and `bantay_chat_eval.test.ts` (E1–E10 plus provider/cap/log cases), and 35 PGlite cases in `pglite-phase8-n-chat.mjs` wired into `npm run test:db`.
+
+## Real check output
+
+```text
+> npm run typecheck
+> npm run typecheck --workspaces --if-present
+> admin@0.1.0 typecheck
+> tsc --noEmit
+> mobile@1.0.0 typecheck
+> tsc --noEmit
+> @davao-bank/shared@0.1.0 typecheck
+> tsc --noEmit
+exit 0
+
+> npm run lint
+✖ 62 problems (0 errors, 62 warnings)
+
+> npm run format:check
+Checking formatting...
+All matched files use Prettier code style!
+
+> npx jest  # first run
+Test Suites: 3 failed, 73 passed, 76 total
+Tests:       4 failed, 654 passed, 658 total
+Snapshots:   0 total
+Time:        131.951 s
+# 4 timeouts in pre-existing mobile suites (activity_account_param and related).
+# Immediate rerun, no code change:
+> npx jest
+Test Suites: 76 passed, 76 total
+Tests:       658 passed, 658 total
+Snapshots:   0 total
+
+> npm run test:db
+✓ 8N config defaults fail closed with 30/4/500 caps
+✓ 8N disabled kill switch blocks quota — {"reason":"chat_disabled","allowed":false,"quota_remaining":0}
+✓ 8N fourth message in a rolling minute is blocked — {"reason":"rate_limited","allowed":false,"quota_remaining":0}
+✓ 8N per-user daily cap is enforced in Asia/Manila days — {"reason":"daily_limit","allowed":false,"quota_remaining":0}
+✓ 8N global provider cap reserves atomically before the call — {"allowed":false,"model_calls":2,"limit_reached":true}
+✓ 8N customers cannot call quota or reservation RPCs — permission denied for function bantay_chat_check_quota permission denied for function bantay_chat_reserve_model_call
+✓ 8N save/load keeps both messages, source and allow-listed action
+✓ 8N session open lazily prunes messages past the 24 h retention window
+✓ 8N RLS exposes only the caller sessions and messages
+✓ 8N clear cannot delete another user session
+✓ 8N clear_all only removes the caller sessions and messages
+501 passed, 0 failed
+exit 0
+
+> npm run check:copy
+PASS Copy audit clean across 185 files (17 justified allowlist match(es)).
+```
+
+## NOT VERIFIED
+
+```
+NOT VERIFIED — no hosted query or write; the migration was tested only in PGlite and is not applied to Supabase.
+NOT VERIFIED — no real Gemini call, no API key read outside Deno.env and no provider response recorded.
+NOT VERIFIED — mobile BantayChat screen, actions map, accessibility, device, Maestro and VoiceOver (outside this backend brief).
+NOT VERIFIED — 10 truly parallel provider calls and 600 concurrent reservations (PGlite has one connection); sequential cap and mocked parallel quota cases were run instead.
+NOT VERIFIED — no push or PR; owner/captain reviews and applies after AI + Security review.
+```

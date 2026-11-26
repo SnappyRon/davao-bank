@@ -7,6 +7,7 @@ import { PGlite } from '@electric-sql/pglite'; import fs from 'node:fs'; import 
 import { runPhase8BantayTests } from './pglite-phase8-bantay.mjs';
 import { runPhase8BantayRiskTests } from './pglite-phase8-bantay-risk.mjs';
 import { runPhase8BantayAlertsTests } from './pglite-phase8-bantay-alerts.mjs';
+import { runPhase8NChatTests } from './pglite-phase8-n-chat.mjs';
 import { runPhase8_5OpsTests } from './pglite-phase8-5-ops.mjs';
 import { runPhase9ServiceRequestsTests } from './pglite-phase9-service-requests.mjs';
 import { runPhase9AppointmentTests } from './pglite-phase9-appointments.mjs';
@@ -507,6 +508,9 @@ await runPhase8_5OpsTests({ as, su, cust, ok, U, A, B, biller });
 
 // ---- Phase 9 · Service Requests
 await runPhase9ServiceRequestsTests({ as, su, cust, ok, U, A, B });
+
+// ---- Phase 8 · Stage 8N: Bantay AI chat backend
+await runPhase8NChatTests({ as, su, cust, one, ok, U });
 
 // ---- Phase 9 · Stage 9E: Savings goals + time deposit planner
 await runPhase9SavingsGoalsTests({ as, su, cust, one, bal, ok, U, A, B });
