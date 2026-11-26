@@ -624,6 +624,7 @@ export function HomeScreen({
         locked={isLocked || isFrozen}
         protective={isFrozen}
         onOpenBantay={() => navigation.navigate('BantaySecurity')}
+        onOpenChat={() => navigation.navigate('BantayChat')}
       />
 
       <AccountPickerSheet

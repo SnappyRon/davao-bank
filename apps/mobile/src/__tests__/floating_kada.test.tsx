@@ -8,7 +8,6 @@ import {
   kadaBubbleWidth,
   kadaBottomOffset,
   kadaRestingOrigin,
-  openBantayChat,
   type KadaDragBounds,
 } from '../components/FloatingKada';
 import { fetchSecurityTimeline } from '../hooks/usePhase8Contracts';
@@ -59,6 +58,7 @@ function todayEvents(count: number) {
 
 describe('Phase 8 · Stage 8I — interactive floating Kada', () => {
   const onOpenBantay = jest.fn();
+  const onOpenChat = jest.fn();
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -74,7 +74,7 @@ describe('Phase 8 · Stage 8I — interactive floating Kada', () => {
   });
 
   it('renders one labelled Kada button with decorative art and no chat gesture', async () => {
-    await render(<FloatingKada onOpenBantay={onOpenBantay} />);
+    await render(<FloatingKada onOpenBantay={onOpenBantay} onOpenChat={onOpenChat} />);
 
     const kada = screen.getByRole('button', {
       name: 'Bantay, watching your account',
@@ -84,12 +84,18 @@ describe('Phase 8 · Stage 8I — interactive floating Kada', () => {
       expect.arrayContaining([expect.objectContaining({ zIndex: 90 })])
     );
     expect(screen.getByRole('button', { name: 'Hide Bantay' })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: /Ask Bantay/ })).toBeNull();
-    expect(openBantayChat()).toBeUndefined();
+    // Chat is a bubble button, never a tap/long-press gesture (§7.1).
+    expect(screen.queryByRole('button', { name: 'Ask Bantay' })).toBeNull();
+    expect(onOpenChat).not.toHaveBeenCalled();
+    await fireEvent.press(
+      screen.getByRole('button', { name: 'Bantay, watching your account' })
+    );
+    expect(onOpenBantay).not.toHaveBeenCalled();
+    expect(onOpenChat).not.toHaveBeenCalled();
   });
 
   it('tap shows a real-data status bubble with Dismiss and Open Bantay', async () => {
-    await render(<FloatingKada onOpenBantay={onOpenBantay} />);
+    await render(<FloatingKada onOpenBantay={onOpenBantay} onOpenChat={onOpenChat} />);
 
     await fireEvent.press(
       screen.getByRole('button', { name: 'Bantay, watching your account' })
@@ -108,12 +114,26 @@ describe('Phase 8 · Stage 8I — interactive floating Kada', () => {
     expect(onOpenBantay).not.toHaveBeenCalled();
   });
 
+  it('opens the chat only from the bubble Ask Bantay button', async () => {
+    await render(<FloatingKada onOpenBantay={onOpenBantay} onOpenChat={onOpenChat} />);
+
+    await fireEvent.press(
+      screen.getByRole('button', { name: 'Bantay, watching your account' })
+    );
+    const ask = await screen.findByRole('button', { name: 'Ask Bantay' });
+    await fireEvent.press(ask);
+
+    expect(onOpenChat).toHaveBeenCalledTimes(1);
+    expect(onOpenBantay).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('floating-kada-bubble')).toBeNull();
+  });
+
   it('omits the count when the timeline RPC fails instead of showing 0', async () => {
     jest.mocked(fetchSecurityTimeline).mockResolvedValue({
       data: [],
       error: new Error('rpc failed'),
     });
-    await render(<FloatingKada onOpenBantay={onOpenBantay} />);
+    await render(<FloatingKada onOpenBantay={onOpenBantay} onOpenChat={onOpenChat} />);
 
     await fireEvent.press(
       screen.getByRole('button', { name: 'Bantay, watching your account' })
@@ -127,7 +147,9 @@ describe('Phase 8 · Stage 8I — interactive floating Kada', () => {
       data: todayEvents(1) as never,
       error: null,
     });
-    await render(<FloatingKada locked onOpenBantay={onOpenBantay} />);
+    await render(
+      <FloatingKada locked onOpenBantay={onOpenBantay} onOpenChat={onOpenChat} />
+    );
 
     await fireEvent.press(screen.getByRole('button', { name: 'Bantay, account locked' }));
     expect(
@@ -154,7 +176,7 @@ describe('Phase 8 · Stage 8I — interactive floating Kada', () => {
   });
 
   it('long-press opens Bantay security center without a bubble', async () => {
-    await render(<FloatingKada onOpenBantay={onOpenBantay} />);
+    await render(<FloatingKada onOpenBantay={onOpenBantay} onOpenChat={onOpenChat} />);
 
     await fireEvent(
       screen.getByRole('button', { name: 'Bantay, watching your account' }),
@@ -166,7 +188,7 @@ describe('Phase 8 · Stage 8I — interactive floating Kada', () => {
   });
 
   it('dismisses to a 32 pt badge and restores the widget', async () => {
-    await render(<FloatingKada onOpenBantay={onOpenBantay} />);
+    await render(<FloatingKada onOpenBantay={onOpenBantay} onOpenChat={onOpenChat} />);
 
     await fireEvent.press(screen.getByRole('button', { name: 'Hide Bantay' }));
     expect(screen.queryByTestId('floating-kada')).toBeNull();
@@ -181,7 +203,7 @@ describe('Phase 8 · Stage 8I — interactive floating Kada', () => {
     const withRepeatSpy = jest.spyOn(Reanimated, 'withRepeat');
     jest.spyOn(Reanimated, 'useReducedMotion').mockReturnValue(true);
 
-    await render(<FloatingKada onOpenBantay={onOpenBantay} />);
+    await render(<FloatingKada onOpenBantay={onOpenBantay} onOpenChat={onOpenChat} />);
 
     expect(withRepeatSpy).not.toHaveBeenCalled();
   });
@@ -206,7 +228,7 @@ describe('Phase 8 · Stage 8I — interactive floating Kada', () => {
   });
 
   it('renders the bubble as a horizontal card above Kada with a 3-line cap', async () => {
-    await render(<FloatingKada onOpenBantay={onOpenBantay} />);
+    await render(<FloatingKada onOpenBantay={onOpenBantay} onOpenChat={onOpenChat} />);
     await fireEvent.press(
       screen.getByRole('button', { name: 'Bantay, watching your account' })
     );
@@ -234,7 +256,7 @@ describe('Phase 8 · Stage 8I — interactive floating Kada', () => {
     expect(kadaBottomOffset(34)).toBe(88);
 
     mockSafeAreaInsets = { top: 0, bottom: 34, left: 0, right: 0 };
-    await render(<FloatingKada onOpenBantay={onOpenBantay} />);
+    await render(<FloatingKada onOpenBantay={onOpenBantay} onOpenChat={onOpenChat} />);
     expect(screen.getByTestId('floating-kada-anchor').props.style).toEqual(
       expect.arrayContaining([expect.objectContaining({ bottom: 88 })])
     );
