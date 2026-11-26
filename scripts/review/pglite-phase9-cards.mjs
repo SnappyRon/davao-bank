@@ -24,6 +24,13 @@ const aal1 = (uid) => ({
 });
 
 export async function runPhase9CardsTests({ as, su, cust, one, bal, ok, U, A, B }) {
+  // Integration cleanup: earlier reviewer suites can leave the shared demo user
+  // locked or with fresh risk signals that re-trigger the protective evaluator.
+  // Restore this suite's clean pre-cards state without changing any guard.
+  await su(`delete from public.bantay_protective_locks where user_id=$1`, [U.A]);
+  await su(`delete from public.security_events where user_id=$1`, [U.A]);
+  await su(`update public.security_limits set locked_at=null, unlock_after=null where user_id=$1`, [U.A]);
+
   const seed = async (uid) => {
     try {
       const rows = await su('select public.phase9_seed_cards($1) as r', [uid]);
