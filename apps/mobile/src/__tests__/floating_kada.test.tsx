@@ -4,6 +4,9 @@ import * as Reanimated from 'react-native-reanimated';
 import {
   clampKadaPosition,
   FloatingKada,
+  kadaBubbleLeft,
+  kadaBubbleWidth,
+  kadaBottomOffset,
   kadaRestingOrigin,
   openBantayChat,
   type KadaDragBounds,
@@ -24,11 +27,13 @@ jest.mock('expo-secure-store', () => ({
   setItemAsync: jest.fn(async () => undefined),
 }));
 
+let mockSafeAreaInsets = { top: 0, bottom: 0, left: 0, right: 0 };
+
 jest.mock('react-native-safe-area-context', () => {
   const { View } = jest.requireActual('react-native');
   return {
     SafeAreaView: View,
-    useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+    useSafeAreaInsets: () => mockSafeAreaInsets,
   };
 });
 
@@ -57,6 +62,7 @@ describe('Phase 8 · Stage 8I — interactive floating Kada', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockSafeAreaInsets = { top: 0, bottom: 0, left: 0, right: 0 };
     jest.mocked(fetchSecurityTimeline).mockResolvedValue({
       data: todayEvents(2) as never,
       error: null,
@@ -171,5 +177,48 @@ describe('Phase 8 · Stage 8I — interactive floating Kada', () => {
       y: -676,
     });
     expect(clampKadaPosition({ x: 1000, y: 1000 }, bounds)).toEqual({ x: 0, y: 0 });
+  });
+
+  it('caps the bubble at 280 pt and never past the screen gutters', () => {
+    expect(kadaBubbleWidth(390)).toBe(280);
+    expect(kadaBubbleWidth(320)).toBe(280);
+    expect(kadaBubbleWidth(300)).toBe(260);
+    expect(kadaBubbleLeft(390)).toBe(90);
+    expect(kadaBubbleLeft(300)).toBe(20);
+  });
+
+  it('renders the bubble as a horizontal card above Kada with a 3-line cap', async () => {
+    await render(<FloatingKada onOpenBantay={onOpenBantay} />);
+    await fireEvent.press(
+      screen.getByRole('button', { name: 'Bantay, watching your account' })
+    );
+
+    const bubble = await screen.findByTestId('floating-kada-bubble');
+    expect(bubble.props.style).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ width: 280, right: 0, bottom: 72 }),
+      ])
+    );
+
+    const copy = screen.getByText('Watching your account · 2 alerts today');
+    expect(copy.props.numberOfLines).toBe(3);
+
+    // The old narrow bubble collapsed the primary button into an empty green
+    // circle; the intended shield icon now renders inside a full-width card.
+    expect(screen.getByTestId('floating-kada-action-icon')).toBeTruthy();
+    expect(screen.getByTestId('floating-kada-hide').props.style).toEqual(
+      expect.objectContaining({ top: 0, right: 0 })
+    );
+  });
+
+  it('does not double-count the safe-area inset when anchoring above the tab bar', async () => {
+    expect(kadaBottomOffset(0)).toBe(96);
+    expect(kadaBottomOffset(34)).toBe(88);
+
+    mockSafeAreaInsets = { top: 0, bottom: 34, left: 0, right: 0 };
+    await render(<FloatingKada onOpenBantay={onOpenBantay} />);
+    expect(screen.getByTestId('floating-kada-anchor').props.style).toEqual(
+      expect.arrayContaining([expect.objectContaining({ bottom: 88 })])
+    );
   });
 });

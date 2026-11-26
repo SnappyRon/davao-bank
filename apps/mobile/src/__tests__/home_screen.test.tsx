@@ -5,8 +5,10 @@ import {
   fetchTransactionHistory,
   fetchUserProfile,
   fetchHealthCheck,
+  spacing,
   type AccountBalance,
 } from '@davao-bank/shared';
+import { KADA_SIZE } from '../components/FloatingKada';
 
 const mockNavigate = jest.fn();
 
@@ -470,5 +472,19 @@ describe('HomeScreen (7B.1)', () => {
       await fireEvent.press(chip);
       expect(mockNavigate).toHaveBeenCalledWith('BantaySecurity');
     });
+  });
+
+  it('shows More services without a Simulation badge and reserves the Kada lane', async () => {
+    await render(<HomeScreen />);
+    await screen.findByText('₱12,345.67');
+
+    const row = screen.getByTestId('home-more-services-row');
+    expect(row.props.accessibilityLabel).toBe(
+      'More services, FX converter, requests and calculators'
+    );
+    expect(screen.queryByText('Simulation')).toBeNull();
+    expect(row.props.style).toEqual(
+      expect.objectContaining({ paddingRight: KADA_SIZE + spacing.base })
+    );
   });
 });

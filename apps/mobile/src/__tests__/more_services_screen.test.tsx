@@ -338,7 +338,7 @@ describe('Phase 9 · Stage 9A — More services hub', () => {
 
       await fireEvent.press(
         screen.getByRole('button', {
-          name: 'More services, Simulation, FX converter, requests and calculators',
+          name: 'More services, FX converter, requests and calculators',
         })
       );
       expect(mockNavigate).toHaveBeenCalledWith('MoreServices');
