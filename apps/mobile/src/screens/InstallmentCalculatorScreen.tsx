@@ -18,7 +18,6 @@ import {
   MIN_INSTALLMENT_CENTAVOS,
   type InstallmentTermMonths,
 } from '@davao-bank/shared';
-import { Badge } from '../components/Badge';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { EmptyState } from '../components/EmptyState';
@@ -28,13 +27,6 @@ import { GroupedList, ListHairline } from '../components/GroupedList';
 import { OfflineBanner } from '../components/OfflineBanner';
 import { Skeleton } from '../components/Skeleton';
 import { Text } from '../components/Text';
-
-/** Route name registered by the hub owner: `InstallmentCalculator`. */
-export const SIMULATION_BADGE = 'Simulation — not a loan offer';
-export const SIMULATION_NOTICE =
-  'Simulation — illustrative rates only. Not a credit offer or approval.';
-export const ELIGIBILITY_NOTICE =
-  'Demo eligibility uses only your standing in this app. No credit check or approval.';
 
 const STORAGE_KEY = '@davao-bank/installment-quote';
 const TERM_OPTIONS: Array<{ value: InstallmentTermMonths; label: string }> = [
@@ -173,22 +165,6 @@ export function InstallmentCalculatorScreen() {
       }
     >
       <OfflineBanner />
-
-      <View style={styles.simulationBox} accessibilityRole="text">
-        <Badge
-          label={SIMULATION_BADGE}
-          variant="warning"
-          testID="installment-simulation-badge"
-        />
-        <Text
-          variant="caption"
-          color={colors.orangeText}
-          style={styles.simulationNotice}
-          maxFontSizeMultiplier={1.4}
-        >
-          {SIMULATION_NOTICE}
-        </Text>
-      </View>
 
       {loading ? (
         <View testID="installment-skeleton" style={styles.skeletonBox}>
@@ -421,15 +397,6 @@ export function InstallmentCalculatorScreen() {
                   </React.Fragment>
                 ))}
               </GroupedList>
-
-              <Text
-                variant="caption"
-                color={colors.textSecondary}
-                style={styles.eligibility}
-                maxFontSizeMultiplier={1.4}
-              >
-                {ELIGIBILITY_NOTICE}
-              </Text>
             </>
           ) : null}
 
@@ -459,12 +426,6 @@ export function InstallmentCalculatorScreen() {
 }
 
 const styles = StyleSheet.create({
-  simulationBox: {
-    gap: spacing.sm,
-  },
-  simulationNotice: {
-    flexShrink: 1,
-  },
   skeletonBox: {
     gap: spacing.md,
     paddingVertical: spacing.sm,
@@ -555,8 +516,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing.sm,
-  },
-  eligibility: {
-    marginTop: spacing.xs,
   },
 });

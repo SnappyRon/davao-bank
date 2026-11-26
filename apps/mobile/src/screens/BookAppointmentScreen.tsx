@@ -14,7 +14,6 @@ import {
 } from 'lucide-react-native';
 import {
   APPOINTMENT_PURPOSES,
-  APPOINTMENTS_SIMULATION_COPY,
   appointmentErrorMessage,
   bookBranchAppointment,
   colors,
@@ -45,7 +44,6 @@ import {
 import { MASCOT_EMPTY, MASCOT_ERROR } from '../assets/illustrations';
 import type { AppointmentsRouteParamList } from './BranchAppointmentsScreen';
 import {
-  Badge,
   Button,
   Chip,
   EmptyState,
@@ -400,7 +398,6 @@ export function BookAppointmentScreen({
         <ResultView
           outcome="scheduled"
           title="Appointment booked"
-          subtitle={APPOINTMENTS_SIMULATION_COPY}
           details={[
             {
               label: 'Queue reference',
@@ -420,7 +417,6 @@ export function BookAppointmentScreen({
               label: 'Purpose',
               value: selectedPurposeOption?.label ?? 'General banking',
             },
-            { label: 'Mode', value: 'Simulation' },
           ]}
           onDone={handleDone}
           contextualActionTitle="View my appointments"
@@ -440,21 +436,6 @@ export function BookAppointmentScreen({
       isProcessing={booking}
       footer={renderFooter()}
     >
-      <View style={styles.simulationBox}>
-        <Badge
-          label="Simulation"
-          variant="warning"
-          testID="book-appointment-simulation-badge"
-        />
-        <Text
-          variant="caption"
-          color={colors.textSecondary}
-          maxFontSizeMultiplier={TEXT_MAX_SCALE}
-        >
-          {APPOINTMENTS_SIMULATION_COPY}
-        </Text>
-      </View>
-
       {offline ? (
         <View
           accessibilityRole="alert"
@@ -488,7 +469,7 @@ export function BookAppointmentScreen({
             color={colors.textSecondary}
             maxFontSizeMultiplier={TEXT_MAX_SCALE}
           >
-            Select a fictional Davao Bank demo branch in Davao City.
+            Choose a Davao Bank branch in Davao City
           </Text>
 
           {branchesLoading ? (
@@ -517,7 +498,7 @@ export function BookAppointmentScreen({
           ) : branches.length === 0 ? (
             <EmptyState
               title="No branches available"
-              description="No demo branches are active right now."
+              description="No branches are active right now."
               illustration={MASCOT_EMPTY}
               illustrationTestID="book-branches-empty-mascot"
               actionTitle="Try again"
@@ -749,7 +730,7 @@ export function BookAppointmentScreen({
           ) : slots.length === 0 ? (
             <EmptyState
               title="No open slots"
-              description="All demo slots for this date are booked or have passed. Choose another banking date."
+              description="All slots for this date are booked or have passed. Choose another banking date."
               illustration={MASCOT_EMPTY}
               illustrationTestID="book-slots-empty-mascot"
               actionTitle="Choose another date"
@@ -834,7 +815,7 @@ export function BookAppointmentScreen({
             color={colors.textSecondary}
             maxFontSizeMultiplier={TEXT_MAX_SCALE}
           >
-            Let the demo branch desk know what you need help with.
+            Let the branch team know what you need help with.
           </Text>
 
           <GroupedList>
@@ -1017,15 +998,6 @@ export function BookAppointmentScreen({
                 </Text>
               </View>
             </View>
-
-            <Text
-              variant="caption"
-              color={colors.textMuted}
-              align="center"
-              maxFontSizeMultiplier={TEXT_MAX_SCALE}
-            >
-              {APPOINTMENTS_SIMULATION_COPY}
-            </Text>
           </View>
         </View>
       ) : null}
@@ -1034,14 +1006,6 @@ export function BookAppointmentScreen({
 }
 
 const styles = StyleSheet.create({
-  simulationBox: {
-    backgroundColor: colors.surfaceSubtle,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    gap: spacing.xs,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
   offlineNotice: {
     flexDirection: 'row',
     alignItems: 'center',

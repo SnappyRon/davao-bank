@@ -65,27 +65,27 @@ const futureEndIso = new Date(Date.now() + 24 * 3_600_000 + 1_800_000).toISOStri
 const pastIso = new Date(Date.now() - 24 * 3_600_000).toISOString();
 const pastEndIso = new Date(Date.now() - 24 * 3_600_000 + 1_800_000).toISOString();
 
-const demoBranches: Branch[] = [
+const branchFixtures: Branch[] = [
   {
     id: '11111111-2222-3333-4444-555555555555',
-    name: 'Davao Bank – City Main (Demo)',
+    name: 'Davao Bank – City Main',
     area: 'Poblacion, Davao City',
     address: 'CM Recto St, Poblacion, Davao City 8000',
     is_active: true,
   },
   {
     id: '66666666-7777-8888-9999-000000000000',
-    name: 'Davao Bank – Matina (Demo)',
+    name: 'Davao Bank – Matina',
     area: 'Matina, Davao City',
     address: 'Matina Town Center, Davao City',
     is_active: true,
   },
 ];
 
-const demoSlots: OpenAppointmentSlot[] = [
+const slotFixtures: OpenAppointmentSlot[] = [
   {
     id: 'aaaa1111-bbbb-cccc-dddd-eeeeffff0001',
-    branch_id: demoBranches[0].id,
+    branch_id: branchFixtures[0].id,
     starts_at: '2026-12-01T01:00:00.000Z',
     ends_at: '2026-12-01T01:30:00.000Z',
     capacity: 2,
@@ -93,7 +93,7 @@ const demoSlots: OpenAppointmentSlot[] = [
   },
   {
     id: 'aaaa1111-bbbb-cccc-dddd-eeeeffff0002',
-    branch_id: demoBranches[0].id,
+    branch_id: branchFixtures[0].id,
     starts_at: '2026-12-01T01:30:00.000Z',
     ends_at: '2026-12-01T02:00:00.000Z',
     capacity: 2,
@@ -118,7 +118,6 @@ describe('BranchAppointmentsScreen (Stage 9D)', () => {
 
     await render(<BranchAppointmentsScreen />);
 
-    expect(screen.getByTestId('appointments-simulation-badge')).toBeTruthy();
     expect(screen.getByTestId('appointments-skeleton-0')).toBeTruthy();
 
     resolveLoad({ data: [], error: null });
@@ -134,11 +133,6 @@ describe('BranchAppointmentsScreen (Stage 9D)', () => {
     await render(<BranchAppointmentsScreen />);
 
     expect(await screen.findByText('No appointments yet')).toBeTruthy();
-    expect(
-      screen.getByText(
-        'Simulation — demo branches and slots. No real appointment is booked.'
-      )
-    ).toBeTruthy();
 
     await fireEvent.press(screen.getByRole('button', { name: 'Book appointment' }));
     expect(mockNavigate).toHaveBeenCalledWith('BookAppointment');
@@ -166,7 +160,7 @@ describe('BranchAppointmentsScreen (Stage 9D)', () => {
       slot_id: 'slot-future',
       starts_at: futureIso,
       ends_at: futureEndIso,
-      branch_name: 'Davao Bank – City Main (Demo)',
+      branch_name: 'Davao Bank – City Main',
       branch_area: 'Poblacion, Davao City',
       status: 'booked',
       staff_note: null,
@@ -177,7 +171,7 @@ describe('BranchAppointmentsScreen (Stage 9D)', () => {
       slot_id: 'slot-past',
       starts_at: pastIso,
       ends_at: pastEndIso,
-      branch_name: 'Davao Bank – Buhangin (Demo)',
+      branch_name: 'Davao Bank – Buhangin',
       branch_area: 'Buhangin, Davao City',
       status: 'booked',
       staff_note: null,
@@ -188,7 +182,7 @@ describe('BranchAppointmentsScreen (Stage 9D)', () => {
       slot_id: 'slot-done',
       starts_at: pastIso,
       ends_at: pastEndIso,
-      branch_name: 'Davao Bank – Matina (Demo)',
+      branch_name: 'Davao Bank – Matina',
       branch_area: 'Matina, Davao City',
       status: 'completed',
       staff_note: 'Served at counter 2',
@@ -213,7 +207,7 @@ describe('BranchAppointmentsScreen (Stage 9D)', () => {
 
     await render(<BranchAppointmentsScreen />);
 
-    expect(await screen.findByText('Davao Bank – City Main (Demo)')).toBeTruthy();
+    expect(await screen.findByText('Davao Bank – City Main')).toBeTruthy();
     expect(screen.getByText('Completed')).toBeTruthy();
     expect(screen.getByText('Staff note · Served at counter 2')).toBeTruthy();
 
@@ -249,10 +243,10 @@ describe('BookAppointmentScreen (Stage 9D)', () => {
     jest.clearAllMocks();
     mockRouteParams = undefined;
     reportNetworkOnline();
-    jest.mocked(fetchBranches).mockResolvedValue({ data: demoBranches, error: null });
+    jest.mocked(fetchBranches).mockResolvedValue({ data: branchFixtures, error: null });
     jest
       .mocked(fetchOpenAppointmentSlots)
-      .mockResolvedValue({ data: demoSlots, error: null });
+      .mockResolvedValue({ data: slotFixtures, error: null });
   });
 
   it('completes branch → date → open slot → purpose → review → book → ResultView', async () => {
@@ -260,8 +254,8 @@ describe('BookAppointmentScreen (Stage 9D)', () => {
       data: {
         id: 'abcd1234-5678-90ab-cdef-111122223333',
         status: 'booked',
-        slot_id: demoSlots[0].id,
-        branch_id: demoBranches[0].id,
+        slot_id: slotFixtures[0].id,
+        branch_id: branchFixtures[0].id,
         idempotency_key: 'appt_key_1',
         idempotent_replay: false,
       },
@@ -270,11 +264,9 @@ describe('BookAppointmentScreen (Stage 9D)', () => {
 
     await render(<BookAppointmentScreen />);
 
-    expect(screen.getByTestId('book-appointment-simulation-badge')).toBeTruthy();
-
     // Step 1: Branch
     const branchBtn = await screen.findByRole('button', {
-      name: /Davao Bank – City Main \(Demo\)/i,
+      name: /Davao Bank – City Main/i,
     });
     await fireEvent.press(branchBtn);
 
@@ -285,7 +277,7 @@ describe('BookAppointmentScreen (Stage 9D)', () => {
 
     expect(fetchOpenAppointmentSlots).toHaveBeenCalledWith(
       expect.anything(),
-      demoBranches[0].id,
+      branchFixtures[0].id,
       todayManila
     );
 
@@ -302,14 +294,14 @@ describe('BookAppointmentScreen (Stage 9D)', () => {
     // Step 5: Review
     expect(await screen.findByText('Your appointment')).toBeTruthy();
     expect(screen.getByText('Document pickup')).toBeTruthy();
-    expect(screen.getByText('Davao Bank – City Main (Demo)')).toBeTruthy();
+    expect(screen.getByText('Davao Bank – City Main')).toBeTruthy();
 
     await fireEvent.press(screen.getByRole('button', { name: 'Book appointment' }));
 
     await waitFor(() =>
       expect(bookBranchAppointment).toHaveBeenCalledWith(expect.anything(), {
-        branchId: demoBranches[0].id,
-        slotId: demoSlots[0].id,
+        branchId: branchFixtures[0].id,
+        slotId: slotFixtures[0].id,
         idempotencyKey: expect.stringMatching(/^appt_/),
       })
     );
@@ -328,8 +320,8 @@ describe('BookAppointmentScreen (Stage 9D)', () => {
 
     jest
       .mocked(fetchOpenAppointmentSlots)
-      .mockResolvedValueOnce({ data: demoSlots, error: null })
-      .mockResolvedValueOnce({ data: [demoSlots[1]], error: null });
+      .mockResolvedValueOnce({ data: slotFixtures, error: null })
+      .mockResolvedValueOnce({ data: [slotFixtures[1]], error: null });
 
     jest
       .mocked(bookBranchAppointment)
@@ -343,8 +335,8 @@ describe('BookAppointmentScreen (Stage 9D)', () => {
           data: {
             id: 'eeee9999-0000-1111-2222-333344445555',
             status: 'booked',
-            slot_id: demoSlots[1].id,
-            branch_id: demoBranches[0].id,
+            slot_id: slotFixtures[1].id,
+            branch_id: branchFixtures[0].id,
             idempotency_key: params.idempotencyKey,
             idempotent_replay: false,
           },
@@ -357,7 +349,7 @@ describe('BookAppointmentScreen (Stage 9D)', () => {
     // Branch -> Date -> Slot 1 -> Purpose -> Review
     await fireEvent.press(
       await screen.findByRole('button', {
-        name: /Davao Bank – City Main \(Demo\)/i,
+        name: /Davao Bank – City Main/i,
       })
     );
     await fireEvent.press(await screen.findByRole('button', { name: 'Continue' }));
@@ -413,7 +405,7 @@ describe('BookAppointmentScreen (Stage 9D)', () => {
           data: {
             id: '1234abcd-0000-1111-2222-333344445555',
             status: 'booked',
-            slot_id: demoSlots[0].id,
+            slot_id: slotFixtures[0].id,
             idempotent_replay: true,
           },
           error: null,
@@ -424,7 +416,7 @@ describe('BookAppointmentScreen (Stage 9D)', () => {
 
     await fireEvent.press(
       await screen.findByRole('button', {
-        name: /Davao Bank – City Main \(Demo\)/i,
+        name: /Davao Bank – City Main/i,
       })
     );
     await fireEvent.press(await screen.findByRole('button', { name: 'Continue' }));
@@ -463,7 +455,7 @@ describe('BookAppointmentScreen (Stage 9D)', () => {
 
     await fireEvent.press(
       await screen.findByRole('button', {
-        name: /Davao Bank – City Main \(Demo\)/i,
+        name: /Davao Bank – City Main/i,
       })
     );
     await fireEvent.press(await screen.findByRole('button', { name: 'Continue' }));

@@ -4,13 +4,13 @@
 
 ## Now
 
-- **Active phase:** Phase 9 integration into `phase-8-integration` — eight captain branches merged, mobile routes and More-services hub tiles wired.
-- **Branch:** `phase-8-integration`; eight `--no-ff` merges in captain's exact order: service requests `0769be2`, appointments `f379634`, savings goals `b7fa455`, hub `2282f35`, service-requests UI `bc9848a`, appointments UI `00aa830`, installments `2d87c36`, admin services `06aa89c`. No rebase, no push.
-- **Active prompt:** captain integration brief — wire services routes and hub tiles, run six checks, report to captain only.
-- **Assigned to:** Backup Development Agent (OpenCode); integration complete, handed back for captain review.
-- **Exact next step:** captain reviews the nine commits, applies the new Phase 9 migrations to hosted after review, then runs device/Maestro/VoiceOver and Playwright checks.
-- **Last commit:** `Phase 9 · Integration — wire services routes`.
-- **Blockers:** none locally. Hosted migrations, device/Maestro/VoiceOver, Playwright and aal2 staff-session checks NOT VERIFIED (owner/captain). The two applied hosted migrations are byte-identical to their required branch tips; `.env` symlinks untouched.
+- **Active phase:** Phase 9 integration into `phase-8-integration` — More-services realism copy pass complete.
+- **Branch:** `phase-8-integration`; this change is a writer-only fix on top of `0c68853`. No rebase, no push.
+- **Active prompt:** captain writer brief — remove simulation/demo/fictional wording from the More-services hub, FX converter, service requests, branch appointments, installment calculator, savings-goals copy and shared copy constants; report to captain only.
+- **Assigned to:** Backup Development Agent (OpenCode); copy cleanup complete, handed back for captain review.
+- **Exact next step:** captain reviews `Phase 9 · Fix — remove simulation wording from More services`, then continues hosted migration, device/Maestro/VoiceOver and Playwright checks.
+- **Last commit:** `Phase 9 · Fix — remove simulation wording from More services` (this commit).
+- **Blockers:** none locally. Hosted migrations, device/Maestro/VoiceOver, Playwright and aal2 staff-session checks NOT VERIFIED (owner/captain). Out-of-scope wording left untouched: sign-up/forgot-password/onboarding footers, `moneyFlow` `REVIEW_FOOTNOTE`, transfer helper text, Apple Wallet disclaimer, admin console.
 
 ## Stage 7B.0 — remaining work plan (captain, 2026-11-10)
 
@@ -448,3 +448,5 @@ Fix these before 7B:
 - **2026-11-08, Owner:** chose TOTP plus biometrics, step-up on every outgoing money action, biometric app lock, and a separate Phase 6.5.
 - **2026-11-08, Claude Code:** iOS simulator UAT finished for Phase 6. The device fix `eb0cefb` was verified.
 - **2026-11-26, fe-opencode (Stage 9F):** implemented `/service-requests` and `/appointments` staff screens on `phase-9-admin-services` from `fc59513`: server-side aal2 session pages, shared read hook with aal2/offline/error/empty/skeleton states, status/type filters, branch/date filters, masked detail drawers, status change with staff note, `Simulation` labels, sidebar links. Reused the existing aal2 RPCs and UI primitives; no backend, migration, money engine, `.env` content or hosted access. Checks run in the worktree after `npm ci`: typecheck PASS, lint 0 errors / 63 pre-existing warnings, format PASS, `npx jest` 65 suites / 536 tests PASS, `check:copy` PASS (177 files), `build:admin` PASS with both new routes. Playwright spec `e2e/admin/admin-services.spec.ts` is skipped with `NOT VERIFIED — needs owner sign-in` (3 skipped) using a temporary no-webServer config because the default webServer timed out behind a port-3000 dev server; no owner storage state. Next: captain review and merge; owner supplies `ADMIN_STORAGE_STATE` for real aal2 Playwright evidence. See `PHASE9_REPORT.md`.
+
+- **2026-11-26, Backup Development Agent (OpenCode):** removed simulation/demo/fictional wording from the More-services hub, FX converter, service requests, branch appointments and installment calculator; deleted the simulation banners/notices and their unused styles/exports, renamed `ServiceSimulation.tsx` to `ServiceResult.tsx` (keeping the out-of-scope `REVIEW_FOOTNOTE`), applied the captain's exact rewrites, and updated only the affected UI assertions plus shared fixture names. Real checks: typecheck PASS, lint PASS (0 errors, 62 pre-existing warnings), format:check PASS, `npx jest` PASS (72 suites / 609 tests), `check:copy` PASS (184 files), and `grep -rniE 'simulat|demo|fictional'` over in-scope UI/copy files returned no output. HomeScreen/ProfileScreen entry-point labels, admin console, migrations and money/step-up handlers left untouched as out of scope. Device/Maestro/VoiceOver/Playwright NOT VERIFIED (owner/captain). Handed back for captain review.

@@ -124,11 +124,8 @@ import {
 } from '../screens/MoreServicesScreen';
 import { HomeScreen } from '../screens/HomeScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
-import {
-  SERVICE_SIMULATION_MESSAGE,
-  ServiceResult,
-  ServiceSimulationBanner,
-} from '../components/ServiceSimulation';
+import { ServiceResult } from '../components/ServiceResult';
+import { REVIEW_FOOTNOTE } from '../utils/moneyFlow';
 import { reportNetworkOffline, reportNetworkOnline } from '../lib/networkStatus';
 
 const savingsAccount: AccountBalance = {
@@ -166,8 +163,8 @@ describe('Phase 9 · Stage 9A — More services hub', () => {
     jest.mocked(fetchHealthCheck).mockResolvedValue({ data: null, error: null });
   });
 
-  describe('MoreServicesScreen sections, Simulation badges and gating', () => {
-    it('renders all four sections and labels every service with Simulation', async () => {
+  describe('MoreServicesScreen sections and gating', () => {
+    it('renders all sections and service labels', async () => {
       await render(<MoreServicesScreen />);
 
       for (const heading of [
@@ -179,14 +176,6 @@ describe('Phase 9 · Stage 9A — More services hub', () => {
       ]) {
         expect(screen.getByRole('header', { name: heading })).toBeTruthy();
       }
-
-      const totalRows = MORE_SERVICE_SECTIONS.reduce(
-        (sum, section) => sum + section.items.length,
-        0
-      );
-      // 1 Simulation badge in the top banner + 1 Simulation badge on every row.
-      expect(screen.getAllByText('Simulation')).toHaveLength(totalRows + 1);
-      expect(screen.getByText(SERVICE_SIMULATION_MESSAGE)).toBeTruthy();
 
       for (const section of MORE_SERVICE_SECTIONS) {
         for (const item of section.items) {
@@ -203,14 +192,14 @@ describe('Phase 9 · Stage 9A — More services hub', () => {
       await render(<MoreServicesScreen />);
 
       expect(SERVICES_ENABLED.has('fx_converter')).toBe(true);
-      const fxButton = screen.getByRole('button', { name: /^FX converter, Simulation/ });
+      const fxButton = screen.getByRole('button', { name: /^FX converter/ });
       await fireEvent.press(fxButton);
 
       expect(mockNavigate).toHaveBeenCalledWith('FXRates', { mode: 'convert' });
       expect(mockToastShow).not.toHaveBeenCalled();
     });
 
-    it('marks unbuilt services as "Not available in this demo yet" and never navigates to a broken route', async () => {
+    it('marks unbuilt services as "Not available yet" and never navigates to a broken route', async () => {
       await render(<MoreServicesScreen />);
 
       const unbuiltItems = MORE_SERVICE_SECTIONS.flatMap((s) => s.items).filter(
@@ -222,7 +211,7 @@ describe('Phase 9 · Stage 9A — More services hub', () => {
 
       for (const item of unbuiltItems) {
         const button = screen.getByRole('button', {
-          name: new RegExp(`^${item.title}, Simulation.*${SERVICE_UNAVAILABLE_COPY}$`),
+          name: new RegExp(`^${item.title},.*${SERVICE_UNAVAILABLE_COPY}$`),
         });
         await fireEvent.press(button);
       }
@@ -245,39 +234,29 @@ describe('Phase 9 · Stage 9A — More services hub', () => {
       ]);
       await render(<MoreServicesScreen enabledServices={allEnabled} />);
 
-      await fireEvent.press(
-        screen.getByRole('button', { name: /^Savings goals, Simulation/ })
-      );
+      await fireEvent.press(screen.getByRole('button', { name: /^Savings goals/ }));
       expect(mockNavigate).toHaveBeenLastCalledWith('SavingsGoals', undefined);
 
       await fireEvent.press(
-        screen.getByRole('button', { name: /^Time deposit planner, Simulation/ })
+        screen.getByRole('button', { name: /^Time deposit planner/ })
       );
       expect(mockNavigate).toHaveBeenLastCalledWith('TimeDepositPlanner', undefined);
 
-      await fireEvent.press(
-        screen.getByRole('button', { name: /^Service requests, Simulation/ })
-      );
+      await fireEvent.press(screen.getByRole('button', { name: /^Service requests/ }));
       expect(mockNavigate).toHaveBeenLastCalledWith('ServiceRequests', undefined);
 
-      await fireEvent.press(
-        screen.getByRole('button', { name: /^Branch appointments, Simulation/ })
-      );
+      await fireEvent.press(screen.getByRole('button', { name: /^Branch appointments/ }));
       expect(mockNavigate).toHaveBeenLastCalledWith('BranchAppointments', undefined);
 
-      await fireEvent.press(
-        screen.getByRole('button', { name: /^Credit card, Simulation/ })
-      );
+      await fireEvent.press(screen.getByRole('button', { name: /^Credit card/ }));
       expect(mockNavigate).toHaveBeenLastCalledWith('Cards', undefined);
 
       await fireEvent.press(
-        screen.getByRole('button', { name: /^Installment calculator, Simulation/ })
+        screen.getByRole('button', { name: /^Installment calculator/ })
       );
       expect(mockNavigate).toHaveBeenLastCalledWith('InstallmentCalculator', undefined);
 
-      await fireEvent.press(
-        screen.getByRole('button', { name: /^Remittance tracker, Simulation/ })
-      );
+      await fireEvent.press(screen.getByRole('button', { name: /^Remittance tracker/ }));
       expect(mockNavigate).toHaveBeenLastCalledWith('NewServiceRequest', {
         initialType: 'remit_status',
       });
@@ -294,7 +273,7 @@ describe('Phase 9 · Stage 9A — More services hub', () => {
     it('renders EmptyState when sections are empty', async () => {
       await render(<MoreServicesScreen sections={[]} />);
       expect(screen.getByText('No services available')).toBeTruthy();
-      expect(screen.getByText('Simulated services will appear here.')).toBeTruthy();
+      expect(screen.getByText('Services will appear here.')).toBeTruthy();
     });
 
     it('maps errors through toUserMessage and wires Try again', async () => {
@@ -377,7 +356,7 @@ describe('Phase 9 · Stage 9A — More services hub', () => {
     });
   });
 
-  describe('Shared ServiceSimulationBanner and ServiceResult wrappers', () => {
+  describe('Shared ServiceResult wrapper', () => {
     it('formats UUID reference via formatReferenceId and attaches REVIEW_FOOTNOTE', async () => {
       const onDone = jest.fn();
       await render(
@@ -389,20 +368,16 @@ describe('Phase 9 · Stage 9A — More services hub', () => {
         />
       );
 
-      expect(screen.getByText('Simulation')).toBeTruthy();
       expect(screen.getByText('DB-8F04-3910')).toBeTruthy();
       expect(screen.queryByText(/8f043910-1234/)).toBeNull();
-      expect(screen.getByText('Simulated money — no real funds move.')).toBeTruthy();
+      expect(screen.getByText(REVIEW_FOOTNOTE)).toBeTruthy();
 
       await fireEvent.press(screen.getByRole('button', { name: 'Done' }));
       expect(onDone).toHaveBeenCalledTimes(1);
     });
 
-    it('renders custom simulation message and maps failed error with Try again', async () => {
+    it('maps failed error with Try again', async () => {
       const onRetry = jest.fn();
-      await render(<ServiceSimulationBanner message="Simulation — sample rates only." />);
-      expect(screen.getByText('Simulation — sample rates only.')).toBeTruthy();
-
       await render(
         <ServiceResult
           outcome="failed"

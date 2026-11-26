@@ -34,4 +34,4 @@ export * from './RiskChallengeSheet';
 export * from './OfflineBanner';
 export * from './GuidanceTip';
 export * from './ActivityFilterSheet';
-export * from './ServiceSimulation';
+export * from './ServiceResult';

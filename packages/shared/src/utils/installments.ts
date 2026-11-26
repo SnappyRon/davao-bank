@@ -1,13 +1,13 @@
 /**
  * Davao Bank — installment quote helpers (Phase 9 · 9G).
  *
- * Pure, on-device amortization for illustrative demo offers. No network call,
+ * Pure, on-device amortization for reference terms. No network call,
  * no account balance change, no credit check and no approval. All money is
  * integer centavos; the only floating-point step is the rate multiplication,
  * which is rounded to whole centavos immediately.
  */
 
-/** Terms offered in the demo calculator (spec §4.6). */
+/** Terms offered in the calculator (spec §4.6). */
 export const INSTALLMENT_TERMS = [3, 6, 12, 24] as const;
 export type InstallmentTermMonths = (typeof INSTALLMENT_TERMS)[number];
 
@@ -25,10 +25,10 @@ export interface InstallmentOffer {
 }
 
 /**
- * Illustrative demo rates only. They are not a Davao Bank price list and do
+ * Reference rates only. They are not a Davao Bank price list and do
  * not represent a credit offer. The yearly equivalent stays near 11–12%.
  */
-export const DEMO_INSTALLMENT_OFFERS: readonly InstallmentOffer[] = [
+export const INSTALLMENT_OFFERS: readonly InstallmentOffer[] = [
   { termMonths: 3, addOnRate: 0.029 },
   { termMonths: 6, addOnRate: 0.058 },
   { termMonths: 12, addOnRate: 0.115 },
@@ -45,7 +45,7 @@ export function isInstallmentTerm(value: unknown): value is InstallmentTermMonth
 }
 
 export function offerForTerm(termMonths: number): InstallmentOffer | null {
-  return DEMO_INSTALLMENT_OFFERS.find((offer) => offer.termMonths === termMonths) ?? null;
+  return INSTALLMENT_OFFERS.find((offer) => offer.termMonths === termMonths) ?? null;
 }
 
 /**

@@ -18,7 +18,6 @@ import { colors, radius, spacing, toUserMessage } from '@davao-bank/shared';
 import type { RootStackParamList } from '../../App';
 import { getIsOffline, subscribeNetworkStatus } from '../lib/networkStatus';
 import {
-  Badge,
   Button,
   EmptyState,
   FeatureScreen,
@@ -26,7 +25,6 @@ import {
   LIST_ICON_SIZE,
   ListHairline,
   Pressable,
-  ServiceSimulationBanner,
   Skeleton,
   Text,
   groupedListStyles,
@@ -57,7 +55,7 @@ export const SERVICES_ENABLED: ReadonlySet<ServiceId> = new Set<ServiceId>([
   'remittance_tracker',
 ]);
 
-export const SERVICE_UNAVAILABLE_COPY = 'Not available in this demo yet';
+export const SERVICE_UNAVAILABLE_COPY = 'Not available yet';
 export const MORE_SERVICES_OFFLINE_COPY =
   'You appear to be offline. Online services will refresh when you reconnect.';
 
@@ -98,7 +96,7 @@ export const MORE_SERVICE_SECTIONS: readonly ServiceSection[] = [
       {
         id: 'fx_converter',
         title: 'FX converter',
-        subtitle: 'Convert peso amounts using reference rates — no money moves.',
+        subtitle: 'Convert peso amounts using reference rates.',
         iconBg: colors.primaryTint,
         renderIcon: () => <ArrowLeftRight size={LIST_ICON_SIZE} color={colors.primary} />,
         target: { route: 'FXRates', params: { mode: 'convert' } },
@@ -106,7 +104,7 @@ export const MORE_SERVICE_SECTIONS: readonly ServiceSection[] = [
       {
         id: 'savings_goals',
         title: 'Savings goals',
-        subtitle: 'Plan target amounts and interest projections with play money.',
+        subtitle: 'Plan target amounts and interest projections.',
         iconBg: colors.primaryTint,
         renderIcon: () => <PiggyBank size={LIST_ICON_SIZE} color={colors.primary} />,
         target: { route: 'SavingsGoals' },
@@ -114,7 +112,7 @@ export const MORE_SERVICE_SECTIONS: readonly ServiceSection[] = [
       {
         id: 'time_deposit_planner',
         title: 'Time deposit planner',
-        subtitle: 'Compare sample term rates and maturity dates — no deposit opened.',
+        subtitle: 'Compare term rates and maturity dates.',
         iconBg: colors.tintBlue,
         renderIcon: () => <Landmark size={LIST_ICON_SIZE} color={colors.blueText} />,
         target: { route: 'TimeDepositPlanner' },
@@ -128,7 +126,7 @@ export const MORE_SERVICE_SECTIONS: readonly ServiceSection[] = [
       {
         id: 'service_requests',
         title: 'Service requests',
-        subtitle: 'Request demo statements, certificates or card updates.',
+        subtitle: 'Request statements, certificates or card updates.',
         iconBg: colors.tintOrange,
         renderIcon: () => (
           <ClipboardList size={LIST_ICON_SIZE} color={colors.orangeText} />
@@ -138,7 +136,7 @@ export const MORE_SERVICE_SECTIONS: readonly ServiceSection[] = [
       {
         id: 'branch_appointments',
         title: 'Branch appointments',
-        subtitle: 'Book a demo visit slot at a fictional Davao branch.',
+        subtitle: 'Book a visit at a Davao Bank branch',
         iconBg: colors.primaryTint,
         renderIcon: () => <MapPin size={LIST_ICON_SIZE} color={colors.primary} />,
         target: { route: 'BranchAppointments' },
@@ -152,7 +150,7 @@ export const MORE_SERVICE_SECTIONS: readonly ServiceSection[] = [
       {
         id: 'credit_card',
         title: 'Credit card',
-        subtitle: 'Explore virtual card limits, statements and play-money bill pay.',
+        subtitle: 'Explore virtual card limits, statements and bill pay.',
         iconBg: colors.tintBlue,
         renderIcon: () => <CreditCard size={LIST_ICON_SIZE} color={colors.blueText} />,
         target: { route: 'Cards' },
@@ -160,7 +158,7 @@ export const MORE_SERVICE_SECTIONS: readonly ServiceSection[] = [
       {
         id: 'installment_calculator',
         title: 'Installment calculator',
-        subtitle: 'Estimate monthly payments with illustrative play-money terms.',
+        subtitle: 'Estimate monthly payments with reference rates.',
         iconBg: colors.tintYellow,
         renderIcon: () => <Calculator size={LIST_ICON_SIZE} color={colors.ink} />,
         target: { route: 'InstallmentCalculator' },
@@ -174,7 +172,7 @@ export const MORE_SERVICE_SECTIONS: readonly ServiceSection[] = [
       {
         id: 'remittance_tracker',
         title: 'Remittance tracker',
-        subtitle: 'Look up sample remittance stages using demo reference codes.',
+        subtitle: 'Check remittance status using your reference number.',
         iconBg: colors.surfaceSubtle,
         renderIcon: () => <Globe size={LIST_ICON_SIZE} color={colors.ink} />,
         target: { route: 'NewServiceRequest', params: { initialType: 'remit_status' } },
@@ -253,8 +251,6 @@ export function MoreServicesScreen({
   return (
     <FeatureScreen title="More services">
       <View style={styles.content}>
-        <ServiceSimulationBanner />
-
         {offline ? (
           <View
             style={styles.offlineNotice}
@@ -302,7 +298,7 @@ export function MoreServicesScreen({
         ) : sections.length === 0 ? (
           <EmptyState
             title="No services available"
-            description="Simulated services will appear here."
+            description="Services will appear here."
             scrollable={false}
           />
         ) : (
@@ -320,8 +316,8 @@ export function MoreServicesScreen({
                 {section.items.map((item, index) => {
                   const isEnabled = enabledServices.has(item.id) && item.target !== null;
                   const a11yLabel = isEnabled
-                    ? `${item.title}, Simulation, ${item.subtitle}`
-                    : `${item.title}, Simulation, ${item.subtitle}, ${SERVICE_UNAVAILABLE_COPY}`;
+                    ? `${item.title}, ${item.subtitle}`
+                    : `${item.title}, ${item.subtitle}, ${SERVICE_UNAVAILABLE_COPY}`;
 
                   return (
                     <React.Fragment key={item.id}>
@@ -344,17 +340,14 @@ export function MoreServicesScreen({
                         </View>
 
                         <View style={styles.rowBody}>
-                          <View style={styles.titleRow}>
-                            <Text
-                              variant="bodyStrong"
-                              color={isEnabled ? colors.ink : colors.textSecondary}
-                              style={styles.rowTitle}
-                              maxFontSizeMultiplier={1.4}
-                            >
-                              {item.title}
-                            </Text>
-                            <Badge label="Simulation" variant="warning" />
-                          </View>
+                          <Text
+                            variant="bodyStrong"
+                            color={isEnabled ? colors.ink : colors.textSecondary}
+                            style={styles.rowTitle}
+                            maxFontSizeMultiplier={1.4}
+                          >
+                            {item.title}
+                          </Text>
 
                           <Text
                             variant="caption"
@@ -403,10 +396,9 @@ export function UnavailableServiceScreen() {
   return (
     <FeatureScreen title="More services">
       <View style={styles.content}>
-        <ServiceSimulationBanner />
         <EmptyState
           title={SERVICE_UNAVAILABLE_COPY}
-          description="This simulated service is not enabled in this demo build yet."
+          description="This service is not available yet."
           actionTitle="Go back"
           onAction={() => navigation.goBack()}
           scrollable={false}
@@ -460,12 +452,6 @@ const styles = StyleSheet.create({
   },
   rowBody: {
     flex: 1,
-    gap: spacing.xs,
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
     gap: spacing.xs,
   },
   rowTitle: {

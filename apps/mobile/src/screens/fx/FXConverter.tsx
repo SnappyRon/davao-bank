@@ -13,11 +13,8 @@ import {
 } from '@davao-bank/shared';
 import { Text } from '../../components/Text';
 import { Card } from '../../components/Card';
-import { Badge } from '../../components/Badge';
 import { Pressable } from '../../components/Pressable';
 import { Skeleton } from '../../components/Skeleton';
-
-export const SIMULATION_LABEL = 'Simulation — no money moves';
 
 const MONTHS = [
   'Jan',
@@ -239,13 +236,6 @@ export function FXConverter({ pair, rate, rateDate, stale, loading }: FXConverte
               </Text>
             </View>
           )}
-
-          {/* Simulation banner */}
-          <Badge
-            label={SIMULATION_LABEL}
-            variant="warning"
-            testID="fx-simulation-badge"
-          />
         </>
       )}
     </Card>

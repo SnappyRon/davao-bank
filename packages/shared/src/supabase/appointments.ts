@@ -35,9 +35,6 @@ export const APPOINTMENT_PURPOSES: ReadonlyArray<AppointmentPurposeOption> = [
   },
 ];
 
-export const APPOINTMENTS_SIMULATION_COPY =
-  'Simulation — demo branches and slots. No real appointment is booked.';
-
 export interface Branch {
   id: string;
   name: string;
@@ -303,7 +300,7 @@ export function appointmentErrorMessage(
 }
 
 /**
- * Fetches active demo Davao Bank branches via list_branches RPC.
+ * Fetches active Davao Bank branches via list_branches RPC.
  */
 export async function fetchBranches(
   client: SupabaseClient

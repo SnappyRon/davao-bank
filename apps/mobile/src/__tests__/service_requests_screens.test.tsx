@@ -136,7 +136,7 @@ describe('ServiceRequestsScreen', () => {
     mockAccountBalancesSelect(sampleAccounts);
   });
 
-  it('renders simulation badge, status badges, formatted references, masked accounts and remittance timeline', async () => {
+  it('renders status badges, formatted references, masked accounts and remittance timeline', async () => {
     mockRpc.mockResolvedValueOnce({
       data: sampleRequests,
       error: null,
@@ -144,7 +144,6 @@ describe('ServiceRequestsScreen', () => {
 
     await render(<ServiceRequestsScreen />);
 
-    expect(await screen.findByTestId('service-requests-simulation-badge')).toBeTruthy();
     expect(screen.getByText('Statement copy')).toBeTruthy();
     expect(screen.getByText('Remittance status inquiry')).toBeTruthy();
     expect(screen.getByText('Bank certificate')).toBeTruthy();
@@ -269,9 +268,6 @@ describe('NewServiceRequestScreen', () => {
 
     await render(<NewServiceRequestScreen />);
 
-    expect(
-      await screen.findByTestId('new-service-request-simulation-badge')
-    ).toBeTruthy();
     expect(screen.getByText('Step 1 of 2')).toBeTruthy();
 
     // Open type picker sheet
@@ -299,7 +295,7 @@ describe('NewServiceRequestScreen', () => {
 
     expect(await screen.findByText('Step 2 of 2')).toBeTruthy();
     expect(screen.getByText("You're requesting")).toBeTruthy();
-    expect(screen.getByText('Free (simulation)')).toBeTruthy();
+    expect(screen.getByText('Free')).toBeTruthy();
 
     // Submit
     await fireEvent.press(screen.getByRole('button', { name: 'Submit request' }));
@@ -311,8 +307,7 @@ describe('NewServiceRequestScreen', () => {
       });
     });
 
-    // ResultView shown with simulation badge and formatted reference
-    expect(await screen.findByTestId('result-simulation-badge')).toBeTruthy();
+    // ResultView shown with formatted reference
     expect(screen.getAllByText('Request submitted').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('DB-9988-7766')).toBeTruthy();
 
@@ -355,12 +350,6 @@ describe('NewServiceRequestScreen', () => {
     });
 
     await render(<NewServiceRequestScreen />);
-
-    expect(
-      await screen.findByText(
-        'Simulation — sample statuses only. No real remittance is tracked.'
-      )
-    ).toBeTruthy();
 
     // Empty reference triggers inline validation
     await fireEvent.press(screen.getByRole('button', { name: 'Review request' }));

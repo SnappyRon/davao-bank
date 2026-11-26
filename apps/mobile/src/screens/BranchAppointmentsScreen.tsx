@@ -4,7 +4,6 @@ import { useIsFocused, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AlertCircle, Calendar, Clock, MapPin, WifiOff } from 'lucide-react-native';
 import {
-  APPOINTMENTS_SIMULATION_COPY,
   appointmentErrorMessage,
   cancelBranchAppointment,
   colors,
@@ -356,21 +355,6 @@ export function BranchAppointmentsScreen({
         ) : undefined
       }
     >
-      <View style={styles.simulationBox}>
-        <Badge
-          label="Simulation"
-          variant="warning"
-          testID="appointments-simulation-badge"
-        />
-        <Text
-          variant="caption"
-          color={colors.textSecondary}
-          maxFontSizeMultiplier={TEXT_MAX_SCALE}
-        >
-          {APPOINTMENTS_SIMULATION_COPY}
-        </Text>
-      </View>
-
       {(offline || loadError) && appointments.length > 0 ? (
         <View
           accessibilityRole="alert"
@@ -440,7 +424,7 @@ export function BranchAppointmentsScreen({
       ) : showEmptyList ? (
         <EmptyState
           title="No appointments yet"
-          description="Book a demo visit at a Davao Bank branch to reserve a 30-minute time slot."
+          description="Book a visit at a Davao Bank branch to reserve a 30-minute time slot."
           illustration={MASCOT_EMPTY}
           illustrationTestID="appointments-empty-mascot"
           actionTitle="Book appointment"
@@ -485,14 +469,6 @@ export function BranchAppointmentsScreen({
 }
 
 const styles = StyleSheet.create({
-  simulationBox: {
-    backgroundColor: colors.surfaceSubtle,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    gap: spacing.xs,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
   inlineBanner: {
     backgroundColor: colors.tintOrange,
     borderRadius: radius.md,

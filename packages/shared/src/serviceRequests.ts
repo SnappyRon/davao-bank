@@ -74,14 +74,6 @@ export const SERVICE_REQUEST_TYPES: readonly ServiceRequestType[] = [
   'remit_status',
 ];
 
-export const SERVICE_REQUEST_SIMULATION_BADGE = 'Simulation';
-
-export const SERVICE_REQUEST_SIMULATION_NOTICE =
-  'Simulation — this request is stored in the demo only. Nothing is sent to a bank.';
-
-export const REMIT_REQUEST_SIMULATION_NOTICE =
-  'Simulation — sample statuses only. No real remittance is tracked.';
-
 export function serviceRequestTypeLabel(type: ServiceRequestType | string): string {
   switch (type) {
     case 'statement':
@@ -105,13 +97,13 @@ export function serviceRequestTypeDescription(type: ServiceRequestType): string 
     case 'statement':
       return 'Request a copy of your account statement for a date range.';
     case 'certificate':
-      return 'Request a demo bank certificate for visa, school or employment.';
+      return 'Request a bank certificate for visa, school or employment.';
     case 'card_replacement':
-      return 'Report a lost, damaged or expired card in this demo.';
+      return 'Report a lost, damaged or expired card.';
     case 'account_update':
-      return 'Log a simulated email address or mobile number update.';
+      return 'Request an email address or mobile number update.';
     case 'remit_status':
-      return 'Track a sample inward remittance reference (DB-XXXX-XXXX).';
+      return 'Track an inward remittance reference (DB-XXXX-XXXX).';
   }
 }
 

@@ -15,9 +15,6 @@ import {
   serviceRequestStatusLabel,
   getRemitTimelineSteps,
   toServiceRequestErrorMessage,
-  SERVICE_REQUEST_SIMULATION_BADGE,
-  SERVICE_REQUEST_SIMULATION_NOTICE,
-  REMIT_REQUEST_SIMULATION_NOTICE,
   type AccountBalance,
   type ServiceRequest,
   type ServiceRequestStatus,
@@ -289,21 +286,6 @@ export function ServiceRequestsScreen() {
       }
     >
       <View style={styles.container}>
-        <View style={styles.simulationBanner}>
-          <Badge
-            label={SERVICE_REQUEST_SIMULATION_BADGE}
-            variant="warning"
-            testID="service-requests-simulation-badge"
-          />
-          <Text
-            variant="caption"
-            color={colors.textSecondary}
-            maxFontSizeMultiplier={1.4}
-          >
-            {SERVICE_REQUEST_SIMULATION_NOTICE}
-          </Text>
-        </View>
-
         {actionError ? (
           <View style={styles.actionErrorBox}>
             <Text
@@ -421,9 +403,6 @@ export function ServiceRequestsScreen() {
                           </View>
                         ))}
                       </View>
-                      <Text variant="caption" color={colors.textMuted}>
-                        {REMIT_REQUEST_SIMULATION_NOTICE}
-                      </Text>
                     </View>
                   ) : null}
 
@@ -460,12 +439,6 @@ export function ServiceRequestsScreen() {
 const styles = StyleSheet.create({
   container: {
     gap: spacing.base,
-  },
-  simulationBanner: {
-    backgroundColor: colors.surfaceSubtle,
-    borderRadius: radius.md,
-    padding: spacing.base,
-    gap: spacing.xs,
   },
   actionErrorBox: {
     backgroundColor: colors.tintRed,

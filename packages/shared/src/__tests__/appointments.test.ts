@@ -132,7 +132,7 @@ describe('branch appointments shared helpers and RPC wrappers', () => {
         data: [
           {
             id: 'br-1',
-            name: 'Davao Bank – City Main (Demo)',
+            name: 'Davao Bank – City Main',
             area: 'Poblacion, Davao City',
             address: 'CM Recto St',
             is_active: true,
@@ -238,7 +238,7 @@ describe('branch appointments shared helpers and RPC wrappers', () => {
               slot_id: 'slot-1',
               starts_at: '2026-11-27T01:00:00Z',
               ends_at: '2026-11-27T01:30:00Z',
-              branch_name: 'Davao Bank – City Main (Demo)',
+              branch_name: 'Davao Bank – City Main',
               branch_area: 'Poblacion, Davao City',
               status: 'booked',
               staff_note: null,

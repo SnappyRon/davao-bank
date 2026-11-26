@@ -1,5 +1,5 @@
 import {
-  DEMO_INSTALLMENT_OFFERS,
+  INSTALLMENT_OFFERS,
   INSTALLMENT_TERMS,
   MAX_INSTALLMENT_CENTAVOS,
   MIN_INSTALLMENT_CENTAVOS,
@@ -11,12 +11,10 @@ import {
   offerForTerm,
 } from '../utils/installments';
 
-describe('demo installment offers', () => {
+describe('installment offers', () => {
   it('offers the four terms from the spec', () => {
     expect([...INSTALLMENT_TERMS]).toEqual([3, 6, 12, 24]);
-    expect(DEMO_INSTALLMENT_OFFERS.map((offer) => offer.termMonths)).toEqual([
-      3, 6, 12, 24,
-    ]);
+    expect(INSTALLMENT_OFFERS.map((offer) => offer.termMonths)).toEqual([3, 6, 12, 24]);
   });
 
   it('exposes an add-on rate for every offered term', () => {
@@ -78,8 +76,8 @@ describe('computeAmortization', () => {
     expect(quote.schedule[2].remainingBalanceCents).toBe(0);
   });
 
-  it('keeps every month balanced for each demo offer', () => {
-    for (const offer of DEMO_INSTALLMENT_OFFERS) {
+  it('keeps every month balanced for each offer', () => {
+    for (const offer of INSTALLMENT_OFFERS) {
       for (const principal of [
         MIN_INSTALLMENT_CENTAVOS,
         123_457,

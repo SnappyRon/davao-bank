@@ -27,9 +27,6 @@ import {
   serviceRequestStatusLabel,
   toServiceRequestErrorMessage,
   SERVICE_REQUEST_TYPES,
-  SERVICE_REQUEST_SIMULATION_BADGE,
-  SERVICE_REQUEST_SIMULATION_NOTICE,
-  REMIT_REQUEST_SIMULATION_NOTICE,
   type AccountBalance,
   type AccountUpdateField,
   type CreateServiceRequestResult,
@@ -48,7 +45,6 @@ import {
   Sheet,
   Text,
   Button,
-  Badge,
   Chip,
   TextField,
   Pressable,
@@ -228,11 +224,6 @@ export function NewServiceRequestScreen() {
       remitReference.trim().length > 0 ||
       statementPreset === 'custom');
 
-  const simulationNotice =
-    selectedType === 'remit_status'
-      ? REMIT_REQUEST_SIMULATION_NOTICE
-      : SERVICE_REQUEST_SIMULATION_NOTICE;
-
   // The validation message is user-facing copy, never an account UUID.
   const accountSelectionError = fieldErrors.accountId;
 
@@ -354,7 +345,7 @@ export function NewServiceRequestScreen() {
         });
         break;
     }
-    rows.push({ label: 'Fee', value: 'Free (simulation)' });
+    rows.push({ label: 'Fee', value: 'Free' });
     return rows;
   }, [
     selectedType,
@@ -382,17 +373,9 @@ export function NewServiceRequestScreen() {
     return (
       <FeatureScreen title="Request submitted" isDirty={false} isProcessing={false}>
         <View style={styles.resultWrapper}>
-          <View style={styles.centeredBadgeRow}>
-            <Badge
-              label={SERVICE_REQUEST_SIMULATION_BADGE}
-              variant="warning"
-              testID="result-simulation-badge"
-            />
-          </View>
           <ResultView
             outcome="request_sent"
             title="Request submitted"
-            subtitle={simulationNotice}
             details={resultDetails}
             onDone={() => navigation.goBack()}
           />
@@ -439,21 +422,6 @@ export function NewServiceRequestScreen() {
       footer={footer}
     >
       <View style={styles.container}>
-        <View style={styles.simulationBanner}>
-          <Badge
-            label={SERVICE_REQUEST_SIMULATION_BADGE}
-            variant="warning"
-            testID="new-service-request-simulation-badge"
-          />
-          <Text
-            variant="caption"
-            color={colors.textSecondary}
-            maxFontSizeMultiplier={1.4}
-          >
-            {simulationNotice}
-          </Text>
-        </View>
-
         {stage === 'form' ? (
           <View style={styles.formSection}>
             <View style={styles.fieldBlock}>
@@ -640,7 +608,7 @@ export function NewServiceRequestScreen() {
                   }}
                   placeholder="e.g. Visa application"
                   maxLength={120}
-                  helperText="Describe what this demo certificate is for (up to 120 characters)."
+                  helperText="Describe what this certificate is for (up to 120 characters)."
                   error={fieldErrors.purpose}
                 />
               </View>
@@ -755,7 +723,7 @@ export function NewServiceRequestScreen() {
                   }
                   keyboardType={updateField === 'email' ? 'email-address' : 'phone-pad'}
                   autoCapitalize="none"
-                  helperText="Demo only — your sign-in email and profile phone number are not changed."
+                  helperText="Your sign-in email and profile phone number stay the same until the request is processed."
                   error={fieldErrors.newValue}
                 />
               </View>
@@ -910,12 +878,6 @@ const styles = StyleSheet.create({
   container: {
     gap: spacing.lg,
   },
-  simulationBanner: {
-    backgroundColor: colors.surfaceSubtle,
-    borderRadius: radius.md,
-    padding: spacing.base,
-    gap: spacing.xs,
-  },
   formSection: {
     gap: spacing.lg,
   },
@@ -1027,9 +989,6 @@ const styles = StyleSheet.create({
   },
   resultWrapper: {
     gap: spacing.md,
-  },
-  centeredBadgeRow: {
-    alignItems: 'center',
   },
   sheetTypeDisc: {
     backgroundColor: colors.primaryTint,

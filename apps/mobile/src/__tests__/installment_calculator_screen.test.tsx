@@ -27,11 +27,7 @@ jest.mock('../lib/networkStatus', () => ({
   reportNetworkResult: jest.fn(),
 }));
 
-import {
-  InstallmentCalculatorScreen,
-  SIMULATION_BADGE,
-  SIMULATION_NOTICE,
-} from '../screens/InstallmentCalculatorScreen';
+import { InstallmentCalculatorScreen } from '../screens/InstallmentCalculatorScreen';
 
 const getItem = AsyncStorage.getItem as jest.Mock;
 
@@ -49,11 +45,9 @@ describe('Installment calculator (9G, client-only)', () => {
     await view.unmount();
   });
 
-  it('shows the empty state and simulation disclosure', async () => {
+  it('shows the empty state and calculator controls', async () => {
     const view = await render(<InstallmentCalculatorScreen />);
     expect(await screen.findByText('No quote yet')).toBeTruthy();
-    expect(screen.getByText(SIMULATION_BADGE)).toBeTruthy();
-    expect(screen.getByText(SIMULATION_NOTICE)).toBeTruthy();
     expect(screen.getByLabelText('Amount in pesos')).toBeTruthy();
     expect(screen.getByRole('button', { name: '3 months' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Annual' })).toBeTruthy();
