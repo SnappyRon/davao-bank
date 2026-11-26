@@ -51,6 +51,7 @@ export const SERVICES_ENABLED: ReadonlySet<ServiceId> = new Set<ServiceId>([
   'fx_converter',
   'service_requests',
   'branch_appointments',
+  'credit_card',
   'installment_calculator',
   'remittance_tracker',
 ]);

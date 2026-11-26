@@ -4,6 +4,23 @@
 
 ## Now
 
+- **Active phase:** Phase 9 · Stage 9I — Cards screens in worktree `/Users/ronalbert/Personal Projects/davao-bank-cards-ui`, branch `phase-9-cards-ui` from `c8caacf`. Took over with a clean tree; no push, no PR, no hosted writes, `.env` never read (mobile `.env` symlinked only).
+- **Active prompt:** captain brief — cards list, card detail, credit statement + pay, Apple Wallet disclaimer button and Cards tile on More services; report to captain only.
+- **Assigned to:** Backup Development Agent (OpenCode); implementation complete, handed back for captain review.
+- **Exact next step:** captain reviews `Phase 9 · Stage 9I — Cards screens`, then adds/applies the backend card RPC migrations and runs live card flows, device/Maestro/VoiceOver, Playwright and Security review.
+- **Last commit:** this commit (`Phase 9 · Stage 9I — Cards screens`).
+- **Blockers:** none locally. Hosted DB migrations/RPCs, live card flows, device/Maestro/VoiceOver, Playwright and Security review NOT VERIFIED (captain/owner). No push, no PR, no hosted writes.
+
+### Handoff note (2026-11-26, Backup Development Agent — cards UI)
+
+- Added a typed shared RPC client (`packages/shared/src/supabase/cards.ts`, exported from `packages/shared/src/index.ts`) for masked cards, statements, activity, step-up reveal, freeze/online/limit/replace, `pay_bill` card payment and demo merchant payment. `packages/shared/src/__tests__/cards.test.ts` covers normalization, RPC argument names, the ₱5,000,000 limit ceiling and both payment wrappers.
+- Added `CardsScreen`, `CardDetailScreen` and `CardStatementScreen`; registered `CardDetail` and `CardStatement` in `App.tsx` and replaced the `Cards` placeholder. Enabled `credit_card` in `SERVICES_ENABLED`; added `apps/mobile/src/__tests__/cards_screen.test.tsx` with the shared client mocked.
+- Card secrets are step-up-gated, transient for 30 seconds and hidden on background/unmount. Wallet is a plain-text button with the exact disclaimer sheet only (no PassKit, pass assets or Apple logo/badge). Card payment reuses one idempotency key across TOTP retry and a single authorization.
+- Checks: `npm run typecheck` exit 0; `npm run lint` `✖ 71 problems (0 errors, 71 warnings)` (all pre-existing after cleanup); `npm run format:check` clean; `npx jest` `Test Suites: 77 passed, 77 total` / `Tests: 654 passed, 654 total`; `npm run test:db` `469 passed, 0 failed`; `npm run check:copy` `PASS Copy audit clean across 188 files (17 justified allowlist match(es)).`
+- No migration was added because none was in scope; card RPCs remain unavailable on the hosted project until the captain adds/applies the backend stage. No UAT or Phase prompt files touched.
+
+### Previous Now entries (superseded)
+
 - **Active phase:** Phase 9 integration into `phase-8-integration` — More-services realism copy pass complete.
 - **Branch:** `phase-8-integration`; this change is a writer-only fix on top of `0c68853`. No rebase, no push.
 - **Active prompt:** captain writer brief — remove simulation/demo/fictional wording from the More-services hub, FX converter, service requests, branch appointments, installment calculator, savings-goals copy and shared copy constants; report to captain only.

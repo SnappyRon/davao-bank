@@ -28,6 +28,9 @@ import {
   fetchUserProfile,
   type Profile,
   type AccountBalance,
+  type CardStatement,
+  type CreditCardSummary,
+  type DigitalDebitCard,
 } from '@davao-bank/shared';
 import { supabase } from './src/lib/supabase';
 import { AppLockProvider } from './src/context/AppLockContext';
@@ -80,6 +83,9 @@ import { NewServiceRequestScreen } from './src/screens/NewServiceRequestScreen';
 import { BranchAppointmentsScreen } from './src/screens/BranchAppointmentsScreen';
 import { BookAppointmentScreen } from './src/screens/BookAppointmentScreen';
 import { InstallmentCalculatorScreen } from './src/screens/InstallmentCalculatorScreen';
+import { CardsScreen } from './src/screens/CardsScreen';
+import { CardDetailScreen } from './src/screens/CardDetailScreen';
+import { CardStatementScreen } from './src/screens/CardStatementScreen';
 
 import { TransferScreen } from './src/screens/TransferScreen';
 import { PayBillsScreen } from './src/screens/PayBillsScreen';
@@ -137,6 +143,8 @@ export type RootStackParamList = {
       }
     | undefined;
   Cards: undefined;
+  CardDetail: { card: DigitalDebitCard };
+  CardStatement: { statement: CardStatement; creditCard: CreditCardSummary };
 };
 
 export type BottomTabParamList = {
@@ -609,7 +617,17 @@ export default function App() {
               />
               <RootStack.Screen
                 name="Cards"
-                component={UnavailableServiceScreen}
+                component={CardsScreen}
+                options={{ presentation: 'card', animation: 'slide_from_right' }}
+              />
+              <RootStack.Screen
+                name="CardDetail"
+                component={CardDetailScreen}
+                options={{ presentation: 'card', animation: 'slide_from_right' }}
+              />
+              <RootStack.Screen
+                name="CardStatement"
+                component={CardStatementScreen}
                 options={{ presentation: 'card', animation: 'slide_from_right' }}
               />
             </RootStack.Navigator>
