@@ -108,3 +108,46 @@ The build also emits a pre-existing deprecation notice: `The "middleware" file c
   ```
   Real aal2 browser evidence still requires `ADMIN_STORAGE_STATE` from the owner.
 - Hosted Supabase RPC behaviour, device/Maestro flows, app store deployment and on-screen 44 pt / 1.4× text at device scale were not exercised; no hosted writes or sign-ins were attempted by this agent.
+
+## Stage 9H — Cards backend (2026-11-26)
+
+Branch `phase-9-cards-db`, taken over from `6b6aab5`. The captain's one-migration brief supersedes the spec's two proposed files. Files: `supabase/migrations/20261130200000_phase9_cards.sql`, `scripts/review/pglite-phase9-cards.mjs`, harness registration in `scripts/review/pglite-behavior.mjs`, service-role seed wiring in `scripts/seed.ts`, and STATUS handoff. No `_transfer_core`/ledger/idempotency/scheduled-payment code changed; no new dependency; no push; no hosted write; no `.env` content read.
+
+Real check output:
+
+```text
+npm run test:db
+✓ Reconciliation: every transfer/reversal/bill nets to zero — {"net":"2037176576","unbalanced":0,"mismatched":0}
+✓ Reconciliation: account_balances == ledger sum for every account — {"net":"2037176576","unbalanced":0,"mismatched":0}
+
+530 passed, 0 failed
+
+npm run typecheck
+> admin@0.1.0 typecheck
+> tsc --noEmit
+> mobile@1.0.0 typecheck
+> tsc --noEmit
+> @davao-bank/shared@0.1.0 typecheck
+> tsc --noEmit
+
+npm run lint
+✖ 62 problems (0 errors, 62 warnings)
+
+npm run format:check
+Checking formatting...
+All matched files use Prettier code style!
+
+npx jest (clean rerun)
+Test Suites: 73 passed, 73 total
+Tests:       621 passed, 621 total
+Snapshots:   0 total
+
+npm run check:copy
+PASS Copy audit clean across 185 files (17 justified allowlist match(es)).
+```
+
+The first `npx jest` run, launched alongside other checks, reported 6/73 suites failing on pre-existing 5 s RNTL timeouts (`profile_confirmation.test.tsx` among them); a clean rerun passed all 73 suites / 621 tests. PGlite suite assertions cover S1–S6: Luhn-invalid fake PAN range, encrypted-only bytea columns, owner RLS and client-write denials, aal1/aal2 reveal, audited controls, merchant payment via unchanged `transfer` with Bantay and card-day caps, replay idempotency, direct-transfer rejection, online/frozen/replacement states, derived credit dues with reversal and overpayment/cross-customer rollback, aal2 admin views, and SECURITY DEFINER/search_path metadata for all 23 new functions.
+
+Deviation from spec, reported to captain: `credit_cards.biller_id` is indexed but not `unique`, because the single seeded biller named `Davao Bank Card (simulation)` is shared by both demo customers (`billers.name` is itself unique). One card per owner is enforced by the `user_id` primary key. The merchant ledger trigger also requires the audited `card_merchant_payment_started` intent, so a bare `transfer` to a merchant settlement account cannot bypass the card RPC.
+
+NOT VERIFIED: applying the migration to hosted Supabase, running `npm run seed` there, all live suites, Playwright, Maestro, device/VoiceOver, Apple Wallet UI stage and Security reviewer sign-off — owner/captain tasks.

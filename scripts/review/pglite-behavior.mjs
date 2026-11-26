@@ -3,7 +3,7 @@
 // with Supabase stand-ins (auth.users, auth.uid(), anon/authenticated/service_role) and runs real behavior checks.
 // Run: npm i -D @electric-sql/pglite && node scripts/review/pglite-behavior.mjs
 // Limits: single connection (no true concurrency), no pg_cron/pg_net/Edge Functions — concurrency still needs a live DB.
-import { PGlite } from '@electric-sql/pglite'; import fs from 'node:fs'; import { fileURLToPath } from 'node:url';
+import { PGlite } from '@electric-sql/pglite'; import { pgcrypto } from '@electric-sql/pglite/contrib/pgcrypto'; import fs from 'node:fs'; import { fileURLToPath } from 'node:url';
 import { runPhase8BantayTests } from './pglite-phase8-bantay.mjs';
 import { runPhase8BantayRiskTests } from './pglite-phase8-bantay-risk.mjs';
 import { runPhase8BantayAlertsTests } from './pglite-phase8-bantay-alerts.mjs';
@@ -11,8 +11,11 @@ import { runPhase8_5OpsTests } from './pglite-phase8-5-ops.mjs';
 import { runPhase9ServiceRequestsTests } from './pglite-phase9-service-requests.mjs';
 import { runPhase9AppointmentTests } from './pglite-phase9-appointments.mjs';
 import { runPhase9SavingsGoalsTests } from './pglite-phase9-savings-goals.mjs';
+import { runPhase9CardsTests } from './pglite-phase9-cards.mjs';
 const MIG=fileURLToPath(new URL('../../supabase/migrations', import.meta.url));
-const db=await PGlite.create(); await db.exec(fs.readFileSync(new URL('./pglite-boot.sql',import.meta.url),'utf8'));
+const db=await PGlite.create({extensions:{pgcrypto}});
+await db.exec(fs.readFileSync(new URL('./pglite-boot.sql',import.meta.url),'utf8'));
+await db.exec('create extension if not exists pgcrypto');
 for (const f of fs.readdirSync(MIG).filter(f=>f.endsWith('.sql')).sort()) await db.exec(fs.readFileSync(`${MIG}/${f}`,'utf8'));
 let pass=0, fail=0; const results=[];
 const ok=(name,cond,detail='')=>{ (cond?pass++:fail++); results.push(`${cond?'✓':'✗'} ${name}${detail?' — '+detail:''}`); };
@@ -510,6 +513,9 @@ await runPhase9ServiceRequestsTests({ as, su, cust, ok, U, A, B });
 
 // ---- Phase 9 · Stage 9E: Savings goals + time deposit planner
 await runPhase9SavingsGoalsTests({ as, su, cust, one, bal, ok, U, A, B });
+
+// ---- Phase 9 · Stage 9H: Cards backend
+await runPhase9CardsTests({ as, su, cust, one, bal, ok, U, A, B });
 // ---- Reconciliation
 const rec=await reconcile();
 ok('Reconciliation: every transfer/reversal/bill nets to zero', Number(rec.unbalanced)===0, JSON.stringify(rec));
