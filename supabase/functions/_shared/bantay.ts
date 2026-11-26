@@ -16,4 +16,42 @@ export {
   GEMINI_MODEL_ID,
   GEMINI_TIMEOUT_MS,
   explainBantayEvent,
+  extractGeminiText,
+  isSafeExplanation,
+  isValidExplanationForFacts,
 } from '../../../packages/shared/src/bantay/gemini.ts';
+export {
+  BANTAY_CHAT_ACTION_IDS,
+  BANTAY_CHAT_SYSTEM_PROMPT,
+  isBantayChatActionId,
+} from '../../../packages/shared/src/bantay/chatConfig.ts';
+export {
+  buildChatMaskedContext,
+  NEUTRAL_CHAT_FACTS,
+} from '../../../packages/shared/src/bantay/chatContext.ts';
+export {
+  BANTAY_CHAT_ARTICLES,
+  chatArticleText,
+  createChatArticleCache,
+  findChatArticle,
+} from '../../../packages/shared/src/bantay/chatHelp.ts';
+export {
+  checkChatMessage,
+  checkChatSessionId,
+  detectChatLanguage,
+  detectChatPreRefusal,
+  redactChatMessage,
+} from '../../../packages/shared/src/bantay/chatRedact.ts';
+export {
+  handleBantayChat,
+  type BantayChatDeps,
+  type BantayChatResult,
+  type ChatCallerClient,
+  type ChatServiceClient,
+} from '../../../packages/shared/src/bantay/chatService.ts';
+export {
+  isFaithfulToArticle,
+  parseChatModelOutput,
+  stripUnsafeChatText,
+  validateChatModelOutput,
+} from '../../../packages/shared/src/bantay/chatValidator.ts';
