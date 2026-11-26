@@ -133,6 +133,7 @@ npm run check:copy  → PASS Copy audit clean across 185 files (17 justified all
 Local smoke (no hosted): `/api/state` returned `statusLabel: "Idle"`; page contained one `font-variant: small-caps` rule and no secret strings; a wrong-target start returned HTTP 403 with `NOT VERIFIED — drill target must be test-customer-a@davaobank.ph or test-customer-b@davaobank.ph`.
 
 NOT VERIFIED — live drill, hosted deployment/migration, Stop-abort timing under real network, Reset unlock, simulator/admin/console side-by-side and screen-reader passes were intentionally not run (captain/owner scope).
+
 ## Stage 8L — Bantay protective freeze mobile UI
 
 Implemented UI-only reuse of the existing 8D lock. No migration, RPC, server rule, `_transfer_core`, ledger, idempotency key or scheduled-payment runner was changed. State comes from `get_security_settings().locked` plus a real `protective_lock` event in `get_security_timeline()`; failed reads show nothing protective. Existing `request_unlock` / `complete_unlock` remain the only customer path, and Outgoing-money screens navigate to the Bantay security center from the frozen state.
@@ -212,43 +213,52 @@ Copy decision to review: the writer brief's exact strings were used for the Home
 - Device, Maestro, VoiceOver and hosted Realtime behaviour: NOT VERIFIED — captain/owner.
 - Live drill/protective-lock deployment: NOT VERIFIED — no hosted writes, no `.env` read, no drill scripts run.
 - No push and no PR were made.
-> npx jest  # first run
-Test Suites: 3 failed, 73 passed, 76 total
-Tests:       4 failed, 654 passed, 658 total
-Snapshots:   0 total
-Time:        131.951 s
+
+> npx jest # first run
+> Test Suites: 3 failed, 73 passed, 76 total
+> Tests: 4 failed, 654 passed, 658 total
+> Snapshots: 0 total
+> Time: 131.951 s
+
 # 4 timeouts in pre-existing mobile suites (activity_account_param and related).
+
 # Immediate rerun, no code change:
+
 > npx jest
-Test Suites: 76 passed, 76 total
-Tests:       658 passed, 658 total
-Snapshots:   0 total
+> Test Suites: 76 passed, 76 total
+> Tests: 658 passed, 658 total
+> Snapshots: 0 total
 
 > npm run test:db
-✓ 8N config defaults fail closed with 30/4/500 caps
-✓ 8N disabled kill switch blocks quota — {"reason":"chat_disabled","allowed":false,"quota_remaining":0}
-✓ 8N fourth message in a rolling minute is blocked — {"reason":"rate_limited","allowed":false,"quota_remaining":0}
-✓ 8N per-user daily cap is enforced in Asia/Manila days — {"reason":"daily_limit","allowed":false,"quota_remaining":0}
-✓ 8N global provider cap reserves atomically before the call — {"allowed":false,"model_calls":2,"limit_reached":true}
-✓ 8N customers cannot call quota or reservation RPCs — permission denied for function bantay_chat_check_quota permission denied for function bantay_chat_reserve_model_call
-✓ 8N save/load keeps both messages, source and allow-listed action
-✓ 8N session open lazily prunes messages past the 24 h retention window
-✓ 8N RLS exposes only the caller sessions and messages
-✓ 8N clear cannot delete another user session
-✓ 8N clear_all only removes the caller sessions and messages
-501 passed, 0 failed
-exit 0
+> ✓ 8N config defaults fail closed with 30/4/500 caps
+> ✓ 8N disabled kill switch blocks quota — {"reason":"chat_disabled","allowed":false,"quota_remaining":0}
+> ✓ 8N fourth message in a rolling minute is blocked — {"reason":"rate_limited","allowed":false,"quota_remaining":0}
+> ✓ 8N per-user daily cap is enforced in Asia/Manila days — {"reason":"daily_limit","allowed":false,"quota_remaining":0}
+> ✓ 8N global provider cap reserves atomically before the call — {"allowed":false,"model_calls":2,"limit_reached":true}
+> ✓ 8N customers cannot call quota or reservation RPCs — permission denied for function bantay_chat_check_quota permission denied for function bantay_chat_reserve_model_call
+> ✓ 8N save/load keeps both messages, source and allow-listed action
+> ✓ 8N session open lazily prunes messages past the 24 h retention window
+> ✓ 8N RLS exposes only the caller sessions and messages
+> ✓ 8N clear cannot delete another user session
+> ✓ 8N clear_all only removes the caller sessions and messages
+> 501 passed, 0 failed
+> exit 0
 
 > npm run check:copy
-PASS Copy audit clean across 185 files (17 justified allowlist match(es)).
+> PASS Copy audit clean across 185 files (17 justified allowlist match(es)).
+
 ```
 
 ## NOT VERIFIED
 
 ```
+
 NOT VERIFIED — no hosted query or write; the migration was tested only in PGlite and is not applied to Supabase.
 NOT VERIFIED — no real Gemini call, no API key read outside Deno.env and no provider response recorded.
 NOT VERIFIED — mobile BantayChat screen, actions map, accessibility, device, Maestro and VoiceOver (outside this backend brief).
 NOT VERIFIED — 10 truly parallel provider calls and 600 concurrent reservations (PGlite has one connection); sequential cap and mocked parallel quota cases were run instead.
 NOT VERIFIED — no push or PR; owner/captain reviews and applies after AI + Security review.
+
+```
+
 ```

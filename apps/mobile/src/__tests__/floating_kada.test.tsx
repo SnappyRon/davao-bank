@@ -158,7 +158,14 @@ describe('Phase 8 · Stage 8I — interactive floating Kada', () => {
   });
 
   it('shows the protective-freeze bubble and skips the ordinary timeline read', async () => {
-    await render(<FloatingKada locked protective onOpenBantay={onOpenBantay} />);
+    await render(
+      <FloatingKada
+        locked
+        protective
+        onOpenBantay={onOpenBantay}
+        onOpenChat={onOpenChat}
+      />
+    );
 
     await fireEvent.press(screen.getByRole('button', { name: 'Bantay, account frozen' }));
     expect(
