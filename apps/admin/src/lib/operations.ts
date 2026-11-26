@@ -55,7 +55,12 @@ export interface OpsBalanceRow {
 
 export interface OpsFeedEvent {
   id: number | string;
-  kind: 'transaction' | 'security_event' | 'audit_action' | 'schedule_failure';
+  kind:
+    | 'transaction'
+    | 'security_event'
+    | 'audit_action'
+    | 'schedule_failure'
+    | 'protective_lock';
   occurred_at: string;
   label: string;
   amount_centavos: number | string | null;
@@ -265,6 +270,7 @@ export const FEED_KIND_LABELS: Record<string, string> = {
   security_event: 'Security event',
   audit_action: 'Staff action',
   schedule_failure: 'Schedule failure',
+  protective_lock: 'Protective lock',
 };
 
 export function sentence(value: string): string {

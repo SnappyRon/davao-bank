@@ -165,3 +165,34 @@
   background: var(--color-danger-subtle, #fdecec);
   color: var(--color-danger, #b42318);
 }
+
+.protectiveBadge {
+  margin-top: var(--space-xs);
+  font-weight: 700;
+}
+
+.protectiveItem {
+  border-color: var(--color-danger, #b42318);
+  background: var(--color-danger-subtle, #fdecec);
+}
+
+.protectiveDetail {
+  margin-top: var(--space-sm);
+  padding: var(--space-sm);
+  background: var(--color-surface);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+}
+
+.protectiveDetailTitle {
+  margin: 0 0 var(--space-xs);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--color-danger, #b42318);
+}
+
+.protectiveDetailText {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--color-text);
+}
