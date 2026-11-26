@@ -1,0 +1,26 @@
+flowchart LR
+  AD(["Administrator"])
+  SC(["Scheduler (pg_cron)"])
+  AI(["Bantay explain service"])
+  subgraph A["Staff administration console — target scope"]
+    direction TB
+    S1(["Sign in with password + authenticator (aal2)"])
+    S2(["Operations dashboard: charts and live feed"])
+    S3(["Manage users: suspend, reactivate"])
+    S4(["Manage accounts: open, freeze, close, adjust"])
+    S5(["Monitor and reverse transactions, export CSV"])
+    S6(["Review security cases, unlock customer"])
+    S7(["Manage billers and scheduled payments"])
+    S8(["Review audit log"])
+    S9(["Handle service requests and appointments"])
+  end
+  subgraph J["Automated actors"]
+    direction TB
+    J1(["Run due scheduled payments"])
+    J2(["Expire old payment requests"])
+    J3(["Sync FX reference rates"])
+    J4(["Explain security events (masked facts)"])
+  end
+  AD --- S1 & S2 & S3 & S4 & S5 & S6 & S7 & S8 & S9
+  SC --- J1 & J2 & J3
+  AI --- J4

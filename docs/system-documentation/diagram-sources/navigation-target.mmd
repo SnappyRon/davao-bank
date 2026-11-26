@@ -1,0 +1,22 @@
+flowchart TB
+  L[Launch: restore session] --> G1{Signed in?}
+  G1 -- no --> SI[Sign in / Sign up / Forgot password]
+  G1 -- yes --> G2{Email verified?}
+  G2 -- no --> VE[Verify email]
+  G2 -- yes --> G3{Suspended?}
+  G3 -- yes --> SU[Suspended screen]
+  G3 -- no --> G4{App lock due?}
+  G4 -- yes --> LK[Lock screen: biometrics or password]
+  G4 -- no --> T
+  LK --> T
+  subgraph T["Floating tab bar"]
+    direction LR
+    H[Home] --- AC[Activity] --- IN[Inbox] --- PF[Profile]
+  end
+  H --> MY[My accounts → Account detail]
+  H --> MF[Money flows: Transfer · Pay bills · QR · Add money · Cash out · Schedule]
+  H --> MS[More services hub]
+  PF --> BT[Bantay security center]
+  PF --> SEC[Two-step setup · Change password · App lock]
+  MF --> RV[Review → Authorize → Processing → Result]
+  RV -. risky .-> RC[Risk challenge]

@@ -1,0 +1,26 @@
+sequenceDiagram
+  autonumber
+  actor C as Customer
+  participant App as Mobile app
+  participant API as PostgREST
+  participant DB as Money engine + Bantay guards
+  participant EF as bantay-explain
+  participant G as Gemini API
+  C->>App: Send ₱20,000 to a new payee at 2 AM
+  App->>App: Password or biometrics + authenticator code
+  App->>API: transfer(..., idempotency_key)
+  API->>DB: _transfer_core: lock check, daily limit, risk score
+  DB-->>DB: score = new payee 30 + 3x median 30 + night 10 = 70
+  DB-->>API: raise "Confirmation required" (no money moved)
+  API-->>App: error mapped to a risk challenge
+  App->>C: Review warning: why this looks unusual
+  C->>App: Confirm it is me (fresh code)
+  App->>API: confirm_risky_payment(idempotency_key)
+  App->>API: transfer(..., same idempotency_key)
+  API->>DB: challenge confirmed → payment proceeds once
+  DB-->>App: completed transaction + security event
+  App->>EF: explain(event id)
+  EF->>G: masked facts only (amount band, •• 1234, time band)
+  G-->>EF: short plain-text explanation
+  EF-->>EF: validate facts, otherwise use the template
+  EF-->>App: explanation shown in Bantay timeline

@@ -1,0 +1,44 @@
+flowchart LR
+  CU[Customer]
+  AD[Administrator]
+  FR[Frankfurter API]
+  GM[Gemini API]
+  P1((1.0 Authenticate<br/>and step up))
+  P2((2.0 Process money<br/>movements))
+  P3((3.0 Schedule<br/>payments))
+  P4((4.0 Payment<br/>requests))
+  P5((5.0 Notify))
+  P6((6.0 Administer))
+  P7((7.0 Sync FX))
+  P8((8.0 Bantay risk<br/>and protection))
+  P9((9.0 Explain<br/>events))
+  P10((10.0 Services and<br/>requests))
+  P11((11.0 Operations<br/>analytics))
+  D1[(D1 profiles / auth)]
+  D2[(D2 accounts)]
+  D3[(D3 transactions + ledger)]
+  D4[(D4 schedules)]
+  D5[(D5 payment_requests)]
+  D6[(D6 notifications)]
+  D7[(D7 audit_logs)]
+  D8[(D8 fx_rates)]
+  D9[(D9 security events,<br/>devices, challenges, cases)]
+  D10[(D10 service tables)]
+  CU -->|credentials, codes| P1 --> D1
+  CU -->|payment instruction| P2
+  P2 -->|risk check| P8
+  P8 --> D9
+  P8 -->|challenge / allow| P2
+  P2 --> D2 & D3 & D7
+  P3 --> P2
+  P4 --> P2
+  P2 --> P5 --> D6
+  D9 --> P9 -->|masked facts| GM
+  GM -->|plain text| P9 --> D9
+  CU -->|confirm / not me / lock| P8
+  CU -->|requests, bookings, goals| P10 --> D10
+  AD --> P6 --> D2 & D3 & D7 & D9
+  D3 & D7 & D9 --> P11 -->|charts, live feed| AD
+  FR --> P7 --> D8
+  P3 --> D4
+  P4 --> D5

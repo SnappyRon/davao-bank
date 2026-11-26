@@ -1,0 +1,12 @@
+stateDiagram-v2
+  [*] --> Active
+  Active --> Locked: Lock my account / "Not me" / staff action
+  Locked --> UnlockRequested: request_unlock (password + code)
+  UnlockRequested --> UnlockRequested: wait 1 hour
+  UnlockRequested --> Active: complete_unlock (password + code, after 1 h)
+  Locked --> Active: admin_unlock_user (staff, aal2, case recorded)
+  note right of Locked
+    Outgoing money blocked (assert_not_locked)
+    Sessions revoked, schedules paused
+    Sign-in and viewing still allowed
+  end note
