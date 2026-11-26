@@ -49,6 +49,11 @@ import {
 } from '../hooks/usePhase8Contracts';
 import { bantayTemplate, bantayEventTitle } from '../utils/bantayTemplates';
 import {
+  PROTECTIVE_FREEZE_BODY,
+  PROTECTIVE_FREEZE_TITLE,
+  isProtectiveFreeze,
+} from '../utils/protectiveFreeze';
+import {
   FeatureScreen,
   Text,
   Card,
@@ -471,21 +476,26 @@ export function BantaySecurityScreen() {
         : 'Loading…';
 
   const isLocked = Boolean(settings?.locked);
+  const isProtective = isProtectiveFreeze(isLocked, timeline);
   const unlockAfterDate = settings?.unlock_after ? new Date(settings.unlock_after) : null;
   const isUnlockReady = unlockAfterDate ? unlockAfterDate.getTime() <= Date.now() : false;
   // The mascot is decorative; these live lines carry the state (spec §2.1).
-  const heroLine = isLocked
-    ? 'Bantay is guarding your locked account'
-    : 'Bantay is watching your account';
-  const heroSubline = isLocked
-    ? unlockAfterDate
-      ? isUnlockReady
-        ? 'Unlock request is ready'
-        : `You can unlock at ${formatEventTime(settings?.unlock_after || '')}`
-      : 'Locked for outgoing money'
-    : settings?.pending_limit_centavos
-      ? 'Limit change pending · Applies 12 h from request'
-      : 'Outgoing transfers and bills are checked';
+  const heroLine = isProtective
+    ? PROTECTIVE_FREEZE_TITLE
+    : isLocked
+      ? 'Bantay is guarding your locked account'
+      : 'Bantay is watching your account';
+  const heroSubline = isProtective
+    ? 'Review what happened, then confirm it was you'
+    : isLocked
+      ? unlockAfterDate
+        ? isUnlockReady
+          ? 'Unlock request is ready'
+          : `You can unlock at ${formatEventTime(settings?.unlock_after || '')}`
+        : 'Locked for outgoing money'
+      : settings?.pending_limit_centavos
+        ? 'Limit change pending · Applies 12 h from request'
+        : 'Outgoing transfers and bills are checked';
 
   return (
     <FeatureScreen title="Bantay security center" onBack={() => navigation.goBack()}>
@@ -569,16 +579,22 @@ export function BantaySecurityScreen() {
               </View>
               <View style={styles.headerText}>
                 <Text variant="title" color={colors.ink} accessibilityRole="header">
-                  {isLocked ? 'Account locked' : 'Protected'}
+                  {isProtective
+                    ? PROTECTIVE_FREEZE_TITLE
+                    : isLocked
+                      ? 'Account locked'
+                      : 'Protected'}
                 </Text>
                 <Text variant="caption" color={colors.textSecondary}>
-                  {isLocked
-                    ? unlockAfterDate
-                      ? isUnlockReady
-                        ? 'Unlock request is ready'
-                        : `You can unlock at ${formatEventTime(settings.unlock_after || '')}`
-                      : 'Locked for outgoing money'
-                    : 'Outgoing transfers and bills are checked'}
+                  {isProtective
+                    ? PROTECTIVE_FREEZE_BODY
+                    : isLocked
+                      ? unlockAfterDate
+                        ? isUnlockReady
+                          ? 'Unlock request is ready'
+                          : `You can unlock at ${formatEventTime(settings.unlock_after || '')}`
+                        : 'Locked for outgoing money'
+                      : 'Outgoing transfers and bills are checked'}
                 </Text>
               </View>
             </View>

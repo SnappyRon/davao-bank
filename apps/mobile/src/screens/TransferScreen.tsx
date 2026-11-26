@@ -2,7 +2,9 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../App';
 import { useFeatureAccounts } from '../hooks/useFeatureAccounts';
+import { useProtectiveFreeze } from '../hooks/useProtectiveFreeze';
 import { AccountLoadStatus } from '../components/AccountLoadStatus';
+import { FrozenMoneyGate } from '../components/FrozenMoneyGate';
 import { StepUpSetupLink } from '../components/StepUpSetupLink';
 import { retryStepUp } from '../utils/stepUpRetry';
 import { useTotpPrompt } from '../context/PasswordPromptContext';
@@ -64,7 +66,10 @@ export function TransferScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const toast = useToast();
   const onClose = () => navigation.goBack();
-  const { accounts, accountsLoading, accountError, loadAccounts } = useFeatureAccounts();
+  const freeze = useProtectiveFreeze();
+  const { accounts, accountsLoading, accountError, loadAccounts } = useFeatureAccounts(
+    !freeze.loading && !freeze.protective
+  );
   const route = useRoute<RouteProp<RootStackParamList, 'Transfer'>>();
   const {
     recipientAccount: initialRecipientAccount,
@@ -524,6 +529,17 @@ export function TransferScreen() {
 
   const accountsReady =
     firstStepDecided && !accountsLoading && !accountError && accounts.length > 0;
+
+  if (freeze.protective) {
+    return (
+      <FeatureScreen title="Send money">
+        <FrozenMoneyGate
+          freeze={freeze}
+          onConfirm={() => navigation.navigate('BantaySecurity')}
+        />
+      </FeatureScreen>
+    );
+  }
 
   return (
     <FeatureScreen

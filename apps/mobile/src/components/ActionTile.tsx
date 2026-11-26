@@ -17,6 +17,7 @@ export interface ActionTileProps {
   /** Icon drawn on the disc: white, or ink on yellow (see `actionTileIconColor`). */
   icon: React.ReactNode;
   onPress: () => void;
+  disabled?: boolean;
   style?: ViewStyle;
 }
 
@@ -37,7 +38,14 @@ export function actionTileIconColor(color: ActionTileColor): string {
   return color === 'yellow' ? colors.ink : colors.textInverse;
 }
 
-export function ActionTile({ label, color, icon, onPress, style }: ActionTileProps) {
+export function ActionTile({
+  label,
+  color,
+  icon,
+  onPress,
+  disabled = false,
+  style,
+}: ActionTileProps) {
   const columns = useContext(GridColumnsContext);
   const handlePress = () => {
     try {
@@ -52,6 +60,8 @@ export function ActionTile({ label, color, icon, onPress, style }: ActionTilePro
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityState={{ disabled }}
+      disabled={disabled}
       feedbackType="scale"
       onPress={handlePress}
       style={[styles.tile, columns === 3 ? styles.tileThird : styles.tileHalf, style]}

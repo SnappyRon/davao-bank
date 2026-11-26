@@ -196,10 +196,13 @@ describe('Pay a request (spec 7B.4)', () => {
   });
 
   it('keeps Review open with an inline error when the server fails', async () => {
-    mockRpc.mockResolvedValueOnce({
-      data: null,
-      error: { message: 'Network request failed' },
-    });
+    const failure = { data: null, error: { message: 'Network request failed' } };
+    // The freeze-state hook reads security RPCs first; target only the payment.
+    mockRpc.mockImplementation((fn: string) =>
+      Promise.resolve(
+        fn === 'pay_payment_request' ? failure : { data: null, error: null }
+      )
+    );
     await render(<PaymentRequestsScreen />);
     await fireEvent.press(await screen.findByRole('button', { name: 'Pay ₱500.00' }));
     await act(async () => {
@@ -210,7 +213,7 @@ describe('Pay a request (spec 7B.4)', () => {
   });
 
   it('shows a result and returns to the list after paying', async () => {
-    mockRpc.mockResolvedValueOnce({
+    const paid = {
       data: {
         transfer_result: {
           id: '8f043910-1234-4567-8901-123456789012',
@@ -219,7 +222,10 @@ describe('Pay a request (spec 7B.4)', () => {
         },
       },
       error: null,
-    });
+    };
+    mockRpc.mockImplementation((fn: string) =>
+      Promise.resolve(fn === 'pay_payment_request' ? paid : { data: null, error: null })
+    );
     await render(<PaymentRequestsScreen />);
     await fireEvent.press(await screen.findByRole('button', { name: 'Pay ₱500.00' }));
     await act(async () => {

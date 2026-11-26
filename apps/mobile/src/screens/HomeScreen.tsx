@@ -1,5 +1,12 @@
-import React, { useState, useCallback, useRef } from 'react';
-import { View, Image, StyleSheet, ScrollView, RefreshControl } from 'react-native';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
+import {
+  AccessibilityInfo,
+  View,
+  Image,
+  StyleSheet,
+  ScrollView,
+  RefreshControl,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -16,6 +23,7 @@ import {
   Inbox,
   User,
   LayoutGrid,
+  ShieldAlert,
 } from 'lucide-react-native';
 import {
   colors,
@@ -38,6 +46,14 @@ import {
   fetchHasOpenHighSecurityEvent,
   fetchSecuritySettings,
 } from '../hooks/usePhase8Contracts';
+import { useProtectiveFreeze } from '../hooks/useProtectiveFreeze';
+import {
+  PROTECTIVE_FREEZE_BODY,
+  PROTECTIVE_FREEZE_CONFIRM_LABEL,
+  PROTECTIVE_FREEZE_HOME_TITLE,
+  PROTECTIVE_FREEZE_TILE_LABEL,
+  PROTECTIVE_FREEZE_TITLE,
+} from '../utils/protectiveFreeze';
 import { MASCOT_BANTAY } from '../assets/illustrations';
 import { reportNetworkResult } from '../lib/networkStatus';
 import { useSettings } from '../context/SettingsContext';
@@ -45,6 +61,7 @@ import {
   useToast,
   Screen,
   Text,
+  Button,
   ActionTile,
   ActionTileGrid,
   Logo,
@@ -102,10 +119,24 @@ export function HomeScreen({
   const toast = useToast();
   const [isLocked, setIsLocked] = useState(false);
   const [hasHighAlert, setHasHighAlert] = useState(false);
+  const protectiveFreeze = useProtectiveFreeze();
+  const isFrozen = protectiveFreeze.protective;
+
+  // Announce the freeze once when it appears; Realtime may set it while Home
+  // is already open. The banner itself is a polite live region as well.
+  useEffect(() => {
+    if (!isFrozen || typeof AccessibilityInfo.announceForAccessibility !== 'function') {
+      return;
+    }
+    AccessibilityInfo.announceForAccessibility(PROTECTIVE_FREEZE_BODY);
+  }, [isFrozen]);
 
   const handleActionTilePress = (screen: keyof RootStackParamList) => {
-    if (isLocked) {
-      toast.show('Account locked — Unlock in Bantay', 'error');
+    if (isLocked || isFrozen) {
+      toast.show(
+        isFrozen ? PROTECTIVE_FREEZE_HOME_TITLE : 'Account locked — Unlock in Bantay',
+        'error'
+      );
       return;
     }
     navigation.navigate(screen as never);
@@ -258,6 +289,7 @@ export function HomeScreen({
   const onRefresh = () => {
     setRefreshing(true);
     loadData();
+    void protectiveFreeze.refresh();
   };
 
   const retryLoad = () => {
@@ -364,30 +396,64 @@ export function HomeScreen({
           onPressCard={() => navigation.navigate('MyAccounts')}
         />
 
-        {/* One calm Bantay indicator, under the balance card. No balance info. */}
-        <Pressable
-          style={[
-            styles.bantayRow,
-            isLocked ? styles.bantayRowLocked : null,
-            !isLocked && hasHighAlert ? styles.bantayRowAlert : null,
-          ]}
-          onPress={() => navigation.navigate('BantaySecurity')}
-          feedbackType="highlight"
-          accessibilityRole="button"
-          accessibilityLabel={bantayLabel}
-        >
-          <Image source={MASCOT_BANTAY} style={styles.bantayAvatar} accessible={false} />
-          <View style={styles.bantayText}>
-            <Text
-              variant="bodyStrong"
-              color={isLocked ? colors.redText : colors.ink}
-              accessibilityRole="text"
-            >
-              {bantayLabel}
+        {/* A protective freeze replaces the calm row with one unmistakable banner. */}
+        {isFrozen ? (
+          <View
+            style={styles.freezeBanner}
+            accessible
+            accessibilityRole="alert"
+            accessibilityLiveRegion="polite"
+            accessibilityLabel={`${PROTECTIVE_FREEZE_HOME_TITLE}. ${PROTECTIVE_FREEZE_TITLE}`}
+          >
+            <View style={styles.freezeHeader}>
+              <ShieldAlert size={TILE_ICON_SIZE} color={colors.redText} />
+              <Text
+                variant="bodyStrong"
+                color={colors.redText}
+                accessibilityRole="header"
+              >
+                {PROTECTIVE_FREEZE_HOME_TITLE}
+              </Text>
+            </View>
+            <Text variant="caption" color={colors.ink}>
+              {PROTECTIVE_FREEZE_TITLE}. {PROTECTIVE_FREEZE_BODY}
             </Text>
+            <Button
+              title={PROTECTIVE_FREEZE_CONFIRM_LABEL}
+              accessibilityLabel={PROTECTIVE_FREEZE_CONFIRM_LABEL}
+              onPress={() => navigation.navigate('BantaySecurity')}
+            />
           </View>
-          <ChevronRight size={TILE_ICON_SIZE} color={colors.textMuted} />
-        </Pressable>
+        ) : (
+          /* One calm Bantay indicator, under the balance card. No balance info. */
+          <Pressable
+            style={[
+              styles.bantayRow,
+              isLocked ? styles.bantayRowLocked : null,
+              !isLocked && hasHighAlert ? styles.bantayRowAlert : null,
+            ]}
+            onPress={() => navigation.navigate('BantaySecurity')}
+            feedbackType="highlight"
+            accessibilityRole="button"
+            accessibilityLabel={bantayLabel}
+          >
+            <Image
+              source={MASCOT_BANTAY}
+              style={styles.bantayAvatar}
+              accessible={false}
+            />
+            <View style={styles.bantayText}>
+              <Text
+                variant="bodyStrong"
+                color={isLocked ? colors.redText : colors.ink}
+                accessibilityRole="text"
+              >
+                {bantayLabel}
+              </Text>
+            </View>
+            <ChevronRight size={TILE_ICON_SIZE} color={colors.textMuted} />
+          </Pressable>
+        )}
 
         {/* Pending payment requests */}
         {pendingRequestsCount > 0 && (
@@ -417,41 +483,46 @@ export function HomeScreen({
         {/* Actions: 3×2 grid */}
         <ActionTileGrid columns={3}>
           <ActionTile
-            label="Transfer"
+            label={isFrozen ? PROTECTIVE_FREEZE_TILE_LABEL : 'Transfer'}
             color="blue"
             icon={<Send size={TILE_ICON_SIZE} color={actionTileIconColor('blue')} />}
+            disabled={isFrozen}
             onPress={() => handleActionTilePress('Transfer')}
           />
           <ActionTile
-            label="Pay bills"
+            label={isFrozen ? PROTECTIVE_FREEZE_TILE_LABEL : 'Pay bills'}
             color="orange"
             icon={<Zap size={TILE_ICON_SIZE} color={actionTileIconColor('orange')} />}
+            disabled={isFrozen}
             onPress={() => handleActionTilePress('PayBills')}
           />
           <ActionTile
-            label="QR"
+            label={isFrozen ? PROTECTIVE_FREEZE_TILE_LABEL : 'QR'}
             color="primary"
             icon={<QrCode size={TILE_ICON_SIZE} color={actionTileIconColor('primary')} />}
-            onPress={() => navigation.navigate('QRHub')}
+            disabled={isFrozen}
+            onPress={() => handleActionTilePress('QRHub')}
           />
           <ActionTile
-            label="Add money"
+            label={isFrozen ? PROTECTIVE_FREEZE_TILE_LABEL : 'Add money'}
             color="green"
             icon={
               <PlusCircle size={TILE_ICON_SIZE} color={actionTileIconColor('green')} />
             }
+            disabled={isFrozen}
             onPress={() => handleActionTilePress('AddMoney')}
           />
           <ActionTile
-            label="Cash out"
+            label={isFrozen ? PROTECTIVE_FREEZE_TILE_LABEL : 'Cash out'}
             color="red"
             icon={
               <MinusCircle size={TILE_ICON_SIZE} color={actionTileIconColor('red')} />
             }
+            disabled={isFrozen}
             onPress={() => handleActionTilePress('CashOut')}
           />
           <ActionTile
-            label="Schedule"
+            label={isFrozen ? PROTECTIVE_FREEZE_TILE_LABEL : 'Schedule'}
             color="yellow"
             icon={
               <CalendarClock
@@ -459,6 +530,7 @@ export function HomeScreen({
                 color={actionTileIconColor('yellow')}
               />
             }
+            disabled={isFrozen}
             onPress={() => handleActionTilePress('ScheduledPayments')}
           />
         </ActionTileGrid>
@@ -549,7 +621,8 @@ export function HomeScreen({
 
       {/* Home-only: no Kada on money flows, Bantay screen or other tabs. */}
       <FloatingKada
-        locked={isLocked}
+        locked={isLocked || isFrozen}
+        protective={isFrozen}
         onOpenBantay={() => navigation.navigate('BantaySecurity')}
       />
 
@@ -602,6 +675,19 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primaryTint,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  freezeBanner: {
+    gap: spacing.sm,
+    padding: spacing.base,
+    backgroundColor: colors.tintRed,
+    borderWidth: 1,
+    borderColor: colors.redText,
+    borderRadius: radius.md,
+  },
+  freezeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
   bantayRow: {
     flexDirection: 'row',

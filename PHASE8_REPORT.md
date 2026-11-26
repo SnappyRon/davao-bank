@@ -112,3 +112,58 @@ PASS Copy audit clean across 167 files (15 justified allowlist match(es)).
 - Hosted Supabase: captain reports the fixed migration is applied to hosted. Codex used no hosted query or write; RPC/table shapes were verified against `supabase/migrations/20261128000000_phase8_5_ops_backend.sql` and mocked in Jest.
 - Device, Maestro, VoiceOver and live browser rendering: NOT VERIFIED — captain/owner to run.
 - No push and no PR were made.
+
+## Stage 8L — Bantay protective freeze mobile UI
+
+Implemented UI-only reuse of the existing 8D lock. No migration, RPC, server rule, `_transfer_core`, ledger, idempotency key or scheduled-payment runner was changed. State comes from `get_security_settings().locked` plus a real `protective_lock` event in `get_security_timeline()`; failed reads show nothing protective. Existing `request_unlock` / `complete_unlock` remain the only customer path, and Outgoing-money screens navigate to the Bantay security center from the frozen state.
+
+Surfaces wired:
+
+- Home: red freeze banner below the balance card, polite live region, `Confirm it's me` → `BantaySecurity`, six disabled money tiles labelled `Bantay froze your account — check Bantay`, and protective Kada state.
+- Floating Kada: protective tap bubble with the brief opener, the mandatory anti-scam sentence and the spec's short title-led body; existing `Open Bantay` and long-press actions retained.
+- Inbox: `bantay_protective_lock` title, red shield icon and tap → `BantaySecurity`.
+- Frozen money gate before any account read or money RPC on Send money, Pay bills, Cash out, QR/request, Scheduled payments and Payment requests; `useFeatureAccounts(enabled)` short-circuits account reads.
+- Realtime: `useBantayRealtime` accepts a table/channel/filter override; the protective hook subscribes to both `security_events` and `notifications` INSERTs and refetches on relevant rows.
+- Bantay security center: protective hero/status copy while the lock is active, retaining the original ordinary-lock copy and unlock flow.
+
+Real local check output (repo root):
+
+```text
+> npm run typecheck
+> npm run typecheck --workspaces --if-present
+> admin@0.1.0 typecheck
+> tsc --noEmit
+> mobile@1.0.0 typecheck
+> tsc --noEmit
+> @davao-bank/shared@0.1.0 typecheck
+> tsc --noEmit
+exit 0
+
+> npm run lint
+✖ 62 problems (0 errors, 62 warnings)
+
+> npm run format:check
+Checking formatting...
+All matched files use Prettier code style!
+
+> npx jest
+Test Suites: 74 passed, 74 total
+Tests:       628 passed, 628 total
+Snapshots:   0 total
+Time:        19.247 s
+Ran all test suites in 3 projects.
+
+> npm run test:db
+469 passed, 0 failed
+
+> npm run check:copy
+PASS Copy audit clean across 188 files (18 justified allowlist match(es)).
+```
+
+Copy decision to review: the writer brief's exact strings were used for the Home title (`Account frozen by Bantay`), the Home button (`Confirm it's me`) and the Kada opener (`I froze your account to keep your money safe. Tap to see what happened.`). To honour the approved spec, the mandatory `Davao Bank will never ask you to move your money.` sentence is present on every protective surface, the spec's `Bantay froze your account` title appears in the Home banner and Bantay status card, and the spec's short Kada body is shown as a second line. The spec's alternate Home/primary-button wording (`Open Bantay`) was not substituted because the brief explicitly names `Confirm it's me`; captain to confirm if strict spec wording is required.
+
+### NOT VERIFIED — Stage 8L
+
+- Device, Maestro, VoiceOver and hosted Realtime behaviour: NOT VERIFIED — captain/owner.
+- Live drill/protective-lock deployment: NOT VERIFIED — no hosted writes, no `.env` read, no drill scripts run.
+- No push and no PR were made.

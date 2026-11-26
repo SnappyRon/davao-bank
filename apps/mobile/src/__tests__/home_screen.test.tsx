@@ -58,6 +58,17 @@ const mockRpc = jest.fn(async (_fn?: string, _params?: unknown) => ({
   error: null,
 }));
 
+let mockFreeze = {
+  locked: false,
+  protective: false,
+  unlockAfter: null as string | null,
+  loading: false,
+  refresh: jest.fn(async () => undefined),
+};
+jest.mock('../hooks/useProtectiveFreeze', () => ({
+  useProtectiveFreeze: () => mockFreeze,
+}));
+
 jest.mock('../lib/supabase', () => ({
   supabase: {
     auth: {
@@ -147,6 +158,13 @@ describe('HomeScreen (7B.1)', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockFreeze = {
+      locked: false,
+      protective: false,
+      unlockAfter: null,
+      loading: false,
+      refresh: jest.fn(async () => undefined),
+    };
     mockHideBalance = false;
     mockRpc.mockImplementation(async (_fn?: string, _params?: unknown) => ({
       data: defaultSecuritySettings,
@@ -458,6 +476,49 @@ describe('HomeScreen (7B.1)', () => {
       ).toHaveLength(1);
       await fireEvent.press(chip);
       expect(mockNavigate).toHaveBeenCalledWith('BantaySecurity');
+    });
+
+    it('shows the protective banner, disabled money tiles and the Kada bubble', async () => {
+      mockFreeze = { ...mockFreeze, locked: true, protective: true };
+
+      await render(<HomeScreen />);
+      await screen.findByText('₱12,345.67');
+
+      const banner = await screen.findByRole('alert', {
+        name: /Account frozen by Bantay\. Bantay froze your account/,
+      });
+      expect(banner).toBeTruthy();
+      expect(
+        screen.getByText(
+          /Bantay froze your account\. We froze your account to protect your money/
+        )
+      ).toBeTruthy();
+      await fireEvent.press(screen.getByRole('button', { name: "Confirm it's me" }));
+      expect(mockNavigate).toHaveBeenCalledWith('BantaySecurity');
+
+      const tiles = screen.getAllByRole('button', {
+        name: 'Bantay froze your account — check Bantay',
+      });
+      expect(tiles).toHaveLength(6);
+      for (const tile of tiles) {
+        expect(tile.props.accessibilityState).toMatchObject({ disabled: true });
+      }
+      mockNavigate.mockClear();
+      await fireEvent.press(tiles[0]);
+      expect(mockNavigate).not.toHaveBeenCalledWith('Transfer');
+
+      await fireEvent.press(screen.getByTestId('floating-kada'));
+      expect(
+        await screen.findByText(
+          /I froze your account to keep your money safe\. Tap to see what happened/
+        )
+      ).toBeTruthy();
+      expect(
+        screen.getByText(/Bantay froze your account to protect your money\. Check Bantay/)
+      ).toBeTruthy();
+      expect(
+        screen.getAllByText(/Davao Bank will never ask you to move your money/).length
+      ).toBeGreaterThan(0);
     });
 
     it('shows a new-alert row when an open high security event exists', async () => {
