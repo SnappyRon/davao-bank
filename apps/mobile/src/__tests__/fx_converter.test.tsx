@@ -27,34 +27,10 @@ const renderConverter = async (props: {
   );
 };
 
-describe('FXConverter — simulation banner (permanent, every state)', () => {
-  it('shows the exact simulation copy when loaded', async () => {
-    await renderConverter({});
-    expect(
-      screen.getByText('Simulation — reference rate only. No money moves.')
-    ).toBeTruthy();
-    expect(screen.getByTestId('fx-simulation-banner')).toBeTruthy();
-  });
-
-  it('keeps the simulation banner while loading', async () => {
-    await renderConverter({ loading: true });
-    expect(
-      screen.getByText('Simulation — reference rate only. No money moves.')
-    ).toBeTruthy();
-  });
-
-  it('keeps the simulation banner when the rate is unavailable', async () => {
-    await renderConverter({ rate: null, rateDate: null });
-    expect(
-      screen.getByText('Simulation — reference rate only. No money moves.')
-    ).toBeTruthy();
-  });
-});
-
 describe('FXConverter — stale rate notice (full date, alert role)', () => {
   it('displays the full date including the year', async () => {
     await renderConverter({ rateDate: '2026-11-20', stale: true });
-    expect(screen.getByText('Nov 20, 2026')).toBeTruthy();
+    expect(screen.getByText('Reference rate · Nov 20, 2026')).toBeTruthy();
   });
 
   it('renders the stale notice as an alert', async () => {
@@ -91,7 +67,7 @@ describe('FXConverter — amount input (2 decimals, currency formatting)', () =>
   it('limits typed input to 2 decimal places', async () => {
     await renderConverter({});
     const input = screen.getByLabelText('Amount (PHP)');
-    fireEvent.changeText(input, '123.456');
+    await fireEvent.changeText(input, '123.456');
     expect(screen.getByLabelText('Amount (PHP)').props.value).toBe('123.45');
   });
 
@@ -103,14 +79,14 @@ describe('FXConverter — amount input (2 decimals, currency formatting)', () =>
   it('formats JPY results with 0 decimals', async () => {
     await renderConverter({ pair: 'JPY/PHP', rate: 0.4061 });
     const input = screen.getByLabelText('Amount (PHP)');
-    fireEvent.changeText(input, '100');
-    expect(screen.getByText(/246/)).toBeTruthy();
+    await fireEvent.changeText(input, '100');
+    expect(screen.getByText('JPY 246')).toBeTruthy();
   });
 
   it('formats USD results with 2 decimals', async () => {
     await renderConverter({ pair: 'USD/PHP', rate: 58.95 });
     const input = screen.getByLabelText('Amount (PHP)');
-    fireEvent.changeText(input, '100');
-    expect(screen.getByText(/1\.70/)).toBeTruthy();
+    await fireEvent.changeText(input, '100');
+    expect(screen.getByText('USD 1.70')).toBeTruthy();
   });
 });

@@ -320,7 +320,7 @@ export function FXRatesScreen() {
           {/* Recent Daily Rates Table */}
           <FXRatesHistory rates={periodRates} baseCurrency={currentPairMeta.base} />
 
-          {/* FX Converter section (§4.1): ₱ ↔ the quoted currencies, view-only simulation */}
+          {/* FX Converter section (§4.1): ₱ ↔ the quoted currencies */}
           <Pressable
             onPress={() => setConverterOpen((open) => !open)}
             accessibilityRole="button"

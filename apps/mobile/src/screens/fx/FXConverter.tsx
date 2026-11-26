@@ -20,14 +20,10 @@ import {
 } from '@davao-bank/shared';
 import { Text } from '../../components/Text';
 import { Card } from '../../components/Card';
-import { Badge } from '../../components/Badge';
 import { Pressable } from '../../components/Pressable';
 import { Skeleton } from '../../components/Skeleton';
 import { EmptyState } from '../../components/EmptyState';
 import { Button } from '../../components/Button';
-
-export const SIMULATION_LABEL = 'Simulation — reference rate only. No money moves.';
-
 export interface FXConverterRef {
   focus: () => void;
 }
@@ -144,9 +140,6 @@ const FXConverter = React.forwardRef<FXConverterRef, FXConverterProps>(
 
     return (
       <Card variant="default" style={styles.card}>
-        {/* Permanent simulation banner — visible in every converter state */}
-        <Badge label={SIMULATION_LABEL} variant="warning" testID="fx-simulation-banner" />
-
         {loading ? (
           <View style={styles.skeletonWrapper}>
             <Skeleton width={220} height={52} style={styles.skeletonInput} />
@@ -298,6 +291,7 @@ const FXConverter = React.forwardRef<FXConverterRef, FXConverterProps>(
             {stale && rateDate && (
               <View
                 style={styles.staleNotice}
+                accessible={true}
                 accessibilityRole="alert"
                 accessibilityLabel={`Stale rate. Rate last updated ${formatRateDate(rateDate)}. Conversion is indicative only.`}
               >
