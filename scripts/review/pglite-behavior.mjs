@@ -7,6 +7,7 @@ import { PGlite } from '@electric-sql/pglite'; import fs from 'node:fs'; import 
 import { runPhase8BantayTests } from './pglite-phase8-bantay.mjs';
 import { runPhase8BantayRiskTests } from './pglite-phase8-bantay-risk.mjs';
 import { runPhase8BantayAlertsTests } from './pglite-phase8-bantay-alerts.mjs';
+import { runPhase8ProtectiveLockTests } from './pglite-phase8-protective-lock.mjs';
 import { runPhase8_5OpsTests } from './pglite-phase8-5-ops.mjs';
 import { runPhase9ServiceRequestsTests } from './pglite-phase9-service-requests.mjs';
 import { runPhase9AppointmentTests } from './pglite-phase9-appointments.mjs';
@@ -501,6 +502,8 @@ await runPhase9AppointmentTests({ as, su, cust, one, ok, U, A, B });
 await runPhase8BantayRiskTests({ as, su, cust, bal, ok, U, A, B, biller });
 // ---- Phase 8 · Bantay alerts (Realtime row visibility + Inbox notes)
 await runPhase8BantayAlertsTests({ su, cust, ok, U, A, B });
+// ---- Phase 8 · Stage 8J: Bantay protective lock (backend)
+await runPhase8ProtectiveLockTests({ as, su, cust, ok, U, A, B, biller });
 
 // ---- Phase 8.5A: operations dashboard backend
 await runPhase8_5OpsTests({ as, su, cust, ok, U, A, B, biller });
