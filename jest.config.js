@@ -3,6 +3,18 @@ module.exports = {
   projects: [
     {
       modulePathIgnorePatterns: ['<rootDir>/.claude/'],
+      displayName: 'scripts',
+      testEnvironment: 'node',
+      testMatch: ['<rootDir>/scripts/__tests__/**/*.test.ts'],
+      transform: {
+        '^.+\\.tsx?$': [
+          'ts-jest',
+          { tsconfig: '<rootDir>/packages/shared/tsconfig.json' },
+        ],
+      },
+    },
+    {
+      modulePathIgnorePatterns: ['<rootDir>/.claude/'],
       displayName: 'shared',
       testEnvironment: 'node',
       testMatch: ['<rootDir>/packages/shared/src/__tests__/**/*.test.ts'],

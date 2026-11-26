@@ -112,3 +112,24 @@ PASS Copy audit clean across 167 files (15 justified allowlist match(es)).
 - Hosted Supabase: captain reports the fixed migration is applied to hosted. Codex used no hosted query or write; RPC/table shapes were verified against `supabase/migrations/20261128000000_phase8_5_ops_backend.sql` and mocked in Jest.
 - Device, Maestro, VoiceOver and live browser rendering: NOT VERIFIED — captain/owner to run.
 - No push and no PR were made.
+
+## Stage 8K — Bantay drill console (handoff)
+
+Commits: `80214f5` (stage) and `e0e96d2` (contract-gap fix, includes this report).
+
+Delivered `scripts/drill-bantay.mjs`, `scripts/lib/drill-core.ts`, `scripts/lib/drill-page.ts`, `scripts/__tests__/drill-core.test.ts`, `npm run drill`, and a `scripts` Jest project. The console binds only `127.0.0.1:4400`, serves one inline page with CSP/no-sniff/no-referrer headers, and exposes `/api/state`, SSE `/api/events` and validated `/api/command`. Startup and command guards accept only `test-customer-a@davaobank.ph` / `test-customer-b@davaobank.ph`. Cleanup uses `TEST_ADMIN` + aal2 `admin_unlock_user` and `admin_update_security_case`; temporary factors are removed through `withStepUpCleanup`. No direct lock-row write, money-engine change, migration change, hosted run, push or `.env` read.
+
+Real checks from repo root:
+
+```
+npm run typecheck   → exit 0 (admin, mobile, shared)
+npm run lint        → ✖ 62 problems (0 errors, 62 warnings)
+npm run format:check → All matched files use Prettier code style!
+npx jest            → Test Suites: 74 passed, 74 total; Tests: 641 passed, 641 total
+npm run test:db     → 469 passed, 0 failed
+npm run check:copy  → PASS Copy audit clean across 185 files (17 justified allowlist match(es)).
+```
+
+Local smoke (no hosted): `/api/state` returned `statusLabel: "Idle"`; page contained one `font-variant: small-caps` rule and no secret strings; a wrong-target start returned HTTP 403 with `NOT VERIFIED — drill target must be test-customer-a@davaobank.ph or test-customer-b@davaobank.ph`.
+
+NOT VERIFIED — live drill, hosted deployment/migration, Stop-abort timing under real network, Reset unlock, simulator/admin/console side-by-side and screen-reader passes were intentionally not run (captain/owner scope).
